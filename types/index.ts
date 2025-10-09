@@ -1,0 +1,90 @@
+import { Event } from 'nostr-tools';
+
+// Mute list item types
+export type MuteItemType = 'pubkey' | 'word' | 'tag' | 'thread';
+
+export interface MutedPubkey {
+  type: 'pubkey';
+  value: string; // hex pubkey
+  reason?: string;
+}
+
+export interface MutedWord {
+  type: 'word';
+  value: string;
+  reason?: string;
+}
+
+export interface MutedTag {
+  type: 'tag';
+  value: string; // hashtag without #
+  reason?: string;
+}
+
+export interface MutedThread {
+  type: 'thread';
+  value: string; // event id
+  reason?: string;
+}
+
+export type MuteItem = MutedPubkey | MutedWord | MutedTag | MutedThread;
+
+// Mute list structure with all categories
+export interface MuteList {
+  pubkeys: MutedPubkey[];
+  words: MutedWord[];
+  tags: MutedTag[];
+  threads: MutedThread[];
+}
+
+// Public mute list metadata
+export interface PublicMuteList {
+  id: string; // event id
+  dTag: string; // unique identifier from d tag
+  name: string;
+  description?: string;
+  author: string; // pubkey
+  createdAt: number;
+  list: MuteList;
+}
+
+// User session
+export interface UserSession {
+  pubkey: string;
+  relays: string[];
+  connected: boolean;
+  signerType: 'nip07' | 'nip46' | null;
+}
+
+// Authentication state
+export type AuthState = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+// Nostr event kinds used in the app
+export const MUTE_LIST_KIND = 10000;
+export const PUBLIC_LIST_KIND = 30001;
+
+// Type guards
+export function isMutedPubkey(item: MuteItem): item is MutedPubkey {
+  return item.type === 'pubkey';
+}
+
+export function isMutedWord(item: MuteItem): item is MutedWord {
+  return item.type === 'word';
+}
+
+export function isMutedTag(item: MuteItem): item is MutedTag {
+  return item.type === 'tag';
+}
+
+export function isMutedThread(item: MuteItem): item is MutedThread {
+  return item.type === 'thread';
+}
+
+// Extended Nostr Event type with our specific kinds
+export interface MuteListEvent extends Event {
+  kind: 10000;
+}
+
+export interface PublicListEvent extends Event {
+  kind: 30001;
+}
