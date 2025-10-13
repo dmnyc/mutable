@@ -62,6 +62,7 @@ export type AuthState = 'disconnected' | 'connecting' | 'connected' | 'error';
 // Nostr event kinds used in the app
 export const MUTE_LIST_KIND = 10000;
 export const PUBLIC_LIST_KIND = 30001;
+export const FOLLOW_LIST_KIND = 3;
 
 // Type guards
 export function isMutedPubkey(item: MuteItem): item is MutedPubkey {
@@ -88,3 +89,16 @@ export interface MuteListEvent extends Event {
 export interface PublicListEvent extends Event {
   kind: 30001;
 }
+
+// Profile metadata (kind 0)
+export interface Profile {
+  pubkey: string; // hex pubkey
+  name?: string;
+  display_name?: string;
+  about?: string;
+  picture?: string;
+  nip05?: string;
+  lud16?: string;
+}
+
+export const PROFILE_KIND = 0;

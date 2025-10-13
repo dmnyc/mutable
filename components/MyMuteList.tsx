@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
 import { publishMuteList } from '@/lib/nostr';
-import { Save, RefreshCw, Download, Upload, Archive } from 'lucide-react';
+import { Save, RefreshCw, Download, Upload, Archive, X } from 'lucide-react';
 import MuteListCategory from './MuteListCategory';
 import BackupRestore from './BackupRestore';
 
 export default function MyMuteList() {
-  const { session } = useAuth();
+  const { session, reloadMuteList } = useAuth();
   const {
     muteList,
     muteListLoading,
@@ -46,6 +46,18 @@ export default function MyMuteList() {
     }
   };
 
+  const handleDiscard = async () => {
+    if (!session) return;
+
+    if (confirm('Are you sure you want to discard all unsaved changes? This will reload your mute list from Nostr.')) {
+      try {
+        await reloadMuteList();
+      } catch (error) {
+        console.error('Failed to reload mute list:', error);
+      }
+    }
+  };
+
   const totalMutedItems =
     muteList.pubkeys.length +
     muteList.words.length +
@@ -73,6 +85,17 @@ export default function MyMuteList() {
 
           <div className="flex flex-wrap gap-2">
             <BackupRestore />
+
+            {hasUnsavedChanges && (
+              <button
+                onClick={handleDiscard}
+                disabled={publishing}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                <X size={16} />
+                <span>Discard Changes</span>
+              </button>
+            )}
 
             <button
               onClick={handlePublish}

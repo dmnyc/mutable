@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
@@ -8,17 +8,39 @@ import Image from 'next/image';
 import { LogOut, User } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
+import GlobalUserSearch from '@/components/GlobalUserSearch';
+import UserProfileModal from '@/components/UserProfileModal';
+import { Profile } from '@/types';
+import { fetchProfile } from '@/lib/nostr';
 
 export default function Dashboard() {
   const router = useRouter();
   const { session, isConnected, disconnect } = useAuth();
   const { activeTab, setActiveTab } = useStore();
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     if (!isConnected) {
       router.push('/');
     }
   }, [isConnected, router]);
+
+  // Load user profile
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (session?.pubkey) {
+        try {
+          const profile = await fetchProfile(session.pubkey, session.relays);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error('Failed to load user profile:', error);
+        }
+      }
+    };
+
+    loadUserProfile();
+  }, [session]);
 
   if (!isConnected || !session) {
     return (
@@ -33,15 +55,17 @@ export default function Dashboard() {
     router.push('/');
   };
 
-  const truncatedPubkey = `${session.pubkey.slice(0, 8)}...${session.pubkey.slice(-8)}`;
+  const handleUserSelect = (profile: Profile) => {
+    setSelectedProfile(profile);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
+          <div className="flex justify-between items-center h-16 gap-4">
+            <div className="flex items-center space-x-3 flex-shrink-0">
               <Image
                 src="/mutable_logo.svg"
                 alt="Mutable"
@@ -53,20 +77,72 @@ export default function Dashboard() {
                 alt="Mutable"
                 width={120}
                 height={24}
+                className="hidden sm:block"
               />
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-                <User size={16} />
-                <span className="font-mono">{truncatedPubkey}</span>
+            {/* Global Search */}
+            <GlobalUserSearch onSelectUser={handleUserSelect} />
+
+            <div className="flex items-center space-x-4 flex-shrink-0">
+              {/* User Profile Display - Desktop */}
+              <div className="hidden md:flex items-center space-x-3">
+                {userProfile?.picture ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={userProfile.picture}
+                    alt={userProfile.display_name || userProfile.name || 'User'}
+                    className="w-8 h-8 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                    }}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                    <User size={16} className="text-gray-600 dark:text-gray-300" />
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  {userProfile && (
+                    <>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {userProfile.display_name || userProfile.name || 'Anonymous'}
+                      </span>
+                      {userProfile.nip05 && (
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          ✓ {userProfile.nip05}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
+
+              {/* User Avatar - Mobile */}
+              <div className="md:hidden">
+                {userProfile?.picture ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={userProfile.picture}
+                    alt={userProfile.display_name || userProfile.name || 'User'}
+                    className="w-8 h-8 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                    }}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                    <User size={16} className="text-gray-600 dark:text-gray-300" />
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={handleDisconnect}
                 className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
               >
                 <LogOut size={16} />
-                <span>Disconnect</span>
+                <span className="hidden sm:inline">Disconnect</span>
               </button>
             </div>
           </div>
@@ -105,6 +181,14 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'myList' ? <MyMuteList /> : <PublicLists />}
       </main>
+
+      {/* User Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+        />
+      )}
     </div>
   );
 }
