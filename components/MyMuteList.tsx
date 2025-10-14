@@ -87,7 +87,7 @@ export default function MyMuteList() {
                 Unsaved Changes Restored
               </h3>
               <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
-                Your previous session had unsaved changes that have been restored. Don't forget to publish or discard them.
+                Your previous session had unsaved changes that have been restored. Don&apos;t forget to publish or discard them.
               </p>
             </div>
             <button

@@ -58,7 +58,7 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
                   <div className="flex items-start gap-2">
                     <Eye className="text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" size={14} />
                     <div className="text-xs text-indigo-800 dark:text-indigo-200">
-                      <strong>Public tags:</strong> Visible to anyone (in the event's tags array). Used for transparency when blocking known spammers/scammers.
+                      <strong>Public tags:</strong> Visible to anyone (in the event&apos;s tags array). Used for transparency when blocking known spammers/scammers.
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
@@ -254,7 +254,7 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
                   onClick={onClose}
                   className="px-4 py-2 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
                 >
-                  I'll Set Up Later
+                  I&apos;ll Set Up Later
                 </button>
               )}
             </div>
