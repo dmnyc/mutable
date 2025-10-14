@@ -717,3 +717,17 @@ export async function enrichMutealsWithProfiles(
 
   return enriched;
 }
+
+// Get follow list as array of pubkeys
+export async function getFollowListPubkeys(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<string[]> {
+  const followListEvent = await fetchFollowList(pubkey, relays);
+  if (!followListEvent) return [];
+
+  // Extract pubkeys from p tags
+  return followListEvent.tags
+    .filter(tag => tag[0] === 'p' && tag[1])
+    .map(tag => tag[1]);
+}

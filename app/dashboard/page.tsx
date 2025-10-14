@@ -11,21 +11,31 @@ import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
+import OnboardingModal from '@/components/OnboardingModal';
 import { Profile } from '@/types';
-import { fetchProfile } from '@/lib/nostr';
+import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
+import { backupService } from '@/lib/backupService';
 
 export default function Dashboard() {
   const router = useRouter();
   const { session, isConnected, disconnect } = useAuth();
-  const { activeTab, setActiveTab, hasUnsavedChanges } = useStore();
+  const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     if (!isConnected) {
       router.push('/');
     }
   }, [isConnected, router]);
+
+  // Show onboarding on first visit
+  useEffect(() => {
+    if (isConnected && !hasCompletedOnboarding) {
+      setShowOnboarding(true);
+    }
+  }, [isConnected, hasCompletedOnboarding]);
 
   // Load user profile
   useEffect(() => {
@@ -72,6 +82,39 @@ export default function Dashboard() {
 
   const handleUserSelect = (profile: Profile) => {
     setSelectedProfile(profile);
+  };
+
+  const handleCreateBackup = async () => {
+    if (!session) return;
+
+    try {
+      // Create mute list backup
+      const muteBackup = backupService.createMuteListBackup(
+        session.pubkey,
+        muteList,
+        'Initial backup created during onboarding'
+      );
+      backupService.saveBackup(muteBackup);
+
+      // Create follow list backup
+      const follows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const followBackup = backupService.createFollowListBackup(
+        session.pubkey,
+        follows,
+        'Initial backup created during onboarding'
+      );
+      backupService.saveBackup(followBackup);
+
+      alert(`Backups created successfully!\n\nMute list: ${muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length} items\nFollow list: ${follows.length} follows`);
+    } catch (error) {
+      console.error('Failed to create backups:', error);
+      alert('Failed to create backups. Please try again.');
+    }
+  };
+
+  const handleSkipOnboarding = () => {
+    setHasCompletedOnboarding(true);
+    setShowOnboarding(false);
   };
 
   return (
@@ -214,6 +257,15 @@ export default function Dashboard() {
         <UserProfileModal
           profile={selectedProfile}
           onClose={() => setSelectedProfile(null)}
+        />
+      )}
+
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <OnboardingModal
+          onClose={handleSkipOnboarding}
+          onCreateBackup={handleCreateBackup}
+          onSkip={handleSkipOnboarding}
         />
       )}
     </div>
