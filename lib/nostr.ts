@@ -385,14 +385,25 @@ export async function searchProfiles(
 // Fetch user's follow list (kind:3)
 export async function fetchFollowList(
   pubkey: string,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  retries: number = 0
 ): Promise<Event | null> {
   const pool = getPool();
-  const events = await pool.querySync(relays, {
+
+  // Try with expanded relay list for better coverage
+  const expandedRelays = getExpandedRelayList(relays);
+
+  const events = await pool.querySync(expandedRelays, {
     kinds: [FOLLOW_LIST_KIND],
     authors: [pubkey],
     limit: 1
   });
+
+  // If no events found and retries remaining, wait and try again
+  if (events.length === 0 && retries > 0) {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    return fetchFollowList(pubkey, relays, retries - 1);
+  }
 
   return events.length > 0 ? events[0] : null;
 }
@@ -721,9 +732,10 @@ export async function enrichMutealsWithProfiles(
 // Get follow list as array of pubkeys
 export async function getFollowListPubkeys(
   pubkey: string,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  retries: number = 2
 ): Promise<string[]> {
-  const followListEvent = await fetchFollowList(pubkey, relays);
+  const followListEvent = await fetchFollowList(pubkey, relays, retries);
   if (!followListEvent) return [];
 
   // Extract pubkeys from p tags

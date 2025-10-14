@@ -16,9 +16,10 @@ interface AppState {
   // Public lists state
   publicLists: PublicMuteList[];
   publicListsLoading: boolean;
+  importedPackItems: Record<string, Set<string>>; // packId -> Set of imported item values
 
   // UI state
-  activeTab: 'myList' | 'publicLists' | 'muteuals';
+  activeTab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings';
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
@@ -31,7 +32,10 @@ interface AppState {
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   setPublicLists: (lists: PublicMuteList[]) => void;
   setPublicListsLoading: (loading: boolean) => void;
-  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals') => void;
+  getImportedCount: (packId: string) => number;
+  getNewItemsCount: (pack: PublicMuteList) => number;
+  markPackItemsAsImported: (packId: string, items: string[]) => void;
+  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings') => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
 
@@ -64,6 +68,7 @@ export const useStore = create<AppState>()(
       hasUnsavedChanges: false,
       publicLists: [],
       publicListsLoading: false,
+      importedPackItems: {},
       activeTab: 'myList',
       showAuthModal: false,
       hasCompletedOnboarding: false,
@@ -92,6 +97,39 @@ export const useStore = create<AppState>()(
       setPublicLists: (lists) => set({ publicLists: lists }),
 
       setPublicListsLoading: (loading) => set({ publicListsLoading: loading }),
+
+      getImportedCount: (packId) => {
+        const state = get();
+        return state.importedPackItems[packId]?.size || 0;
+      },
+
+      getNewItemsCount: (pack) => {
+        const state = get();
+        const muteList = state.muteList;
+        const existingValues = new Set([
+          ...muteList.pubkeys.map(p => p.value),
+          ...muteList.words.map(w => w.value),
+          ...muteList.tags.map(t => t.value),
+          ...muteList.threads.map(t => t.value),
+        ]);
+
+        let newCount = 0;
+        pack.list.pubkeys.forEach(p => { if (!existingValues.has(p.value)) newCount++; });
+        pack.list.words.forEach(w => { if (!existingValues.has(w.value)) newCount++; });
+        pack.list.tags.forEach(t => { if (!existingValues.has(t.value)) newCount++; });
+        pack.list.threads.forEach(t => { if (!existingValues.has(t.value)) newCount++; });
+
+        return newCount;
+      },
+
+      markPackItemsAsImported: (packId, items) => set((state) => {
+        const imported = { ...state.importedPackItems };
+        if (!imported[packId]) {
+          imported[packId] = new Set();
+        }
+        items.forEach(item => imported[packId].add(item));
+        return { importedPackItems: imported };
+      }),
 
       // UI actions
       setActiveTab: (tab) => set({ activeTab: tab }),

@@ -9,6 +9,8 @@ import { LogOut, User } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
+import Backups from '@/components/Backups';
+import Settings from '@/components/Settings';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -96,8 +98,8 @@ export default function Dashboard() {
       );
       backupService.saveBackup(muteBackup);
 
-      // Create follow list backup
-      const follows = await getFollowListPubkeys(session.pubkey, session.relays);
+      // Create follow list backup with retries (3 attempts) for better reliability during onboarding
+      const follows = await getFollowListPubkeys(session.pubkey, session.relays, 3);
       const followBackup = backupService.createFollowListBackup(
         session.pubkey,
         follows,
@@ -198,9 +200,9 @@ export default function Dashboard() {
               <button
                 onClick={handleDisconnect}
                 className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                title="Disconnect"
               >
                 <LogOut size={16} />
-                <span className="hidden sm:inline">Disconnect</span>
               </button>
             </div>
           </div>
@@ -241,6 +243,26 @@ export default function Dashboard() {
             >
               Muteuals
             </button>
+            <button
+              onClick={() => setActiveTab('backups')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'backups'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Backups
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'settings'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Settings
+            </button>
           </div>
         </div>
       </div>
@@ -250,6 +272,8 @@ export default function Dashboard() {
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
+        {activeTab === 'backups' && <Backups />}
+        {activeTab === 'settings' && <Settings />}
       </main>
 
       {/* User Profile Modal */}
