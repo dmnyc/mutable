@@ -18,7 +18,7 @@ interface AppState {
   publicListsLoading: boolean;
 
   // UI state
-  activeTab: 'myList' | 'publicLists';
+  activeTab: 'myList' | 'publicLists' | 'muteuals';
   showAuthModal: boolean;
 
   // Actions
@@ -30,7 +30,7 @@ interface AppState {
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   setPublicLists: (lists: PublicMuteList[]) => void;
   setPublicListsLoading: (loading: boolean) => void;
-  setActiveTab: (tab: 'myList' | 'publicLists') => void;
+  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals') => void;
   setShowAuthModal: (show: boolean) => void;
 
   // Mute list operations
@@ -139,8 +139,11 @@ export const useStore = create<AppState>()(
     {
       name: 'mutable-storage',
       partialize: (state) => ({
-        // Only persist session data, not the full state
-        session: state.session
+        // Persist session, mute list, and unsaved changes flag
+        session: state.session,
+        muteList: state.muteList,
+        hasUnsavedChanges: state.hasUnsavedChanges,
+        activeTab: state.activeTab
       })
     }
   )

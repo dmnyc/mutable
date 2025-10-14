@@ -60,8 +60,12 @@ export interface UserSession {
 export type AuthState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 // Nostr event kinds used in the app
-export const MUTE_LIST_KIND = 10000;
-export const PUBLIC_LIST_KIND = 30001;
+// Per NIP-51: kind 10000 is the mute list
+// - Public items are in the 'tags' array
+// - Private items are encrypted in the 'content' field using NIP-44
+// - A single event can contain both public and private mutes
+export const MUTE_LIST_KIND = 10000; // Mute list (NIP-51) - can have public tags AND encrypted content
+export const PUBLIC_LIST_KIND = 30001; // Generic public lists (deprecated for mutes)
 export const FOLLOW_LIST_KIND = 3;
 
 // Type guards
@@ -102,3 +106,14 @@ export interface Profile {
 }
 
 export const PROFILE_KIND = 0;
+
+// Muteal result (user who has muted you)
+export interface MutealResult {
+  mutedBy: string; // pubkey who muted you
+  profile?: Profile;
+  listName?: string;
+  listDescription?: string;
+  mutedAt?: number; // timestamp
+  isFollowing: boolean;
+  eventId: string; // the mute list event id
+}

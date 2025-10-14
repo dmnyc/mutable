@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { LogOut, User } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
+import Muteuals from '@/components/Muteuals';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
 import { Profile } from '@/types';
@@ -16,7 +17,7 @@ import { fetchProfile } from '@/lib/nostr';
 export default function Dashboard() {
   const router = useRouter();
   const { session, isConnected, disconnect } = useAuth();
-  const { activeTab, setActiveTab } = useStore();
+  const { activeTab, setActiveTab, hasUnsavedChanges } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
 
@@ -41,6 +42,20 @@ export default function Dashboard() {
 
     loadUserProfile();
   }, [session]);
+
+  // Warn before leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   if (!isConnected || !session) {
     return (
@@ -173,13 +188,25 @@ export default function Dashboard() {
             >
               Public Lists
             </button>
+            <button
+              onClick={() => setActiveTab('muteuals')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'muteuals'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Muteuals
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'myList' ? <MyMuteList /> : <PublicLists />}
+        {activeTab === 'myList' && <MyMuteList />}
+        {activeTab === 'publicLists' && <PublicLists />}
+        {activeTab === 'muteuals' && <Muteuals />}
       </main>
 
       {/* User Profile Modal */}
