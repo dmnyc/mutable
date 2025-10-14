@@ -397,7 +397,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                               const isAlreadyMuted = muteList.pubkeys.some(m => m.value === item.value);
 
                               return (
-                              <div key={idx} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600">
+                                <div key={idx} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600">
                                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                                   {profile?.picture ? (
                                     // eslint-disable-next-line @next/next/no-img-element
@@ -482,7 +482,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                                     <ExternalLink size={16} />
                                   </button>
                                 </div>
-                              </div>
+                                </div>
                               );
                             })}
 

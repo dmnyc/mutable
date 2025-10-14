@@ -18,8 +18,9 @@ interface AppState {
   publicListsLoading: boolean;
 
   // UI state
-  activeTab: 'myList' | 'publicLists';
+  activeTab: 'myList' | 'publicLists' | 'muteuals';
   showAuthModal: boolean;
+  hasCompletedOnboarding: boolean;
 
   // Actions
   setAuthState: (state: AuthState) => void;
@@ -30,8 +31,9 @@ interface AppState {
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   setPublicLists: (lists: PublicMuteList[]) => void;
   setPublicListsLoading: (loading: boolean) => void;
-  setActiveTab: (tab: 'myList' | 'publicLists') => void;
+  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals') => void;
   setShowAuthModal: (show: boolean) => void;
+  setHasCompletedOnboarding: (completed: boolean) => void;
 
   // Mute list operations
   addMutedItem: (item: MuteList[keyof MuteList][0], category: keyof MuteList) => void;
@@ -64,6 +66,7 @@ export const useStore = create<AppState>()(
       publicListsLoading: false,
       activeTab: 'myList',
       showAuthModal: false,
+      hasCompletedOnboarding: false,
 
       // Auth actions
       setAuthState: (state) => set({ authState: state }),
@@ -94,6 +97,8 @@ export const useStore = create<AppState>()(
       setActiveTab: (tab) => set({ activeTab: tab }),
 
       setShowAuthModal: (show) => set({ showAuthModal: show }),
+
+      setHasCompletedOnboarding: (completed) => set({ hasCompletedOnboarding: completed }),
 
       // Mute list CRUD operations
       addMutedItem: (item, category) => set((state) => {
@@ -139,8 +144,12 @@ export const useStore = create<AppState>()(
     {
       name: 'mutable-storage',
       partialize: (state) => ({
-        // Only persist session data, not the full state
-        session: state.session
+        // Persist session, mute list, and unsaved changes flag
+        session: state.session,
+        muteList: state.muteList,
+        hasUnsavedChanges: state.hasUnsavedChanges,
+        activeTab: state.activeTab,
+        hasCompletedOnboarding: state.hasCompletedOnboarding
       })
     }
   )

@@ -6,16 +6,33 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, MutealResult } from '@/types';
 
-// Default relay list
+// Default relay list - comprehensive set for better coverage
 export const DEFAULT_RELAYS = [
+  // Popular general relays
   'wss://relay.damus.io',
+  'wss://relay.primal.net',
   'wss://nos.lol',
   'wss://relay.nostr.band',
   'wss://nostr.wine',
-  'wss://relay.snort.social'
+  'wss://relay.snort.social',
+  'wss://nostr.mom',
+  'wss://relay.nostr.wirednet.jp',
+  'wss://nostr.fmt.wiz.biz',
+  'wss://relay.nostr.bg',
+  // Additional high-traffic relays
+  'wss://nostr-pub.wellorder.net',
+  'wss://nostr.oxtr.dev',
+  'wss://relay.current.fyi',
+  'wss://nostr.zebedee.cloud'
 ];
+
+// Get expanded relay list by combining user's relays with defaults
+export function getExpandedRelayList(userRelays: string[]): string[] {
+  const relaySet = new Set([...DEFAULT_RELAYS, ...userRelays]);
+  return Array.from(relaySet);
+}
 
 // Nostr pool instance (singleton)
 let pool: SimplePool | null = null;
@@ -425,4 +442,292 @@ export async function isFollowing(
   return followList.tags.some(
     tag => tag[0] === 'p' && tag[1] === targetPubkey
   );
+}
+
+// ============================================================================
+// MUTEUALS DISCOVERY FUNCTIONS
+// ============================================================================
+
+// Fetch all public mute lists from a specific author
+export async function fetchPublicMuteLists(
+  authorPubkey: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<Event[]> {
+  const pool = getPool();
+  return await pool.querySync(relays, {
+    kinds: [PUBLIC_LIST_KIND],
+    authors: [authorPubkey]
+  });
+}
+
+// Search for muteuals within your follow list
+export async function searchMutealsFromFollows(
+  userPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal
+): Promise<MutealResult[]> {
+  const pool = getPool();
+  const muteuals: MutealResult[] = [];
+
+  // Step 1: Fetch user's follow list
+  const followListEvent = await fetchFollowList(userPubkey, relays);
+  if (!followListEvent) {
+    return muteuals;
+  }
+
+  // Extract pubkeys from follow list
+  const followedPubkeys = followListEvent.tags
+    .filter(tag => tag[0] === 'p')
+    .map(tag => tag[1]);
+
+  if (followedPubkeys.length === 0) {
+    return muteuals;
+  }
+
+  console.log(`Checking ${followedPubkeys.length} follows for kind:10000 mute lists`);
+
+  // Step 2: Fetch ALL kind:10000 mute lists from followed users in one query
+  console.log('Fetching all kind:10000 events from your follows...');
+  const allMuteListEvents = await pool.querySync(relays, {
+    kinds: [MUTE_LIST_KIND], // kind 10000
+    authors: followedPubkeys
+  });
+
+  console.log(`Found ${allMuteListEvents.length} kind:10000 events from your follows`);
+
+  // Group by author and keep only the latest per author
+  const latestByAuthor = new Map<string, Event>();
+  for (const event of allMuteListEvents) {
+    const existing = latestByAuthor.get(event.pubkey);
+    if (!existing || event.created_at > existing.created_at) {
+      latestByAuthor.set(event.pubkey, event);
+    }
+  }
+
+  console.log(`After deduplication: ${latestByAuthor.size} unique authors with mute lists`);
+
+  // Step 3: Check each follow's latest mute list
+  let checked = 0;
+  for (const followedPubkey of followedPubkeys) {
+    // Check if scan was aborted
+    if (abortSignal?.aborted) {
+      console.log(`Scan aborted after checking ${checked}/${followedPubkeys.length} follows`);
+      break;
+    }
+
+    checked++;
+    if (onProgress) {
+      onProgress(checked, followedPubkeys.length);
+    }
+
+    const muteListEvent = latestByAuthor.get(followedPubkey);
+    if (!muteListEvent) {
+      continue; // This follow doesn't have a kind:10000 mute list
+    }
+
+    // Check if it contains the user's pubkey
+    const hasMuted = muteListEvent.tags.some(
+      tag => tag[0] === 'p' && tag[1] === userPubkey
+    );
+
+    if (hasMuted) {
+      console.log(`MUTEUAL FOUND: ${followedPubkey} has you in their mute list`);
+
+      muteuals.push({
+        mutedBy: followedPubkey,
+        listName: 'Public Mute List',
+        listDescription: undefined,
+        mutedAt: muteListEvent.created_at,
+        isFollowing: true,
+        eventId: muteListEvent.id
+      });
+    }
+  }
+
+  console.log(`Follows scan complete: Found ${muteuals.length} Muteuals out of ${followedPubkeys.length} follows`);
+  return muteuals;
+}
+
+// Search for muteuals network-wide
+export async function searchMutealsNetworkWide(
+  userPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (count: number) => void,
+  abortSignal?: AbortSignal
+): Promise<MutealResult[]> {
+  const pool = getPool();
+  const muteuals: MutealResult[] = [];
+  const seenPubkeys = new Set<string>();
+
+  console.log('Network-wide search: Querying for kind 10000 mute lists with your pubkey in public tags:', userPubkey);
+
+  // Query all mute lists (kind 10000) that contain the user's pubkey in PUBLIC tags
+  // Per NIP-51, kind 10000 mute lists have:
+  // - PUBLIC mutes in the 'tags' array (what we search)
+  // - PRIVATE mutes encrypted in the 'content' field (which we cannot see)
+  // NOTE: Kind 10000 is a REPLACEABLE event, meaning each user should only have ONE
+  // But we might get multiple old versions from different relays
+  const events = await pool.querySync(relays, {
+    kinds: [MUTE_LIST_KIND], // kind 10000
+    '#p': [userPubkey]
+  });
+
+  console.log(`Found ${events.length} kind:10000 mute list events with your pubkey in public 'p' tags`);
+
+  // Group events by author to find the LATEST one per author
+  // Kind 10000 is REPLACEABLE, so we should only use the newest event per author
+  const eventsByAuthor = new Map<string, Event>();
+  for (const event of events) {
+    const existing = eventsByAuthor.get(event.pubkey);
+    if (!existing || event.created_at > existing.created_at) {
+      eventsByAuthor.set(event.pubkey, event);
+    } else {
+      console.log(`Skipping older event from ${event.pubkey}: ${new Date(event.created_at * 1000).toISOString()} (newer: ${new Date(existing.created_at * 1000).toISOString()})`);
+    }
+  }
+
+  console.log(`After initial deduplication: ${eventsByAuthor.size} unique authors (removed ${events.length - eventsByAuthor.size} duplicate events)`);
+
+  // CRITICAL FIX: Now fetch the ACTUAL latest kind:10000 for each author
+  // The #p filter only gives us events WHERE WE'RE MUTED, but there might be newer events where we're NOT
+  console.log('Fetching latest kind:10000 events for each author to verify...');
+
+  const authorsToCheck = Array.from(eventsByAuthor.keys());
+  const latestEvents = await pool.querySync(relays, {
+    kinds: [MUTE_LIST_KIND],
+    authors: authorsToCheck
+  });
+
+  console.log(`Fetched ${latestEvents.length} total kind:10000 events from these ${authorsToCheck.length} authors`);
+
+  // Update our map with the truly latest events
+  let updatedCount = 0;
+  for (const event of latestEvents) {
+    const existing = eventsByAuthor.get(event.pubkey);
+    if (existing && event.created_at > existing.created_at) {
+      console.log(`⚠️  Found NEWER event for ${event.pubkey}:`);
+      console.log(`   Old: ${existing.id} (${new Date(existing.created_at * 1000).toISOString()})`);
+      console.log(`   New: ${event.id} (${new Date(event.created_at * 1000).toISOString()})`);
+      eventsByAuthor.set(event.pubkey, event);
+      updatedCount++;
+    }
+  }
+
+  console.log(`Updated ${updatedCount} events with newer versions`);
+
+  // Get user's follow list to check if they're following the muteals
+  const followListEvent = await fetchFollowList(userPubkey, relays);
+  const followedPubkeys = new Set(
+    followListEvent?.tags
+      .filter(tag => tag[0] === 'p')
+      .map(tag => tag[1]) || []
+  );
+
+  // Now iterate through only the LATEST event per author
+  for (const event of eventsByAuthor.values()) {
+    // Check if scan was aborted
+    if (abortSignal?.aborted) {
+      console.log(`Scan aborted after checking ${seenPubkeys.size} authors`);
+      break;
+    }
+
+    const pTags = event.tags.filter(t => t[0] === 'p');
+    const allTagTypes = [...new Set(event.tags.map(t => t[0]))];
+
+    console.log('Analyzing kind:10000 event:', {
+      id: event.id,
+      author: event.pubkey,
+      created_at: new Date(event.created_at * 1000).toISOString(),
+      totalTags: event.tags.length,
+      tagTypes: allTagTypes,
+      pTagCount: pTags.length,
+      pTags: pTags.map(t => ({ pubkey: t[1], relay: t[2] })),
+      content: event.content.substring(0, 100)
+    });
+
+    // Kind 10000 is the standard public mute list, so no need to check d-tag
+    // Just verify the event actually contains the user's pubkey in a 'p' tag
+    const hasMuted = event.tags.some(
+      tag => tag[0] === 'p' && tag[1] === userPubkey
+    );
+
+    if (hasMuted) {
+      seenPubkeys.add(event.pubkey);
+
+      console.log(`✅ CONFIRMED MUTEUAL: ${event.pubkey} has muted you in their public mute list (kind:10000)`);
+      console.log(`   Event ID: ${event.id}`);
+      console.log(`   Your pubkey was found in 'p' tags`);
+
+      muteuals.push({
+        mutedBy: event.pubkey,
+        listName: 'Public Mute List',
+        listDescription: undefined,
+        mutedAt: event.created_at,
+        isFollowing: followedPubkeys.has(event.pubkey),
+        eventId: event.id
+      });
+
+      if (onProgress) {
+        onProgress(muteuals.length);
+      }
+    } else {
+      console.log(`⚠️  Event has 'p' tags but NOT your pubkey - this shouldn't happen with #p filter!`);
+    }
+  }
+
+  console.log(`Final count: ${muteuals.length} confirmed Muteuals`);
+  return muteuals;
+}
+
+// Fetch profiles for muteuals results
+export async function enrichMutealsWithProfiles(
+  muteuals: MutealResult[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal
+): Promise<MutealResult[]> {
+  const enriched: MutealResult[] = [];
+
+  for (let i = 0; i < muteuals.length; i++) {
+    // Check if enrichment was aborted
+    if (abortSignal?.aborted) {
+      console.log(`Profile enrichment aborted after ${i}/${muteuals.length} profiles`);
+      // Return what we have so far with remaining items without profiles
+      return [...enriched, ...muteuals.slice(i)];
+    }
+
+    const muteal = muteuals[i];
+
+    if (onProgress) {
+      onProgress(i + 1, muteuals.length);
+    }
+
+    try {
+      const profile = await fetchProfile(muteal.mutedBy, relays);
+      enriched.push({
+        ...muteal,
+        profile: profile || undefined
+      });
+    } catch (error) {
+      console.error(`Failed to fetch profile for ${muteal.mutedBy}:`, error);
+      enriched.push(muteal);
+    }
+  }
+
+  return enriched;
+}
+
+// Get follow list as array of pubkeys
+export async function getFollowListPubkeys(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<string[]> {
+  const followListEvent = await fetchFollowList(pubkey, relays);
+  if (!followListEvent) return [];
+
+  // Extract pubkeys from p tags
+  return followListEvent.tags
+    .filter(tag => tag[0] === 'p' && tag[1])
+    .map(tag => tag[1]);
 }
