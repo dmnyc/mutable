@@ -7,6 +7,7 @@ import { publishMuteList } from '@/lib/nostr';
 import { Save, RefreshCw, Download, Upload, Archive, X, AlertCircle } from 'lucide-react';
 import MuteListCategory from './MuteListCategory';
 import BackupRestore from './BackupRestore';
+import PrivacyControls from './PrivacyControls';
 
 export default function MyMuteList() {
   const { session, reloadMuteList } = useAuth();
@@ -172,6 +173,11 @@ export default function MyMuteList() {
           <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
           <p className="text-gray-600 dark:text-gray-400">Loading mute list...</p>
         </div>
+      )}
+
+      {/* Privacy Controls */}
+      {!muteListLoading && (
+        <PrivacyControls />
       )}
 
       {/* Mute List Categories */}

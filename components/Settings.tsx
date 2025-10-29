@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
@@ -17,18 +17,28 @@ import {
   Database,
   RefreshCw,
   CheckCircle,
-  XCircle
+  XCircle,
+  Radio
 } from 'lucide-react';
 
 export default function Settings() {
   const router = useRouter();
   const { disconnect } = useAuth();
-  const { setHasCompletedOnboarding } = useStore();
+  const { session, setHasCompletedOnboarding } = useStore();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetStep, setResetStep] = useState(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Relay state
+  const [userRelayList, setUserRelayList] = useState<{
+    read: string[];
+    write: string[];
+    both: string[];
+    timestamp?: number;
+  } | null>(null);
+  const [loadingRelays, setLoadingRelays] = useState(false);
 
   // Theme preference (could be expanded with actual theme switching)
   const [darkMode, setDarkMode] = useState(() => {
@@ -45,6 +55,22 @@ export default function Settings() {
       localStorage.setItem('theme', !darkMode ? 'dark' : 'light');
     }
   };
+
+  // Use cached relay list metadata from session (fetched at login)
+  useEffect(() => {
+    if (!session) return;
+
+    console.log('📋 Checking session for cached relay list metadata');
+
+    if (session.relayListMetadata) {
+      console.log('✅ Using cached relay list metadata from session:', session.relayListMetadata);
+      setUserRelayList(session.relayListMetadata);
+      setLoadingRelays(false);
+    } else {
+      console.log('ℹ️ No cached relay list metadata available');
+      setLoadingRelays(false);
+    }
+  }, [session]);
 
   const handleResetOnboarding = () => {
     setHasCompletedOnboarding(false);
@@ -122,6 +148,7 @@ export default function Settings() {
       )}
 
       {/* Appearance Section */}
+      {/* Commented out - may add back later
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           {darkMode ? <Moon size={24} className="text-gray-900 dark:text-white" /> : <Sun size={24} className="text-gray-900 dark:text-white" />}
@@ -151,6 +178,128 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      */}
+
+      {/* Nostr Network Section */}
+      {session && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Radio size={24} className="text-gray-900 dark:text-white" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nostr Network</h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* Info about relay source */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-900 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Your Relay Configuration</p>
+                  <p>Mutable uses your relay list from Nostr (NIP-65). These are the relays you&apos;ve announced to the network and are used by all Nostr clients.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Current session relays */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <span>📡</span> Active Relays (Current Session)
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                These relays are being used for this session:
+              </p>
+              <div className="space-y-1">
+                {session.relays.map((relay, i) => (
+                  <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                    {relay}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* User's announced relay list from Nostr */}
+            {loadingRelays ? (
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                <RefreshCw className="animate-spin mx-auto mb-2 text-gray-400" size={24} />
+                <p className="text-sm text-gray-600 dark:text-gray-400">Loading relay preferences from Nostr...</p>
+              </div>
+            ) : userRelayList ? (
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Your Announced Relay List (NIP-65)
+                </h3>
+                {userRelayList.timestamp && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                    Last updated: {new Date(userRelayList.timestamp * 1000).toLocaleString()}
+                  </p>
+                )}
+
+                {/* Read & Write Relays */}
+                {userRelayList.both.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Read & Write ({userRelayList.both.length})
+                    </p>
+                    <div className="space-y-1">
+                      {userRelayList.both.map((relay, i) => (
+                        <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                          {relay}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Write Only Relays */}
+                {userRelayList.write.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Write Only ({userRelayList.write.length})
+                    </p>
+                    <div className="space-y-1">
+                      {userRelayList.write.map((relay, i) => (
+                        <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                          {relay}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Read Only Relays */}
+                {userRelayList.read.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Read Only ({userRelayList.read.length})
+                    </p>
+                    <div className="space-y-1">
+                      {userRelayList.read.map((relay, i) => (
+                        <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                          {relay}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">
+                  💡 To update your relay list, use a Nostr client that supports NIP-65 (like Jumble, Amethyst, or Damus).
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-900 dark:text-amber-200">
+                    <p className="font-semibold mb-1">No Relay List Found</p>
+                    <p>You haven&apos;t published a NIP-65 relay list yet. Mutable is using relays from your NIP-07 extension or defaults.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Privacy & Data Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -193,23 +342,23 @@ export default function Settings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <Eye size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Onboarding</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Show Onboarding</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-white">Reset Onboarding</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Welcome Tutorial</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                View the welcome tutorial again on next login
+                View the welcome tutorial again
               </p>
             </div>
             <button
               onClick={handleResetOnboarding}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
             >
-              <RefreshCw size={16} />
-              Reset
+              <Eye size={16} />
+              Show Again
             </button>
           </div>
         </div>
@@ -240,7 +389,6 @@ export default function Settings() {
                 <li>Your session (you&apos;ll be logged out)</li>
                 <li>All application settings and preferences</li>
                 <li>Cached mute lists and follow lists</li>
-                <li>Onboarding completion status</li>
               </ul>
             </div>
 
@@ -293,7 +441,7 @@ export default function Settings() {
 
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong className="text-gray-900 dark:text-white">Version:</strong> 1.0.0
+            <strong className="text-gray-900 dark:text-white">Version:</strong> 0.1.0-c3303e4
           </p>
           <p>
             <strong className="text-gray-900 dark:text-white">Description:</strong> A Nostr mute list management application

@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { publishPublicList, npubToHex } from '@/lib/nostr';
-import { X, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { publishPublicList, npubToHex, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
+import { X, Plus, Trash2, AlertCircle, Tag } from 'lucide-react';
 import { MuteList, MutedPubkey, MutedWord, MutedTag } from '@/types';
 
 interface CreatePublicListProps {
@@ -18,6 +18,7 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
   const [listName, setListName] = useState('');
   const [description, setDescription] = useState('');
   const [useCurrentList, setUseCurrentList] = useState(true);
+  const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>([]);
   const [customList, setCustomList] = useState<MuteList>({
     pubkeys: [],
     words: [],
@@ -128,17 +129,26 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
     });
   };
 
+  // Toggle category selection
+  const handleToggleCategory = (category: PackCategory) => {
+    if (selectedCategories.includes(category)) {
+      setSelectedCategories(selectedCategories.filter(c => c !== category));
+    } else {
+      setSelectedCategories([...selectedCategories, category]);
+    }
+  };
+
   const handlePublish = async () => {
     if (!session) return;
 
     if (!listName.trim()) {
-      setError('List name is required');
+      setError('Pack name is required');
       return;
     }
 
     // Validate list name format
     if (!/^[a-z0-9-]+$/.test(listName.trim())) {
-      setError('List name must contain only lowercase letters, numbers, and hyphens');
+      setError('Pack name must contain only lowercase letters, numbers, and hyphens');
       return;
     }
 
@@ -152,7 +162,8 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
         listName.trim(),
         description.trim(),
         listToPublish,
-        session.relays
+        session.relays,
+        selectedCategories
       );
 
       setSuccess(true);
@@ -277,6 +288,38 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
               <div className="mt-1 flex justify-end text-xs text-gray-500 dark:text-gray-400">
                 {description.length}/{MAX_DESC_LENGTH}
               </div>
+            </div>
+
+            {/* Category Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Categories (Optional)
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Select one or more categories to help others discover your pack
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(PACK_CATEGORIES).map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => handleToggleCategory(category)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all capitalize flex items-center gap-1.5 ${
+                      selectedCategories.includes(category)
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <Tag size={14} />
+                    {category}
+                  </button>
+                ))}
+              </div>
+              {selectedCategories.length > 0 && (
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  Selected: {selectedCategories.join(', ')}
+                </div>
+              )}
             </div>
           </div>
 

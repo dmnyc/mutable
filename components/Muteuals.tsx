@@ -181,7 +181,7 @@ export default function Muteuals() {
         tags: muteListEvent.tags
       });
 
-      const parsedList = parseMuteListEvent(muteListEvent);
+      const parsedList = await parseMuteListEvent(muteListEvent);
       const mutedPubkeys = parsedList.pubkeys.map(p => p.value);
 
       console.log(`Found ${mutedPubkeys.length} muted pubkeys in their current list`);
@@ -223,7 +223,7 @@ export default function Muteuals() {
               Discover users who have publicly muted you in their mute lists
             </p>
           </div>
-        </div>
+    , s  </div>
 
         {/* Info Box */}
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">

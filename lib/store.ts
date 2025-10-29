@@ -43,6 +43,8 @@ interface AppState {
   addMutedItem: (item: MuteList[keyof MuteList][0], category: keyof MuteList) => void;
   removeMutedItem: (value: string, category: keyof MuteList) => void;
   updateMutedItem: (oldValue: string, newValue: string, category: keyof MuteList, reason?: string) => void;
+  toggleItemPrivacy: (value: string, category: keyof MuteList) => void;
+  bulkSetPrivacy: (isPrivate: boolean) => void;
 
   // Reset/clear
   clearSession: () => void;
@@ -114,10 +116,10 @@ export const useStore = create<AppState>()(
         ]);
 
         let newCount = 0;
-        pack.list.pubkeys.forEach(p => { if (!existingValues.has(p.value)) newCount++; });
-        pack.list.words.forEach(w => { if (!existingValues.has(w.value)) newCount++; });
-        pack.list.tags.forEach(t => { if (!existingValues.has(t.value)) newCount++; });
-        pack.list.threads.forEach(t => { if (!existingValues.has(t.value)) newCount++; });
+        (pack.list.pubkeys || []).forEach(p => { if (!existingValues.has(p.value)) newCount++; });
+        (pack.list.words || []).forEach(w => { if (!existingValues.has(w.value)) newCount++; });
+        (pack.list.tags || []).forEach(t => { if (!existingValues.has(t.value)) newCount++; });
+        (pack.list.threads || []).forEach(t => { if (!existingValues.has(t.value)) newCount++; });
 
         return newCount;
       },
@@ -161,6 +163,27 @@ export const useStore = create<AppState>()(
             reason
           };
         }
+        return { muteList: newList, hasUnsavedChanges: true };
+      }),
+
+      toggleItemPrivacy: (value, category) => set((state) => {
+        const newList = { ...state.muteList };
+        const index = newList[category].findIndex((item) => item.value === value);
+        if (index !== -1) {
+          (newList[category] as any)[index] = {
+            ...newList[category][index],
+            private: !(newList[category][index] as any).private
+          };
+        }
+        return { muteList: newList, hasUnsavedChanges: true };
+      }),
+
+      bulkSetPrivacy: (isPrivate) => set((state) => {
+        const newList = { ...state.muteList };
+        newList.pubkeys = newList.pubkeys.map(item => ({ ...item, private: isPrivate }));
+        newList.words = newList.words.map(item => ({ ...item, private: isPrivate }));
+        newList.tags = newList.tags.map(item => ({ ...item, private: isPrivate }));
+        newList.threads = newList.threads.map(item => ({ ...item, private: isPrivate }));
         return { muteList: newList, hasUnsavedChanges: true };
       }),
 

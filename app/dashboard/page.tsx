@@ -90,11 +90,20 @@ export default function Dashboard() {
     if (!session) return;
 
     try {
+      // Check if this is truly the first backup
+      const existingMuteBackups = backupService.getBackupsByType('mute-list');
+      const existingFollowBackups = backupService.getBackupsByType('follow-list');
+      const isFirstBackup = existingMuteBackups.length === 0 && existingFollowBackups.length === 0;
+
+      const backupNote = isFirstBackup
+        ? 'Initial backup created during onboarding'
+        : 'Backup created from onboarding tutorial';
+
       // Create mute list backup
       const muteBackup = backupService.createMuteListBackup(
         session.pubkey,
         muteList,
-        'Initial backup created during onboarding'
+        backupNote
       );
       backupService.saveBackup(muteBackup);
 
@@ -103,7 +112,7 @@ export default function Dashboard() {
       const followBackup = backupService.createFollowListBackup(
         session.pubkey,
         follows,
-        'Initial backup created during onboarding'
+        backupNote
       );
       backupService.saveBackup(followBackup);
 
@@ -231,7 +240,7 @@ export default function Dashboard() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Public Lists
+              Community Packs
             </button>
             <button
               onClick={() => setActiveTab('muteuals')}

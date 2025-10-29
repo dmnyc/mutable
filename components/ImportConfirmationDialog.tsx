@@ -140,19 +140,19 @@ export default function ImportConfirmationDialog({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Pubkeys: </span>
-                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.pubkeys.length}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.pubkeys?.length || 0}</span>
                   </div>
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Words: </span>
-                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.words.length}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.words?.length || 0}</span>
                   </div>
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Tags: </span>
-                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.tags.length}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.tags?.length || 0}</span>
                   </div>
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Threads: </span>
-                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.threads.length}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{pack.list.threads?.length || 0}</span>
                   </div>
                 </div>
               </div>

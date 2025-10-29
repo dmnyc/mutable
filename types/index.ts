@@ -7,24 +7,28 @@ export interface MutedPubkey {
   type: 'pubkey';
   value: string; // hex pubkey
   reason?: string;
+  private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
 export interface MutedWord {
   type: 'word';
   value: string;
   reason?: string;
+  private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
 export interface MutedTag {
   type: 'tag';
   value: string; // hashtag without #
   reason?: string;
+  private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
 export interface MutedThread {
   type: 'thread';
   value: string; // event id
   reason?: string;
+  private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
 export type MuteItem = MutedPubkey | MutedWord | MutedTag | MutedThread;
@@ -46,6 +50,18 @@ export interface PublicMuteList {
   author: string; // pubkey
   createdAt: number;
   list: MuteList;
+  categories?: string[]; // Pack category tags
+  isMutablePack?: boolean; // true if has ['L', 'mutable'] namespace tag
+  isNostrguardPack?: boolean; // true if has ['L', 'nostrguard'] namespace tag
+  namespace?: string; // The actual namespace value from ['L', ...] tag
+}
+
+// Relay list metadata from NIP-65
+export interface RelayListMetadata {
+  read: string[];
+  write: string[];
+  both: string[];
+  timestamp: number;
 }
 
 // User session
@@ -54,6 +70,7 @@ export interface UserSession {
   relays: string[];
   connected: boolean;
   signerType: 'nip07' | 'nip46' | null;
+  relayListMetadata?: RelayListMetadata; // Cached NIP-65 relay list details
 }
 
 // Authentication state
@@ -67,6 +84,7 @@ export type AuthState = 'disconnected' | 'connecting' | 'connected' | 'error';
 export const MUTE_LIST_KIND = 10000; // Mute list (NIP-51) - can have public tags AND encrypted content
 export const PUBLIC_LIST_KIND = 30001; // Generic public lists (deprecated for mutes)
 export const FOLLOW_LIST_KIND = 3;
+export const RELAY_LIST_KIND = 10002; // NIP-65: Relay List Metadata
 
 // Type guards
 export function isMutedPubkey(item: MuteItem): item is MutedPubkey {

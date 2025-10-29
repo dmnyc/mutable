@@ -6,26 +6,16 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, MutealResult } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult } from '@/types';
 
-// Default relay list - comprehensive set for better coverage
+// Default relay list - reliable, well-maintained relays
+// Based on what works consistently across clients
 export const DEFAULT_RELAYS = [
-  // Popular general relays
   'wss://relay.damus.io',
   'wss://relay.primal.net',
   'wss://nos.lol',
   'wss://relay.nostr.band',
-  'wss://nostr.wine',
-  'wss://relay.snort.social',
-  'wss://nostr.mom',
-  'wss://relay.nostr.wirednet.jp',
-  'wss://nostr.fmt.wiz.biz',
-  'wss://relay.nostr.bg',
-  // Additional high-traffic relays
-  'wss://nostr-pub.wellorder.net',
-  'wss://nostr.oxtr.dev',
-  'wss://relay.current.fyi',
-  'wss://nostr.zebedee.cloud'
+  'wss://nostr.wine'
 ];
 
 // Get expanded relay list by combining user's relays with defaults
@@ -33,6 +23,27 @@ export function getExpandedRelayList(userRelays: string[]): string[] {
   const relaySet = new Set([...DEFAULT_RELAYS, ...userRelays]);
   return Array.from(relaySet);
 }
+
+// Namespace tags for community packs
+export const PACK_NAMESPACE = 'mutable';
+export const PACK_CATEGORY = 'community-pack';
+
+// Nostrguard compatibility
+export const NOSTRGUARD_NAMESPACE = 'nostrguard';
+export const NOSTRGUARD_CATEGORY = 'scammer-pack';
+
+// Pack categories
+export const PACK_CATEGORIES = {
+  SPAM: 'spam',
+  NSFW: 'nsfw',
+  SCAM: 'scam',
+  IMPERSONATION: 'impersonation',
+  BOT: 'bot',
+  HARASSMENT: 'harassment',
+  OTHER: 'other'
+} as const;
+
+export type PackCategory = typeof PACK_CATEGORIES[keyof typeof PACK_CATEGORIES];
 
 // Nostr pool instance (singleton)
 let pool: SimplePool | null = null;
@@ -50,6 +61,10 @@ interface WindowWithNostr extends Window {
     getPublicKey(): Promise<string>;
     signEvent(event: EventTemplate): Promise<Event>;
     getRelays?(): Promise<{ [url: string]: { read: boolean; write: boolean } }>;
+    nip04?: {
+      encrypt(pubkey: string, plaintext: string): Promise<string>;
+      decrypt(pubkey: string, ciphertext: string): Promise<string>;
+    };
   };
 }
 
@@ -90,6 +105,90 @@ export async function getNip07Relays(): Promise<string[]> {
   }
 }
 
+// Fetch user's relay list from Nostr (NIP-65 kind:10002)
+// Returns both the write relays and the full metadata
+export async function fetchRelayListFromNostr(pubkey: string): Promise<{
+  writeRelays: string[];
+  metadata: { read: string[]; write: string[]; both: string[]; timestamp: number } | null;
+}> {
+  const pool = getPool();
+
+  try {
+    // Query kind:10002 relay list metadata from default relays
+    const events = await pool.querySync(DEFAULT_RELAYS, {
+      kinds: [RELAY_LIST_KIND],
+      authors: [pubkey],
+      limit: 1
+    });
+
+    if (events.length === 0) {
+      return { writeRelays: [], metadata: null };
+    }
+
+    const event = events[0];
+    const read: string[] = [];
+    const write: string[] = [];
+    const both: string[] = [];
+
+    // Parse all relay tags
+    event.tags.forEach(tag => {
+      if (tag[0] === 'r') {
+        const relay = tag[1];
+        const permission = tag[2];
+
+        if (!permission) {
+          both.push(relay);
+        } else if (permission === 'read') {
+          read.push(relay);
+        } else if (permission === 'write') {
+          write.push(relay);
+        }
+      }
+    });
+
+    // Extract write relays (both + write)
+    const writeRelays = [...both, ...write];
+
+    return {
+      writeRelays,
+      metadata: {
+        read,
+        write,
+        both,
+        timestamp: event.created_at
+      }
+    };
+  } catch (error) {
+    console.error('Failed to fetch relay list from Nostr:', error);
+    return { writeRelays: [], metadata: null };
+  }
+}
+
+// Get best relay list - tries Nostr first, falls back to NIP-07, then defaults
+// Returns both the relay URLs and the full metadata (if available from NIP-65)
+export async function getBestRelayList(pubkey: string): Promise<{
+  relays: string[];
+  metadata: { read: string[]; write: string[]; both: string[]; timestamp: number } | null;
+}> {
+  // Try fetching from Nostr first (most accurate, matches what clients like Jumble show)
+  const result = await fetchRelayListFromNostr(pubkey);
+  if (result.writeRelays.length > 0) {
+    console.log('Using relay list from Nostr (NIP-65):', result.writeRelays);
+    return { relays: result.writeRelays, metadata: result.metadata };
+  }
+
+  // Fall back to NIP-07 extension relays
+  const nip07Relays = await getNip07Relays();
+  if (nip07Relays.length > 0 && nip07Relays !== DEFAULT_RELAYS) {
+    console.log('Using relay list from NIP-07 extension:', nip07Relays);
+    return { relays: nip07Relays, metadata: null };
+  }
+
+  // Last resort: use defaults
+  console.log('Using default relay list');
+  return { relays: DEFAULT_RELAYS, metadata: null };
+}
+
 // Fetch user's mute list (kind:10000)
 export async function fetchMuteList(
   pubkey: string,
@@ -105,8 +204,64 @@ export async function fetchMuteList(
   return events.length > 0 ? events[0] : null;
 }
 
-// Parse mute list event into structured data
-export function parseMuteListEvent(event: Event): MuteList {
+// Decrypt private mutes from content field using NIP-07 extension
+async function decryptPrivateMutes(encryptedContent: string, authorPubkey: string): Promise<MuteList> {
+  const privateMutes: MuteList = {
+    pubkeys: [],
+    words: [],
+    tags: [],
+    threads: []
+  };
+
+  if (!encryptedContent || encryptedContent.trim() === '') {
+    return privateMutes;
+  }
+
+  try {
+    // Use NIP-07 extension for decryption
+    if (!hasNip07() || !window.nostr) {
+      console.warn('NIP-07 extension not available for decryption');
+      return privateMutes;
+    }
+
+    // NIP-04 decryption via NIP-07
+    const decrypted = await window.nostr.nip04?.decrypt(authorPubkey, encryptedContent);
+    if (!decrypted) {
+      console.warn('No nip04.decrypt method available in NIP-07 extension');
+      return privateMutes;
+    }
+
+    const privateTags = JSON.parse(decrypted) as string[][];
+
+    for (const tag of privateTags) {
+      const [tagType, value, ...rest] = tag;
+      const reason = rest.find(item => !item.startsWith('wss://'));
+
+      switch (tagType) {
+        case 'p':
+          privateMutes.pubkeys.push({ type: 'pubkey', value, reason, private: true });
+          break;
+        case 'word':
+          privateMutes.words.push({ type: 'word', value, reason, private: true });
+          break;
+        case 't':
+          privateMutes.tags.push({ type: 'tag', value, reason, private: true });
+          break;
+        case 'e':
+          privateMutes.threads.push({ type: 'thread', value, reason, private: true });
+          break;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to decrypt private mutes:', error);
+  }
+
+  return privateMutes;
+}
+
+// Parse mute list event into structured data (handles both public and private mutes)
+// If skipCategoryTags is true, 't' tags are skipped (used for kind 30001 public lists where 't' = category, not muted hashtag)
+export async function parseMuteListEvent(event: Event, skipCategoryTags: boolean = false): Promise<MuteList> {
   const muteList: MuteList = {
     pubkeys: [],
     words: [],
@@ -114,30 +269,66 @@ export function parseMuteListEvent(event: Event): MuteList {
     threads: []
   };
 
+  // Parse public mutes from tags
   for (const tag of event.tags) {
     const [tagType, value, ...rest] = tag;
     const reason = rest.find(item => !item.startsWith('wss://'));
 
     switch (tagType) {
       case 'p':
-        muteList.pubkeys.push({ type: 'pubkey', value, reason });
+        muteList.pubkeys.push({ type: 'pubkey', value, reason, private: false });
         break;
       case 'word':
-        muteList.words.push({ type: 'word', value, reason });
+        muteList.words.push({ type: 'word', value, reason, private: false });
         break;
       case 't':
-        muteList.tags.push({ type: 'tag', value, reason });
+        // For kind 30001 (public lists), 't' tags are categories, not muted hashtags
+        if (!skipCategoryTags) {
+          muteList.tags.push({ type: 'tag', value, reason, private: false });
+        }
         break;
       case 'e':
-        muteList.threads.push({ type: 'thread', value, reason });
+        muteList.threads.push({ type: 'thread', value, reason, private: false });
         break;
+    }
+  }
+
+  // Parse private mutes from encrypted content (if any)
+  if (event.content && event.content.trim() !== '') {
+    try {
+      const privateMutes = await decryptPrivateMutes(event.content, event.pubkey);
+      muteList.pubkeys.push(...privateMutes.pubkeys);
+      muteList.words.push(...privateMutes.words);
+      muteList.tags.push(...privateMutes.tags);
+      muteList.threads.push(...privateMutes.threads);
+    } catch (error) {
+      console.error('Failed to parse private mutes:', error);
     }
   }
 
   return muteList;
 }
 
-// Convert mute list to event tags
+// Separate mute list into public and private items
+function separateMuteList(muteList: MuteList): { publicList: MuteList; privateList: MuteList } {
+  const publicList: MuteList = {
+    pubkeys: muteList.pubkeys.filter(item => !item.private),
+    words: muteList.words.filter(item => !item.private),
+    tags: muteList.tags.filter(item => !item.private),
+    threads: muteList.threads.filter(item => !item.private)
+  };
+
+  const privateList: MuteList = {
+    pubkeys: muteList.pubkeys.filter(item => item.private),
+    words: muteList.words.filter(item => item.private),
+    tags: muteList.tags.filter(item => item.private),
+    threads: muteList.threads.filter(item => item.private)
+  };
+
+  return { publicList, privateList };
+}
+
+// Convert mute list to event tags (only public items)
 export function muteListToTags(muteList: MuteList): string[][] {
   const tags: string[][] = [];
 
@@ -168,17 +359,50 @@ export function muteListToTags(muteList: MuteList): string[][] {
   return tags;
 }
 
-// Publish mute list
+// Encrypt private mutes for content field using NIP-07 extension
+async function encryptPrivateMutes(privateList: MuteList, recipientPubkey: string): Promise<string> {
+  const privateTags = muteListToTags(privateList);
+
+  if (privateTags.length === 0) {
+    return '';
+  }
+
+  try {
+    // Use NIP-07 extension for encryption
+    if (!hasNip07() || !window.nostr?.nip04) {
+      throw new Error('NIP-07 extension or nip04 methods not available');
+    }
+
+    // NIP-04 encryption via NIP-07 (encrypt to yourself)
+    const encrypted = await window.nostr.nip04.encrypt(recipientPubkey, JSON.stringify(privateTags));
+    return encrypted;
+  } catch (error) {
+    console.error('Failed to encrypt private mutes:', error);
+    throw new Error('Failed to encrypt private mutes: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+}
+
+// Publish mute list (handles both public and private mutes)
 export async function publishMuteList(
   muteList: MuteList,
   relays: string[] = DEFAULT_RELAYS
 ): Promise<Event> {
-  const tags = muteListToTags(muteList);
+  // Get current user's pubkey for encryption
+  const userPubkey = await getNip07Pubkey();
+
+  // Separate public and private items
+  const { publicList, privateList } = separateMuteList(muteList);
+
+  // Convert public items to tags
+  const tags = muteListToTags(publicList);
+
+  // Encrypt private items for content field
+  const encryptedContent = await encryptPrivateMutes(privateList, userPubkey);
 
   const eventTemplate: EventTemplate = {
     kind: MUTE_LIST_KIND,
     tags,
-    content: '',
+    content: encryptedContent,
     created_at: Math.floor(Date.now() / 1000)
   };
 
@@ -216,20 +440,91 @@ export async function searchPublicListsByName(
   });
 }
 
+// Fetch all public community packs with namespace filtering
+export async function fetchAllPublicPacks(
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 100,
+  category?: PackCategory,
+  includeUntagged: boolean = false,
+  includeNostrguard: boolean = true  // NEW: Include nostrguard packs by default
+): Promise<Event[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  // If includeUntagged is true, fetch both namespaced and non-namespaced packs
+  if (includeUntagged) {
+    const filter: any = {
+      kinds: [PUBLIC_LIST_KIND],
+      limit
+    };
+
+    // Add category filter if specified
+    if (category) {
+      filter['#t'] = [category];
+    }
+
+    return await pool.querySync(expandedRelays, filter);
+  }
+
+  // Fetch packs with namespace filtering
+  const namespaces = [PACK_NAMESPACE];  // Always include mutable
+  if (includeNostrguard) {
+    namespaces.push(NOSTRGUARD_NAMESPACE);  // Optionally include nostrguard
+  }
+
+  const filter: any = {
+    kinds: [PUBLIC_LIST_KIND],
+    '#L': namespaces,
+    limit
+  };
+
+  // Add category filter if specified
+  if (category) {
+    filter['#t'] = [category];
+  }
+
+  console.log('Fetching community packs with filter:', filter);
+  const events = await pool.querySync(expandedRelays, filter);
+  console.log(`Found ${events.length} community pack events (mutable + nostrguard)`);
+
+  return events;
+}
+
 // Parse public list event
-export function parsePublicListEvent(event: Event) {
+// Supports both mutable format (using "name" tag) and nostrguard format (using "title" tag)
+export async function parsePublicListEvent(event: Event) {
   const dTag = event.tags.find(tag => tag[0] === 'd')?.[1] || '';
-  const nameTag = event.tags.find(tag => tag[0] === 'name')?.[1] || dTag;
+
+  // Support both "name" (mutable) and "title" (nostrguard) tags for display name
+  const nameTag = event.tags.find(tag => tag[0] === 'name')?.[1];
+  const titleTag = event.tags.find(tag => tag[0] === 'title')?.[1];
+  const displayName = nameTag || titleTag || dTag;  // Fallback chain
+
   const descTag = event.tags.find(tag => tag[0] === 'description')?.[1];
+
+  // Check which namespace this pack belongs to
+  const namespaceTag = event.tags.find(tag => tag[0] === 'L')?.[1];
+  const isMutablePack = namespaceTag === PACK_NAMESPACE;
+  const isNostrguardPack = namespaceTag === NOSTRGUARD_NAMESPACE;
+
+  // Extract category tags (t tags)
+  const categories = event.tags
+    .filter(tag => tag[0] === 't')
+    .map(tag => tag[1])
+    .filter(cat => Object.values(PACK_CATEGORIES).includes(cat as PackCategory)) as PackCategory[];
 
   return {
     id: event.id,
     dTag,
-    name: nameTag,
+    name: displayName,
     description: descTag,
     author: event.pubkey,
     createdAt: event.created_at,
-    list: parseMuteListEvent(event)
+    list: await parseMuteListEvent(event, true),  // Skip 't' tags as they're categories in kind 30001
+    categories,
+    isMutablePack,  // Track whether this is a mutable-namespaced pack
+    isNostrguardPack,  // Track whether this is a nostrguard pack
+    namespace: namespaceTag  // Track the actual namespace
   };
 }
 
@@ -238,7 +533,8 @@ export async function publishPublicList(
   name: string,
   description: string,
   muteList: MuteList,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  categories: PackCategory[] = []
 ): Promise<Event> {
   const tags = muteListToTags(muteList);
   tags.unshift(['d', name]);
@@ -246,6 +542,15 @@ export async function publishPublicList(
   if (description) {
     tags.push(['description', description]);
   }
+
+  // Add namespace tags for community pack discoverability
+  tags.push(['L', PACK_NAMESPACE]);
+  tags.push(['l', PACK_CATEGORY, PACK_NAMESPACE]);
+
+  // Add category tags
+  categories.forEach(category => {
+    tags.push(['t', category]);
+  });
 
   const eventTemplate: EventTemplate = {
     kind: PUBLIC_LIST_KIND,
@@ -390,10 +695,15 @@ export async function fetchFollowList(
 ): Promise<Event | null> {
   const pool = getPool();
 
-  // Try with expanded relay list for better coverage
-  const expandedRelays = getExpandedRelayList(relays);
+  // Use only the user's configured relays (not expanded with defaults)
+  // This ensures we query their actual relays where their follow list is stored
 
-  const events = await pool.querySync(expandedRelays, {
+  // Wait a moment for relay connections to stabilize before querying
+  if (retries === 0) {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  const events = await pool.querySync(relays, {
     kinds: [FOLLOW_LIST_KIND],
     authors: [pubkey],
     limit: 1
