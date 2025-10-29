@@ -8,17 +8,17 @@ export default function PrivacyControls() {
   const { muteList, bulkSetPrivacy } = useStore();
   const [showInfo, setShowInfo] = useState(true); // Default to visible
 
-  const publicCount =
-    muteList.pubkeys.filter(item => !item.private).length +
-    muteList.words.filter(item => !item.private).length +
-    muteList.tags.filter(item => !item.private).length +
-    muteList.threads.filter(item => !item.private).length;
+  const publicPubkeys = muteList.pubkeys.filter(item => !item.private).length;
+  const publicWords = muteList.words.filter(item => !item.private).length;
+  const publicTags = muteList.tags.filter(item => !item.private).length;
+  const publicThreads = muteList.threads.filter(item => !item.private).length;
+  const publicCount = publicPubkeys + publicWords + publicTags + publicThreads;
 
-  const privateCount =
-    muteList.pubkeys.filter(item => item.private).length +
-    muteList.words.filter(item => item.private).length +
-    muteList.tags.filter(item => item.private).length +
-    muteList.threads.filter(item => item.private).length;
+  const privatePubkeys = muteList.pubkeys.filter(item => item.private).length;
+  const privateWords = muteList.words.filter(item => item.private).length;
+  const privateTags = muteList.tags.filter(item => item.private).length;
+  const privateThreads = muteList.threads.filter(item => item.private).length;
+  const privateCount = privatePubkeys + privateWords + privateTags + privateThreads;
 
   const handleMakeAllPrivate = () => {
     if (confirm(`This will make all ${publicCount} public mutes private (encrypted). Continue?`)) {
@@ -132,8 +132,14 @@ export default function PrivacyControls() {
               More Compatible
             </span>
           </div>
-          <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-2">
+          <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
             {publicCount}
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+            {publicPubkeys} {publicPubkeys === 1 ? 'account' : 'accounts'}
+            {publicWords > 0 && `, ${publicWords} ${publicWords === 1 ? 'word' : 'words'}`}
+            {publicTags > 0 && `, ${publicTags} ${publicTags === 1 ? 'tag' : 'tags'}`}
+            {publicThreads > 0 && `, ${publicThreads} ${publicThreads === 1 ? 'thread' : 'threads'}`}
           </p>
           <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
             Visible to everyone
@@ -161,8 +167,14 @@ export default function PrivacyControls() {
               Less Compatible
             </span>
           </div>
-          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mb-2">
+          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mb-1">
             {privateCount}
+          </p>
+          <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">
+            {privatePubkeys} {privatePubkeys === 1 ? 'account' : 'accounts'}
+            {privateWords > 0 && `, ${privateWords} ${privateWords === 1 ? 'word' : 'words'}`}
+            {privateTags > 0 && `, ${privateTags} ${privateTags === 1 ? 'tag' : 'tags'}`}
+            {privateThreads > 0 && `, ${privateThreads} ${privateThreads === 1 ? 'thread' : 'threads'}`}
           </p>
           <p className="text-sm text-purple-800 dark:text-purple-200 mb-3">
             Encrypted (only you can see)

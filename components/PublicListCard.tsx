@@ -15,10 +15,11 @@ interface PublicListCardProps {
 
 export default function PublicListCard({ list }: PublicListCardProps) {
   const { session } = useAuth();
-  const { muteList, setMuteList, setHasUnsavedChanges, getNewItemsCount, markPackItemsAsImported } = useStore();
+  const { muteList, setMuteList, setHasUnsavedChanges, getNewItemsCount, markPackItemsAsImported, isBlacklisted } = useStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [skippedBlacklisted, setSkippedBlacklisted] = useState(0);
   const [creatorProfile, setCreatorProfile] = useState<Profile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [pubkeyProfiles, setPubkeyProfiles] = useState<Map<string, Profile>>(new Map());
@@ -101,11 +102,19 @@ export default function PublicListCard({ list }: PublicListCardProps) {
   const handleConfirmImport = async () => {
     // Merge the public list with the user's current mute list
     const itemsToImport: string[] = [];
+    let skippedBlacklistedCount = 0;
 
     const newMuteList = {
       pubkeys: [
         ...muteList.pubkeys,
         ...(list.list.pubkeys || []).filter((item) => {
+          // Skip blacklisted pubkeys
+          if (isBlacklisted(item.value)) {
+            skippedBlacklistedCount++;
+            console.log(`Skipping blacklisted pubkey during pack import: ${item.value.substring(0, 8)}...`);
+            return false;
+          }
+
           const exists = muteList.pubkeys.some((existing) => existing.value === item.value);
           if (!exists) itemsToImport.push(item.value);
           return !exists;
@@ -140,8 +149,14 @@ export default function PublicListCard({ list }: PublicListCardProps) {
     setMuteList(newMuteList);
     setHasUnsavedChanges(true);
     markPackItemsAsImported(list.id, itemsToImport);
+    setSkippedBlacklisted(skippedBlacklistedCount);
     setImportSuccess(true);
-    setTimeout(() => setImportSuccess(false), 3000);
+
+    // Clear success message and reset skipped count after 5 seconds
+    setTimeout(() => {
+      setImportSuccess(false);
+      setSkippedBlacklisted(0);
+    }, 5000);
   };
 
   const formatDate = (timestamp: number) => {
@@ -307,6 +322,15 @@ export default function PublicListCard({ list }: PublicListCardProps) {
             <div className="mt-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 <strong>{newItemsCount}</strong> new {newItemsCount === 1 ? 'item' : 'items'} available to import
+              </p>
+            </div>
+          )}
+
+          {/* Blacklisted accounts skipped notification */}
+          {skippedBlacklisted > 0 && (
+            <div className="mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>{skippedBlacklisted}</strong> blacklisted {skippedBlacklisted === 1 ? 'account' : 'accounts'} skipped during import (removed via List Cleaner)
               </p>
             </div>
           )}

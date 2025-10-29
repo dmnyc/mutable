@@ -15,7 +15,12 @@ export const DEFAULT_RELAYS = [
   'wss://relay.primal.net',
   'wss://nos.lol',
   'wss://relay.nostr.band',
-  'wss://nostr.wine'
+  'wss://nostr.wine',
+  'wss://relay.snort.social',
+  'wss://nostr.mom',
+  'wss://purplepag.es',
+  'wss://relay.current.fyi',
+  'wss://nostr-pub.wellorder.net'
 ];
 
 // Get expanded relay list by combining user's relays with defaults
@@ -1052,4 +1057,275 @@ export async function getFollowListPubkeys(
   return followListEvent.tags
     .filter(tag => tag[0] === 'p' && tag[1])
     .map(tag => tag[1]);
+}
+
+// ============================================================================
+// LIST CLEANER - ACCOUNT ACTIVITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Check account activity status for a single pubkey
+ * Queries multiple event kinds to determine if account is active or abandoned
+ * Uses aggressive retry strategy similar to plebs-vs-zombies
+ *
+ * @param pubkey - Hex pubkey to check
+ * @param relays - Relays to query
+ * @param inactivityThresholdDays - Number of days to consider as inactive (default: 180)
+ * @returns AccountActivityStatus object with activity details
+ */
+export async function checkAccountActivity(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  inactivityThresholdDays: number = 180
+): Promise<import('@/types').AccountActivityStatus> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  let events: any[] = [];
+
+  try {
+    // STRATEGY 1: Comprehensive search across all event kinds
+    // Query for recent events across MANY kinds to determine activity (comprehensive like plebs-vs-zombies)
+    // This includes: profiles, notes, channels, DMs, reactions, reposts, zaps, lists, long-form content, etc.
+    console.log(`🔍 Strategy 1: Comprehensive search for ${pubkey.substring(0, 8)}... across ${expandedRelays.length} relays`);
+
+    events = await pool.querySync(expandedRelays, {
+      kinds: [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 40, 41, 42, 43, 44,
+        1063, 1311, 1984, 1985, 9734, 9735, 10000, 10001, 10002,
+        30000, 30001, 30008, 30009, 30017, 30018, 30023, 30024,
+        31890, 31922, 31923, 31924, 31925, 31989, 31990, 34550
+      ],
+      authors: [pubkey],
+      limit: 500 // Higher limit to catch more events
+      // No 'since' filter - we want to find the MOST RECENT activity regardless of when it was
+    });
+
+    console.log(`   ✓ Strategy 1: Found ${events.length} events for ${pubkey.substring(0, 8)}...`);
+
+    // STRATEGY 2: If we found less than 5 events, try a more focused search for common activity
+    // Sometimes comprehensive searches miss things, so try specific kinds separately
+    if (events.length < 5) {
+      console.log(`🔍 Strategy 2: Focused search for ${pubkey.substring(0, 8)}... (found only ${events.length} so far)`);
+
+      // Try kind 1 (notes) separately - most common activity
+      const noteEvents = await pool.querySync(expandedRelays, {
+        kinds: [1],
+        authors: [pubkey],
+        limit: 100
+      });
+      console.log(`   ✓ Strategy 2a: Found ${noteEvents.length} notes`);
+
+      // Try kind 6 (reposts) separately
+      const repostEvents = await pool.querySync(expandedRelays, {
+        kinds: [6],
+        authors: [pubkey],
+        limit: 100
+      });
+      console.log(`   ✓ Strategy 2b: Found ${repostEvents.length} reposts`);
+
+      // Try kind 7 (reactions) separately
+      const reactionEvents = await pool.querySync(expandedRelays, {
+        kinds: [7],
+        authors: [pubkey],
+        limit: 100
+      });
+      console.log(`   ✓ Strategy 2c: Found ${reactionEvents.length} reactions`);
+
+      // Combine all results
+      const allEvents = [...events, ...noteEvents, ...repostEvents, ...reactionEvents];
+      // Deduplicate by event id
+      const uniqueEvents = Array.from(new Map(allEvents.map(e => [e.id, e])).values());
+      events = uniqueEvents;
+      console.log(`   ✓ Strategy 2: Combined total ${events.length} unique events`);
+    }
+
+    // STRATEGY 3: If still nothing, try JUST profile with no limit
+    if (events.length === 0) {
+      console.log(`🔍 Strategy 3: Last resort profile search for ${pubkey.substring(0, 8)}...`);
+      events = await pool.querySync(expandedRelays, {
+        kinds: [0], // Just profiles
+        authors: [pubkey]
+        // No limit - get everything
+      });
+      console.log(`   ✓ Strategy 3: Found ${events.length} profile events`);
+    }
+
+    if (events.length === 0) {
+      // No events found after all strategies - likely deleted or never existed
+      console.log(`❌ No events found for ${pubkey.substring(0, 8)}... after all strategies`);
+      return {
+        pubkey,
+        lastActivityTimestamp: null,
+        lastActivityType: null,
+        daysInactive: null,
+        hasProfile: false,
+        isLikelyAbandoned: true
+      };
+    }
+
+    // Find the most recent event
+    const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+    const latestEvent = sortedEvents[0];
+    const lastActivityTimestamp = latestEvent.created_at;
+
+    console.log(`✅ Found activity for ${pubkey.substring(0, 8)}...: ${events.length} events, most recent ${Math.floor((Date.now() / 1000 - lastActivityTimestamp) / 86400)} days ago (kind ${latestEvent.kind})`);
+
+    // Determine event type (comprehensive mapping)
+    const kindToType: Record<number, string> = {
+      0: 'profile',
+      1: 'note',
+      2: 'recommend_relay',
+      3: 'follows',
+      4: 'encrypted_dm',
+      5: 'event_deletion',
+      6: 'repost',
+      7: 'reaction',
+      8: 'badge_award',
+      9: 'group_chat_message',
+      10: 'group_chat_threaded_reply',
+      11: 'group_thread',
+      12: 'group_thread_reply',
+      40: 'channel_create',
+      41: 'channel_metadata',
+      42: 'channel_message',
+      43: 'channel_hide_message',
+      44: 'channel_mute_user',
+      1063: 'file_metadata',
+      1311: 'live_chat_message',
+      1984: 'reporting',
+      1985: 'label',
+      9734: 'zap_request',
+      9735: 'zap',
+      10000: 'mute_list',
+      10001: 'pin_list',
+      10002: 'relay_list',
+      30000: 'categorized_people',
+      30001: 'categorized_bookmarks',
+      30008: 'profile_badges',
+      30009: 'badge_definition',
+      30017: 'create_or_update_stall',
+      30018: 'create_or_update_product',
+      30023: 'long_form_content',
+      30024: 'draft_long_form_content',
+      31890: 'feed',
+      31922: 'date_based_calendar_event',
+      31923: 'time_based_calendar_event',
+      31924: 'calendar',
+      31925: 'calendar_event_rsvp',
+      31989: 'handler_recommendation',
+      31990: 'handler_information',
+      34550: 'community_post_approval'
+    };
+    const lastActivityType = kindToType[latestEvent.kind] || `kind_${latestEvent.kind}`;
+
+    // Check if they have a profile
+    const hasProfile = events.some(e => e.kind === 0);
+
+    // Calculate days inactive
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const secondsInactive = nowSeconds - lastActivityTimestamp;
+    const daysInactive = Math.floor(secondsInactive / 86400);
+
+    // Determine if likely abandoned
+    const isLikelyAbandoned = daysInactive >= inactivityThresholdDays;
+
+    return {
+      pubkey,
+      lastActivityTimestamp,
+      lastActivityType,
+      daysInactive,
+      hasProfile,
+      isLikelyAbandoned
+    };
+  } catch (error) {
+    console.error(`Failed to check activity for ${pubkey}:`, error);
+    // On error, assume account exists but we couldn't verify
+    return {
+      pubkey,
+      lastActivityTimestamp: null,
+      lastActivityType: null,
+      daysInactive: null,
+      hasProfile: false,
+      isLikelyAbandoned: false // Don't mark as abandoned if we had an error
+    };
+  }
+}
+
+/**
+ * Batch check account activity for multiple pubkeys
+ * Processes in batches with progress tracking and abort capability
+ *
+ * @param pubkeys - Array of hex pubkeys to check
+ * @param relays - Relays to query
+ * @param inactivityThresholdDays - Number of days to consider as inactive (default: 180)
+ * @param onProgress - Optional callback for progress updates (current, total)
+ * @param abortSignal - Optional AbortSignal to cancel operation
+ * @returns Array of AccountActivityStatus objects
+ */
+export async function batchCheckAccountActivity(
+  pubkeys: string[],
+  relays: string[] = DEFAULT_RELAYS,
+  inactivityThresholdDays: number = 180,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal
+): Promise<import('@/types').AccountActivityStatus[]> {
+  const results: import('@/types').AccountActivityStatus[] = [];
+  const BATCH_SIZE = 5; // Process only 5 accounts at a time to avoid overwhelming relays
+
+  console.log(`🚀 Starting batch account activity check for ${pubkeys.length} accounts`);
+  console.log(`   Inactivity threshold: ${inactivityThresholdDays} days`);
+  console.log(`   Batch size: ${BATCH_SIZE} accounts per batch`);
+  console.log(`   Relays: ${relays.length} relays will be queried`);
+
+  for (let i = 0; i < pubkeys.length; i += BATCH_SIZE) {
+    // Check if operation was aborted
+    if (abortSignal?.aborted) {
+      console.log(`⏸️  Batch check aborted after processing ${results.length}/${pubkeys.length} accounts`);
+      break;
+    }
+
+    const batch = pubkeys.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(pubkeys.length / BATCH_SIZE);
+
+    console.log(`\n📦 Batch ${batchNum}/${totalBatches}: Processing ${batch.length} accounts...`);
+
+    // Process batch in parallel using Promise.allSettled for error tolerance
+    const batchPromises = batch.map(pubkey =>
+      checkAccountActivity(pubkey, relays, inactivityThresholdDays)
+    );
+
+    const batchResults = await Promise.allSettled(batchPromises);
+
+    // Extract successful results
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.push(result.value);
+      } else {
+        console.error('❌ Failed to check account:', result.reason);
+      }
+    }
+
+    // Report progress
+    if (onProgress) {
+      onProgress(results.length, pubkeys.length);
+    }
+
+    console.log(`✅ Batch ${batchNum} complete: ${results.length}/${pubkeys.length} total accounts processed`);
+
+    // Longer delay between batches to avoid overwhelming relays
+    if (i + BATCH_SIZE < pubkeys.length && !abortSignal?.aborted) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+    }
+  }
+
+  console.log(`Batch check complete: Processed ${results.length}/${pubkeys.length} accounts`);
+
+  // Summary statistics
+  const abandoned = results.filter(r => r.isLikelyAbandoned).length;
+  const noProfile = results.filter(r => !r.hasProfile).length;
+  console.log(`Summary: ${abandoned} likely abandoned, ${noProfile} without profiles`);
+
+  return results;
 }

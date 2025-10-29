@@ -135,3 +135,13 @@ export interface MutealResult {
   isFollowing: boolean;
   eventId: string; // the mute list event id
 }
+
+// Account activity status (for cleanup/inactive detection)
+export interface AccountActivityStatus {
+  pubkey: string;
+  lastActivityTimestamp: number | null;
+  lastActivityType: string | null; // 'profile', 'note', 'reaction', etc.
+  daysInactive: number | null;
+  hasProfile: boolean;
+  isLikelyAbandoned: boolean;
+}

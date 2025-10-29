@@ -11,6 +11,7 @@ import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
 import Backups from '@/components/Backups';
 import Settings from '@/components/Settings';
+import ListCleaner from '@/components/ListCleaner';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -134,7 +135,11 @@ export default function Dashboard() {
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
-            <div className="flex items-center space-x-3 flex-shrink-0">
+            <button
+              onClick={() => setActiveTab('myList')}
+              className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
+              title="Go to My Mute List"
+            >
               <Image
                 src="/mutable_logo.svg"
                 alt="Mutable"
@@ -148,7 +153,7 @@ export default function Dashboard() {
                 height={24}
                 className="hidden sm:block"
               />
-            </div>
+            </button>
 
             {/* Global Search */}
             <GlobalUserSearch onSelectUser={handleUserSelect} />
@@ -178,8 +183,8 @@ export default function Dashboard() {
                         {userProfile.display_name || userProfile.name || 'Anonymous'}
                       </span>
                       {userProfile.nip05 && (
-                        <span className="text-xs text-green-600 dark:text-green-400">
-                          ✓ {userProfile.nip05}
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {userProfile.nip05}
                         </span>
                       )}
                     </>
@@ -263,6 +268,16 @@ export default function Dashboard() {
               Backups
             </button>
             <button
+              onClick={() => setActiveTab('listCleaner')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'listCleaner'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              List Cleaner
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'settings'
@@ -282,6 +297,7 @@ export default function Dashboard() {
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
         {activeTab === 'backups' && <Backups />}
+        {activeTab === 'listCleaner' && <ListCleaner />}
         {activeTab === 'settings' && <Settings />}
       </main>
 

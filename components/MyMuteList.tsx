@@ -109,7 +109,10 @@ export default function MyMuteList() {
               My Mute List
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {totalMutedItems} {totalMutedItems === 1 ? 'item' : 'items'} muted
+              {muteList.pubkeys.length} {muteList.pubkeys.length === 1 ? 'account' : 'accounts'}
+              {muteList.words.length > 0 && `, ${muteList.words.length} ${muteList.words.length === 1 ? 'word' : 'words'}`}
+              {muteList.tags.length > 0 && `, ${muteList.tags.length} ${muteList.tags.length === 1 ? 'tag' : 'tags'}`}
+              {muteList.threads.length > 0 && `, ${muteList.threads.length} ${muteList.threads.length === 1 ? 'thread' : 'threads'}`}
               {hasUnsavedChanges && (
                 <span className="ml-2 text-amber-600 dark:text-amber-500">
                   (Unsaved changes)

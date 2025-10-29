@@ -19,9 +19,12 @@ interface AppState {
   importedPackItems: Record<string, Set<string>>; // packId -> Set of imported item values
 
   // UI state
-  activeTab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings';
+  activeTab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings' | 'listCleaner';
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
+
+  // Blacklist state (for preventing re-import of removed inactive accounts)
+  blacklistedPubkeys: Set<string>;
 
   // Actions
   setAuthState: (state: AuthState) => void;
@@ -35,9 +38,15 @@ interface AppState {
   getImportedCount: (packId: string) => number;
   getNewItemsCount: (pack: PublicMuteList) => number;
   markPackItemsAsImported: (packId: string, items: string[]) => void;
-  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings') => void;
+  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings' | 'listCleaner') => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
+
+  // Blacklist operations
+  addToBlacklist: (pubkey: string) => void;
+  removeFromBlacklist: (pubkey: string) => void;
+  clearBlacklist: () => void;
+  isBlacklisted: (pubkey: string) => boolean;
 
   // Mute list operations
   addMutedItem: (item: MuteList[keyof MuteList][0], category: keyof MuteList) => void;
@@ -58,6 +67,23 @@ const initialMuteList: MuteList = {
   threads: []
 };
 
+// Load blacklist from localStorage on initialization
+const loadBlacklistFromStorage = (): Set<string> => {
+  if (typeof window === 'undefined') return new Set<string>();
+
+  try {
+    const stored = localStorage.getItem('mutable_blacklisted_pubkeys');
+    if (stored) {
+      const array = JSON.parse(stored);
+      return new Set<string>(array);
+    }
+  } catch (error) {
+    console.error('Failed to load blacklist from localStorage:', error);
+  }
+
+  return new Set<string>();
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -74,6 +100,7 @@ export const useStore = create<AppState>()(
       activeTab: 'myList',
       showAuthModal: false,
       hasCompletedOnboarding: false,
+      blacklistedPubkeys: loadBlacklistFromStorage(),
 
       // Auth actions
       setAuthState: (state) => set({ authState: state }),
@@ -186,6 +213,41 @@ export const useStore = create<AppState>()(
         newList.threads = newList.threads.map(item => ({ ...item, private: isPrivate }));
         return { muteList: newList, hasUnsavedChanges: true };
       }),
+
+      // Blacklist operations
+      addToBlacklist: (pubkey) => set((state) => {
+        const newBlacklist = new Set(state.blacklistedPubkeys);
+        newBlacklist.add(pubkey);
+        // Persist to localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mutable_blacklisted_pubkeys', JSON.stringify(Array.from(newBlacklist)));
+        }
+        return { blacklistedPubkeys: newBlacklist };
+      }),
+
+      removeFromBlacklist: (pubkey) => set((state) => {
+        const newBlacklist = new Set(state.blacklistedPubkeys);
+        newBlacklist.delete(pubkey);
+        // Persist to localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mutable_blacklisted_pubkeys', JSON.stringify(Array.from(newBlacklist)));
+        }
+        return { blacklistedPubkeys: newBlacklist };
+      }),
+
+      clearBlacklist: () => set(() => {
+        const newBlacklist = new Set<string>();
+        // Persist to localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mutable_blacklisted_pubkeys', JSON.stringify([]));
+        }
+        return { blacklistedPubkeys: newBlacklist };
+      }),
+
+      isBlacklisted: (pubkey) => {
+        const state = get();
+        return state.blacklistedPubkeys.has(pubkey);
+      },
 
       // Clear/reset
       clearSession: () => set({
