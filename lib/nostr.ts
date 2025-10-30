@@ -626,6 +626,154 @@ export async function fetchProfile(
   }
 }
 
+// Primal cache WebSocket connection
+let primalWs: WebSocket | null = null;
+let primalConnected = false;
+let primalConnecting = false;
+const primalPendingRequests = new Map<string, {
+  resolve: (value: any[]) => void;
+  reject: (reason?: any) => void;
+  timeout: NodeJS.Timeout;
+  results: any[];
+}>();
+
+// Connect to Primal cache
+async function connectToPrimal(): Promise<boolean> {
+  if (primalConnected) {
+    return true;
+  }
+
+  if (primalConnecting) {
+    // Wait for existing connection attempt
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (primalConnected || !primalConnecting) {
+          clearInterval(checkInterval);
+          resolve(primalConnected);
+        }
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        resolve(false);
+      }, 5000);
+    });
+  }
+
+  primalConnecting = true;
+
+  try {
+    const endpoint = 'wss://cache2.primal.net/v1';
+    console.log(`🔍 Connecting to Primal cache: ${endpoint}`);
+
+    return await new Promise((resolve, reject) => {
+      primalWs = new WebSocket(endpoint);
+
+      const connectionTimeout = setTimeout(() => {
+        if (!primalConnected) {
+          primalWs?.close();
+          reject(new Error('Connection timeout'));
+        }
+      }, 5000);
+
+      primalWs.onopen = () => {
+        clearTimeout(connectionTimeout);
+        primalConnected = true;
+        primalConnecting = false;
+        console.log('✅ Connected to Primal cache');
+        resolve(true);
+      };
+
+      primalWs.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const [type, requestId, payload] = message;
+
+          if (type === 'EVENT' && primalPendingRequests.has(requestId)) {
+            const request = primalPendingRequests.get(requestId)!;
+            if (payload && payload.kind === 0) {
+              request.results.push(payload);
+            }
+          }
+
+          if (type === 'EOSE' && primalPendingRequests.has(requestId)) {
+            const request = primalPendingRequests.get(requestId)!;
+            clearTimeout(request.timeout);
+            request.resolve(request.results);
+            primalPendingRequests.delete(requestId);
+          }
+
+          if (type === 'NOTICE' && primalPendingRequests.has(requestId)) {
+            const request = primalPendingRequests.get(requestId)!;
+            clearTimeout(request.timeout);
+            request.reject(new Error(`Primal cache error: ${payload}`));
+            primalPendingRequests.delete(requestId);
+          }
+        } catch (error) {
+          console.error('Failed to parse Primal cache message:', error);
+        }
+      };
+
+      primalWs.onerror = (error) => {
+        clearTimeout(connectionTimeout);
+        console.error('❌ Primal cache WebSocket error:', error);
+        primalConnected = false;
+        primalConnecting = false;
+        reject(error);
+      };
+
+      primalWs.onclose = () => {
+        console.log('🔌 Primal cache connection closed');
+        primalConnected = false;
+        primalConnecting = false;
+      };
+    });
+  } catch (error) {
+    primalConnecting = false;
+    return false;
+  }
+}
+
+// Search Primal cache
+async function searchPrimalCache(query: string, limit: number): Promise<any[]> {
+  const connected = await connectToPrimal();
+  if (!connected) {
+    throw new Error('Failed to connect to Primal cache');
+  }
+
+  const requestId = `primal_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      primalPendingRequests.delete(requestId);
+      reject(new Error('Search timeout'));
+    }, 5000);
+
+    primalPendingRequests.set(requestId, {
+      resolve,
+      reject,
+      timeout,
+      results: []
+    });
+
+    const searchQuery = [
+      "REQ",
+      requestId,
+      {
+        cache: [
+          "user_search",
+          {
+            query,
+            limit
+          }
+        ]
+      }
+    ];
+
+    primalWs!.send(JSON.stringify(searchQuery));
+  });
+}
+
 // Search profiles by query string (searches name, display_name, nip05)
 export async function searchProfiles(
   query: string,
@@ -650,19 +798,69 @@ export async function searchProfiles(
     return profile ? [profile] : [];
   }
 
-  // Otherwise, fetch recent profiles and filter by query
+  // Try Primal cache first for comprehensive search results
+  try {
+    console.log(`🔍 Searching Primal cache for "${query}"...`);
+    const primalResults = await searchPrimalCache(query, limit);
+
+    if (primalResults && primalResults.length > 0) {
+      console.log(`✅ Primal cache returned ${primalResults.length} results`);
+
+      const profiles: Profile[] = [];
+      for (const event of primalResults) {
+        try {
+          const metadata = JSON.parse(event.content);
+
+          // Filter out mostr.pub bridged profiles
+          if (metadata.nip05 && metadata.nip05.includes('mostr.pub')) {
+            continue;
+          }
+
+          const profile: Profile = {
+            pubkey: event.pubkey,
+            name: metadata.name,
+            display_name: metadata.display_name,
+            about: metadata.about,
+            picture: metadata.picture,
+            nip05: metadata.nip05,
+            lud16: metadata.lud16
+          };
+
+          profiles.push(profile);
+        } catch (error) {
+          continue;
+        }
+      }
+
+      return profiles;
+    }
+  } catch (error) {
+    console.warn('⚠️ Primal cache search failed, falling back to relay search:', error);
+  }
+
+  // Fallback: fetch recent profiles from relays and filter by query
   const pool = getPool();
   const events = await pool.querySync(relays, {
     kinds: [PROFILE_KIND],
-    limit: 500 // Fetch more to filter through
+    limit: 1000
   });
 
   const profiles: Profile[] = [];
   const queryLower = query.toLowerCase();
+  const queryWords = queryLower.split(/\s+/);
 
   for (const event of events) {
     try {
       const metadata = JSON.parse(event.content);
+
+      const name = (metadata.name || '').toLowerCase();
+      const displayName = (metadata.display_name || '').toLowerCase();
+      const nip05 = (metadata.nip05 || '').toLowerCase();
+
+      if (nip05.includes('mostr.pub')) {
+        continue;
+      }
+
       const profile: Profile = {
         pubkey: event.pubkey,
         name: metadata.name,
@@ -673,18 +871,29 @@ export async function searchProfiles(
         lud16: metadata.lud16
       };
 
-      // Check if query matches name, display_name, or nip05
-      const matchesName = profile.name?.toLowerCase().includes(queryLower);
-      const matchesDisplayName = profile.display_name?.toLowerCase().includes(queryLower);
-      const matchesNip05 = profile.nip05?.toLowerCase().includes(queryLower);
+      const nameWords = name.split(/\s+/);
+      const displayNameWords = displayName.split(/\s+/);
 
-      if (matchesName || matchesDisplayName || matchesNip05) {
+      const hasDirectMatch = name.includes(queryLower) ||
+                            displayName.includes(queryLower) ||
+                            nip05.includes(queryLower);
+
+      const hasWordMatch = queryWords.every(qWord =>
+        nameWords.some(nWord => nWord.includes(qWord)) ||
+        displayNameWords.some(dWord => dWord.includes(qWord))
+      );
+
+      const hasStartMatch = queryWords.every(qWord =>
+        nameWords.some(nWord => nWord.startsWith(qWord)) ||
+        displayNameWords.some(dWord => dWord.startsWith(qWord))
+      );
+
+      if (hasDirectMatch || hasWordMatch || hasStartMatch) {
         profiles.push(profile);
       }
 
       if (profiles.length >= limit) break;
     } catch (error) {
-      // Skip invalid profile JSON
       continue;
     }
   }
@@ -1064,8 +1273,8 @@ export async function getFollowListPubkeys(
 // ============================================================================
 
 /**
- * Check account activity status for a single pubkey
- * Queries multiple event kinds to determine if account is active or abandoned
+ * Check profile activity status for a single pubkey
+ * Queries multiple event kinds to determine if profile is active or abandoned
  * Uses aggressive retry strategy similar to plebs-vs-zombies
  *
  * @param pubkey - Hex pubkey to check
@@ -1253,7 +1462,7 @@ export async function checkAccountActivity(
 }
 
 /**
- * Batch check account activity for multiple pubkeys
+ * Batch check profile activity for multiple pubkeys
  * Processes in batches with progress tracking and abort capability
  *
  * @param pubkeys - Array of hex pubkeys to check

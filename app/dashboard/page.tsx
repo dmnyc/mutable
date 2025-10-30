@@ -15,17 +15,20 @@ import ListCleaner from '@/components/ListCleaner';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
+import UnsavedChangesBanner from '@/components/UnsavedChangesBanner';
+import PublishSuccessModal from '@/components/PublishSuccessModal';
 import { Profile } from '@/types';
 import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
 import { backupService } from '@/lib/backupService';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { session, isConnected, disconnect } = useAuth();
+  const { session, isConnected, disconnect, reloadMuteList } = useAuth();
   const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showPublishSuccess, setShowPublishSuccess] = useState(false);
 
   useEffect(() => {
     if (!isConnected) {
@@ -129,6 +132,38 @@ export default function Dashboard() {
     setShowOnboarding(false);
   };
 
+  const handlePublishFromBanner = async () => {
+    if (!session) return;
+
+    try {
+      const { publishMuteList } = await import('@/lib/nostr');
+      await publishMuteList(muteList, session.relays);
+      const { setHasUnsavedChanges } = useStore.getState();
+      setHasUnsavedChanges(false);
+      setShowPublishSuccess(true);
+    } catch (error) {
+      console.error('Failed to publish:', error);
+      alert('Failed to publish mute list. Please try again from the My Mute List tab.');
+    }
+  };
+
+  const handleDiscardFromBanner = async () => {
+    if (!session) return;
+
+    if (confirm('Are you sure you want to discard all unsaved changes? This will reload your mute list from Nostr.')) {
+      try {
+        await reloadMuteList();
+      } catch (error) {
+        console.error('Failed to reload mute list:', error);
+        alert('Failed to reload mute list. Please try again.');
+      }
+    }
+  };
+
+  const handleCleanFromBanner = () => {
+    setActiveTab('listCleaner');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -229,7 +264,7 @@ export default function Dashboard() {
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('myList')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'myList'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -239,7 +274,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab('publicLists')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'publicLists'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -249,7 +284,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab('muteuals')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'muteuals'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -259,7 +294,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab('backups')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'backups'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -269,7 +304,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab('listCleaner')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'listCleaner'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -279,7 +314,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'settings'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -290,6 +325,13 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Unsaved Changes Banner - Appears below navigation */}
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -317,6 +359,13 @@ export default function Dashboard() {
           onSkip={handleSkipOnboarding}
         />
       )}
+
+      {/* Publish Success Modal */}
+      <PublishSuccessModal
+        isOpen={showPublishSuccess}
+        onClose={() => setShowPublishSuccess(false)}
+        itemCount={muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length}
+      />
     </div>
   );
 }

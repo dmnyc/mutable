@@ -51,9 +51,9 @@ export default function PrivacyControls() {
         <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-start gap-3">
             <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm text-blue-900 dark:text-blue-200">
-              <div className="flex items-start justify-between mb-3">
-                <p className="font-semibold">Understanding Public vs Private Mutes</p>
+            <div className="flex-1 text-sm text-gray-900 dark:text-gray-200 space-y-3">
+              <div className="flex items-start justify-between">
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Understanding Public vs Private Mutes</p>
                 <button
                   onClick={() => setShowInfo(false)}
                   className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 underline ml-4"
@@ -62,56 +62,18 @@ export default function PrivacyControls() {
                 </button>
               </div>
 
-              {/* What they are */}
-              <div className="mb-3">
-                <p className="font-medium mb-1">What are they?</p>
-                <ul className="space-y-1 list-disc ml-4">
-                  <li>
-                    <strong>Public</strong>: Stored in event tags. Anyone can see who/what you've muted.
-                  </li>
-                  <li>
-                    <strong>Private</strong>: Encrypted using NIP-04. Only you can decrypt and see these mutes.
-                  </li>
-                </ul>
+              <div className="space-y-2">
+                <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
+
+                <p><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
+
+                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
+
+                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
               </div>
 
-              {/* Client Compatibility Warning */}
-              <div className="p-3 bg-red-100 dark:bg-red-900/40 border-2 border-red-400 dark:border-red-700 rounded mb-3">
-                <div className="flex items-start gap-2">
-                  <AlertCircle size={16} className="text-red-700 dark:text-red-300 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-red-900 dark:text-red-100 mb-2">🚨 Critical: Client Compatibility & Data Loss Risk</p>
-                    <ul className="space-y-2 list-disc ml-4 text-red-900 dark:text-red-100">
-                      <li>
-                        <strong>Public mutes work in ALL clients</strong> (Damus, Primal, Amethyst, Jumble, etc.)
-                      </li>
-                      <li>
-                        <strong>Private mutes:</strong>
-                        <ul className="list-circle ml-4 mt-1 space-y-1">
-                          <li><strong className="text-green-700 dark:text-green-300">✓ Work:</strong> Primal, Amethyst (they decrypt them)</li>
-                          <li><strong className="text-red-700 dark:text-red-400">✗ Don't work:</strong> Damus (doesn't decrypt)</li>
-                        </ul>
-                      </li>
-                      <li className="font-bold">
-                        <strong className="text-red-800 dark:text-red-200">⚠️ DATA LOSS WARNING:</strong> If you mute someone in another client, it may <strong>overwrite your entire mute list and DELETE all private mutes!</strong> This happens because these clients don't preserve the encrypted content field.
-                      </li>
-                      <li>
-                        <strong>Safe practice:</strong> If using private mutes, ONLY manage your mute list through Mutable to avoid data loss.
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recommendation */}
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded">
-                <p className="text-blue-900 dark:text-blue-100">
-                  <strong>💡 Recommendation:</strong> Keep mutes <strong>public</strong> if you want them to work across all your Nostr clients. Only use private for extra privacy when you understand they won't work in most other clients.
-                </p>
-              </div>
-
-              <p className="mt-2 text-xs">
-                Individual items can be toggled using the lock icon (🔓/🔒) next to each mute.
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Individual items can be toggled using the lock icon next to each mute.
               </p>
             </div>
           </div>
@@ -136,7 +98,7 @@ export default function PrivacyControls() {
             {publicCount}
           </p>
           <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
-            {publicPubkeys} {publicPubkeys === 1 ? 'account' : 'accounts'}
+            {publicPubkeys} {publicPubkeys === 1 ? 'profile' : 'profiles'}
             {publicWords > 0 && `, ${publicWords} ${publicWords === 1 ? 'word' : 'words'}`}
             {publicTags > 0 && `, ${publicTags} ${publicTags === 1 ? 'tag' : 'tags'}`}
             {publicThreads > 0 && `, ${publicThreads} ${publicThreads === 1 ? 'thread' : 'threads'}`}
@@ -171,7 +133,7 @@ export default function PrivacyControls() {
             {privateCount}
           </p>
           <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">
-            {privatePubkeys} {privatePubkeys === 1 ? 'account' : 'accounts'}
+            {privatePubkeys} {privatePubkeys === 1 ? 'profile' : 'profiles'}
             {privateWords > 0 && `, ${privateWords} ${privateWords === 1 ? 'word' : 'words'}`}
             {privateTags > 0 && `, ${privateTags} ${privateTags === 1 ? 'tag' : 'tags'}`}
             {privateThreads > 0 && `, ${privateThreads} ${privateThreads === 1 ? 'thread' : 'threads'}`}
@@ -192,7 +154,7 @@ export default function PrivacyControls() {
 
       <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients (Damus, Primal, etc.) to ensure mutes work everywhere. Only use private mutes if you primarily use this app for mute management and understand they won't work in most other clients.
+          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients (Damus, Primal, etc.) to ensure mutes work everywhere. Only use private mute lists for extra privacy and understand they won't work in every client.
         </p>
       </div>
     </div>

@@ -102,6 +102,7 @@ export default function PublicListCard({ list }: PublicListCardProps) {
   const handleConfirmImport = async () => {
     // Merge the public list with the user's current mute list
     const itemsToImport: string[] = [];
+    const skippedItems: string[] = []; // Track blacklisted items to mark as "imported" so they don't show in count
     let skippedBlacklistedCount = 0;
 
     const newMuteList = {
@@ -111,6 +112,7 @@ export default function PublicListCard({ list }: PublicListCardProps) {
           // Skip blacklisted pubkeys
           if (isBlacklisted(item.value)) {
             skippedBlacklistedCount++;
+            skippedItems.push(item.value); // Track skipped items
             console.log(`Skipping blacklisted pubkey during pack import: ${item.value.substring(0, 8)}...`);
             return false;
           }
@@ -148,7 +150,8 @@ export default function PublicListCard({ list }: PublicListCardProps) {
 
     setMuteList(newMuteList);
     setHasUnsavedChanges(true);
-    markPackItemsAsImported(list.id, itemsToImport);
+    // Mark both imported AND skipped items so they don't appear in "new items" count
+    markPackItemsAsImported(list.id, [...itemsToImport, ...skippedItems]);
     setSkippedBlacklisted(skippedBlacklistedCount);
     setImportSuccess(true);
 
@@ -248,12 +251,12 @@ export default function PublicListCard({ list }: PublicListCardProps) {
             <button
               onClick={handleImportClick}
               disabled={allImported}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                 importSuccess
                   ? 'bg-green-600 text-white'
                   : allImported
                   ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                  : 'bg-red-600 text-white hover:bg-red-700'
               }`}
             >
               {importSuccess ? (
@@ -326,11 +329,11 @@ export default function PublicListCard({ list }: PublicListCardProps) {
             </div>
           )}
 
-          {/* Blacklisted accounts skipped notification */}
+          {/* Blacklisted profiles skipped notification */}
           {skippedBlacklisted > 0 && (
             <div className="mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>{skippedBlacklisted}</strong> blacklisted {skippedBlacklisted === 1 ? 'account' : 'accounts'} skipped during import (removed via List Cleaner)
+                <strong>{skippedBlacklisted}</strong> blacklisted {skippedBlacklisted === 1 ? 'profile' : 'profiles'} skipped during import (removed via List Cleaner)
               </p>
             </div>
           )}
@@ -341,7 +344,7 @@ export default function PublicListCard({ list }: PublicListCardProps) {
               {(list.list.pubkeys?.length || 0) > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                    <span>Muted Accounts</span>
+                    <span>Muted Profiles</span>
                     <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
                       ({list.list.pubkeys?.length || 0} total)
                     </span>

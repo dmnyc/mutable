@@ -53,10 +53,19 @@ export default function PublicLists() {
 
       const parsedLists = await Promise.all(events.map(parsePublicListEvent));
 
-      // Filter out packs from test users (case-insensitive check for 'test' in name or display_name)
+      // Filter out test packs - by name containing 'test' or known test user pubkeys
+      const TEST_USER_PUBKEYS = [
+        '84dee6e676e5bb67b4ad4e042cf70cbd8681155db535942fcc6a0533858a7240',
+        'faeb29828b98fbffdb127bea32203da2275f9223eff9a4ec95851cc9b1d3a262', // test user
+      ];
+
       const filteredLists = parsedLists.filter(pack => {
-        // Skip packs where the pack name itself is 'test' (case-insensitive)
+        // Skip packs where the pack name contains 'test' (case-insensitive)
         if (pack.name.toLowerCase().includes('test')) return false;
+
+        // Skip packs from known test user accounts
+        if (TEST_USER_PUBKEYS.includes(pack.author)) return false;
+
         return true;
       });
 

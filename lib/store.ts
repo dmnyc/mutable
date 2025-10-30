@@ -23,7 +23,7 @@ interface AppState {
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
-  // Blacklist state (for preventing re-import of removed inactive accounts)
+  // Blacklist state (for preventing re-import of removed inactive profiles)
   blacklistedPubkeys: Set<string>;
 
   // Actions
@@ -135,6 +135,8 @@ export const useStore = create<AppState>()(
       getNewItemsCount: (pack) => {
         const state = get();
         const muteList = state.muteList;
+        const importedItems = state.importedPackItems[pack.id] || new Set();
+
         const existingValues = new Set([
           ...muteList.pubkeys.map(p => p.value),
           ...muteList.words.map(w => w.value),
@@ -143,10 +145,19 @@ export const useStore = create<AppState>()(
         ]);
 
         let newCount = 0;
-        (pack.list.pubkeys || []).forEach(p => { if (!existingValues.has(p.value)) newCount++; });
-        (pack.list.words || []).forEach(w => { if (!existingValues.has(w.value)) newCount++; });
-        (pack.list.tags || []).forEach(t => { if (!existingValues.has(t.value)) newCount++; });
-        (pack.list.threads || []).forEach(t => { if (!existingValues.has(t.value)) newCount++; });
+        // Count items that are neither in the mute list nor marked as imported (including blacklisted)
+        (pack.list.pubkeys || []).forEach(p => {
+          if (!existingValues.has(p.value) && !importedItems.has(p.value)) newCount++;
+        });
+        (pack.list.words || []).forEach(w => {
+          if (!existingValues.has(w.value) && !importedItems.has(w.value)) newCount++;
+        });
+        (pack.list.tags || []).forEach(t => {
+          if (!existingValues.has(t.value) && !importedItems.has(t.value)) newCount++;
+        });
+        (pack.list.threads || []).forEach(t => {
+          if (!existingValues.has(t.value) && !importedItems.has(t.value)) newCount++;
+        });
 
         return newCount;
       },

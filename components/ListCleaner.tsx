@@ -18,7 +18,8 @@ import {
   EyeOff,
   Sliders,
   ExternalLink,
-  Copy
+  Copy,
+  Sparkles
 } from 'lucide-react';
 
 export default function ListCleaner() {
@@ -36,9 +37,46 @@ export default function ListCleaner() {
   const [showBlacklist, setShowBlacklist] = useState(false);
   const [profilesMap, setProfilesMap] = useState<Map<string, Profile>>(new Map());
   const [loadingProfiles, setLoadingProfiles] = useState<Set<string>>(new Set());
+  const [blacklistProfilesMap, setBlacklistProfilesMap] = useState<Map<string, Profile>>(new Map());
 
   // Abort controller for cancelling scan
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load profiles for blacklisted pubkeys
+  useEffect(() => {
+    if (!showBlacklist || blacklistedPubkeys.size === 0 || !session) return;
+
+    const loadBlacklistProfiles = async () => {
+      const pubkeysToLoad = Array.from(blacklistedPubkeys)
+        .filter(pk => !blacklistProfilesMap.has(pk))
+        .slice(0, 20); // Load 20 at a time
+
+      if (pubkeysToLoad.length === 0) return;
+
+      const profilePromises = pubkeysToLoad.map(async (pubkey) => {
+        try {
+          const profile = await fetchProfile(pubkey, session.relays);
+          return { pubkey, profile };
+        } catch (error) {
+          return { pubkey, profile: null };
+        }
+      });
+
+      const results = await Promise.allSettled(profilePromises);
+
+      setBlacklistProfilesMap(prev => {
+        const next = new Map(prev);
+        results.forEach(result => {
+          if (result.status === 'fulfilled' && result.value.profile) {
+            next.set(result.value.pubkey, result.value.profile);
+          }
+        });
+        return next;
+      });
+    };
+
+    loadBlacklistProfiles();
+  }, [showBlacklist, blacklistedPubkeys, blacklistProfilesMap, session]);
 
   // Load profiles for scan results
   useEffect(() => {
@@ -189,7 +227,7 @@ export default function ListCleaner() {
         <AlertTriangle className="mx-auto mb-4 text-yellow-500" size={48} />
         <h2 className="text-xl font-bold mb-2">Not Connected</h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Please connect your Nostr account to use the List Cleaner.
+          Please connect your Nostr profile to use the List Cleaner.
         </p>
       </div>
     );
@@ -200,11 +238,11 @@ export default function ListCleaner() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">
-          <Trash2 size={24} />
+          <Sparkles size={24} />
           List Cleaner
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-3">
-          Scan your mute list for inactive or abandoned accounts. Removed accounts are added to a blacklist to prevent re-importing.
+          Scan your mute list for inactive or abandoned profiles. Removed profiles are added to a blacklist to prevent re-importing.
         </p>
 
         {/* Accuracy Disclaimer */}
@@ -215,7 +253,7 @@ export default function ListCleaner() {
             <p>
               This scan queries multiple popular relays to find user activity, but cannot check every relay where a user might post.
               Some active users may be incorrectly flagged as inactive if their content is not available on the queried relays.
-              You can always verify by clicking "View Profile" before removing an account.
+              You can always verify by clicking "View Profile" before removing a profile.
             </p>
           </div>
         </div>
@@ -228,7 +266,7 @@ export default function ListCleaner() {
             <div>
               <h2 className="text-lg font-semibold mb-1">Inactivity Threshold</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Accounts with no activity for this many days will be flagged
+                Profiles with no activity for this many days will be flagged
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -251,15 +289,9 @@ export default function ListCleaner() {
 
           <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {muteList.pubkeys.length} muted accounts
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Total mute list: {muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length} items
-                {muteList.words.length > 0 && ` (${muteList.words.length} words`}
-                {muteList.tags.length > 0 && `, ${muteList.tags.length} tags`}
-                {muteList.threads.length > 0 && `, ${muteList.threads.length} threads`}
-                {(muteList.words.length > 0 || muteList.tags.length > 0 || muteList.threads.length > 0) && ')'}
+              <p className="text-gray-600 dark:text-gray-400">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">{muteList.pubkeys.length}</span>
+                <span className="ml-2 text-sm">muted profiles</span>
               </p>
             </div>
 
@@ -302,6 +334,9 @@ export default function ListCleaner() {
                   }}
                 />
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                Scanning multiple relays for activity. This may take some time.
+              </p>
             </div>
           )}
         </div>
@@ -384,11 +419,11 @@ export default function ListCleaner() {
                           <p className="font-medium truncate">{displayName}</p>
                           {result.isLikelyAbandoned ? (
                             <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded whitespace-nowrap">
-                              Inactive
+                              inactive
                             </span>
                           ) : (
                             <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded whitespace-nowrap">
-                              Active
+                              active
                             </span>
                           )}
                         </div>
@@ -408,8 +443,8 @@ export default function ListCleaner() {
                                 {result.daysInactive} days inactive
                               </span>
                               {result.lastActivityType && (
-                                <span className="text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                                  ({result.lastActivityType.replace(/_/g, ' ')})
+                                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded whitespace-nowrap">
+                                  {result.lastActivityType.replace(/_/g, ' ').toLowerCase()}
                                 </span>
                               )}
                             </>
@@ -419,8 +454,8 @@ export default function ListCleaner() {
                             </span>
                           )}
                           {!result.hasProfile && (
-                            <span className="text-orange-600 dark:text-orange-400">
-                              • No profile
+                            <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded whitespace-nowrap">
+                              no profile
                             </span>
                           )}
                         </div>
@@ -475,9 +510,9 @@ export default function ListCleaner() {
           <div className="flex items-center gap-3">
             <AlertTriangle size={20} className="text-yellow-500" />
             <div className="text-left">
-              <h2 className="text-lg font-semibold">Blacklisted Accounts</h2>
+              <h2 className="text-lg font-semibold">Blacklisted Profiles</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {blacklistedPubkeys.size} accounts prevented from re-importing
+                {blacklistedPubkeys.size} profiles prevented from re-importing
               </p>
             </div>
           </div>
@@ -487,29 +522,80 @@ export default function ListCleaner() {
         </button>
 
         {showBlacklist && blacklistedPubkeys.size > 0 && (
-          <div className="border-t border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto">
-            {Array.from(blacklistedPubkeys).map((pubkey) => (
-              <div
-                key={pubkey}
-                className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between"
-              >
-                <code className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                  {hexToNpub(pubkey)}
-                </code>
-                <button
-                  onClick={() => handleRemoveFromBlacklist(pubkey)}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          <div className="border-t border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
+            {Array.from(blacklistedPubkeys).map((pubkey) => {
+              const profile = blacklistProfilesMap.get(pubkey);
+              const displayName = getDisplayName(pubkey, profile);
+              const npub = hexToNpub(pubkey);
+
+              return (
+                <div
+                  key={pubkey}
+                  className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 >
-                  Restore
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {profile?.picture ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profile.picture}
+                          alt={displayName}
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                          <User size={20} />
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium truncate">{displayName}</p>
+                          <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded whitespace-nowrap">
+                            Blacklisted
+                          </span>
+                        </div>
+
+                        {/* Profile Links */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={() => handleCopyNpub(pubkey)}
+                            className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
+                            title="Copy npub"
+                          >
+                            <Copy size={12} />
+                            Copy npub
+                          </button>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                          <a
+                            href={`https://npub.world/${npub}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
+                          >
+                            <ExternalLink size={12} />
+                            View Profile
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleRemoveFromBlacklist(pubkey)}
+                      className="ml-4 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex-shrink-0"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {showBlacklist && blacklistedPubkeys.size === 0 && (
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 text-center text-gray-600 dark:text-gray-400">
-            No blacklisted accounts
+            No blacklisted profiles
           </div>
         )}
       </div>
