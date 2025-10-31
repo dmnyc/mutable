@@ -24,7 +24,7 @@ export default function PublicListCard({ list }: PublicListCardProps) {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [pubkeyProfiles, setPubkeyProfiles] = useState<Map<string, Profile>>(new Map());
   const [loadingPubkeyProfiles, setLoadingPubkeyProfiles] = useState(false);
-  const [selectedPubkey, setSelectedPubkey] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [pubkeyPage, setPubkeyPage] = useState(1);
   const [wordPage, setWordPage] = useState(1);
   const [tagPage, setTagPage] = useState(1);
@@ -429,7 +429,7 @@ export default function PublicListCard({ list }: PublicListCardProps) {
                               </div>
 
                               <button
-                                onClick={() => setSelectedPubkey(item.value)}
+                                onClick={() => setSelectedProfile(profile || { pubkey: item.value })}
                                 className="ml-2 p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                                 title="View profile"
                               >
@@ -597,10 +597,10 @@ export default function PublicListCard({ list }: PublicListCardProps) {
       />
 
       {/* User Profile Modal */}
-      {selectedPubkey && (
+      {selectedProfile && (
         <UserProfileModal
-          pubkey={selectedPubkey}
-          onClose={() => setSelectedPubkey(null)}
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
         />
       )}
     </>
