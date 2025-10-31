@@ -878,14 +878,14 @@ export async function searchProfiles(
                             displayName.includes(queryLower) ||
                             nip05.includes(queryLower);
 
-      const hasWordMatch = queryWords.every(qWord =>
-        nameWords.some(nWord => nWord.includes(qWord)) ||
-        displayNameWords.some(dWord => dWord.includes(qWord))
+      const hasWordMatch = queryWords.every((qWord: string) =>
+        nameWords.some((nWord: string) => nWord.includes(qWord)) ||
+        displayNameWords.some((dWord: string) => dWord.includes(qWord))
       );
 
-      const hasStartMatch = queryWords.every(qWord =>
-        nameWords.some(nWord => nWord.startsWith(qWord)) ||
-        displayNameWords.some(dWord => dWord.startsWith(qWord))
+      const hasStartMatch = queryWords.every((qWord: string) =>
+        nameWords.some((nWord: string) => nWord.startsWith(qWord)) ||
+        displayNameWords.some((dWord: string) => dWord.startsWith(qWord))
       );
 
       if (hasDirectMatch || hasWordMatch || hasStartMatch) {
