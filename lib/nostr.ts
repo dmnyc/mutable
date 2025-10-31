@@ -20,7 +20,9 @@ export const DEFAULT_RELAYS = [
   'wss://nostr.mom',
   'wss://purplepag.es',
   'wss://relay.current.fyi',
-  'wss://nostr-pub.wellorder.net'
+  'wss://nostr-pub.wellorder.net',
+  'wss://aggr.nostr.land',
+  'wss://nostr.land'
 ];
 
 // Get expanded relay list by combining user's relays with defaults
