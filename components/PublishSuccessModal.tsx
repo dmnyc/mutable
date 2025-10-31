@@ -12,6 +12,11 @@ interface PublishSuccessModalProps {
 export default function PublishSuccessModal({ isOpen, onClose, itemCount }: PublishSuccessModalProps) {
   const [show, setShow] = useState(false);
 
+  const handleClose = () => {
+    setShow(false);
+    setTimeout(onClose, 300); // Wait for animation
+  };
+
   useEffect(() => {
     if (isOpen) {
       setShow(true);
@@ -21,12 +26,8 @@ export default function PublishSuccessModal({ isOpen, onClose, itemCount }: Publ
       }, 4000);
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
-
-  const handleClose = () => {
-    setShow(false);
-    setTimeout(onClose, 300); // Wait for animation
-  };
 
   if (!isOpen) return null;
 

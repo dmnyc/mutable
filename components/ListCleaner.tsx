@@ -253,7 +253,7 @@ export default function ListCleaner() {
             <p>
               This scan queries multiple popular relays to find user activity, but cannot check every relay where a user might post.
               Some active users may be incorrectly flagged as inactive if their content is not available on the queried relays.
-              You can always verify by clicking "View Profile" before removing a profile.
+              You can always verify by clicking &quot;View Profile&quot; before removing a profile.
             </p>
           </div>
         </div>
@@ -403,6 +403,7 @@ export default function ListCleaner() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {profile?.picture ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={profile.picture}
                           alt={displayName}

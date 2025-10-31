@@ -154,7 +154,7 @@ export default function PrivacyControls() {
 
       <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients (Damus, Primal, etc.) to ensure mutes work everywhere. Only use private mute lists for extra privacy and understand they won't work in every client.
+          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients (Damus, Primal, etc.) to ensure mutes work everywhere. Only use private mute lists for extra privacy and understand they won&apos;t work in every client.
         </p>
       </div>
     </div>

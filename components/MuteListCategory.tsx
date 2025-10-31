@@ -172,6 +172,7 @@ export default function MuteListCategory({
     };
 
     loadProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, items, session, currentPage, pageSize]);
 
   const displayValue = (item: MuteItem) => {

@@ -83,6 +83,7 @@ export default function PublicListCard({ list }: PublicListCardProps) {
     };
 
     loadPubkeyProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, list.list.pubkeys, session, pubkeyPage]);
 
   const totalItems =
