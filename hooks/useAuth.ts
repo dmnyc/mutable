@@ -31,13 +31,16 @@ export function useAuth() {
       }
 
       const pubkey = await getNip07Pubkey();
-      const relays = await getNip07Relays();
+      // Use getBestRelayList to fetch from Nostr first, then fall back to NIP-07
+      const { getBestRelayList } = await import('@/lib/nostr');
+      const { relays, metadata } = await getBestRelayList(pubkey);
 
       const newSession: UserSession = {
         pubkey,
         relays,
         connected: true,
-        signerType: 'nip07'
+        signerType: 'nip07',
+        relayListMetadata: metadata || undefined
       };
 
       setSession(newSession);
@@ -62,7 +65,7 @@ export function useAuth() {
       const event = await fetchMuteList(pubkey, relays);
 
       if (event) {
-        const parsedList = parseMuteListEvent(event);
+        const parsedList = await parseMuteListEvent(event);
         setMuteList(parsedList);
       } else {
         // No existing mute list, start with empty

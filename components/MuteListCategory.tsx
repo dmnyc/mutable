@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { MuteItem, MuteList, Profile } from '@/types';
-import { Plus, Trash2, Edit2, X, Check, User, Copy } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, User, Copy, Lock, Unlock } from 'lucide-react';
 import { npubToHex, hexToNpub, fetchProfile } from '@/lib/nostr';
 import { useAuth } from '@/hooks/useAuth';
 import UserSearchInput from './UserSearchInput';
@@ -23,7 +23,7 @@ export default function MuteListCategory({
   placeholder
 }: MuteListCategoryProps) {
   const { session } = useAuth();
-  const { addMutedItem, removeMutedItem, updateMutedItem } = useStore();
+  const { addMutedItem, removeMutedItem, updateMutedItem, toggleItemPrivacy } = useStore();
   const [isAdding, setIsAdding] = useState(false);
   const [useSearchInput, setUseSearchInput] = useState(false);
   const [newValue, setNewValue] = useState('');
@@ -172,6 +172,7 @@ export default function MuteListCategory({
     };
 
     loadProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, items, session, currentPage, pageSize]);
 
   const displayValue = (item: MuteItem) => {
@@ -404,6 +405,21 @@ export default function MuteListCategory({
                         </div>
                       </div>
                       <div className="flex space-x-2 flex-shrink-0">
+                        {/* Privacy Toggle */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleItemPrivacy(item.value, category);
+                          }}
+                          className={`p-2 transition-colors ${
+                            item.private
+                              ? 'text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300'
+                              : 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
+                          }`}
+                          title={item.private ? 'Private (encrypted) - Click to make public' : 'Public (visible to all) - Click to make private'}
+                        >
+                          {item.private ? <Lock size={16} /> : <Unlock size={16} />}
+                        </button>
                         {category === 'pubkeys' && (
                           <button
                             onClick={(e) => {

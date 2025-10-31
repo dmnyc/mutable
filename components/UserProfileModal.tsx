@@ -62,7 +62,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       try {
         const event = await fetchMuteList(profile.pubkey, session.relays);
         if (event) {
-          const parsed = parseMuteListEvent(event);
+          const parsed = await parseMuteListEvent(event);
           setUserMuteList(parsed);
         }
       } catch (error) {

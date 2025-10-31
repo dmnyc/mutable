@@ -44,7 +44,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         </h2>
 
         <p className="text-gray-600 dark:text-gray-300 mb-6">
-          Choose how you want to connect your Nostr account
+          Choose how you want to connect your Nostr profile
         </p>
 
         {error && (

@@ -30,11 +30,15 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
               </li>
               <li className="flex items-center gap-2">
                 <span>•</span>
-                <span>Discover and subscribe to public mute lists shared by others</span>
+                <span>Discover and import community mute lists shared by others</span>
               </li>
               <li className="flex items-center gap-2">
                 <span>•</span>
                 <span>Find out who has publicly muted you (Muteuals)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span>•</span>
+                <span>Clean up inactive or deleted profiles from your mute list</span>
               </li>
             </ul>
           </div>
@@ -56,20 +60,20 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
-                    <Eye className="text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" size={14} />
+                    <Eye className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" size={14} />
                     <div className="text-xs text-indigo-800 dark:text-indigo-200">
-                      <strong>Public tags:</strong> Visible to anyone (in the event&apos;s tags array). Used for transparency when blocking known spammers/scammers.
+                      <strong>Public (Recommended):</strong> Stored in event tags, visible to anyone. Works in ALL Nostr clients (Damus, Primal, Amethyst, etc.).
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
-                    <EyeOff className="text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" size={14} />
+                    <EyeOff className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={14} />
                     <div className="text-xs text-indigo-800 dark:text-indigo-200">
-                      <strong>Encrypted content:</strong> Only you can decrypt (in the content field). Most personal mutes go here for privacy.
+                      <strong>Private (Limited Compatibility):</strong> Encrypted in the content field. Only works in some clients (Primal, Amethyst). Damus and others don&apos;t decrypt them.
                     </div>
                   </div>
                 </div>
                 <div className="bg-indigo-100 dark:bg-indigo-900/30 rounded p-2 text-xs text-indigo-900 dark:text-indigo-100 mt-2">
-                  <strong>Default:</strong> Mutable encrypts all your mutes by default, keeping them private. You can choose to make specific mutes public if needed.
+                  <strong>Default:</strong> Mutable creates public mutes by default for maximum compatibility. You can change individual items to private using the lock icon (🔓/🔒) if needed.
                 </div>
               </div>
             </div>

@@ -13,8 +13,10 @@ import {
   unfollowUser,
   getExpandedRelayList,
   fetchMuteList,
-  parseMuteListEvent
+  parseMuteListEvent,
+  getFollowListPubkeys
 } from '@/lib/nostr';
+import { backupService } from '@/lib/backupService';
 
 type DiscoveryMethod = 'follows' | 'network';
 
@@ -147,8 +149,17 @@ export default function Muteuals() {
   const handleUnfollow = async (pubkey: string) => {
     if (!session) return;
 
-    if (confirm('Are you sure you want to unfollow this user?')) {
+    if (confirm('Are you sure you want to unfollow this user?\n\nNote: A backup of your current follow list will be created automatically before unfollowing.')) {
       try {
+        // Create backup before unfollowing
+        const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+        const backup = backupService.createFollowListBackup(
+          session.pubkey,
+          currentFollows,
+          'Auto-backup before unfollowing via Muteuals'
+        );
+        backupService.saveBackup(backup);
+
         await unfollowUser(pubkey, session.relays);
         // Update the result to reflect they're no longer followed
         setResults(results.map(r =>
@@ -181,7 +192,7 @@ export default function Muteuals() {
         tags: muteListEvent.tags
       });
 
-      const parsedList = parseMuteListEvent(muteListEvent);
+      const parsedList = await parseMuteListEvent(muteListEvent);
       const mutedPubkeys = parsedList.pubkeys.map(p => p.value);
 
       console.log(`Found ${mutedPubkeys.length} muted pubkeys in their current list`);
@@ -206,6 +217,65 @@ export default function Muteuals() {
       setTimeout(() => setCopiedNpub(null), 2000);
     } catch (error) {
       console.error('Failed to copy npub:', error);
+    }
+  };
+
+  const handleMuteAll = () => {
+    if (!confirm(`Mute all ${results.length} muteuals?\n\nThis will add them to your mute list. Remember to click "Publish Changes" on the My Mute List tab to save to relays.`)) {
+      return;
+    }
+
+    let addedCount = 0;
+    results.forEach((muteal) => {
+      const isAlreadyMuted = muteList.pubkeys.some(m => m.value === muteal.mutedBy);
+      if (!isAlreadyMuted) {
+        addMutedItem({ type: 'pubkey', value: muteal.mutedBy, reason: 'Muted via Muteuals' }, 'pubkeys');
+        addedCount++;
+      }
+    });
+
+    alert(`Added ${addedCount} muteuals to your mute list.\n\nGo to "My Mute List" and click "Publish Changes" to save to relays.`);
+  };
+
+  const handleUnfollowAll = async () => {
+    if (!session) return;
+
+    const followingMuteuals = results.filter(r => r.isFollowing);
+    if (followingMuteuals.length === 0) {
+      alert('None of the muteuals are in your follow list.');
+      return;
+    }
+
+    if (!confirm(`Unfollow all ${followingMuteuals.length} muteuals that you're currently following?\n\nNote: This will:\n1. Create an automatic backup of your current follow list\n2. Immediately publish your updated follow list to relays`)) {
+      return;
+    }
+
+    try {
+      // Step 1: Create backup of current follow list
+      console.log('Creating backup of follow list before unfollowing...');
+      const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const backup = backupService.createFollowListBackup(
+        session.pubkey,
+        currentFollows,
+        `Auto-backup before unfollowing ${followingMuteuals.length} muteuals`
+      );
+      backupService.saveBackup(backup);
+      console.log(`Backup created with ${currentFollows.length} follows`);
+
+      // Step 2: Unfollow all muteuals
+      for (const muteal of followingMuteuals) {
+        await unfollowUser(muteal.mutedBy, session.relays);
+      }
+
+      // Update all results to reflect they're no longer followed
+      setResults(results.map(r =>
+        r.isFollowing ? { ...r, isFollowing: false } : r
+      ));
+
+      alert(`✅ Success!\n\n• Backup created with ${currentFollows.length} follows\n• Unfollowed ${followingMuteuals.length} muteuals\n• Changes published to relays\n\nYou can restore from the Backups tab if needed.`);
+    } catch (error) {
+      console.error('Failed to unfollow all:', error);
+      alert(`Error unfollowing users: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -402,9 +472,38 @@ export default function Muteuals() {
         </div>
       ) : results.length > 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Found {results.length} {results.length === 1 ? 'Muteual' : 'Muteuals'}
-          </h3>
+          {/* Info Banner */}
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-xs text-blue-800 dark:text-blue-200">
+              <strong>Quick Actions:</strong> &ldquo;Mute All&rdquo; adds to your local mute list (publish later). &ldquo;Unfollow All&rdquo; publishes immediately to relays.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Found {results.length} {results.length === 1 ? 'Muteual' : 'Muteuals'}
+            </h3>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleUnfollowAll}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                title="Unfollow all muteuals you're currently following"
+              >
+                <UserMinus size={16} />
+                <span>Unfollow All</span>
+              </button>
+
+              <button
+                onClick={handleMuteAll}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                title="Mute all muteuals"
+              >
+                <VolumeX size={16} />
+                <span>Mute All</span>
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-3">
             {results.map((muteal) => {

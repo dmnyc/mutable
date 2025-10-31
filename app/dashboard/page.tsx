@@ -9,20 +9,26 @@ import { LogOut, User } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
+import Backups from '@/components/Backups';
+import Settings from '@/components/Settings';
+import ListCleaner from '@/components/ListCleaner';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
+import UnsavedChangesBanner from '@/components/UnsavedChangesBanner';
+import PublishSuccessModal from '@/components/PublishSuccessModal';
 import { Profile } from '@/types';
 import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
 import { backupService } from '@/lib/backupService';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { session, isConnected, disconnect } = useAuth();
+  const { session, isConnected, disconnect, reloadMuteList } = useAuth();
   const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showPublishSuccess, setShowPublishSuccess] = useState(false);
 
   useEffect(() => {
     if (!isConnected) {
@@ -88,20 +94,29 @@ export default function Dashboard() {
     if (!session) return;
 
     try {
+      // Check if this is truly the first backup
+      const existingMuteBackups = backupService.getBackupsByType('mute-list');
+      const existingFollowBackups = backupService.getBackupsByType('follow-list');
+      const isFirstBackup = existingMuteBackups.length === 0 && existingFollowBackups.length === 0;
+
+      const backupNote = isFirstBackup
+        ? 'Initial backup created during onboarding'
+        : 'Backup created from onboarding tutorial';
+
       // Create mute list backup
       const muteBackup = backupService.createMuteListBackup(
         session.pubkey,
         muteList,
-        'Initial backup created during onboarding'
+        backupNote
       );
       backupService.saveBackup(muteBackup);
 
-      // Create follow list backup
-      const follows = await getFollowListPubkeys(session.pubkey, session.relays);
+      // Create follow list backup with retries (3 attempts) for better reliability during onboarding
+      const follows = await getFollowListPubkeys(session.pubkey, session.relays, 3);
       const followBackup = backupService.createFollowListBackup(
         session.pubkey,
         follows,
-        'Initial backup created during onboarding'
+        backupNote
       );
       backupService.saveBackup(followBackup);
 
@@ -117,13 +132,49 @@ export default function Dashboard() {
     setShowOnboarding(false);
   };
 
+  const handlePublishFromBanner = async () => {
+    if (!session) return;
+
+    try {
+      const { publishMuteList } = await import('@/lib/nostr');
+      await publishMuteList(muteList, session.relays);
+      const { setHasUnsavedChanges } = useStore.getState();
+      setHasUnsavedChanges(false);
+      setShowPublishSuccess(true);
+    } catch (error) {
+      console.error('Failed to publish:', error);
+      alert('Failed to publish mute list. Please try again from the My Mute List tab.');
+    }
+  };
+
+  const handleDiscardFromBanner = async () => {
+    if (!session) return;
+
+    if (confirm('Are you sure you want to discard all unsaved changes? This will reload your mute list from Nostr.')) {
+      try {
+        await reloadMuteList();
+      } catch (error) {
+        console.error('Failed to reload mute list:', error);
+        alert('Failed to reload mute list. Please try again.');
+      }
+    }
+  };
+
+  const handleCleanFromBanner = () => {
+    setActiveTab('listCleaner');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
-            <div className="flex items-center space-x-3 flex-shrink-0">
+            <button
+              onClick={() => setActiveTab('myList')}
+              className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
+              title="Go to My Mute List"
+            >
               <Image
                 src="/mutable_logo.svg"
                 alt="Mutable"
@@ -137,7 +188,7 @@ export default function Dashboard() {
                 height={24}
                 className="hidden sm:block"
               />
-            </div>
+            </button>
 
             {/* Global Search */}
             <GlobalUserSearch onSelectUser={handleUserSelect} />
@@ -167,8 +218,8 @@ export default function Dashboard() {
                         {userProfile.display_name || userProfile.name || 'Anonymous'}
                       </span>
                       {userProfile.nip05 && (
-                        <span className="text-xs text-green-600 dark:text-green-400">
-                          ✓ {userProfile.nip05}
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {userProfile.nip05}
                         </span>
                       )}
                     </>
@@ -198,9 +249,9 @@ export default function Dashboard() {
               <button
                 onClick={handleDisconnect}
                 className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                title="Disconnect"
               >
                 <LogOut size={16} />
-                <span className="hidden sm:inline">Disconnect</span>
               </button>
             </div>
           </div>
@@ -213,7 +264,7 @@ export default function Dashboard() {
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('myList')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'myList'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -223,17 +274,17 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setActiveTab('publicLists')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'publicLists'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Public Lists
+              Community Packs
             </button>
             <button
               onClick={() => setActiveTab('muteuals')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'muteuals'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -241,15 +292,55 @@ export default function Dashboard() {
             >
               Muteuals
             </button>
+            <button
+              onClick={() => setActiveTab('backups')}
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+                activeTab === 'backups'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Backups
+            </button>
+            <button
+              onClick={() => setActiveTab('listCleaner')}
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+                activeTab === 'listCleaner'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              List Cleaner
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+                activeTab === 'settings'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Settings
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Unsaved Changes Banner - Appears below navigation */}
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
+        {activeTab === 'backups' && <Backups />}
+        {activeTab === 'listCleaner' && <ListCleaner />}
+        {activeTab === 'settings' && <Settings />}
       </main>
 
       {/* User Profile Modal */}
@@ -268,6 +359,13 @@ export default function Dashboard() {
           onSkip={handleSkipOnboarding}
         />
       )}
+
+      {/* Publish Success Modal */}
+      <PublishSuccessModal
+        isOpen={showPublishSuccess}
+        onClose={() => setShowPublishSuccess(false)}
+        itemCount={muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length}
+      />
     </div>
   );
 }

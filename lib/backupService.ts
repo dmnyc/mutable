@@ -16,19 +16,43 @@ class BackupService {
 
   /**
    * Generate a unique backup ID
+   * Uses timestamp + random string + counter for uniqueness
    */
+  private idCounter = 0;
   generateBackupId(): string {
-    return `backup-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    this.idCounter = (this.idCounter + 1) % 10000; // Reset after 10000
+    return `backup-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${this.idCounter}`;
   }
 
   /**
    * Get all backups from localStorage
+   * Automatically deduplicates by ID to prevent React key conflicts
    */
   getAllBackups(): Backup[] {
     try {
       const stored = localStorage.getItem(this.BACKUP_KEY);
       if (!stored) return [];
-      return JSON.parse(stored) as Backup[];
+
+      const backups = JSON.parse(stored) as Backup[];
+
+      // Deduplicate by ID (keep first occurrence)
+      const seenIds = new Set<string>();
+      const uniqueBackups = backups.filter(backup => {
+        if (seenIds.has(backup.id)) {
+          console.warn(`Duplicate backup ID found: ${backup.id}, skipping duplicate`);
+          return false;
+        }
+        seenIds.add(backup.id);
+        return true;
+      });
+
+      // If we found duplicates, save the cleaned version back
+      if (uniqueBackups.length !== backups.length) {
+        console.log(`Removed ${backups.length - uniqueBackups.length} duplicate backups from storage`);
+        localStorage.setItem(this.BACKUP_KEY, JSON.stringify(uniqueBackups));
+      }
+
+      return uniqueBackups;
     } catch (error) {
       console.error('Failed to load backups:', error);
       return [];

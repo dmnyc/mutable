@@ -6,11 +6,11 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, MutealResult } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult } from '@/types';
 
-// Default relay list - comprehensive set for better coverage
+// Default relay list - reliable, well-maintained relays
+// Based on what works consistently across clients
 export const DEFAULT_RELAYS = [
-  // Popular general relays
   'wss://relay.damus.io',
   'wss://relay.primal.net',
   'wss://nos.lol',
@@ -18,14 +18,9 @@ export const DEFAULT_RELAYS = [
   'wss://nostr.wine',
   'wss://relay.snort.social',
   'wss://nostr.mom',
-  'wss://relay.nostr.wirednet.jp',
-  'wss://nostr.fmt.wiz.biz',
-  'wss://relay.nostr.bg',
-  // Additional high-traffic relays
-  'wss://nostr-pub.wellorder.net',
-  'wss://nostr.oxtr.dev',
+  'wss://purplepag.es',
   'wss://relay.current.fyi',
-  'wss://nostr.zebedee.cloud'
+  'wss://nostr-pub.wellorder.net'
 ];
 
 // Get expanded relay list by combining user's relays with defaults
@@ -33,6 +28,27 @@ export function getExpandedRelayList(userRelays: string[]): string[] {
   const relaySet = new Set([...DEFAULT_RELAYS, ...userRelays]);
   return Array.from(relaySet);
 }
+
+// Namespace tags for community packs
+export const PACK_NAMESPACE = 'mutable';
+export const PACK_CATEGORY = 'community-pack';
+
+// Nostrguard compatibility
+export const NOSTRGUARD_NAMESPACE = 'nostrguard';
+export const NOSTRGUARD_CATEGORY = 'scammer-pack';
+
+// Pack categories
+export const PACK_CATEGORIES = {
+  SPAM: 'spam',
+  NSFW: 'nsfw',
+  SCAM: 'scam',
+  IMPERSONATION: 'impersonation',
+  BOT: 'bot',
+  HARASSMENT: 'harassment',
+  OTHER: 'other'
+} as const;
+
+export type PackCategory = typeof PACK_CATEGORIES[keyof typeof PACK_CATEGORIES];
 
 // Nostr pool instance (singleton)
 let pool: SimplePool | null = null;
@@ -50,6 +66,10 @@ interface WindowWithNostr extends Window {
     getPublicKey(): Promise<string>;
     signEvent(event: EventTemplate): Promise<Event>;
     getRelays?(): Promise<{ [url: string]: { read: boolean; write: boolean } }>;
+    nip04?: {
+      encrypt(pubkey: string, plaintext: string): Promise<string>;
+      decrypt(pubkey: string, ciphertext: string): Promise<string>;
+    };
   };
 }
 
@@ -90,6 +110,90 @@ export async function getNip07Relays(): Promise<string[]> {
   }
 }
 
+// Fetch user's relay list from Nostr (NIP-65 kind:10002)
+// Returns both the write relays and the full metadata
+export async function fetchRelayListFromNostr(pubkey: string): Promise<{
+  writeRelays: string[];
+  metadata: { read: string[]; write: string[]; both: string[]; timestamp: number } | null;
+}> {
+  const pool = getPool();
+
+  try {
+    // Query kind:10002 relay list metadata from default relays
+    const events = await pool.querySync(DEFAULT_RELAYS, {
+      kinds: [RELAY_LIST_KIND],
+      authors: [pubkey],
+      limit: 1
+    });
+
+    if (events.length === 0) {
+      return { writeRelays: [], metadata: null };
+    }
+
+    const event = events[0];
+    const read: string[] = [];
+    const write: string[] = [];
+    const both: string[] = [];
+
+    // Parse all relay tags
+    event.tags.forEach(tag => {
+      if (tag[0] === 'r') {
+        const relay = tag[1];
+        const permission = tag[2];
+
+        if (!permission) {
+          both.push(relay);
+        } else if (permission === 'read') {
+          read.push(relay);
+        } else if (permission === 'write') {
+          write.push(relay);
+        }
+      }
+    });
+
+    // Extract write relays (both + write)
+    const writeRelays = [...both, ...write];
+
+    return {
+      writeRelays,
+      metadata: {
+        read,
+        write,
+        both,
+        timestamp: event.created_at
+      }
+    };
+  } catch (error) {
+    console.error('Failed to fetch relay list from Nostr:', error);
+    return { writeRelays: [], metadata: null };
+  }
+}
+
+// Get best relay list - tries Nostr first, falls back to NIP-07, then defaults
+// Returns both the relay URLs and the full metadata (if available from NIP-65)
+export async function getBestRelayList(pubkey: string): Promise<{
+  relays: string[];
+  metadata: { read: string[]; write: string[]; both: string[]; timestamp: number } | null;
+}> {
+  // Try fetching from Nostr first (most accurate, matches what clients like Jumble show)
+  const result = await fetchRelayListFromNostr(pubkey);
+  if (result.writeRelays.length > 0) {
+    console.log('Using relay list from Nostr (NIP-65):', result.writeRelays);
+    return { relays: result.writeRelays, metadata: result.metadata };
+  }
+
+  // Fall back to NIP-07 extension relays
+  const nip07Relays = await getNip07Relays();
+  if (nip07Relays.length > 0 && nip07Relays !== DEFAULT_RELAYS) {
+    console.log('Using relay list from NIP-07 extension:', nip07Relays);
+    return { relays: nip07Relays, metadata: null };
+  }
+
+  // Last resort: use defaults
+  console.log('Using default relay list');
+  return { relays: DEFAULT_RELAYS, metadata: null };
+}
+
 // Fetch user's mute list (kind:10000)
 export async function fetchMuteList(
   pubkey: string,
@@ -105,8 +209,64 @@ export async function fetchMuteList(
   return events.length > 0 ? events[0] : null;
 }
 
-// Parse mute list event into structured data
-export function parseMuteListEvent(event: Event): MuteList {
+// Decrypt private mutes from content field using NIP-07 extension
+async function decryptPrivateMutes(encryptedContent: string, authorPubkey: string): Promise<MuteList> {
+  const privateMutes: MuteList = {
+    pubkeys: [],
+    words: [],
+    tags: [],
+    threads: []
+  };
+
+  if (!encryptedContent || encryptedContent.trim() === '') {
+    return privateMutes;
+  }
+
+  try {
+    // Use NIP-07 extension for decryption
+    if (!hasNip07() || !window.nostr) {
+      console.warn('NIP-07 extension not available for decryption');
+      return privateMutes;
+    }
+
+    // NIP-04 decryption via NIP-07
+    const decrypted = await window.nostr.nip04?.decrypt(authorPubkey, encryptedContent);
+    if (!decrypted) {
+      console.warn('No nip04.decrypt method available in NIP-07 extension');
+      return privateMutes;
+    }
+
+    const privateTags = JSON.parse(decrypted) as string[][];
+
+    for (const tag of privateTags) {
+      const [tagType, value, ...rest] = tag;
+      const reason = rest.find(item => !item.startsWith('wss://'));
+
+      switch (tagType) {
+        case 'p':
+          privateMutes.pubkeys.push({ type: 'pubkey', value, reason, private: true });
+          break;
+        case 'word':
+          privateMutes.words.push({ type: 'word', value, reason, private: true });
+          break;
+        case 't':
+          privateMutes.tags.push({ type: 'tag', value, reason, private: true });
+          break;
+        case 'e':
+          privateMutes.threads.push({ type: 'thread', value, reason, private: true });
+          break;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to decrypt private mutes:', error);
+  }
+
+  return privateMutes;
+}
+
+// Parse mute list event into structured data (handles both public and private mutes)
+// If skipCategoryTags is true, 't' tags are skipped (used for kind 30001 public lists where 't' = category, not muted hashtag)
+export async function parseMuteListEvent(event: Event, skipCategoryTags: boolean = false): Promise<MuteList> {
   const muteList: MuteList = {
     pubkeys: [],
     words: [],
@@ -114,30 +274,66 @@ export function parseMuteListEvent(event: Event): MuteList {
     threads: []
   };
 
+  // Parse public mutes from tags
   for (const tag of event.tags) {
     const [tagType, value, ...rest] = tag;
     const reason = rest.find(item => !item.startsWith('wss://'));
 
     switch (tagType) {
       case 'p':
-        muteList.pubkeys.push({ type: 'pubkey', value, reason });
+        muteList.pubkeys.push({ type: 'pubkey', value, reason, private: false });
         break;
       case 'word':
-        muteList.words.push({ type: 'word', value, reason });
+        muteList.words.push({ type: 'word', value, reason, private: false });
         break;
       case 't':
-        muteList.tags.push({ type: 'tag', value, reason });
+        // For kind 30001 (public lists), 't' tags are categories, not muted hashtags
+        if (!skipCategoryTags) {
+          muteList.tags.push({ type: 'tag', value, reason, private: false });
+        }
         break;
       case 'e':
-        muteList.threads.push({ type: 'thread', value, reason });
+        muteList.threads.push({ type: 'thread', value, reason, private: false });
         break;
+    }
+  }
+
+  // Parse private mutes from encrypted content (if any)
+  if (event.content && event.content.trim() !== '') {
+    try {
+      const privateMutes = await decryptPrivateMutes(event.content, event.pubkey);
+      muteList.pubkeys.push(...privateMutes.pubkeys);
+      muteList.words.push(...privateMutes.words);
+      muteList.tags.push(...privateMutes.tags);
+      muteList.threads.push(...privateMutes.threads);
+    } catch (error) {
+      console.error('Failed to parse private mutes:', error);
     }
   }
 
   return muteList;
 }
 
-// Convert mute list to event tags
+// Separate mute list into public and private items
+function separateMuteList(muteList: MuteList): { publicList: MuteList; privateList: MuteList } {
+  const publicList: MuteList = {
+    pubkeys: muteList.pubkeys.filter(item => !item.private),
+    words: muteList.words.filter(item => !item.private),
+    tags: muteList.tags.filter(item => !item.private),
+    threads: muteList.threads.filter(item => !item.private)
+  };
+
+  const privateList: MuteList = {
+    pubkeys: muteList.pubkeys.filter(item => item.private),
+    words: muteList.words.filter(item => item.private),
+    tags: muteList.tags.filter(item => item.private),
+    threads: muteList.threads.filter(item => item.private)
+  };
+
+  return { publicList, privateList };
+}
+
+// Convert mute list to event tags (only public items)
 export function muteListToTags(muteList: MuteList): string[][] {
   const tags: string[][] = [];
 
@@ -168,17 +364,50 @@ export function muteListToTags(muteList: MuteList): string[][] {
   return tags;
 }
 
-// Publish mute list
+// Encrypt private mutes for content field using NIP-07 extension
+async function encryptPrivateMutes(privateList: MuteList, recipientPubkey: string): Promise<string> {
+  const privateTags = muteListToTags(privateList);
+
+  if (privateTags.length === 0) {
+    return '';
+  }
+
+  try {
+    // Use NIP-07 extension for encryption
+    if (!hasNip07() || !window.nostr?.nip04) {
+      throw new Error('NIP-07 extension or nip04 methods not available');
+    }
+
+    // NIP-04 encryption via NIP-07 (encrypt to yourself)
+    const encrypted = await window.nostr.nip04.encrypt(recipientPubkey, JSON.stringify(privateTags));
+    return encrypted;
+  } catch (error) {
+    console.error('Failed to encrypt private mutes:', error);
+    throw new Error('Failed to encrypt private mutes: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+}
+
+// Publish mute list (handles both public and private mutes)
 export async function publishMuteList(
   muteList: MuteList,
   relays: string[] = DEFAULT_RELAYS
 ): Promise<Event> {
-  const tags = muteListToTags(muteList);
+  // Get current user's pubkey for encryption
+  const userPubkey = await getNip07Pubkey();
+
+  // Separate public and private items
+  const { publicList, privateList } = separateMuteList(muteList);
+
+  // Convert public items to tags
+  const tags = muteListToTags(publicList);
+
+  // Encrypt private items for content field
+  const encryptedContent = await encryptPrivateMutes(privateList, userPubkey);
 
   const eventTemplate: EventTemplate = {
     kind: MUTE_LIST_KIND,
     tags,
-    content: '',
+    content: encryptedContent,
     created_at: Math.floor(Date.now() / 1000)
   };
 
@@ -216,20 +445,91 @@ export async function searchPublicListsByName(
   });
 }
 
+// Fetch all public community packs with namespace filtering
+export async function fetchAllPublicPacks(
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 100,
+  category?: PackCategory,
+  includeUntagged: boolean = false,
+  includeNostrguard: boolean = true  // NEW: Include nostrguard packs by default
+): Promise<Event[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  // If includeUntagged is true, fetch both namespaced and non-namespaced packs
+  if (includeUntagged) {
+    const filter: any = {
+      kinds: [PUBLIC_LIST_KIND],
+      limit
+    };
+
+    // Add category filter if specified
+    if (category) {
+      filter['#t'] = [category];
+    }
+
+    return await pool.querySync(expandedRelays, filter);
+  }
+
+  // Fetch packs with namespace filtering
+  const namespaces = [PACK_NAMESPACE];  // Always include mutable
+  if (includeNostrguard) {
+    namespaces.push(NOSTRGUARD_NAMESPACE);  // Optionally include nostrguard
+  }
+
+  const filter: any = {
+    kinds: [PUBLIC_LIST_KIND],
+    '#L': namespaces,
+    limit
+  };
+
+  // Add category filter if specified
+  if (category) {
+    filter['#t'] = [category];
+  }
+
+  console.log('Fetching community packs with filter:', filter);
+  const events = await pool.querySync(expandedRelays, filter);
+  console.log(`Found ${events.length} community pack events (mutable + nostrguard)`);
+
+  return events;
+}
+
 // Parse public list event
-export function parsePublicListEvent(event: Event) {
+// Supports both mutable format (using "name" tag) and nostrguard format (using "title" tag)
+export async function parsePublicListEvent(event: Event) {
   const dTag = event.tags.find(tag => tag[0] === 'd')?.[1] || '';
-  const nameTag = event.tags.find(tag => tag[0] === 'name')?.[1] || dTag;
+
+  // Support both "name" (mutable) and "title" (nostrguard) tags for display name
+  const nameTag = event.tags.find(tag => tag[0] === 'name')?.[1];
+  const titleTag = event.tags.find(tag => tag[0] === 'title')?.[1];
+  const displayName = nameTag || titleTag || dTag;  // Fallback chain
+
   const descTag = event.tags.find(tag => tag[0] === 'description')?.[1];
+
+  // Check which namespace this pack belongs to
+  const namespaceTag = event.tags.find(tag => tag[0] === 'L')?.[1];
+  const isMutablePack = namespaceTag === PACK_NAMESPACE;
+  const isNostrguardPack = namespaceTag === NOSTRGUARD_NAMESPACE;
+
+  // Extract category tags (t tags)
+  const categories = event.tags
+    .filter(tag => tag[0] === 't')
+    .map(tag => tag[1])
+    .filter(cat => Object.values(PACK_CATEGORIES).includes(cat as PackCategory)) as PackCategory[];
 
   return {
     id: event.id,
     dTag,
-    name: nameTag,
+    name: displayName,
     description: descTag,
     author: event.pubkey,
     createdAt: event.created_at,
-    list: parseMuteListEvent(event)
+    list: await parseMuteListEvent(event, true),  // Skip 't' tags as they're categories in kind 30001
+    categories,
+    isMutablePack,  // Track whether this is a mutable-namespaced pack
+    isNostrguardPack,  // Track whether this is a nostrguard pack
+    namespace: namespaceTag  // Track the actual namespace
   };
 }
 
@@ -238,7 +538,8 @@ export async function publishPublicList(
   name: string,
   description: string,
   muteList: MuteList,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  categories: PackCategory[] = []
 ): Promise<Event> {
   const tags = muteListToTags(muteList);
   tags.unshift(['d', name]);
@@ -246,6 +547,15 @@ export async function publishPublicList(
   if (description) {
     tags.push(['description', description]);
   }
+
+  // Add namespace tags for community pack discoverability
+  tags.push(['L', PACK_NAMESPACE]);
+  tags.push(['l', PACK_CATEGORY, PACK_NAMESPACE]);
+
+  // Add category tags
+  categories.forEach(category => {
+    tags.push(['t', category]);
+  });
 
   const eventTemplate: EventTemplate = {
     kind: PUBLIC_LIST_KIND,
@@ -316,6 +626,154 @@ export async function fetchProfile(
   }
 }
 
+// Primal cache WebSocket connection
+let primalWs: WebSocket | null = null;
+let primalConnected = false;
+let primalConnecting = false;
+const primalPendingRequests = new Map<string, {
+  resolve: (value: any[]) => void;
+  reject: (reason?: any) => void;
+  timeout: NodeJS.Timeout;
+  results: any[];
+}>();
+
+// Connect to Primal cache
+async function connectToPrimal(): Promise<boolean> {
+  if (primalConnected) {
+    return true;
+  }
+
+  if (primalConnecting) {
+    // Wait for existing connection attempt
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (primalConnected || !primalConnecting) {
+          clearInterval(checkInterval);
+          resolve(primalConnected);
+        }
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        resolve(false);
+      }, 5000);
+    });
+  }
+
+  primalConnecting = true;
+
+  try {
+    const endpoint = 'wss://cache2.primal.net/v1';
+    console.log(`🔍 Connecting to Primal cache: ${endpoint}`);
+
+    return await new Promise((resolve, reject) => {
+      primalWs = new WebSocket(endpoint);
+
+      const connectionTimeout = setTimeout(() => {
+        if (!primalConnected) {
+          primalWs?.close();
+          reject(new Error('Connection timeout'));
+        }
+      }, 5000);
+
+      primalWs.onopen = () => {
+        clearTimeout(connectionTimeout);
+        primalConnected = true;
+        primalConnecting = false;
+        console.log('✅ Connected to Primal cache');
+        resolve(true);
+      };
+
+      primalWs.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const [type, requestId, payload] = message;
+
+          if (type === 'EVENT' && primalPendingRequests.has(requestId)) {
+            const request = primalPendingRequests.get(requestId)!;
+            if (payload && payload.kind === 0) {
+              request.results.push(payload);
+            }
+          }
+
+          if (type === 'EOSE' && primalPendingRequests.has(requestId)) {
+            const request = primalPendingRequests.get(requestId)!;
+            clearTimeout(request.timeout);
+            request.resolve(request.results);
+            primalPendingRequests.delete(requestId);
+          }
+
+          if (type === 'NOTICE' && primalPendingRequests.has(requestId)) {
+            const request = primalPendingRequests.get(requestId)!;
+            clearTimeout(request.timeout);
+            request.reject(new Error(`Primal cache error: ${payload}`));
+            primalPendingRequests.delete(requestId);
+          }
+        } catch (error) {
+          console.error('Failed to parse Primal cache message:', error);
+        }
+      };
+
+      primalWs.onerror = (error) => {
+        clearTimeout(connectionTimeout);
+        console.error('❌ Primal cache WebSocket error:', error);
+        primalConnected = false;
+        primalConnecting = false;
+        reject(error);
+      };
+
+      primalWs.onclose = () => {
+        console.log('🔌 Primal cache connection closed');
+        primalConnected = false;
+        primalConnecting = false;
+      };
+    });
+  } catch (error) {
+    primalConnecting = false;
+    return false;
+  }
+}
+
+// Search Primal cache
+async function searchPrimalCache(query: string, limit: number): Promise<any[]> {
+  const connected = await connectToPrimal();
+  if (!connected) {
+    throw new Error('Failed to connect to Primal cache');
+  }
+
+  const requestId = `primal_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      primalPendingRequests.delete(requestId);
+      reject(new Error('Search timeout'));
+    }, 5000);
+
+    primalPendingRequests.set(requestId, {
+      resolve,
+      reject,
+      timeout,
+      results: []
+    });
+
+    const searchQuery = [
+      "REQ",
+      requestId,
+      {
+        cache: [
+          "user_search",
+          {
+            query,
+            limit
+          }
+        ]
+      }
+    ];
+
+    primalWs!.send(JSON.stringify(searchQuery));
+  });
+}
+
 // Search profiles by query string (searches name, display_name, nip05)
 export async function searchProfiles(
   query: string,
@@ -340,19 +798,69 @@ export async function searchProfiles(
     return profile ? [profile] : [];
   }
 
-  // Otherwise, fetch recent profiles and filter by query
+  // Try Primal cache first for comprehensive search results
+  try {
+    console.log(`🔍 Searching Primal cache for "${query}"...`);
+    const primalResults = await searchPrimalCache(query, limit);
+
+    if (primalResults && primalResults.length > 0) {
+      console.log(`✅ Primal cache returned ${primalResults.length} results`);
+
+      const profiles: Profile[] = [];
+      for (const event of primalResults) {
+        try {
+          const metadata = JSON.parse(event.content);
+
+          // Filter out mostr.pub bridged profiles
+          if (metadata.nip05 && metadata.nip05.includes('mostr.pub')) {
+            continue;
+          }
+
+          const profile: Profile = {
+            pubkey: event.pubkey,
+            name: metadata.name,
+            display_name: metadata.display_name,
+            about: metadata.about,
+            picture: metadata.picture,
+            nip05: metadata.nip05,
+            lud16: metadata.lud16
+          };
+
+          profiles.push(profile);
+        } catch (error) {
+          continue;
+        }
+      }
+
+      return profiles;
+    }
+  } catch (error) {
+    console.warn('⚠️ Primal cache search failed, falling back to relay search:', error);
+  }
+
+  // Fallback: fetch recent profiles from relays and filter by query
   const pool = getPool();
   const events = await pool.querySync(relays, {
     kinds: [PROFILE_KIND],
-    limit: 500 // Fetch more to filter through
+    limit: 1000
   });
 
   const profiles: Profile[] = [];
   const queryLower = query.toLowerCase();
+  const queryWords = queryLower.split(/\s+/);
 
   for (const event of events) {
     try {
       const metadata = JSON.parse(event.content);
+
+      const name = (metadata.name || '').toLowerCase();
+      const displayName = (metadata.display_name || '').toLowerCase();
+      const nip05 = (metadata.nip05 || '').toLowerCase();
+
+      if (nip05.includes('mostr.pub')) {
+        continue;
+      }
+
       const profile: Profile = {
         pubkey: event.pubkey,
         name: metadata.name,
@@ -363,18 +871,29 @@ export async function searchProfiles(
         lud16: metadata.lud16
       };
 
-      // Check if query matches name, display_name, or nip05
-      const matchesName = profile.name?.toLowerCase().includes(queryLower);
-      const matchesDisplayName = profile.display_name?.toLowerCase().includes(queryLower);
-      const matchesNip05 = profile.nip05?.toLowerCase().includes(queryLower);
+      const nameWords = name.split(/\s+/);
+      const displayNameWords = displayName.split(/\s+/);
 
-      if (matchesName || matchesDisplayName || matchesNip05) {
+      const hasDirectMatch = name.includes(queryLower) ||
+                            displayName.includes(queryLower) ||
+                            nip05.includes(queryLower);
+
+      const hasWordMatch = queryWords.every((qWord: string) =>
+        nameWords.some((nWord: string) => nWord.includes(qWord)) ||
+        displayNameWords.some((dWord: string) => dWord.includes(qWord))
+      );
+
+      const hasStartMatch = queryWords.every((qWord: string) =>
+        nameWords.some((nWord: string) => nWord.startsWith(qWord)) ||
+        displayNameWords.some((dWord: string) => dWord.startsWith(qWord))
+      );
+
+      if (hasDirectMatch || hasWordMatch || hasStartMatch) {
         profiles.push(profile);
       }
 
       if (profiles.length >= limit) break;
     } catch (error) {
-      // Skip invalid profile JSON
       continue;
     }
   }
@@ -385,14 +904,30 @@ export async function searchProfiles(
 // Fetch user's follow list (kind:3)
 export async function fetchFollowList(
   pubkey: string,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  retries: number = 0
 ): Promise<Event | null> {
   const pool = getPool();
+
+  // Use only the user's configured relays (not expanded with defaults)
+  // This ensures we query their actual relays where their follow list is stored
+
+  // Wait a moment for relay connections to stabilize before querying
+  if (retries === 0) {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
   const events = await pool.querySync(relays, {
     kinds: [FOLLOW_LIST_KIND],
     authors: [pubkey],
     limit: 1
   });
+
+  // If no events found and retries remaining, wait and try again
+  if (events.length === 0 && retries > 0) {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    return fetchFollowList(pubkey, relays, retries - 1);
+  }
 
   return events.length > 0 ? events[0] : null;
 }
@@ -721,13 +1256,285 @@ export async function enrichMutealsWithProfiles(
 // Get follow list as array of pubkeys
 export async function getFollowListPubkeys(
   pubkey: string,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  retries: number = 2
 ): Promise<string[]> {
-  const followListEvent = await fetchFollowList(pubkey, relays);
+  const followListEvent = await fetchFollowList(pubkey, relays, retries);
   if (!followListEvent) return [];
 
   // Extract pubkeys from p tags
   return followListEvent.tags
     .filter(tag => tag[0] === 'p' && tag[1])
     .map(tag => tag[1]);
+}
+
+// ============================================================================
+// LIST CLEANER - ACCOUNT ACTIVITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Check profile activity status for a single pubkey
+ * Queries multiple event kinds to determine if profile is active or abandoned
+ * Uses aggressive retry strategy similar to plebs-vs-zombies
+ *
+ * @param pubkey - Hex pubkey to check
+ * @param relays - Relays to query
+ * @param inactivityThresholdDays - Number of days to consider as inactive (default: 180)
+ * @returns AccountActivityStatus object with activity details
+ */
+export async function checkAccountActivity(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  inactivityThresholdDays: number = 180
+): Promise<import('@/types').AccountActivityStatus> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  let events: any[] = [];
+
+  try {
+    // STRATEGY 1: Comprehensive search across all event kinds
+    // Query for recent events across MANY kinds to determine activity (comprehensive like plebs-vs-zombies)
+    // This includes: profiles, notes, channels, DMs, reactions, reposts, zaps, lists, long-form content, etc.
+    console.log(`🔍 Strategy 1: Comprehensive search for ${pubkey.substring(0, 8)}... across ${expandedRelays.length} relays`);
+
+    events = await pool.querySync(expandedRelays, {
+      kinds: [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 40, 41, 42, 43, 44,
+        1063, 1311, 1984, 1985, 9734, 9735, 10000, 10001, 10002,
+        30000, 30001, 30008, 30009, 30017, 30018, 30023, 30024,
+        31890, 31922, 31923, 31924, 31925, 31989, 31990, 34550
+      ],
+      authors: [pubkey],
+      limit: 500 // Higher limit to catch more events
+      // No 'since' filter - we want to find the MOST RECENT activity regardless of when it was
+    });
+
+    console.log(`   ✓ Strategy 1: Found ${events.length} events for ${pubkey.substring(0, 8)}...`);
+
+    // STRATEGY 2: If we found less than 5 events, try a more focused search for common activity
+    // Sometimes comprehensive searches miss things, so try specific kinds separately
+    if (events.length < 5) {
+      console.log(`🔍 Strategy 2: Focused search for ${pubkey.substring(0, 8)}... (found only ${events.length} so far)`);
+
+      // Try kind 1 (notes) separately - most common activity
+      const noteEvents = await pool.querySync(expandedRelays, {
+        kinds: [1],
+        authors: [pubkey],
+        limit: 100
+      });
+      console.log(`   ✓ Strategy 2a: Found ${noteEvents.length} notes`);
+
+      // Try kind 6 (reposts) separately
+      const repostEvents = await pool.querySync(expandedRelays, {
+        kinds: [6],
+        authors: [pubkey],
+        limit: 100
+      });
+      console.log(`   ✓ Strategy 2b: Found ${repostEvents.length} reposts`);
+
+      // Try kind 7 (reactions) separately
+      const reactionEvents = await pool.querySync(expandedRelays, {
+        kinds: [7],
+        authors: [pubkey],
+        limit: 100
+      });
+      console.log(`   ✓ Strategy 2c: Found ${reactionEvents.length} reactions`);
+
+      // Combine all results
+      const allEvents = [...events, ...noteEvents, ...repostEvents, ...reactionEvents];
+      // Deduplicate by event id
+      const uniqueEvents = Array.from(new Map(allEvents.map(e => [e.id, e])).values());
+      events = uniqueEvents;
+      console.log(`   ✓ Strategy 2: Combined total ${events.length} unique events`);
+    }
+
+    // STRATEGY 3: If still nothing, try JUST profile with no limit
+    if (events.length === 0) {
+      console.log(`🔍 Strategy 3: Last resort profile search for ${pubkey.substring(0, 8)}...`);
+      events = await pool.querySync(expandedRelays, {
+        kinds: [0], // Just profiles
+        authors: [pubkey]
+        // No limit - get everything
+      });
+      console.log(`   ✓ Strategy 3: Found ${events.length} profile events`);
+    }
+
+    if (events.length === 0) {
+      // No events found after all strategies - likely deleted or never existed
+      console.log(`❌ No events found for ${pubkey.substring(0, 8)}... after all strategies`);
+      return {
+        pubkey,
+        lastActivityTimestamp: null,
+        lastActivityType: null,
+        daysInactive: null,
+        hasProfile: false,
+        isLikelyAbandoned: true
+      };
+    }
+
+    // Find the most recent event
+    const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+    const latestEvent = sortedEvents[0];
+    const lastActivityTimestamp = latestEvent.created_at;
+
+    console.log(`✅ Found activity for ${pubkey.substring(0, 8)}...: ${events.length} events, most recent ${Math.floor((Date.now() / 1000 - lastActivityTimestamp) / 86400)} days ago (kind ${latestEvent.kind})`);
+
+    // Determine event type (comprehensive mapping)
+    const kindToType: Record<number, string> = {
+      0: 'profile',
+      1: 'note',
+      2: 'recommend_relay',
+      3: 'follows',
+      4: 'encrypted_dm',
+      5: 'event_deletion',
+      6: 'repost',
+      7: 'reaction',
+      8: 'badge_award',
+      9: 'group_chat_message',
+      10: 'group_chat_threaded_reply',
+      11: 'group_thread',
+      12: 'group_thread_reply',
+      40: 'channel_create',
+      41: 'channel_metadata',
+      42: 'channel_message',
+      43: 'channel_hide_message',
+      44: 'channel_mute_user',
+      1063: 'file_metadata',
+      1311: 'live_chat_message',
+      1984: 'reporting',
+      1985: 'label',
+      9734: 'zap_request',
+      9735: 'zap',
+      10000: 'mute_list',
+      10001: 'pin_list',
+      10002: 'relay_list',
+      30000: 'categorized_people',
+      30001: 'categorized_bookmarks',
+      30008: 'profile_badges',
+      30009: 'badge_definition',
+      30017: 'create_or_update_stall',
+      30018: 'create_or_update_product',
+      30023: 'long_form_content',
+      30024: 'draft_long_form_content',
+      31890: 'feed',
+      31922: 'date_based_calendar_event',
+      31923: 'time_based_calendar_event',
+      31924: 'calendar',
+      31925: 'calendar_event_rsvp',
+      31989: 'handler_recommendation',
+      31990: 'handler_information',
+      34550: 'community_post_approval'
+    };
+    const lastActivityType = kindToType[latestEvent.kind] || `kind_${latestEvent.kind}`;
+
+    // Check if they have a profile
+    const hasProfile = events.some(e => e.kind === 0);
+
+    // Calculate days inactive
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const secondsInactive = nowSeconds - lastActivityTimestamp;
+    const daysInactive = Math.floor(secondsInactive / 86400);
+
+    // Determine if likely abandoned
+    const isLikelyAbandoned = daysInactive >= inactivityThresholdDays;
+
+    return {
+      pubkey,
+      lastActivityTimestamp,
+      lastActivityType,
+      daysInactive,
+      hasProfile,
+      isLikelyAbandoned
+    };
+  } catch (error) {
+    console.error(`Failed to check activity for ${pubkey}:`, error);
+    // On error, assume account exists but we couldn't verify
+    return {
+      pubkey,
+      lastActivityTimestamp: null,
+      lastActivityType: null,
+      daysInactive: null,
+      hasProfile: false,
+      isLikelyAbandoned: false // Don't mark as abandoned if we had an error
+    };
+  }
+}
+
+/**
+ * Batch check profile activity for multiple pubkeys
+ * Processes in batches with progress tracking and abort capability
+ *
+ * @param pubkeys - Array of hex pubkeys to check
+ * @param relays - Relays to query
+ * @param inactivityThresholdDays - Number of days to consider as inactive (default: 180)
+ * @param onProgress - Optional callback for progress updates (current, total)
+ * @param abortSignal - Optional AbortSignal to cancel operation
+ * @returns Array of AccountActivityStatus objects
+ */
+export async function batchCheckAccountActivity(
+  pubkeys: string[],
+  relays: string[] = DEFAULT_RELAYS,
+  inactivityThresholdDays: number = 180,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal
+): Promise<import('@/types').AccountActivityStatus[]> {
+  const results: import('@/types').AccountActivityStatus[] = [];
+  const BATCH_SIZE = 5; // Process only 5 accounts at a time to avoid overwhelming relays
+
+  console.log(`🚀 Starting batch account activity check for ${pubkeys.length} accounts`);
+  console.log(`   Inactivity threshold: ${inactivityThresholdDays} days`);
+  console.log(`   Batch size: ${BATCH_SIZE} accounts per batch`);
+  console.log(`   Relays: ${relays.length} relays will be queried`);
+
+  for (let i = 0; i < pubkeys.length; i += BATCH_SIZE) {
+    // Check if operation was aborted
+    if (abortSignal?.aborted) {
+      console.log(`⏸️  Batch check aborted after processing ${results.length}/${pubkeys.length} accounts`);
+      break;
+    }
+
+    const batch = pubkeys.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(pubkeys.length / BATCH_SIZE);
+
+    console.log(`\n📦 Batch ${batchNum}/${totalBatches}: Processing ${batch.length} accounts...`);
+
+    // Process batch in parallel using Promise.allSettled for error tolerance
+    const batchPromises = batch.map(pubkey =>
+      checkAccountActivity(pubkey, relays, inactivityThresholdDays)
+    );
+
+    const batchResults = await Promise.allSettled(batchPromises);
+
+    // Extract successful results
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.push(result.value);
+      } else {
+        console.error('❌ Failed to check account:', result.reason);
+      }
+    }
+
+    // Report progress
+    if (onProgress) {
+      onProgress(results.length, pubkeys.length);
+    }
+
+    console.log(`✅ Batch ${batchNum} complete: ${results.length}/${pubkeys.length} total accounts processed`);
+
+    // Longer delay between batches to avoid overwhelming relays
+    if (i + BATCH_SIZE < pubkeys.length && !abortSignal?.aborted) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+    }
+  }
+
+  console.log(`Batch check complete: Processed ${results.length}/${pubkeys.length} accounts`);
+
+  // Summary statistics
+  const abandoned = results.filter(r => r.isLikelyAbandoned).length;
+  const noProfile = results.filter(r => !r.hasProfile).length;
+  console.log(`Summary: ${abandoned} likely abandoned, ${noProfile} without profiles`);
+
+  return results;
 }
