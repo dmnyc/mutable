@@ -17,7 +17,7 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
 
   const [listName, setListName] = useState('');
   const [description, setDescription] = useState('');
-  const [useCurrentList, setUseCurrentList] = useState(true);
+  const [useCurrentList, setUseCurrentList] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>([]);
   const [customList, setCustomList] = useState<MuteList>({
     pubkeys: [],
