@@ -1,31 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import {
   searchPublicListsByAuthor,
   searchPublicListsByName,
   fetchAllPublicPacks,
+  fetchUserPublicPacks,
   parsePublicListEvent,
   npubToHex,
   PACK_CATEGORIES,
   PackCategory
 } from '@/lib/nostr';
-import { Search, Plus, RefreshCw, Package } from 'lucide-react';
+import { Search, Plus, RefreshCw, Package, User } from 'lucide-react';
 import PublicListCard from './PublicListCard';
 import CreatePublicList from './CreatePublicList';
+import { PublicMuteList } from '@/types';
 
 export default function PublicLists() {
   const { session } = useAuth();
   const { publicLists, setPublicLists, setPublicListsLoading, publicListsLoading } = useStore();
 
+  const [viewMode, setViewMode] = useState<'browse' | 'my-packs'>('browse');
   const [searchType, setSearchType] = useState<'author' | 'name' | 'browse'>('browse');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchError, setSearchError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingPack, setEditingPack] = useState<PublicMuteList | undefined>(undefined);
   const [selectedCategory, setSelectedCategory] = useState<PackCategory | 'all'>('all');
   const [includeNostrguard, setIncludeNostrguard] = useState(true);
+  const [userPacks, setUserPacks] = useState<PublicMuteList[]>([]);
+  const [loadingUserPacks, setLoadingUserPacks] = useState(false);
 
   const handleSearch = async () => {
     if (!session) return;
@@ -89,6 +95,49 @@ export default function PublicLists() {
     }
   };
 
+  // Load user's own packs
+  const loadUserPacks = async () => {
+    if (!session) return;
+
+    try {
+      setLoadingUserPacks(true);
+      setSearchError(null);
+
+      const events = await fetchUserPublicPacks(session.pubkey, session.relays);
+      const parsedPacks = await Promise.all(events.map(parsePublicListEvent));
+
+      setUserPacks(parsedPacks);
+    } catch (error) {
+      setSearchError(
+        error instanceof Error ? error.message : 'Failed to load your packs'
+      );
+    } finally {
+      setLoadingUserPacks(false);
+    }
+  };
+
+  // Load user packs when switching to my-packs view
+  useEffect(() => {
+    if (viewMode === 'my-packs') {
+      loadUserPacks();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
+  const handleCreateModalClose = () => {
+    setShowCreateModal(false);
+    setEditingPack(undefined);
+    // Reload user packs if we're in my-packs view
+    if (viewMode === 'my-packs') {
+      loadUserPacks();
+    }
+  };
+
+  const handleEditPack = (pack: PublicMuteList) => {
+    setEditingPack(pack);
+    setShowCreateModal(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -112,7 +161,34 @@ export default function PublicLists() {
           </button>
         </div>
 
-        {/* Search Interface */}
+        {/* View Mode Tabs */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setViewMode('browse')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'browse'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            <Package size={16} />
+            Browse Packs
+          </button>
+          <button
+            onClick={() => setViewMode('my-packs')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'my-packs'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            <User size={16} />
+            My Packs
+          </button>
+        </div>
+
+        {/* Search Interface (only show in browse mode) */}
+        {viewMode === 'browse' && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <button
@@ -258,46 +334,106 @@ export default function PublicLists() {
             </div>
           )}
         </div>
+        )}
       </div>
 
-      {/* Loading State */}
-      {publicListsLoading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-          <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
-          <p className="text-gray-600 dark:text-gray-400">Searching...</p>
-        </div>
+      {/* My Packs View */}
+      {viewMode === 'my-packs' && (
+        <>
+          {/* Loading State */}
+          {loadingUserPacks && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
+              <p className="text-gray-600 dark:text-gray-400">Loading your packs...</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {!loadingUserPacks && userPacks.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                You have {userPacks.length} {userPacks.length === 1 ? 'pack' : 'packs'}
+              </p>
+              {userPacks.map((list) => (
+                <PublicListCard
+                  key={list.id}
+                  list={list}
+                  isOwner={true}
+                  onEdit={handleEditPack}
+                  onDelete={loadUserPacks}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loadingUserPacks && userPacks.length === 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <Package className="mx-auto mb-3 text-gray-400" size={48} />
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                You haven&apos;t created any packs yet
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                Create your first community pack to share with others
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                <Plus size={16} />
+                Create Your First Pack
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Results */}
-      {!publicListsLoading && publicLists.length > 0 && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Found {publicLists.length} {publicLists.length === 1 ? 'pack' : 'packs'}
-          </p>
-          {publicLists.map((list) => (
-            <PublicListCard key={list.id} list={list} />
-          ))}
-        </div>
+      {/* Browse View */}
+      {viewMode === 'browse' && (
+        <>
+          {/* Loading State */}
+          {publicListsLoading && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
+              <p className="text-gray-600 dark:text-gray-400">Searching...</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {!publicListsLoading && publicLists.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Found {publicLists.length} {publicLists.length === 1 ? 'pack' : 'packs'}
+              </p>
+              {publicLists.map((list) => (
+                <PublicListCard key={list.id} list={list} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!publicListsLoading && publicLists.length === 0 && !searchError && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <Package className="mx-auto mb-3 text-gray-400" size={48} />
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                {searchType === 'browse' ? 'Click "Load Community Packs" to get started' : 'Search for community packs'}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500">
+                {searchType === 'browse'
+                  ? 'Browse all community packs or filter by category'
+                  : 'Enter a pack name or author to discover community packs'}
+              </p>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Empty State */}
-      {!publicListsLoading && publicLists.length === 0 && !searchError && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-          <Package className="mx-auto mb-3 text-gray-400" size={48} />
-          <p className="text-gray-600 dark:text-gray-400 mb-2">
-            {searchType === 'browse' ? 'Click "Load Community Packs" to get started' : 'Search for community packs'}
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500">
-            {searchType === 'browse'
-              ? 'Browse all community packs or filter by category'
-              : 'Enter a pack name or author to discover community packs'}
-          </p>
-        </div>
-      )}
-
-      {/* Create List Modal */}
+      {/* Create/Edit List Modal */}
       {showCreateModal && (
-        <CreatePublicList onClose={() => setShowCreateModal(false)} />
+        <CreatePublicList
+          onClose={handleCreateModalClose}
+          editingPack={editingPack}
+        />
       )}
     </div>
   );

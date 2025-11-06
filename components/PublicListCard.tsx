@@ -3,22 +3,28 @@
 import { useState, useEffect } from 'react';
 import { PublicMuteList, Profile } from '@/types';
 import { useStore } from '@/lib/store';
-import { hexToNpub, fetchProfile } from '@/lib/nostr';
-import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { hexToNpub, fetchProfile, deletePublicList } from '@/lib/nostr';
+import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, ExternalLink, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import ImportConfirmationDialog from './ImportConfirmationDialog';
 import UserProfileModal from './UserProfileModal';
 import { useAuth } from '@/hooks/useAuth';
 
 interface PublicListCardProps {
   list: PublicMuteList;
+  isOwner?: boolean;
+  onEdit?: (pack: PublicMuteList) => void;
+  onDelete?: () => void;
 }
 
-export default function PublicListCard({ list }: PublicListCardProps) {
+export default function PublicListCard({ list, isOwner = false, onEdit, onDelete }: PublicListCardProps) {
   const { session } = useAuth();
   const { muteList, setMuteList, setHasUnsavedChanges, getNewItemsCount, markPackItemsAsImported, isBlacklisted } = useStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [skippedBlacklisted, setSkippedBlacklisted] = useState(0);
   const [creatorProfile, setCreatorProfile] = useState<Profile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -176,6 +182,28 @@ export default function PublicListCard({ list }: PublicListCardProps) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!session) return;
+
+    try {
+      setDeleting(true);
+      await deletePublicList(list.id, session.relays);
+      setDeleteSuccess(true);
+      setShowDeleteConfirm(false);
+
+      // Show success message briefly, then trigger parent reload
+      setTimeout(() => {
+        if (onDelete) {
+          onDelete();
+        }
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to delete pack:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete pack');
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-850 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
@@ -249,17 +277,52 @@ export default function PublicListCard({ list }: PublicListCardProps) {
               </div>
             </div>
 
-            <button
-              onClick={handleImportClick}
-              disabled={allImported}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                importSuccess
-                  ? 'bg-green-600 text-white'
-                  : allImported
-                  ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : 'bg-red-600 text-white hover:bg-red-700'
-              }`}
-            >
+            {/* Owner Actions */}
+            {isOwner ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onEdit?.(list)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  title="Edit pack"
+                >
+                  <Edit size={16} />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting || deleteSuccess}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    deleteSuccess
+                      ? 'bg-green-600 text-white'
+                      : 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                  title="Delete pack"
+                >
+                  {deleteSuccess ? (
+                    <>
+                      <Check size={16} />
+                      <span className="hidden sm:inline">Deleted!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      <span className="hidden sm:inline">Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleImportClick}
+                disabled={allImported}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  importSuccess
+                    ? 'bg-green-600 text-white'
+                    : allImported
+                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
               {importSuccess ? (
                 <>
                   <Check size={16} />
@@ -280,7 +343,8 @@ export default function PublicListCard({ list }: PublicListCardProps) {
                   <span className="sm:hidden">+{newItemsCount}</span>
                 </>
               )}
-            </button>
+              </button>
+            )}
           </div>
 
           {/* Stats */}
@@ -602,6 +666,37 @@ export default function PublicListCard({ list }: PublicListCardProps) {
           profile={selectedProfile}
           onClose={() => setSelectedProfile(null)}
         />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Delete Pack?
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete &quot;{list.name}&quot;? This action cannot be undone.
+              A deletion event will be published to the network.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Deleting...' : 'Delete Pack'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

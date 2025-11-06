@@ -3,28 +3,33 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { publishPublicList, npubToHex, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
+import { publishPublicList, updatePublicList, npubToHex, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
 import { X, Plus, Trash2, AlertCircle, Tag } from 'lucide-react';
-import { MuteList, MutedPubkey, MutedWord, MutedTag } from '@/types';
+import { MuteList, MutedPubkey, MutedWord, MutedTag, PublicMuteList } from '@/types';
 
 interface CreatePublicListProps {
   onClose: () => void;
+  editingPack?: PublicMuteList; // Optional pack to edit
 }
 
-export default function CreatePublicList({ onClose }: CreatePublicListProps) {
+export default function CreatePublicList({ onClose, editingPack }: CreatePublicListProps) {
   const { session } = useAuth();
   const { muteList } = useStore();
 
-  const [listName, setListName] = useState('');
-  const [description, setDescription] = useState('');
+  const isEditMode = !!editingPack;
+
+  const [listName, setListName] = useState(editingPack?.name || '');
+  const [description, setDescription] = useState(editingPack?.description || '');
   const [useCurrentList, setUseCurrentList] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>([]);
-  const [customList, setCustomList] = useState<MuteList>({
-    pubkeys: [],
-    words: [],
-    tags: [],
-    threads: []
-  });
+  const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>((editingPack?.categories as PackCategory[]) || []);
+  const [customList, setCustomList] = useState<MuteList>(
+    editingPack?.list || {
+      pubkeys: [],
+      words: [],
+      tags: [],
+      threads: []
+    }
+  );
 
   // Batch input states
   const [batchNpubInput, setBatchNpubInput] = useState('');
@@ -146,9 +151,9 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
       return;
     }
 
-    // Validate list name format
-    if (!/^[a-z0-9-]+$/.test(listName.trim())) {
-      setError('Pack name must contain only lowercase letters, numbers, and hyphens');
+    // Validate list name format - allow any characters except line breaks
+    if (listName.trim().includes('\n') || listName.trim().includes('\r')) {
+      setError('Pack name cannot contain line breaks');
       return;
     }
 
@@ -158,20 +163,33 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
 
       const listToPublish = useCurrentList ? muteList : customList;
 
-      await publishPublicList(
-        listName.trim(),
-        description.trim(),
-        listToPublish,
-        session.relays,
-        selectedCategories
-      );
+      if (isEditMode && editingPack) {
+        // Update existing pack
+        await updatePublicList(
+          editingPack.dTag,
+          listName.trim(),
+          description.trim(),
+          listToPublish,
+          session.relays,
+          selectedCategories
+        );
+      } else {
+        // Create new pack
+        await publishPublicList(
+          listName.trim(),
+          description.trim(),
+          listToPublish,
+          session.relays,
+          selectedCategories
+        );
+      }
 
       setSuccess(true);
       setTimeout(() => {
         onClose();
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to publish list');
+      setError(err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'publish'} list`);
     } finally {
       setPublishing(false);
     }
@@ -196,7 +214,7 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Create Community Pack
+              {isEditMode ? 'Edit Community Pack' : 'Create Community Pack'}
             </h2>
             <button
               onClick={onClose}
@@ -211,7 +229,7 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
           {/* Success Message */}
           {success && (
             <div className="p-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded text-green-700 dark:text-green-200">
-              Community pack published successfully!
+              Community pack {isEditMode ? 'updated' : 'published'} successfully!
             </div>
           )}
 
@@ -259,14 +277,12 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
                 type="text"
                 value={listName}
                 onChange={(e) => setListName(e.target.value)}
-                placeholder="e.g., spam-bots, nsfw-content, known-scammers"
+                placeholder="e.g., Spam Bots, NSFW Content, Known Scammers"
                 maxLength={MAX_NAME_LENGTH}
-                className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                disabled={isEditMode}
+                className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
               />
-              <div className="mt-1 flex justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">
-                  Use lowercase, numbers, and hyphens only
-                </span>
+              <div className="mt-1 flex justify-end text-xs">
                 <span className="text-gray-500 dark:text-gray-400">
                   {listName.length}/{MAX_NAME_LENGTH}
                 </span>
@@ -589,7 +605,7 @@ export default function CreatePublicList({ onClose }: CreatePublicListProps) {
               ) : (
                 <>
                   <Plus size={20} />
-                  Publish Pack
+                  {isEditMode ? 'Update Pack' : 'Publish Pack'}
                 </>
               )}
             </button>

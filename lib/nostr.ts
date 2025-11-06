@@ -576,6 +576,87 @@ export async function publishPublicList(
   return signedEvent;
 }
 
+// Update existing public pack (same as publish, but used for clarity)
+export async function updatePublicList(
+  dTag: string,
+  name: string,
+  description: string,
+  muteList: MuteList,
+  relays: string[] = DEFAULT_RELAYS,
+  categories: PackCategory[] = []
+): Promise<Event> {
+  // Kind 30001 is a parameterized replaceable event
+  // Publishing a new event with the same d-tag will replace the old one
+  const tags = muteListToTags(muteList);
+  tags.unshift(['d', dTag]); // Use the same d-tag to replace
+  tags.push(['name', name]);
+  if (description) {
+    tags.push(['description', description]);
+  }
+
+  // Add namespace tags for community pack discoverability
+  tags.push(['L', PACK_NAMESPACE]);
+  tags.push(['l', PACK_CATEGORY, PACK_NAMESPACE]);
+
+  // Add category tags
+  categories.forEach(category => {
+    tags.push(['t', category]);
+  });
+
+  const eventTemplate: EventTemplate = {
+    kind: PUBLIC_LIST_KIND,
+    tags,
+    content: '',
+    created_at: Math.floor(Date.now() / 1000)
+  };
+
+  const signedEvent = await signWithNip07(eventTemplate);
+  const pool = getPool();
+
+  await Promise.any(
+    pool.publish(relays, signedEvent)
+  );
+
+  return signedEvent;
+}
+
+// Delete a public pack (publish kind 5 deletion event)
+export async function deletePublicList(
+  packEventId: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<Event> {
+  const eventTemplate: EventTemplate = {
+    kind: 5, // Deletion event
+    tags: [
+      ['e', packEventId] // Reference the event to delete
+    ],
+    content: 'Deleted pack',
+    created_at: Math.floor(Date.now() / 1000)
+  };
+
+  const signedEvent = await signWithNip07(eventTemplate);
+  const pool = getPool();
+
+  await Promise.any(
+    pool.publish(relays, signedEvent)
+  );
+
+  return signedEvent;
+}
+
+// Fetch user's own public packs
+export async function fetchUserPublicPacks(
+  userPubkey: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<Event[]> {
+  const pool = getPool();
+  return await pool.querySync(relays, {
+    kinds: [PUBLIC_LIST_KIND],
+    authors: [userPubkey],
+    '#L': [PACK_NAMESPACE] // Only fetch mutable-namespaced packs
+  });
+}
+
 // Convert npub to hex
 export function npubToHex(npub: string): string {
   try {
