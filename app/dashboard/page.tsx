@@ -17,6 +17,7 @@ import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
 import UnsavedChangesBanner from '@/components/UnsavedChangesBanner';
 import PublishSuccessModal from '@/components/PublishSuccessModal';
+import Footer from '@/components/Footer';
 import { Profile } from '@/types';
 import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
 import { backupService } from '@/lib/backupService';
@@ -166,7 +167,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -444,7 +445,7 @@ export default function Dashboard() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
@@ -452,6 +453,8 @@ export default function Dashboard() {
         {activeTab === 'listCleaner' && <ListCleaner />}
         {activeTab === 'settings' && <Settings />}
       </main>
+
+      <Footer />
 
       {/* User Profile Modal */}
       {selectedProfile && (

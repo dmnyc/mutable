@@ -284,7 +284,39 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
 
             {/* Owner Actions */}
             {isOwner ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleImportClick}
+                  disabled={allImported}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    importSuccess
+                      ? 'bg-green-600 text-white'
+                      : allImported
+                      ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                {importSuccess ? (
+                  <>
+                    <Check size={16} />
+                    <span>Added!</span>
+                  </>
+                ) : allImported ? (
+                  <>
+                    <Check size={16} />
+                    <span className="hidden sm:inline">All in Your List</span>
+                    <span className="sm:hidden">✓</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} />
+                    <span className="hidden sm:inline">
+                      Add {newItemsCount > 0 && newItemsCount} to My Mute List
+                    </span>
+                    <span className="sm:hidden">+{newItemsCount}</span>
+                  </>
+                )}
+                </button>
                 <button
                   onClick={() => onEdit?.(list)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
