@@ -6,7 +6,7 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList } from '@/types';
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients
