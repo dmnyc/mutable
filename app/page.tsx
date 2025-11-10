@@ -35,12 +35,22 @@ export default function Home() {
             />
           </div>
           <div className="flex justify-center mb-4">
+            {/* Light mode: dark text, Dark mode: white text with shadow */}
+            <Image
+              src="/mutable_text_dark.svg"
+              alt="Mutable"
+              width={300}
+              height={60}
+              priority
+              className="block dark:hidden"
+            />
             <Image
               src="/mutable_text.svg"
               alt="Mutable"
               width={300}
               height={60}
               priority
+              className="hidden dark:block"
             />
           </div>
           <p className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-8">
