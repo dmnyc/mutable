@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import Image from 'next/image';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Menu, X } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isConnected) {
@@ -261,7 +262,8 @@ export default function Dashboard() {
       {/* Tab Navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex space-x-8">
             <button
               onClick={() => setActiveTab('myList')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -322,6 +324,114 @@ export default function Dashboard() {
             >
               Settings
             </button>
+          </div>
+
+          {/* Mobile Navigation */}
+          <div className="lg:hidden">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex items-center justify-between w-full py-4"
+            >
+              <span className="font-semibold text-base text-gray-900 dark:text-white">
+                {activeTab === 'myList' && 'My Mute List'}
+                {activeTab === 'publicLists' && 'Community Packs'}
+                {activeTab === 'muteuals' && 'Muteuals'}
+                {activeTab === 'backups' && 'Backups'}
+                {activeTab === 'listCleaner' && 'List Cleaner'}
+                {activeTab === 'settings' && 'Settings'}
+              </span>
+              {mobileMenuOpen ? (
+                <X size={20} className="text-gray-900 dark:text-white" />
+              ) : (
+                <Menu size={20} className="text-gray-900 dark:text-white" />
+              )}
+            </button>
+
+            {/* Mobile Dropdown Menu */}
+            {mobileMenuOpen && (
+              <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+                  <button
+                    onClick={() => {
+                      setActiveTab('myList');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'myList'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    My Mute List
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('publicLists');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'publicLists'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Community Packs
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('muteuals');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'muteuals'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Muteuals
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('backups');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'backups'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Backups
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('listCleaner');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'listCleaner'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    List Cleaner
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('settings');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'settings'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Settings
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

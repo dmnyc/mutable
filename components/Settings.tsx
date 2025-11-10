@@ -441,7 +441,7 @@ export default function Settings() {
 
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong className="text-gray-900 dark:text-white">Version:</strong> 0.2.0-5f7ed8a
+            <strong className="text-gray-900 dark:text-white">Version:</strong> 0.2.1-6028b23
           </p>
           <p>
             <strong className="text-gray-900 dark:text-white">Description:</strong> A Nostr mute list management application

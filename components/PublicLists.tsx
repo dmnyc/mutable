@@ -22,7 +22,7 @@ export default function PublicLists() {
   const { session } = useAuth();
   const { publicLists, setPublicLists, setPublicListsLoading, publicListsLoading } = useStore();
 
-  const [viewMode, setViewMode] = useState<'browse' | 'my-packs'>('browse');
+  const [viewMode, setViewMode] = useState<'browse' | 'my-packs'>('my-packs');
   const [searchType, setSearchType] = useState<'author' | 'name' | 'browse'>('browse');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -32,6 +32,7 @@ export default function PublicLists() {
   const [includeNostrguard, setIncludeNostrguard] = useState(true);
   const [userPacks, setUserPacks] = useState<PublicMuteList[]>([]);
   const [loadingUserPacks, setLoadingUserPacks] = useState(false);
+  const [hasCheckedForPacks, setHasCheckedForPacks] = useState(false);
 
   const handleSearch = async () => {
     if (!session) return;
@@ -116,9 +117,18 @@ export default function PublicLists() {
     }
   };
 
+  // Load user packs on initial load since we default to my-packs view
+  useEffect(() => {
+    if (session && !hasCheckedForPacks) {
+      setHasCheckedForPacks(true);
+      loadUserPacks();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, hasCheckedForPacks]);
+
   // Load user packs when switching to my-packs view
   useEffect(() => {
-    if (viewMode === 'my-packs') {
+    if (viewMode === 'my-packs' && userPacks.length === 0 && hasCheckedForPacks) {
       loadUserPacks();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,17 +174,6 @@ export default function PublicLists() {
         {/* View Mode Tabs */}
         <div className="flex gap-2 mb-4">
           <button
-            onClick={() => setViewMode('browse')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'browse'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            <Package size={16} />
-            Browse Packs
-          </button>
-          <button
             onClick={() => setViewMode('my-packs')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               viewMode === 'my-packs'
@@ -184,6 +183,17 @@ export default function PublicLists() {
           >
             <User size={16} />
             My Packs
+          </button>
+          <button
+            onClick={() => setViewMode('browse')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'browse'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            <Package size={16} />
+            Browse Packs
           </button>
         </div>
 
@@ -405,9 +415,18 @@ export default function PublicLists() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Found {publicLists.length} {publicLists.length === 1 ? 'pack' : 'packs'}
               </p>
-              {publicLists.map((list) => (
-                <PublicListCard key={list.id} list={list} />
-              ))}
+              {publicLists.map((list) => {
+                const isOwner = session?.pubkey === list.author;
+                return (
+                  <PublicListCard
+                    key={list.id}
+                    list={list}
+                    isOwner={isOwner}
+                    onEdit={isOwner ? handleEditPack : undefined}
+                    onDelete={isOwner ? handleSearch : undefined}
+                  />
+                );
+              })}
             </div>
           )}
 

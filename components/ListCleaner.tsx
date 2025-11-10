@@ -262,7 +262,7 @@ export default function ListCleaner() {
       {/* Scan Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold mb-1">Inactivity Threshold</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -270,7 +270,7 @@ export default function ListCleaner() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <Sliders size={20} className="text-gray-400" />
+              <Sliders size={20} className="text-gray-400 flex-shrink-0" />
               <input
                 type="range"
                 min="30"
@@ -278,10 +278,10 @@ export default function ListCleaner() {
                 step="30"
                 value={inactivityThreshold}
                 onChange={(e) => setInactivityThreshold(Number(e.target.value))}
-                className="w-32"
+                className="flex-1 min-w-[120px]"
                 disabled={isScanning}
               />
-              <span className="text-lg font-semibold w-20 text-right">
+              <span className="text-lg font-semibold min-w-[90px] text-right flex-shrink-0">
                 {inactivityThreshold} days
               </span>
             </div>

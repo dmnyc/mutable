@@ -685,26 +685,38 @@ export async function fetchProfile(
   relays: string[] = DEFAULT_RELAYS
 ): Promise<Profile | null> {
   const pool = getPool();
-  const events = await pool.querySync(relays, {
+
+  // Use expanded relay list to maximize chances of finding the profile
+  const expandedRelays = getExpandedRelayList(relays);
+
+  // Query multiple events and pick the newest one (in case of stale data)
+  const events = await pool.querySync(expandedRelays, {
     kinds: [PROFILE_KIND],
     authors: [pubkey],
-    limit: 1
+    limit: 5
   });
 
   if (events.length === 0) return null;
 
+  // Sort by created_at descending to get the most recent profile
+  events.sort((a, b) => b.created_at - a.created_at);
+  const newestEvent = events[0];
+
   try {
-    const metadata = JSON.parse(events[0].content);
+    const metadata = JSON.parse(newestEvent.content);
     return {
       pubkey,
-      name: metadata.name,
-      display_name: metadata.display_name,
-      about: metadata.about,
-      picture: metadata.picture,
-      nip05: metadata.nip05,
-      lud16: metadata.lud16
+      name: metadata.name || '',
+      display_name: metadata.display_name || '',
+      about: metadata.about || '',
+      picture: metadata.picture || '',
+      banner: metadata.banner || '',
+      nip05: metadata.nip05 || '',
+      lud16: metadata.lud16 || '',
+      website: metadata.website || ''
     };
   } catch (error) {
+    console.error(`Failed to parse profile for ${pubkey.substring(0, 8)}:`, error);
     return null;
   }
 }
@@ -1000,10 +1012,12 @@ export async function fetchFollowList(
     await new Promise(resolve => setTimeout(resolve, 1500));
   }
 
+  // Query with higher limit to get multiple events, then pick the newest
+  // This ensures we don't get a stale event from a slow/outdated relay
   const events = await pool.querySync(relays, {
     kinds: [FOLLOW_LIST_KIND],
     authors: [pubkey],
-    limit: 1
+    limit: 10  // Get multiple events to ensure we get the newest one
   });
 
   // If no events found and retries remaining, wait and try again
@@ -1012,7 +1026,13 @@ export async function fetchFollowList(
     return fetchFollowList(pubkey, relays, retries - 1);
   }
 
-  return events.length > 0 ? events[0] : null;
+  // Sort by created_at descending to get the most recent event
+  if (events.length > 0) {
+    events.sort((a, b) => b.created_at - a.created_at);
+    return events[0];
+  }
+
+  return null;
 }
 
 // Remove a user from follow list
