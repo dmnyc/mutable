@@ -49,9 +49,9 @@ export default function PrivacyControls() {
 
       {showInfo && (
         <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 overflow-hidden">
             <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-200 space-y-3">
+            <div className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-200 space-y-3 overflow-hidden">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold text-blue-900 dark:text-blue-100 break-words">Understanding Public vs Private Mutes</p>
                 <button
@@ -62,7 +62,7 @@ export default function PrivacyControls() {
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-hidden">
                 <p className="break-words"><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
 
                 <p className="break-words"><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
