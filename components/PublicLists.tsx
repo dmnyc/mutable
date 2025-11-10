@@ -352,7 +352,7 @@ export default function PublicLists() {
         <>
           {/* Loading State */}
           {loadingUserPacks && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <div className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
               <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
               <p className="text-gray-600 dark:text-gray-400">Loading your packs...</p>
             </div>
@@ -403,7 +403,7 @@ export default function PublicLists() {
         <>
           {/* Loading State */}
           {publicListsLoading && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <div className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
               <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
               <p className="text-gray-600 dark:text-gray-400">Searching...</p>
             </div>
