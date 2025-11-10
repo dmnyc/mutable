@@ -363,11 +363,11 @@ export default function Backups() {
           {filteredBackups.map((backup) => (
             <div
               key={backup.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className={`p-2 rounded-lg ${
+              <div className="flex items-start justify-between gap-2 sm:gap-4">
+                <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${
                     backup.type === 'mute-list'
                       ? 'bg-red-100 dark:bg-red-900/30'
                       : 'bg-blue-100 dark:bg-blue-900/30'
@@ -380,31 +380,31 @@ export default function Backups() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold text-gray-900 dark:text-white">
                         {backup.type === 'mute-list' ? 'Mute List Backup' : 'Follow List Backup'}
                       </h3>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         ({getBackupItemCount(backup)} items)
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-gray-600 dark:text-gray-400">
                       <div className="flex items-center gap-1">
                         <Calendar size={14} />
-                        <span>{formatDate(backup.createdAt)}</span>
+                        <span className="text-xs sm:text-sm">{formatDate(backup.createdAt)}</span>
                       </div>
                       {backup.notes && (
-                        <div className="flex items-center gap-1">
-                          <FileText size={14} />
-                          <span className="truncate max-w-xs">{backup.notes}</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <FileText size={14} className="flex-shrink-0" />
+                          <span className="truncate text-xs sm:text-sm">{backup.notes}</span>
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-1 sm:gap-2 flex-shrink-0">
                   <button
                     onClick={() => handleExportBackup(backup)}
                     className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"

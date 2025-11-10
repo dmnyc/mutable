@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { publishPublicList, updatePublicList, npubToHex, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
-import { X, Plus, Trash2, AlertCircle, Tag } from 'lucide-react';
-import { MuteList, MutedPubkey, MutedWord, MutedTag, PublicMuteList } from '@/types';
+import { publishPublicList, updatePublicList, npubToHex, hexToNpub, fetchProfile, searchProfiles, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
+import { X, Plus, Trash2, AlertCircle, Tag, User, Eye, Loader2, Search } from 'lucide-react';
+import { MuteList, MutedPubkey, MutedWord, MutedTag, PublicMuteList, Profile } from '@/types';
+import UserProfileModal from './UserProfileModal';
 
 interface CreatePublicListProps {
   onClose: () => void;
@@ -18,12 +19,35 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
   const isEditMode = !!editingPack;
 
+  // Helper function to deduplicate a mute list
+  const deduplicateList = (list: MuteList): MuteList => {
+    const uniquePubkeys = Array.from(
+      new Map(list.pubkeys.map(item => [item.value, item])).values()
+    );
+    const uniqueWords = Array.from(
+      new Map(list.words.map(item => [item.value, item])).values()
+    );
+    const uniqueTags = Array.from(
+      new Map(list.tags.map(item => [item.value, item])).values()
+    );
+    const uniqueThreads = Array.from(
+      new Map(list.threads.map(item => [item.value, item])).values()
+    );
+
+    return {
+      pubkeys: uniquePubkeys,
+      words: uniqueWords,
+      tags: uniqueTags,
+      threads: uniqueThreads
+    };
+  };
+
   const [listName, setListName] = useState(editingPack?.name || '');
   const [description, setDescription] = useState(editingPack?.description || '');
   const [useCurrentList, setUseCurrentList] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>((editingPack?.categories as PackCategory[]) || []);
   const [customList, setCustomList] = useState<MuteList>(
-    editingPack?.list || {
+    editingPack?.list ? deduplicateList(editingPack.list) : {
       pubkeys: [],
       words: [],
       tags: [],
@@ -37,9 +61,107 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
   const [batchTagInput, setBatchTagInput] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
+  // Profile search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // Profile loading states
+  const [pubkeyProfiles, setPubkeyProfiles] = useState<Map<string, Profile>>(new Map());
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Load profiles for pubkeys
+  useEffect(() => {
+    const loadProfiles = async () => {
+      if (!session || customList.pubkeys.length === 0) return;
+
+      setLoadingProfiles(true);
+      const profilesMap = new Map<string, Profile>(pubkeyProfiles);
+
+      // Load ALL profiles that don't have them yet or failed to load
+      // Only skip if we have a valid profile with name or display_name
+      const pubkeysToLoad = customList.pubkeys.filter(item => {
+        const existingProfile = profilesMap.get(item.value);
+        return !existingProfile || (!existingProfile.name && !existingProfile.display_name);
+      });
+
+      // Process in batches of 10 to avoid overwhelming relays
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < pubkeysToLoad.length; i += BATCH_SIZE) {
+        const batch = pubkeysToLoad.slice(i, i + BATCH_SIZE);
+
+        const fetchPromises = batch.map(async (item) => {
+          try {
+            const profile = await fetchProfile(item.value, session.relays);
+            if (profile) {
+              profilesMap.set(item.value, profile);
+            }
+          } catch (error) {
+            console.error(`Failed to fetch profile for ${item.value}:`, error);
+          }
+        });
+
+        await Promise.allSettled(fetchPromises);
+        // Update the map after each batch so user sees progress
+        setPubkeyProfiles(new Map(profilesMap));
+      }
+
+      setLoadingProfiles(false);
+    };
+
+    loadProfiles();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customList.pubkeys, session]);
+
+  // Search profiles by name (with debounce)
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!searchQuery.trim() || !session) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      setIsSearching(true);
+      setShowSearchResults(true);
+      try {
+        const results = await searchProfiles(searchQuery, session.relays, 20);
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    // Debounce search - wait 300ms after user stops typing
+    const timeoutId = setTimeout(searchUsers, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, session]);
+
+  // Add profile from search results
+  const handleAddFromSearch = (profile: Profile) => {
+    // Check if already in list
+    if (customList.pubkeys.some(p => p.value === profile.pubkey)) {
+      return; // Already added
+    }
+
+    // Add to list
+    setCustomList({
+      ...customList,
+      pubkeys: [...customList.pubkeys, { type: 'pubkey', value: profile.pubkey }]
+    });
+
+    // Add profile to cache
+    setPubkeyProfiles(new Map(pubkeyProfiles.set(profile.pubkey, profile)));
+  };
 
   // Add batch npubs
   const handleAddBatchNpubs = () => {
@@ -62,8 +184,8 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           return;
         }
 
-        // Check for duplicates
-        if (!customList.pubkeys.some(p => p.value === hex)) {
+        // Check for duplicates in existing list AND in the current batch
+        if (!customList.pubkeys.some(p => p.value === hex) && !validPubkeys.some(p => p.value === hex)) {
           validPubkeys.push({ type: 'pubkey', value: hex });
         }
       } catch (err) {
@@ -93,7 +215,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
       .map(w => w.trim())
       .filter(w => w.length > 0);
 
-    const validWords: MutedWord[] = words
+    // Remove duplicates within the batch and check against existing list
+    const uniqueWords = Array.from(new Set(words));
+    const validWords: MutedWord[] = uniqueWords
       .filter(word => !customList.words.some(w => w.value === word))
       .map(word => ({ type: 'word', value: word }));
 
@@ -113,7 +237,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
       .map(t => t.trim().replace(/^#/, '')) // Remove leading # if present
       .filter(t => t.length > 0);
 
-    const validTags: MutedTag[] = tags
+    // Remove duplicates within the batch and check against existing list
+    const uniqueTags = Array.from(new Set(tags));
+    const validTags: MutedTag[] = uniqueTags
       .filter(tag => !customList.tags.some(t => t.value === tag))
       .map(tag => ({ type: 'tag', value: tag }));
 
@@ -279,8 +405,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                 onChange={(e) => setListName(e.target.value)}
                 placeholder="e.g., Spam Bots, NSFW Content, Known Scammers"
                 maxLength={MAX_NAME_LENGTH}
-                disabled={isEditMode}
-                className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
               />
               <div className="mt-1 flex justify-end text-xs">
                 <span className="text-gray-500 dark:text-gray-400">
@@ -339,108 +464,255 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
             </div>
           </div>
 
-          {/* List Source */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Pack Contents
-            </label>
-
-            <div className="space-y-2">
-              <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                useCurrentList
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                  : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}>
-                <input
-                  type="radio"
-                  checked={useCurrentList}
-                  onChange={() => setUseCurrentList(true)}
-                  className="mt-1 text-red-600"
-                />
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white">
-                    Use My Current Mute List
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Publish your current mute list with {muteList.pubkeys.length +
-                      muteList.words.length +
-                      muteList.tags.length +
-                      muteList.threads.length}{' '}
-                    items
-                  </div>
-                </div>
+          {/* List Source - only show when creating new pack */}
+          {!isEditMode && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Pack Contents
               </label>
 
-              <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                !useCurrentList
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                  : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}>
-                <input
-                  type="radio"
-                  checked={!useCurrentList}
-                  onChange={() => setUseCurrentList(false)}
-                  className="mt-1 text-red-600"
-                />
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white">
-                    Create Custom Pack
+              <div className="space-y-2">
+                <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  useCurrentList
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}>
+                  <input
+                    type="radio"
+                    checked={useCurrentList}
+                    onChange={() => setUseCurrentList(true)}
+                    className="mt-1 text-red-600"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      Use My Current Mute List
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Publish your current mute list with {muteList.pubkeys.length +
+                        muteList.words.length +
+                        muteList.tags.length +
+                        muteList.threads.length}{' '}
+                      items
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Build a new pack from scratch with batch input
+                </label>
+
+                <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  !useCurrentList
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}>
+                  <input
+                    type="radio"
+                    checked={!useCurrentList}
+                    onChange={() => setUseCurrentList(false)}
+                    className="mt-1 text-red-600"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      Create Custom Pack
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Build a new pack from scratch with batch input
+                    </div>
                   </div>
-                </div>
-              </label>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Custom List Builder */}
-          {!useCurrentList && (
+          {(!useCurrentList || isEditMode) && (
             <div className="space-y-6 border-t border-gray-200 dark:border-gray-700 pt-6">
               {/* Batch Npub Input */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                  Add Pubkeys (npub or hex)
-                </label>
-                <textarea
-                  value={batchNpubInput}
-                  onChange={(e) => setBatchNpubInput(e.target.value)}
-                  placeholder="Paste one npub or hex pubkey per line&#10;npub1abc...&#10;npub1def...&#10;0123456789abcdef..."
-                  rows={4}
-                  className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white font-mono text-sm"
-                />
-                <button
-                  onClick={handleAddBatchNpubs}
-                  disabled={!batchNpubInput.trim()}
-                  className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Plus size={16} />
                   Add Pubkeys
-                </button>
+                </label>
 
-                {/* Pubkey Chips */}
+                {/* Search by Name */}
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Search by name
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search for users by name..."
+                      className="w-full px-4 py-2 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+                    />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 size={16} className="animate-spin text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Results */}
+                  {showSearchResults && (
+                    <div className="mt-2 max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                      {isSearching ? (
+                        <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                          <Loader2 size={20} className="animate-spin mx-auto mb-2" />
+                          Searching...
+                        </div>
+                      ) : searchResults.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                          No results found
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {searchResults.map((profile) => {
+                            const isAlreadyAdded = customList.pubkeys.some(p => p.value === profile.pubkey);
+                            return (
+                              <div
+                                key={profile.pubkey}
+                                className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-between"
+                              >
+                                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                  {profile.picture ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={profile.picture}
+                                      alt={profile.display_name || profile.name || 'User'}
+                                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                      <User size={20} className="text-gray-600 dark:text-gray-300" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                      {profile.display_name || profile.name || 'Anonymous'}
+                                    </p>
+                                    {profile.nip05 && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                        {profile.nip05}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleAddFromSearch(profile)}
+                                  disabled={isAlreadyAdded}
+                                  className={`px-3 py-1 rounded text-sm font-medium transition-colors flex-shrink-0 ${
+                                    isAlreadyAdded
+                                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                      : 'bg-red-600 text-white hover:bg-red-700'
+                                  }`}
+                                >
+                                  {isAlreadyAdded ? 'Added' : 'Add'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Batch Input */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Or paste npub/hex pubkeys
+                  </label>
+                  <textarea
+                    value={batchNpubInput}
+                    onChange={(e) => setBatchNpubInput(e.target.value)}
+                    placeholder="Paste one npub or hex pubkey per line&#10;npub1abc...&#10;npub1def...&#10;0123456789abcdef..."
+                    rows={4}
+                    className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white font-mono text-sm"
+                  />
+                  <button
+                    onClick={handleAddBatchNpubs}
+                    disabled={!batchNpubInput.trim()}
+                    className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add Pubkeys
+                  </button>
+                </div>
+
+                {/* Pubkey List */}
                 {customList.pubkeys.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                      Added pubkeys ({customList.pubkeys.length}):
-                    </p>
-                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
-                      {customList.pubkeys.map((item) => (
-                        <span
-                          key={item.value}
-                          className="inline-flex items-center gap-2 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-xs font-mono"
-                        >
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {item.value.slice(0, 8)}...{item.value.slice(-4)}
-                          </span>
-                          <button
-                            onClick={() => handleRemoveItem('pubkeys', item.value)}
-                            className="text-red-600 dark:text-red-400 hover:text-red-800"
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        Added pubkeys ({customList.pubkeys.length}):
+                      </p>
+                      {loadingProfiles && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                          <Loader2 size={12} className="animate-spin" />
+                          <span>Loading profiles...</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2 max-h-96 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      {customList.pubkeys.map((item, index) => {
+                        const profile = pubkeyProfiles.get(item.value);
+                        const displayName = profile?.display_name || profile?.name ||
+                          `${hexToNpub(item.value).slice(0, 12)}...${hexToNpub(item.value).slice(-8)}`;
+
+                        return (
+                          <div
+                            key={`${item.value}-${index}`}
+                            className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                           >
-                            <X size={14} />
-                          </button>
-                        </span>
-                      ))}
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              {profile?.picture ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={profile.picture}
+                                  alt={displayName}
+                                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                  <User size={16} className="text-gray-600 dark:text-gray-300" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                  {displayName}
+                                </p>
+                                {profile?.nip05 && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    {profile.nip05}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {profile && (
+                                <button
+                                  onClick={() => setSelectedProfile(profile)}
+                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                                  title="View profile"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleRemoveItem('pubkeys', item.value)}
+                                className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -474,9 +746,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                       Added words ({customList.words.length}):
                     </p>
                     <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
-                      {customList.words.map((item) => (
+                      {customList.words.map((item, index) => (
                         <span
-                          key={item.value}
+                          key={`${item.value}-${index}`}
                           className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full text-xs"
                         >
                           <span className="text-blue-700 dark:text-blue-300">{item.value}</span>
@@ -521,9 +793,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                       Added tags ({customList.tags.length}):
                     </p>
                     <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
-                      {customList.tags.map((item) => (
+                      {customList.tags.map((item, index) => (
                         <span
-                          key={item.value}
+                          key={`${item.value}-${index}`}
                           className="inline-flex items-center gap-2 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 rounded-full text-xs"
                         >
                           <span className="text-purple-700 dark:text-purple-300">#{item.value}</span>
@@ -619,6 +891,14 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           </div>
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PublicMuteList, Profile } from '@/types';
 import { useStore } from '@/lib/store';
 import { hexToNpub, fetchProfile, deletePublicList } from '@/lib/nostr';
-import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, ExternalLink, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import ImportConfirmationDialog from './ImportConfirmationDialog';
 import UserProfileModal from './UserProfileModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,10 +70,15 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
       const pubkeysToLoad = list.list.pubkeys.slice(startIndex, endIndex);
 
       const fetchPromises = pubkeysToLoad.map(async (item) => {
-        // Skip if already loaded
-        if (profilesMap.has(item.value)) return;
+        // Always try to fetch even if we have a cached profile, in case it was a failed fetch before
+        // Only skip if we successfully loaded it (has name or display_name)
+        const existingProfile = profilesMap.get(item.value);
+        if (existingProfile && (existingProfile.name || existingProfile.display_name)) {
+          return; // Skip if we have a valid profile
+        }
 
         try {
+          // Pass session.relays which will be expanded inside fetchProfile
           const profile = await fetchProfile(item.value, session.relays);
           if (profile) {
             profilesMap.set(item.value, profile);
@@ -494,10 +499,10 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
 
                               <button
                                 onClick={() => setSelectedProfile(profile || { pubkey: item.value })}
-                                className="ml-2 p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                className="ml-2 p-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                                 title="View profile"
                               >
-                                <ExternalLink size={16} />
+                                <Eye size={16} />
                               </button>
                             </div>
                           );

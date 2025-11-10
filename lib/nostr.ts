@@ -121,8 +121,6 @@ export async function fetchRelayListFromNostr(pubkey: string): Promise<{
   const pool = getPool();
 
   try {
-    console.log('🔍 [DEBUG] fetchRelayListFromNostr: Querying for kind:10002...');
-
     // Query kind:10002 relay list metadata from default relays
     const events = await pool.querySync(DEFAULT_RELAYS, {
       kinds: [RELAY_LIST_KIND],
@@ -130,10 +128,7 @@ export async function fetchRelayListFromNostr(pubkey: string): Promise<{
       limit: 1
     });
 
-    console.log('📥 [DEBUG] fetchRelayListFromNostr: Received events:', events.length);
-
     if (events.length === 0) {
-      console.log('⚠️ [DEBUG] fetchRelayListFromNostr: No relay list found');
       return { writeRelays: [], metadata: null };
     }
 
@@ -161,13 +156,6 @@ export async function fetchRelayListFromNostr(pubkey: string): Promise<{
     // Extract write relays (both + write)
     const writeRelays = [...both, ...write];
 
-    console.log('✅ [DEBUG] fetchRelayListFromNostr: Parsed relay list:', {
-      read: read.length,
-      write: write.length,
-      both: both.length,
-      writeRelays: writeRelays
-    });
-
     return {
       writeRelays,
       metadata: {
@@ -178,7 +166,7 @@ export async function fetchRelayListFromNostr(pubkey: string): Promise<{
       }
     };
   } catch (error) {
-    console.error('❌ [DEBUG] Failed to fetch relay list from Nostr:', error);
+    console.error('Failed to fetch relay list from Nostr:', error);
     return { writeRelays: [], metadata: null };
   }
 }
@@ -189,34 +177,22 @@ export async function getBestRelayList(pubkey: string): Promise<{
   relays: string[];
   metadata: { read: string[]; write: string[]; both: string[]; timestamp: number } | null;
 }> {
-  console.log('🔍 [DEBUG] getBestRelayList called for pubkey:', pubkey.slice(0, 8) + '...');
-
   // Try fetching from Nostr first (most accurate, matches what clients like Jumble show)
   const result = await fetchRelayListFromNostr(pubkey);
   if (result.writeRelays.length > 0) {
-    console.log('✅ [DEBUG] Using relay list from Nostr (NIP-65):', {
-      count: result.writeRelays.length,
-      relays: result.writeRelays,
-      metadata: result.metadata
-    });
+    console.log('Using relay list from Nostr (NIP-65):', result.writeRelays);
     return { relays: result.writeRelays, metadata: result.metadata };
   }
 
   // Fall back to NIP-07 extension relays
   const nip07Relays = await getNip07Relays();
   if (nip07Relays.length > 0 && nip07Relays !== DEFAULT_RELAYS) {
-    console.log('⚠️ [DEBUG] Using relay list from NIP-07 extension:', {
-      count: nip07Relays.length,
-      relays: nip07Relays
-    });
+    console.log('Using relay list from NIP-07 extension:', nip07Relays);
     return { relays: nip07Relays, metadata: null };
   }
 
   // Last resort: use defaults
-  console.log('⚠️ [DEBUG] Using default relay list:', {
-    count: DEFAULT_RELAYS.length,
-    relays: DEFAULT_RELAYS
-  });
+  console.log('Using default relay list');
   return { relays: DEFAULT_RELAYS, metadata: null };
 }
 
@@ -709,26 +685,38 @@ export async function fetchProfile(
   relays: string[] = DEFAULT_RELAYS
 ): Promise<Profile | null> {
   const pool = getPool();
-  const events = await pool.querySync(relays, {
+
+  // Use expanded relay list to maximize chances of finding the profile
+  const expandedRelays = getExpandedRelayList(relays);
+
+  // Query multiple events and pick the newest one (in case of stale data)
+  const events = await pool.querySync(expandedRelays, {
     kinds: [PROFILE_KIND],
     authors: [pubkey],
-    limit: 1
+    limit: 5
   });
 
   if (events.length === 0) return null;
 
+  // Sort by created_at descending to get the most recent profile
+  events.sort((a, b) => b.created_at - a.created_at);
+  const newestEvent = events[0];
+
   try {
-    const metadata = JSON.parse(events[0].content);
+    const metadata = JSON.parse(newestEvent.content);
     return {
       pubkey,
-      name: metadata.name,
-      display_name: metadata.display_name,
-      about: metadata.about,
-      picture: metadata.picture,
-      nip05: metadata.nip05,
-      lud16: metadata.lud16
+      name: metadata.name || '',
+      display_name: metadata.display_name || '',
+      about: metadata.about || '',
+      picture: metadata.picture || '',
+      banner: metadata.banner || '',
+      nip05: metadata.nip05 || '',
+      lud16: metadata.lud16 || '',
+      website: metadata.website || ''
     };
   } catch (error) {
+    console.error(`Failed to parse profile for ${pubkey.substring(0, 8)}:`, error);
     return null;
   }
 }
@@ -1019,13 +1007,6 @@ export async function fetchFollowList(
   // Use only the user's configured relays (not expanded with defaults)
   // This ensures we query their actual relays where their follow list is stored
 
-  console.log('🔍 [DEBUG] fetchFollowList called with:', {
-    pubkey: pubkey.slice(0, 8) + '...',
-    relaysCount: relays.length,
-    relays: relays,
-    retries
-  });
-
   // Wait a moment for relay connections to stabilize before querying
   if (retries === 0) {
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1039,19 +1020,8 @@ export async function fetchFollowList(
     limit: 10  // Get multiple events to ensure we get the newest one
   });
 
-  console.log('📥 [DEBUG] Received events:', {
-    count: events.length,
-    events: events.map(e => ({
-      created_at: e.created_at,
-      created_at_readable: new Date(e.created_at * 1000).toISOString(),
-      tags_count: e.tags.length,
-      p_tags_count: e.tags.filter(t => t[0] === 'p').length
-    }))
-  });
-
   // If no events found and retries remaining, wait and try again
   if (events.length === 0 && retries > 0) {
-    console.log('⚠️ [DEBUG] No events found, retrying...');
     await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
     return fetchFollowList(pubkey, relays, retries - 1);
   }
@@ -1059,17 +1029,9 @@ export async function fetchFollowList(
   // Sort by created_at descending to get the most recent event
   if (events.length > 0) {
     events.sort((a, b) => b.created_at - a.created_at);
-    const newestEvent = events[0];
-    console.log('✅ [DEBUG] Selected newest event:', {
-      created_at: newestEvent.created_at,
-      created_at_readable: new Date(newestEvent.created_at * 1000).toISOString(),
-      p_tags_count: newestEvent.tags.filter(t => t[0] === 'p').length,
-      total_tags: newestEvent.tags.length
-    });
-    return newestEvent;
+    return events[0];
   }
 
-  console.log('❌ [DEBUG] No events found');
   return null;
 }
 
