@@ -48,6 +48,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
     tags: false,
     threads: false
   });
+  const [checkingIfMutingMe, setCheckingIfMutingMe] = useState(false);
+  const [isMutingMe, setIsMutingMe] = useState<boolean | null>(null);
 
   // Check if this user is currently muted
   const isMuted = muteList.pubkeys.some(item => item.value === profile.pubkey);
@@ -238,6 +240,35 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
     return profile?.display_name || profile?.name || null;
   };
 
+  const handleCheckIfMutingMe = async () => {
+    if (!session) return;
+
+    setCheckingIfMutingMe(true);
+    try {
+      // Fetch their public mute list if not already loaded
+      let muteList = userMuteList;
+      if (!muteList) {
+        const event = await fetchMuteList(profile.pubkey, session.relays);
+        if (event) {
+          muteList = await parseMuteListEvent(event);
+        }
+      }
+
+      // Check if my pubkey is in their public mute list
+      if (muteList) {
+        const isMuted = muteList.pubkeys.some(item => item.value === session.pubkey);
+        setIsMutingMe(isMuted);
+      } else {
+        setIsMutingMe(false);
+      }
+    } catch (error) {
+      console.error('Failed to check if user is muting me:', error);
+      setIsMutingMe(null);
+    } finally {
+      setCheckingIfMutingMe(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -351,6 +382,51 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
               <ExternalLink size={16} />
               <span>View Profile</span>
             </button>
+          </div>
+
+          {/* Check if muting me */}
+          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  Is {getDisplayName()} muting me publicly?
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Check if this user has you in their public mute list
+                </p>
+              </div>
+              <button
+                onClick={handleCheckIfMutingMe}
+                disabled={checkingIfMutingMe || !session}
+                className="ml-4 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+              >
+                {checkingIfMutingMe ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} />
+                    <span>Checking...</span>
+                  </>
+                ) : (
+                  <span>Check</span>
+                )}
+              </button>
+            </div>
+            {isMutingMe !== null && (
+              <div className={`mt-3 p-3 rounded-lg ${
+                isMutingMe
+                  ? 'bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                  : 'bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+              }`}>
+                <p className={`text-sm font-medium ${
+                  isMutingMe
+                    ? 'text-red-800 dark:text-red-200'
+                    : 'text-green-800 dark:text-green-200'
+                }`}>
+                  {isMutingMe
+                    ? `⚠️ Yes, ${getDisplayName()} is publicly muting you`
+                    : `✓ No, ${getDisplayName()} is not publicly muting you`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* User's Mute List */}

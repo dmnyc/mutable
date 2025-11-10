@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PublicMuteList, Profile } from '@/types';
 import { useStore } from '@/lib/store';
 import { hexToNpub, fetchProfile, deletePublicList } from '@/lib/nostr';
-import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Share2 } from 'lucide-react';
 import ImportConfirmationDialog from './ImportConfirmationDialog';
 import UserProfileModal from './UserProfileModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,9 +14,10 @@ interface PublicListCardProps {
   isOwner?: boolean;
   onEdit?: (pack: PublicMuteList) => void;
   onDelete?: () => void;
+  hideImportFeatures?: boolean;
 }
 
-export default function PublicListCard({ list, isOwner = false, onEdit, onDelete }: PublicListCardProps) {
+export default function PublicListCard({ list, isOwner = false, onEdit, onDelete, hideImportFeatures = false }: PublicListCardProps) {
   const { session } = useAuth();
   const { muteList, setMuteList, setHasUnsavedChanges, getNewItemsCount, markPackItemsAsImported, isBlacklisted } = useStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -34,17 +35,28 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
   const [pubkeyPage, setPubkeyPage] = useState(1);
   const [wordPage, setWordPage] = useState(1);
   const [tagPage, setTagPage] = useState(1);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
 
   // Fetch creator profile
   useEffect(() => {
     const loadCreatorProfile = async () => {
-      if (!session || !list.author) return;
+      if (!list.author) return;
 
       setLoadingProfile(true);
       try {
-        const profile = await fetchProfile(list.author, session.relays);
+        // Use session relays if available, otherwise use default relays
+        const relays = session?.relays || [
+          'wss://relay.damus.io',
+          'wss://relay.primal.net',
+          'wss://nos.lol',
+          'wss://relay.nostr.band',
+          'wss://nostr.wine',
+          'wss://relay.snort.social'
+        ];
+        const profile = await fetchProfile(list.author, relays);
         setCreatorProfile(profile);
       } catch (error) {
         console.error('Failed to fetch creator profile:', error);
@@ -59,10 +71,20 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
   // Fetch pubkey profiles when expanded or page changes
   useEffect(() => {
     const loadPubkeyProfiles = async () => {
-      if (!isExpanded || !session || !list.list.pubkeys || list.list.pubkeys.length === 0) return;
+      if (!isExpanded || !list.list.pubkeys || list.list.pubkeys.length === 0) return;
 
       setLoadingPubkeyProfiles(true);
       const profilesMap = new Map<string, Profile>(pubkeyProfiles);
+
+      // Use session relays if available, otherwise use default relays
+      const relays = session?.relays || [
+        'wss://relay.damus.io',
+        'wss://relay.primal.net',
+        'wss://nos.lol',
+        'wss://relay.nostr.band',
+        'wss://nostr.wine',
+        'wss://relay.snort.social'
+      ];
 
       // Calculate current page items
       const startIndex = (pubkeyPage - 1) * ITEMS_PER_PAGE;
@@ -78,8 +100,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
         }
 
         try {
-          // Pass session.relays which will be expanded inside fetchProfile
-          const profile = await fetchProfile(item.value, session.relays);
+          const profile = await fetchProfile(item.value, relays);
           if (profile) {
             profilesMap.set(item.value, profile);
           }
@@ -209,82 +230,62 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
     }
   };
 
+  const handleCopyLink = async () => {
+    // Use author+dTag format for stable links that always point to the latest version
+    const url = `${window.location.origin}/pack/${list.author}/${list.dTag}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+    }
+  };
+
   return (
     <>
       <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-850 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
         <div className="p-6">
           {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className="text-red-600 dark:text-red-500" size={20} />
+          <div className="mb-4">
+            {/* Title and Buttons Row */}
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div className="flex items-center gap-2 min-w-0 flex-shrink">
+                <Shield className="text-red-600 dark:text-red-500 flex-shrink-0" size={20} />
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   {list.name}
                 </h3>
                 {list.isNostrguardPack && (
-                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium border border-blue-200 dark:border-blue-700">
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium border border-blue-200 dark:border-blue-700 whitespace-nowrap flex-shrink-0">
                     nostrguard
                   </span>
                 )}
               </div>
-              {list.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3 sm:line-clamp-2">
-                  {list.description}
-                </p>
-              )}
 
-              {/* Category badges */}
-              {list.categories && list.categories.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {list.categories.map((category) => (
-                    <span
-                      key={category}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium border border-purple-200 dark:border-purple-700"
-                    >
-                      <Tag size={12} />
-                      {category}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Creator info with profile */}
-              <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-2">
-                  {creatorProfile?.picture ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={creatorProfile.picture}
-                      alt={creatorProfile.display_name || creatorProfile.name || 'Creator'}
-                      className="w-5 h-5 rounded-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <User size={14} />
-                  )}
-                  <span className="font-medium">
-                    {creatorProfile?.display_name || creatorProfile?.name || displayAuthor()}
-                  </span>
-                  {creatorProfile?.nip05 && (
-                    <span className="text-green-600 dark:text-green-400" title="NIP-05 Verified">✓</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Calendar size={14} />
-                  <span>{formatDate(list.createdAt)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Shield size={14} />
-                  <span>{totalItems} total items</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Owner Actions */}
-            {isOwner ? (
+              {/* Action Buttons */}
+              {isOwner ? (
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleCopyLink}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    linkCopied
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                  title="Copy link to share"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check size={16} />
+                      <span className="hidden sm:inline">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 size={16} />
+                      <span className="hidden sm:inline">Share</span>
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={handleImportClick}
                   disabled={allImported}
@@ -349,39 +350,130 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handleImportClick}
-                disabled={allImported}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  importSuccess
-                    ? 'bg-green-600 text-white'
-                    : allImported
-                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                    : 'bg-red-600 text-white hover:bg-red-700'
-                }`}
-              >
-              {importSuccess ? (
-                <>
-                  <Check size={16} />
-                  <span>Added!</span>
-                </>
-              ) : allImported ? (
-                <>
-                  <Check size={16} />
-                  <span className="hidden sm:inline">All in Your List</span>
-                  <span className="sm:hidden">✓</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={16} />
-                  <span className="hidden sm:inline">
-                    Add {newItemsCount > 0 && newItemsCount} to My Mute List
-                  </span>
-                  <span className="sm:hidden">+{newItemsCount}</span>
-                </>
-              )}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleCopyLink}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    linkCopied
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                  title="Copy link to share"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check size={16} />
+                      <span className="hidden sm:inline">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 size={16} />
+                      <span className="hidden sm:inline">Share</span>
+                    </>
+                  )}
+                </button>
+                {session && (
+                  <button
+                    onClick={handleImportClick}
+                    disabled={allImported}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      importSuccess
+                        ? 'bg-green-600 text-white'
+                        : allImported
+                        ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                  >
+                  {importSuccess ? (
+                    <>
+                      <Check size={16} />
+                      <span>Added!</span>
+                    </>
+                  ) : allImported ? (
+                    <>
+                      <Check size={16} />
+                      <span className="hidden sm:inline">All in Your List</span>
+                      <span className="sm:hidden">✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} />
+                      <span className="hidden sm:inline">
+                        Add {newItemsCount > 0 && newItemsCount} to My Mute List
+                      </span>
+                      <span className="sm:hidden">+{newItemsCount}</span>
+                    </>
+                  )}
+                  </button>
+                )}
+              </div>
             )}
+            </div>
+
+            {/* Description Row */}
+            {list.description && (
+              <div className="mb-3">
+                <p className={`text-sm text-gray-600 dark:text-gray-400 ${!descriptionExpanded ? 'line-clamp-4' : ''}`}>
+                  {list.description}
+                </p>
+                {list.description.length > 300 && (
+                  <button
+                    onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 mt-1 font-medium"
+                  >
+                    {descriptionExpanded ? 'Show less' : 'Read more'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Category badges */}
+            {list.categories && list.categories.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {list.categories.map((category) => (
+                  <span
+                    key={category}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium border border-purple-200 dark:border-purple-700"
+                  >
+                    <Tag size={12} />
+                    {category}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Creator info with profile */}
+            <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                {creatorProfile?.picture ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={creatorProfile.picture}
+                    alt={creatorProfile.display_name || creatorProfile.name || 'Creator'}
+                    className="w-5 h-5 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <User size={14} />
+                )}
+                <span className="font-medium">
+                  {creatorProfile?.display_name || creatorProfile?.name || displayAuthor()}
+                </span>
+                {creatorProfile?.nip05 && (
+                  <span className="text-green-600 dark:text-green-400" title="NIP-05 Verified">✓</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Calendar size={14} />
+                <span>{formatDate(list.createdAt)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Shield size={14} />
+                <span>{totalItems} total items</span>
+              </div>
+            </div>
           </div>
 
           {/* Stats */}
@@ -423,7 +515,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
           </div>
 
           {/* New items badge */}
-          {newItemsCount > 0 && !allImported && (
+          {session && newItemsCount > 0 && !allImported && (
             <div className="mt-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 <strong>{newItemsCount}</strong> new {newItemsCount === 1 ? 'item' : 'items'} available to import
