@@ -82,15 +82,15 @@ export default function PrivacyControls() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Public Mutes */}
-        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Eye size={20} className="text-amber-600 dark:text-amber-400" />
-              <h4 className="font-semibold text-amber-900 dark:text-amber-100">
+        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-shrink">
+              <Eye size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <h4 className="font-semibold text-amber-900 dark:text-amber-100 truncate">
                 Public Mutes
               </h4>
             </div>
-            <span className="text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
               More Compatible
             </span>
           </div>
@@ -117,15 +117,15 @@ export default function PrivacyControls() {
         </div>
 
         {/* Private Mutes */}
-        <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <EyeOff size={20} className="text-purple-600 dark:text-purple-400" />
-              <h4 className="font-semibold text-purple-900 dark:text-purple-100">
+        <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-shrink">
+              <EyeOff size={20} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+              <h4 className="font-semibold text-purple-900 dark:text-purple-100 truncate">
                 Private Mutes
               </h4>
             </div>
-            <span className="text-xs font-medium text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
               Less Compatible
             </span>
           </div>

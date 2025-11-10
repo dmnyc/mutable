@@ -89,7 +89,7 @@ export default function MyMuteList() {
 
           <button
             onClick={() => setActiveTab('backups')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium w-full sm:w-auto"
           >
             <Archive size={18} />
             <span>Manage Backups</span>
