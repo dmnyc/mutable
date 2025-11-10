@@ -445,7 +445,7 @@ export default function Dashboard() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
