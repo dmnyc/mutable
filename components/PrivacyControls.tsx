@@ -48,31 +48,31 @@ export default function PrivacyControls() {
       </div>
 
       {showInfo && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
           <div className="flex items-start gap-3">
             <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm text-gray-900 dark:text-gray-200 space-y-3">
-              <div className="flex items-start justify-between">
-                <p className="font-semibold text-blue-900 dark:text-blue-100">Understanding Public vs Private Mutes</p>
+            <div className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-200 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-blue-900 dark:text-blue-100 break-words">Understanding Public vs Private Mutes</p>
                 <button
                   onClick={() => setShowInfo(false)}
-                  className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 underline ml-4"
+                  className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 underline whitespace-nowrap flex-shrink-0"
                 >
                   Dismiss
                 </button>
               </div>
 
               <div className="space-y-2">
-                <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
+                <p className="break-words"><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
 
-                <p><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
+                <p className="break-words"><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
 
-                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
+                <p className="text-amber-800 dark:text-amber-300 break-words"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
 
-                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
+                <p className="text-blue-900 dark:text-blue-100 break-words"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
               </div>
 
-              <p className="text-xs text-gray-600 dark:text-gray-400">
+              <p className="text-xs text-gray-600 dark:text-gray-400 break-words">
                 Individual items can be toggled using the lock icon next to each mute.
               </p>
             </div>

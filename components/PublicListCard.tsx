@@ -228,7 +228,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                 )}
               </div>
               {list.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3 sm:line-clamp-2">
                   {list.description}
                 </p>
               )}
