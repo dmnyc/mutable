@@ -262,13 +262,13 @@ export default function MuteListCategory({
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 w-full max-w-full">
+        <div className="p-4 sm:p-6 w-full max-w-full">
+        <div className="flex items-center justify-between mb-4 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex-shrink">
             {title}
           </h3>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             {items.length > 0 && (
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
@@ -313,10 +313,10 @@ export default function MuteListCategory({
               return (
                 <div
                   key={item.value}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-gray-50 dark:bg-gray-700 rounded-lg w-full max-w-full gap-2"
                 >
                   {editingValue === item.value ? (
-                    <div className="flex-1 space-y-2">
+                    <div className="flex-1 space-y-2 w-full">
                       {category !== 'pubkeys' && (
                         <input
                           type="text"
@@ -351,7 +351,7 @@ export default function MuteListCategory({
                   ) : (
                     <>
                       <div
-                        className={`flex items-center space-x-3 flex-1 min-w-0 ${category === 'pubkeys' ? 'cursor-pointer hover:opacity-80' : ''}`}
+                        className={`flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 w-full ${category === 'pubkeys' ? 'cursor-pointer hover:opacity-80' : ''}`}
                         onClick={() => category === 'pubkeys' && handleViewProfile(item.value)}
                       >
                         {category === 'pubkeys' && (
@@ -361,57 +361,57 @@ export default function MuteListCategory({
                               <img
                                 src={profile.picture}
                                 alt={displayName || 'User'}
-                                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                                 }}
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                <User size={16} className="text-gray-600 dark:text-gray-300" />
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                <User size={14} className="text-gray-600 dark:text-gray-300 sm:w-4 sm:h-4" />
                               </div>
                             )}
                           </>
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 w-full">
                           {category === 'pubkeys' && displayName ? (
                             <>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
                                 {displayName}
                               </p>
                               {profile?.nip05 && (
-                                <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                                <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 break-all leading-tight">
                                   ✓ {profile.nip05}
                                 </p>
                               )}
-                              <p className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate">
+                              <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono break-all leading-tight">
                                 {displayValue(item)}
                               </p>
                             </>
                           ) : category === 'pubkeys' ? (
-                            <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                            <p className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white break-all">
                               {displayValue(item)}
                             </p>
                           ) : (
-                            <p className="text-sm text-gray-900 dark:text-white truncate">
+                            <p className="text-xs sm:text-sm text-gray-900 dark:text-white break-all">
                               {displayValue(item)}
                             </p>
                           )}
                           {item.reason && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
+                            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 italic break-words leading-tight">
                               {item.reason}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="flex space-x-2 flex-shrink-0">
+                      <div className="flex space-x-1 sm:space-x-2 flex-shrink-0 justify-end w-full sm:w-auto">
                         {/* Privacy Toggle */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleItemPrivacy(item.value, category);
                           }}
-                          className={`p-2 transition-colors ${
+                          className={`p-1.5 sm:p-2 transition-colors ${
                             item.private
                               ? 'text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300'
                               : 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
@@ -426,7 +426,7 @@ export default function MuteListCategory({
                               e.stopPropagation();
                               handleCopyNpub(item.value);
                             }}
-                            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                             title="Copy npub"
                           >
                             {copySuccess === item.value ? <Check size={16} /> : <Copy size={16} />}
@@ -437,7 +437,7 @@ export default function MuteListCategory({
                             e.stopPropagation();
                             handleEdit(item);
                           }}
-                          className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                          className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                           title={category === 'pubkeys' ? 'Edit reason' : 'Edit'}
                         >
                           <Edit2 size={16} />
@@ -447,7 +447,7 @@ export default function MuteListCategory({
                             e.stopPropagation();
                             handleRemove(item.value);
                           }}
-                          className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          className="p-1.5 sm:p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -462,11 +462,11 @@ export default function MuteListCategory({
 
         {/* Pagination */}
         {items.length > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between mb-4 pt-2 border-t border-gray-200 dark:border-gray-600">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 pt-2 border-t border-gray-200 dark:border-gray-600 overflow-hidden">
+            <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
               Showing {startIndex + 1}-{Math.min(endIndex, items.length)} of {items.length}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
@@ -535,10 +535,10 @@ export default function MuteListCategory({
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                   placeholder="Reason (optional)"
                 />
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
                   <button
                     onClick={() => setUseSearchInput(false)}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline text-center sm:text-left"
                   >
                     Enter pubkey manually
                   </button>
@@ -550,7 +550,7 @@ export default function MuteListCategory({
                       setNewReason('');
                       setError(null);
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 whitespace-nowrap"
                   >
                     Cancel
                   </button>
@@ -573,11 +573,11 @@ export default function MuteListCategory({
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                   placeholder="Reason (optional)"
                 />
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
                   {category === 'pubkeys' && (
                     <button
                       onClick={() => setUseSearchInput(true)}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline text-center sm:text-left"
                     >
                       Search for user by name
                     </button>
@@ -585,7 +585,7 @@ export default function MuteListCategory({
                   <div className="flex space-x-2 ml-auto">
                     <button
                       onClick={handleAdd}
-                      className="px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 font-medium"
+                      className="px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 font-medium whitespace-nowrap"
                     >
                       Add
                     </button>
@@ -597,7 +597,7 @@ export default function MuteListCategory({
                         setNewReason('');
                         setError(null);
                       }}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 whitespace-nowrap"
                     >
                       Cancel
                     </button>

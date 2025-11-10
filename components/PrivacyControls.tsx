@@ -33,7 +33,7 @@ export default function PrivacyControls() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 w-full max-w-full">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Privacy Controls
@@ -48,12 +48,12 @@ export default function PrivacyControls() {
       </div>
 
       {showInfo && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
-          <div className="flex items-start gap-3">
-            <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-200 space-y-3">
+        <div className="mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg w-full max-w-full">
+          <div className="flex items-start gap-2 sm:gap-3 w-full max-w-full">
+            <Info size={18} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0 text-xs sm:text-sm text-gray-900 dark:text-gray-200 space-y-2 sm:space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-blue-900 dark:text-blue-100 break-words">Understanding Public vs Private Mutes</p>
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Understanding Public vs Private Mutes</p>
                 <button
                   onClick={() => setShowInfo(false)}
                   className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 underline whitespace-nowrap flex-shrink-0"
@@ -63,16 +63,16 @@ export default function PrivacyControls() {
               </div>
 
               <div className="space-y-2">
-                <p className="break-words"><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
+                <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
 
-                <p className="break-words"><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
+                <p><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
 
-                <p className="text-amber-800 dark:text-amber-300 break-words"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
+                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
 
-                <p className="text-blue-900 dark:text-blue-100 break-words"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
+                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
               </div>
 
-              <p className="text-xs text-gray-600 dark:text-gray-400 break-words">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 Individual items can be toggled using the lock icon next to each mute.
               </p>
             </div>
@@ -80,17 +80,17 @@ export default function PrivacyControls() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-full">
         {/* Public Mutes */}
-        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Eye size={20} className="text-amber-600 dark:text-amber-400" />
-              <h4 className="font-semibold text-amber-900 dark:text-amber-100">
+        <div className="p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg w-full max-w-full">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Eye size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <h4 className="font-semibold text-amber-900 dark:text-amber-100 truncate">
                 Public Mutes
               </h4>
             </div>
-            <span className="text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
               More Compatible
             </span>
           </div>
@@ -109,23 +109,23 @@ export default function PrivacyControls() {
           <button
             onClick={handleMakeAllPrivate}
             disabled={publicCount === 0}
-            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <Lock size={16} />
+            <Lock size={14} />
             <span>Make All Private</span>
           </button>
         </div>
 
         {/* Private Mutes */}
-        <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <EyeOff size={20} className="text-purple-600 dark:text-purple-400" />
-              <h4 className="font-semibold text-purple-900 dark:text-purple-100">
+        <div className="p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg w-full max-w-full">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <EyeOff size={20} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+              <h4 className="font-semibold text-purple-900 dark:text-purple-100 truncate">
                 Private Mutes
               </h4>
             </div>
-            <span className="text-xs font-medium text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
               Less Compatible
             </span>
           </div>
@@ -144,9 +144,9 @@ export default function PrivacyControls() {
           <button
             onClick={handleMakeAllPublic}
             disabled={privateCount === 0}
-            className="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <Unlock size={16} />
+            <Unlock size={14} />
             <span>Make All Public</span>
           </button>
         </div>

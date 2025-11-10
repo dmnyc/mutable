@@ -66,11 +66,11 @@ export default function MyMuteList() {
     muteList.threads.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full">
       {/* Header with Actions */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 w-full max-w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
+          <div className="flex-1 min-w-0">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               My Mute List
             </h2>
@@ -89,7 +89,7 @@ export default function MyMuteList() {
 
           <button
             onClick={() => setActiveTab('backups')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium w-full sm:w-auto"
           >
             <Archive size={18} />
             <span>Manage Backups</span>

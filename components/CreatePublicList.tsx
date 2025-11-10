@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { publishPublicList, updatePublicList, npubToHex, hexToNpub, fetchProfile, searchProfiles, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
+import { publishPublicList, updatePublicList, npubToHex, hexToNpub, fetchProfile, searchProfiles, fetchUserPublicPacks, parsePublicListEvent, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
 import { X, Plus, Trash2, AlertCircle, Tag, User, Eye, Loader2, Search } from 'lucide-react';
 import { MuteList, MutedPubkey, MutedWord, MutedTag, PublicMuteList, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
@@ -75,6 +75,8 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateConfirmed, setDuplicateConfirmed] = useState(false);
 
   // Load profiles for pubkeys
   useEffect(() => {
@@ -269,6 +271,34 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     }
   };
 
+  // Check if a pack with the same name already exists
+  const checkForDuplicatePack = async (packName: string): Promise<boolean> => {
+    if (!session) return false;
+
+    try {
+      const userPacks = await fetchUserPublicPacks(session.pubkey, session.relays);
+      const parsedPacks = await Promise.all(userPacks.map(parsePublicListEvent));
+
+      // Check if any existing pack has the same d-tag (case-sensitive)
+      return parsedPacks.some(pack => pack.dTag === packName.trim());
+    } catch (error) {
+      console.error('Failed to check for duplicate packs:', error);
+      return false;
+    }
+  };
+
+  const handleConfirmReplace = () => {
+    setDuplicateConfirmed(true);
+    setShowDuplicateWarning(false);
+    // Trigger publish again with confirmation
+    setTimeout(() => handlePublish(), 0);
+  };
+
+  const handleCancelReplace = () => {
+    setShowDuplicateWarning(false);
+    setDuplicateConfirmed(false);
+  };
+
   const handlePublish = async () => {
     if (!session) return;
 
@@ -281,6 +311,15 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     if (listName.trim().includes('\n') || listName.trim().includes('\r')) {
       setError('Pack name cannot contain line breaks');
       return;
+    }
+
+    // Check for duplicate pack name (only when creating new pack, not when editing)
+    if (!isEditMode && !duplicateConfirmed) {
+      const hasDuplicate = await checkForDuplicatePack(listName);
+      if (hasDuplicate) {
+        setShowDuplicateWarning(true);
+        return;
+      }
     }
 
     try {
@@ -898,6 +937,43 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           profile={selectedProfile}
           onClose={() => setSelectedProfile(null)}
         />
+      )}
+
+      {/* Duplicate Pack Warning Dialog */}
+      {showDuplicateWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="text-amber-500 flex-shrink-0 mt-0.5" size={24} />
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                  Pack Already Exists
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  You already have a pack named <strong>&quot;{listName.trim()}&quot;</strong>.
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                  Creating a new pack with the same name will <strong>replace</strong> the existing pack and all its content will be lost.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleConfirmReplace}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold"
+              >
+                Replace Existing Pack
+              </button>
+              <button
+                onClick={handleCancelReplace}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold"
+              >
+                Use Different Name
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

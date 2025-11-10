@@ -6,7 +6,7 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList } from '@/types';
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients
@@ -655,6 +655,91 @@ export async function fetchUserPublicPacks(
     authors: [userPubkey],
     '#L': [PACK_NAMESPACE] // Only fetch mutable-namespaced packs
   });
+}
+
+// Fetch a single public pack by event ID
+export async function fetchPublicListByEventId(
+  eventId: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<PublicMuteList | null> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  console.log('Querying relays for event:', eventId);
+  console.log('Using relays:', expandedRelays);
+  console.log('Query filter:', { kinds: [PUBLIC_LIST_KIND], ids: [eventId] });
+
+  const events = await pool.querySync(expandedRelays, {
+    kinds: [PUBLIC_LIST_KIND],
+    ids: [eventId]
+  });
+
+  console.log('Events found:', events.length);
+
+  if (events.length === 0) {
+    console.log('No events found on relays');
+    return null;
+  }
+
+  const event = events[0];
+  console.log('Event found:', event);
+
+  const parsed = await parsePublicListEvent(event);
+
+  console.log('Parsed event:', parsed);
+
+  if (!parsed) {
+    console.log('Failed to parse event');
+    return null;
+  }
+
+  return parsed;
+}
+
+// Fetch the latest version of a public pack by author pubkey and d-tag
+export async function fetchPublicListByDTag(
+  authorPubkey: string,
+  dTag: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<PublicMuteList | null> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  console.log('Querying relays for pack by author and d-tag');
+  console.log('Author:', authorPubkey);
+  console.log('d-tag:', dTag);
+  console.log('Using relays:', expandedRelays);
+
+  // For parameterized replaceable events, we query by author and d-tag
+  const events = await pool.querySync(expandedRelays, {
+    kinds: [PUBLIC_LIST_KIND],
+    authors: [authorPubkey],
+    '#d': [dTag]
+  });
+
+  console.log('Events found:', events.length);
+
+  if (events.length === 0) {
+    console.log('No events found on relays');
+    return null;
+  }
+
+  // For replaceable events, relays should return only the latest version
+  // But just in case, we sort by created_at and take the most recent
+  const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+  const event = sortedEvents[0];
+  console.log('Latest event found:', event);
+
+  const parsed = await parsePublicListEvent(event);
+
+  console.log('Parsed event:', parsed);
+
+  if (!parsed) {
+    console.log('Failed to parse event');
+    return null;
+  }
+
+  return parsed;
 }
 
 // Convert npub to hex
