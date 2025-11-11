@@ -22,14 +22,8 @@ export async function generateMetadata({
       .join(' ');
   }
 
-  // Build static OG image URL
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-    ? process.env.NEXT_PUBLIC_BASE_URL
-    : process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000';
-
-  const ogImageUrl = `${baseUrl}/mutable_community_pack.png`;
+  // Build static OG image URL with absolute path
+  const ogImageUrl = 'https://www.mutable.top/mutable_community_pack.png';
 
   const title = packName;
   const description = `A curated mute list for Nostr`;
