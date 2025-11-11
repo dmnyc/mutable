@@ -205,10 +205,14 @@ export async function fetchMuteList(
   const events = await pool.querySync(relays, {
     kinds: [MUTE_LIST_KIND],
     authors: [pubkey],
-    limit: 1
+    limit: 10
   });
 
-  return events.length > 0 ? events[0] : null;
+  if (events.length === 0) return null;
+
+  // Sort by created_at to ensure we get the newest event
+  events.sort((a, b) => b.created_at - a.created_at);
+  return events[0];
 }
 
 // Decrypt private mutes from content field using NIP-07 extension

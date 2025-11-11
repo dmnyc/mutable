@@ -11,6 +11,7 @@ interface AppState {
   muteList: MuteList;
   muteListLoading: boolean;
   muteListError: string | null;
+  muteListLastFetched: number | null;
   hasUnsavedChanges: boolean;
 
   // Public lists state
@@ -32,6 +33,7 @@ interface AppState {
   setMuteList: (list: MuteList) => void;
   setMuteListLoading: (loading: boolean) => void;
   setMuteListError: (error: string | null) => void;
+  setMuteListLastFetched: (timestamp: number | null) => void;
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   setPublicLists: (lists: PublicMuteList[]) => void;
   setPublicListsLoading: (loading: boolean) => void;
@@ -93,6 +95,7 @@ export const useStore = create<AppState>()(
       muteList: initialMuteList,
       muteListLoading: false,
       muteListError: null,
+      muteListLastFetched: null,
       hasUnsavedChanges: false,
       publicLists: [],
       publicListsLoading: false,
@@ -113,12 +116,15 @@ export const useStore = create<AppState>()(
       // Mute list actions
       setMuteList: (list) => set({
         muteList: list,
+        muteListLastFetched: Date.now(),
         hasUnsavedChanges: false
       }),
 
       setMuteListLoading: (loading) => set({ muteListLoading: loading }),
 
       setMuteListError: (error) => set({ muteListError: error }),
+
+      setMuteListLastFetched: (timestamp) => set({ muteListLastFetched: timestamp }),
 
       setHasUnsavedChanges: (hasChanges) => set({ hasUnsavedChanges: hasChanges }),
 
@@ -265,12 +271,14 @@ export const useStore = create<AppState>()(
         session: null,
         authState: 'disconnected',
         muteList: initialMuteList,
+        muteListLastFetched: null,
         hasUnsavedChanges: false,
         muteListError: null
       }),
 
       resetMuteList: () => set({
         muteList: initialMuteList,
+        muteListLastFetched: null,
         hasUnsavedChanges: false,
         muteListError: null
       })

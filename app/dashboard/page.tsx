@@ -61,6 +61,18 @@ export default function Dashboard() {
     loadUserProfile();
   }, [session]);
 
+  // Refresh mute list when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && session) {
+        reloadMuteList();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [session, reloadMuteList]);
+
   // Warn before leaving page with unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {

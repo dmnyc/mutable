@@ -99,11 +99,13 @@ export function useAuth() {
   // Auto-restore session on mount
   useEffect(() => {
     // If we have a persisted session but authState is disconnected,
-    // restore the connection
+    // restore the connection and refresh mute list
     if (session && authState === 'disconnected') {
       setAuthState('connected');
+      // Refresh mute list to ensure we have latest data from relays
+      loadMuteList(session.pubkey, session.relays);
     }
-  }, [session, authState, setAuthState]);
+  }, [session, authState, setAuthState, loadMuteList]);
 
   return {
     session,
