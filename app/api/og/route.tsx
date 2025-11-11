@@ -67,23 +67,6 @@ export async function GET(request: NextRequest) {
 
     console.log('Generating image with:', { packName, creatorName });
 
-    // Load logo as base64 for Satori
-    const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
-      ? `${process.env.NEXT_PUBLIC_BASE_URL}/mutable_logo_transparent.png`
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/mutable_logo_transparent.png`
-      : 'http://localhost:3000/mutable_logo_transparent.png';
-
-    let logoData;
-    try {
-      const logoResponse = await fetch(logoUrl);
-      const logoBuffer = await logoResponse.arrayBuffer();
-      logoData = `data:image/png;base64,${Buffer.from(logoBuffer).toString('base64')}`;
-    } catch (error) {
-      console.error('Failed to load logo:', error);
-      logoData = null;
-    }
-
     const fontData = await interBoldFont;
 
     return new ImageResponse(
@@ -100,24 +83,30 @@ export async function GET(request: NextRequest) {
             padding: '80px',
           }}
         >
-          {/* Logo */}
-          {logoData && (
-            <div
-              style={{
-                display: 'flex',
-                marginBottom: '40px',
-              }}
-            >
-              <img
-                src={logoData}
-                width="200"
-                height="200"
-                style={{
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
-          )}
+          {/* Logo - Red circle with white speech bubble and X */}
+          <div
+            style={{
+              display: 'flex',
+              marginBottom: '40px',
+            }}
+          >
+            <svg width="200" height="200" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Red circle background */}
+              <circle cx="150" cy="150" r="145" fill="#BE1E2D"/>
+              {/* White speech bubble */}
+              <circle cx="150" cy="135" r="95" fill="white"/>
+              {/* Speech bubble tail */}
+              <path d="M 100 210 L 85 240 L 130 215 Z" fill="white"/>
+              {/* Left eye */}
+              <circle cx="125" cy="120" r="15" fill="#BE1E2D"/>
+              {/* Right eye */}
+              <circle cx="175" cy="120" r="15" fill="#BE1E2D"/>
+              {/* X mouth - first bar */}
+              <rect x="125" y="145" width="50" height="15" fill="#BE1E2D" transform="rotate(45 150 155)"/>
+              {/* X mouth - second bar */}
+              <rect x="125" y="145" width="50" height="15" fill="#BE1E2D" transform="rotate(-45 150 155)"/>
+            </svg>
+          </div>
 
           {/* Pack Name */}
           <div
