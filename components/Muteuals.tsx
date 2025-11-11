@@ -517,7 +517,7 @@ export default function Muteuals() {
                   key={muteal.mutedBy}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                     {profile?.picture ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -534,31 +534,31 @@ export default function Muteuals() {
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-gray-900 dark:text-white truncate">
                           {displayName}
                         </span>
                         {muteal.isFollowing && (
-                          <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded">
+                          <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
                             Following
                           </span>
                         )}
                       </div>
                       {profile?.nip05 && (
-                        <div className="text-xs text-green-600 dark:text-green-400">
+                        <div className="text-xs text-green-600 dark:text-green-400 truncate">
                           ✓ {profile.nip05}
                         </div>
                       )}
                       {muteal.listName && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                           List: {muteal.listName}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 ml-4">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {/* Verify Button - Hidden for production */}
                     {/* <button
                       onClick={() => handleVerifyMute(muteal.mutedBy, npub)}
