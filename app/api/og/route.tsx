@@ -62,6 +62,23 @@ export async function GET(request: NextRequest) {
 
     console.log('Generating image with:', { packName, creatorName });
 
+    // Load logo as base64 for Satori
+    const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}/mutable_logo_transparent.png`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}/mutable_logo_transparent.png`
+      : 'http://localhost:3000/mutable_logo_transparent.png';
+
+    let logoData;
+    try {
+      const logoResponse = await fetch(logoUrl);
+      const logoBuffer = await logoResponse.arrayBuffer();
+      logoData = `data:image/png;base64,${Buffer.from(logoBuffer).toString('base64')}`;
+    } catch (error) {
+      console.error('Failed to load logo:', error);
+      logoData = null;
+    }
+
     return new ImageResponse(
       (
         <div
@@ -76,49 +93,24 @@ export async function GET(request: NextRequest) {
             padding: '80px',
           }}
         >
-          {/* Logo - using HTML/CSS since Satori doesn't support external images well */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '20px',
-              marginBottom: '60px',
-            }}
-          >
+          {/* Logo */}
+          {logoData && (
             <div
               style={{
-                width: '120px',
-                height: '120px',
-                borderRadius: '60px',
-                backgroundColor: '#BE1E2D',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                marginBottom: '40px',
               }}
             >
-              <div
+              <img
+                src={logoData}
+                width="200"
+                height="200"
                 style={{
-                  width: '76px',
-                  height: '76px',
-                  borderRadius: '38px',
-                  backgroundColor: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  objectFit: 'contain',
                 }}
-              >
-                <div
-                  style={{
-                    fontSize: '48px',
-                    fontWeight: 700,
-                    color: '#BE1E2D',
-                  }}
-                >
-                  X
-                </div>
-              </div>
+              />
             </div>
-          </div>
+          )}
 
           {/* Pack Name */}
           <div
