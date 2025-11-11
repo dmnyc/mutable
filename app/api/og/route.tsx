@@ -148,10 +148,6 @@ export async function GET(request: NextRequest) {
             {packName}
           </div>
 
-          {/* Debug info */}
-          <div style={{ fontSize: '16px', color: '#666', marginBottom: '20px' }}>
-            Debug: author={author ? 'yes' : 'no'}, dtag={dtag || 'missing'}
-          </div>
 
           {/* Description */}
           {packDescription && (
