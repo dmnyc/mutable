@@ -122,7 +122,6 @@ export async function GET(request: NextRequest) {
               maxWidth: '1000px',
               lineHeight: 1.2,
               marginBottom: '24px',
-              fontFamily: 'sans-serif',
             }}
           >
             {packName}
@@ -139,7 +138,6 @@ export async function GET(request: NextRequest) {
                 maxWidth: '900px',
                 marginBottom: '48px',
                 lineHeight: 1.4,
-                fontFamily: 'sans-serif',
               }}
             >
               {packDescription}
@@ -154,7 +152,6 @@ export async function GET(request: NextRequest) {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              fontFamily: 'sans-serif',
             }}
           >
             <span>Created by</span>
@@ -172,16 +169,6 @@ export async function GET(request: NextRequest) {
       {
         width: 1200,
         height: 630,
-        fonts: [
-          {
-            name: 'Inter',
-            data: await fetch(
-              'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff'
-            ).then((res) => res.arrayBuffer()),
-            weight: 700,
-            style: 'normal',
-          },
-        ],
       }
     );
   } catch (error) {
