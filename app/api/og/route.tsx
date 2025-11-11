@@ -74,7 +74,6 @@ export async function GET(request: NextRequest) {
             justifyContent: 'center',
             backgroundColor: '#0a0a0a',
             padding: '80px',
-            fontFamily: 'Arial, Helvetica, sans-serif',
           }}
         >
           {/* Logo - Red circle with white X */}
@@ -137,15 +136,21 @@ export async function GET(request: NextRequest) {
           <div
             style={{
               fontSize: '72px',
-              fontWeight: 'normal',
+              fontWeight: '400',
               color: 'white',
               textAlign: 'center',
               maxWidth: '1000px',
               lineHeight: 1.2,
               marginBottom: '24px',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
             }}
           >
             {packName}
+          </div>
+
+          {/* Debug info */}
+          <div style={{ fontSize: '16px', color: '#666', marginBottom: '20px' }}>
+            Debug: author={author ? 'yes' : 'no'}, dtag={dtag || 'missing'}
           </div>
 
           {/* Description */}
