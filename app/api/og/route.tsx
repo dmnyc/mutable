@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { fetchPublicListByEventId, fetchPublicListByDTag, fetchProfile } from '@/lib/nostr';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30; // Allow up to 30 seconds for OG image generation
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,51 +16,41 @@ export async function GET(request: NextRequest) {
 
     console.log('OG Image request:', { author, dtag, eventId });
 
-    // Default relay list (same as your pack page)
-    const defaultRelays = [
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-      'wss://nos.lol',
-      'wss://relay.nostr.band',
-      'wss://nostr.wine',
-      'wss://relay.snort.social',
-      'wss://nostr.mom',
-      'wss://purplepag.es',
-      'wss://nostr-pub.wellorder.net',
-      'wss://nostr.land',
-      'wss://relay.nostr.bg'
-    ];
+    // Pack name comes from the dtag parameter (URL-friendly name)
+    // For eventId format, we'll show a generic title
+    let packName = 'Mutable Community Pack';
+    let packDescription = 'A curated mute list for Nostr';
 
-    // Fetch pack data from Nostr with timeout
-    let pack = null;
-    try {
-      if (eventId) {
-        console.log('Fetching by eventId:', eventId);
-        pack = await Promise.race([
-          fetchPublicListByEventId(eventId, defaultRelays),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-        ]) as any;
-      } else if (author && dtag) {
-        console.log('Fetching by author+dtag:', author, dtag);
-        pack = await Promise.race([
-          fetchPublicListByDTag(author, dtag, defaultRelays),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-        ]) as any;
-      }
-      console.log('Pack fetched:', pack ? `${pack.name} (${pack.list.pubkeys.length} items)` : 'null');
-    } catch (error) {
-      console.error('Failed to fetch pack:', error);
+    if (dtag) {
+      // The dtag IS the pack name, just need to make it display-friendly
+      // Convert URL-friendly format to display format (e.g., "my-pack" -> "My Pack")
+      packName = dtag
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      packDescription = `A curated mute list for Nostr`;
     }
 
-    // Fetch creator profile if we have the pack
+    // Fetch creator profile to get display name
     let creatorName = 'Anonymous';
-    if (pack?.author) {
+    if (author) {
       try {
-        console.log('Fetching creator profile:', pack.author);
+        console.log('Fetching creator profile:', author);
+
+        // Default relay list for profile fetching
+        const defaultRelays = [
+          'wss://relay.damus.io',
+          'wss://relay.primal.net',
+          'wss://nos.lol',
+          'wss://relay.nostr.band',
+          'wss://nostr.wine'
+        ];
+
         const profile = await Promise.race([
-          fetchProfile(pack.author, defaultRelays),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          fetchProfile(author, defaultRelays),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Profile fetch timeout')), 8000))
         ]) as any;
+
         if (profile) {
           creatorName = profile.display_name || profile.name || 'Anonymous';
           console.log('Creator name:', creatorName);
@@ -69,17 +60,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fallback data if pack not found
-    const packName = pack?.name || 'Mutable Community Pack';
-    const packDescription = pack?.description || 'A curated mute list for Nostr';
-    const mutedCount = pack ? (
-      pack.list.pubkeys.length +
-      pack.list.words.length +
-      pack.list.tags.length +
-      pack.list.threads.length
-    ) : 0;
-
-    console.log('Generating image with:', { packName, creatorName, mutedCount });
+    console.log('Generating image with:', { packName, creatorName });
 
     return new ImageResponse(
       (
@@ -179,62 +160,29 @@ export async function GET(request: NextRequest) {
                 lineHeight: 1.4,
               }}
             >
-              {packDescription.length > 120
-                ? packDescription.substring(0, 120) + '...'
-                : packDescription}
+              {packDescription}
             </div>
           )}
 
-          {/* Creator and Stats */}
+          {/* Creator */}
           <div
             style={{
+              fontSize: '26px',
+              color: '#ededed',
               display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
               alignItems: 'center',
+              gap: '12px',
             }}
           >
-            <div
+            <span>Created by</span>
+            <span
               style={{
-                fontSize: '26px',
-                color: '#ededed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
+                color: '#BE1E2D',
+                fontWeight: 'normal',
               }}
             >
-              <span>Created by</span>
-              <span
-                style={{
-                  color: '#BE1E2D',
-                  fontWeight: 'normal',
-                }}
-              >
-                {creatorName}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                gap: '32px',
-                fontSize: '22px',
-                color: '#a3a3a3',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 'bold', color: '#ededed' }}>{mutedCount}</span>
-                <span>muted items</span>
-              </div>
-              {pack?.categories && pack.categories.length > 0 && (
-                <>
-                  <span>•</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{pack.categories.join(', ')}</span>
-                  </div>
-                </>
-              )}
-            </div>
+              {creatorName}
+            </span>
           </div>
         </div>
       ),
