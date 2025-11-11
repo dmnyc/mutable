@@ -62,13 +62,6 @@ export async function GET(request: NextRequest) {
 
     console.log('Generating image with:', { packName, creatorName });
 
-    // Fetch the logo image
-    const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
-      ? `${process.env.NEXT_PUBLIC_BASE_URL}/mutable_logo_transparent.png`
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/mutable_logo_transparent.png`
-      : 'http://localhost:3000/mutable_logo_transparent.png';
-
     return new ImageResponse(
       (
         <div
@@ -79,11 +72,11 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0a0a0a',
+            backgroundColor: '#101827',
             padding: '80px',
           }}
         >
-          {/* Logo */}
+          {/* Logo - using HTML/CSS since Satori doesn't support external images well */}
           <div
             style={{
               display: 'flex',
@@ -92,14 +85,39 @@ export async function GET(request: NextRequest) {
               marginBottom: '60px',
             }}
           >
-            <img
-              src={logoUrl}
-              width="200"
-              height="200"
+            <div
               style={{
-                objectFit: 'contain',
+                width: '120px',
+                height: '120px',
+                borderRadius: '60px',
+                backgroundColor: '#BE1E2D',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
+            >
+              <div
+                style={{
+                  width: '76px',
+                  height: '76px',
+                  borderRadius: '38px',
+                  backgroundColor: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '48px',
+                    fontWeight: 700,
+                    color: '#BE1E2D',
+                  }}
+                >
+                  X
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Pack Name */}
@@ -112,6 +130,7 @@ export async function GET(request: NextRequest) {
               maxWidth: '1000px',
               lineHeight: 1.2,
               marginBottom: '24px',
+              fontFamily: 'sans-serif',
             }}
           >
             {packName}
@@ -128,6 +147,7 @@ export async function GET(request: NextRequest) {
                 maxWidth: '900px',
                 marginBottom: '48px',
                 lineHeight: 1.4,
+                fontFamily: 'sans-serif',
               }}
             >
               {packDescription}
@@ -142,13 +162,14 @@ export async function GET(request: NextRequest) {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
+              fontFamily: 'sans-serif',
             }}
           >
             <span>Created by</span>
             <span
               style={{
                 color: '#BE1E2D',
-                fontWeight: 'normal',
+                fontWeight: 700,
               }}
             >
               {creatorName}
@@ -164,13 +185,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('OG Image generation error:', error);
 
-    // Fetch the logo image for fallback
-    const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
-      ? `${process.env.NEXT_PUBLIC_BASE_URL}/mutable_logo_transparent.png`
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/mutable_logo_transparent.png`
-      : 'http://localhost:3000/mutable_logo_transparent.png';
-
     // Return a fallback error image
     return new ImageResponse(
       (
@@ -182,20 +196,45 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0a0a0a',
+            backgroundColor: '#101827',
             color: 'white',
           }}
         >
-          <img
-            src={logoUrl}
-            width="200"
-            height="200"
+          <div
             style={{
-              objectFit: 'contain',
+              width: '120px',
+              height: '120px',
+              borderRadius: '60px',
+              backgroundColor: '#BE1E2D',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               marginBottom: '40px',
             }}
-          />
-          <div style={{ fontSize: '40px', color: '#ededed' }}>
+          >
+            <div
+              style={{
+                width: '76px',
+                height: '76px',
+                borderRadius: '38px',
+                backgroundColor: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '48px',
+                  fontWeight: 700,
+                  color: '#BE1E2D',
+                }}
+              >
+                X
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '40px', color: '#ededed', fontWeight: 700, fontFamily: 'sans-serif' }}>
             Community Pack
           </div>
         </div>
