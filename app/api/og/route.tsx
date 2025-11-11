@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
             <div
               style={{
                 fontSize: '56px',
-                fontWeight: 'normal',
+                fontWeight: 700,
                 color: 'white',
                 letterSpacing: '-0.02em',
               }}
@@ -136,13 +136,12 @@ export async function GET(request: NextRequest) {
           <div
             style={{
               fontSize: '72px',
-              fontWeight: '400',
+              fontWeight: 700,
               color: 'white',
               textAlign: 'center',
               maxWidth: '1000px',
               lineHeight: 1.2,
               marginBottom: '24px',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
             }}
           >
             {packName}
