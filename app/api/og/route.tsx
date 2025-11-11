@@ -172,6 +172,16 @@ export async function GET(request: NextRequest) {
       {
         width: 1200,
         height: 630,
+        fonts: [
+          {
+            name: 'Inter',
+            data: await fetch(
+              'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff'
+            ).then((res) => res.arrayBuffer()),
+            weight: 700,
+            style: 'normal',
+          },
+        ],
       }
     );
   } catch (error) {
