@@ -91,12 +91,12 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0f172a',
-            backgroundImage: 'linear-gradient(to bottom right, #1e293b, #0f172a)',
+            backgroundColor: '#0a0a0a',
             padding: '80px',
+            fontFamily: 'Arial, Helvetica, sans-serif',
           }}
         >
-          {/* Logo and Brand */}
+          {/* Logo - Red circle with white X */}
           <div
             style={{
               display: 'flex',
@@ -109,23 +109,43 @@ export async function GET(request: NextRequest) {
               style={{
                 width: '80px',
                 height: '80px',
-                borderRadius: '16px',
-                backgroundColor: '#ef4444',
+                borderRadius: '40px',
+                backgroundColor: '#BE1E2D',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '48px',
-                fontWeight: 'bold',
-                color: 'white',
+                position: 'relative',
               }}
             >
-              M
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '24px',
+                  backgroundColor: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '36px',
+                    fontWeight: 'bold',
+                    color: '#BE1E2D',
+                  }}
+                >
+                  ✕
+                </div>
+              </div>
             </div>
             <div
               style={{
                 fontSize: '56px',
-                fontWeight: 'bold',
+                fontWeight: 'normal',
                 color: 'white',
+                letterSpacing: '-0.02em',
               }}
             >
               mutable
@@ -135,8 +155,8 @@ export async function GET(request: NextRequest) {
           {/* Pack Name */}
           <div
             style={{
-              fontSize: '64px',
-              fontWeight: 'bold',
+              fontSize: '72px',
+              fontWeight: 'normal',
               color: 'white',
               textAlign: 'center',
               maxWidth: '1000px',
@@ -151,16 +171,16 @@ export async function GET(request: NextRequest) {
           {packDescription && (
             <div
               style={{
-                fontSize: '32px',
-                color: '#94a3b8',
+                fontSize: '28px',
+                color: '#a3a3a3',
                 textAlign: 'center',
                 maxWidth: '900px',
-                marginBottom: '40px',
+                marginBottom: '48px',
                 lineHeight: 1.4,
               }}
             >
-              {packDescription.length > 100
-                ? packDescription.substring(0, 100) + '...'
+              {packDescription.length > 120
+                ? packDescription.substring(0, 120) + '...'
                 : packDescription}
             </div>
           )}
@@ -176,8 +196,8 @@ export async function GET(request: NextRequest) {
           >
             <div
               style={{
-                fontSize: '28px',
-                color: '#cbd5e1',
+                fontSize: '26px',
+                color: '#ededed',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
@@ -186,8 +206,8 @@ export async function GET(request: NextRequest) {
               <span>Created by</span>
               <span
                 style={{
-                  color: '#ef4444',
-                  fontWeight: 'bold',
+                  color: '#BE1E2D',
+                  fontWeight: 'normal',
                 }}
               >
                 {creatorName}
@@ -197,13 +217,13 @@ export async function GET(request: NextRequest) {
             <div
               style={{
                 display: 'flex',
-                gap: '40px',
-                fontSize: '24px',
-                color: '#94a3b8',
+                gap: '32px',
+                fontSize: '22px',
+                color: '#a3a3a3',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{mutedCount}</span>
+                <span style={{ fontWeight: 'bold', color: '#ededed' }}>{mutedCount}</span>
                 <span>muted items</span>
               </div>
               {pack?.categories && pack.categories.length > 0 && (
@@ -237,28 +257,65 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0f172a',
+            backgroundColor: '#0a0a0a',
             color: 'white',
-            gap: '20px',
+            fontFamily: 'Arial, Helvetica, sans-serif',
           }}
         >
           <div
             style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '16px',
-              backgroundColor: '#ef4444',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '48px',
-              fontWeight: 'bold',
+              gap: '20px',
+              marginBottom: '40px',
             }}
           >
-            M
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '40px',
+                backgroundColor: '#BE1E2D',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '24px',
+                  backgroundColor: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '36px',
+                    fontWeight: 'bold',
+                    color: '#BE1E2D',
+                  }}
+                >
+                  ✕
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                fontSize: '56px',
+                fontWeight: 'normal',
+                color: 'white',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              mutable
+            </div>
           </div>
-          <div style={{ fontSize: '40px' }}>
-            Mutable - Community Pack
+          <div style={{ fontSize: '40px', color: '#ededed' }}>
+            Community Pack
           </div>
         </div>
       ),
