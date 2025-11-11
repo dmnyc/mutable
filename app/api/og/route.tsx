@@ -5,6 +5,11 @@ import { fetchPublicListByEventId, fetchPublicListByDTag, fetchProfile } from '@
 export const runtime = 'nodejs';
 export const maxDuration = 30; // Allow up to 30 seconds for OG image generation
 
+// Load font once at module level
+const interBoldFont = fetch(
+  new URL('../../../public/Inter-Bold.ttf', import.meta.url)
+).then((res) => res.arrayBuffer());
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -79,6 +84,8 @@ export async function GET(request: NextRequest) {
       logoData = null;
     }
 
+    const fontData = await interBoldFont;
+
     return new ImageResponse(
       (
         <div
@@ -122,6 +129,7 @@ export async function GET(request: NextRequest) {
               maxWidth: '1000px',
               lineHeight: 1.2,
               marginBottom: '24px',
+              fontFamily: 'Inter',
             }}
           >
             {packName}
@@ -138,6 +146,7 @@ export async function GET(request: NextRequest) {
                 maxWidth: '900px',
                 marginBottom: '48px',
                 lineHeight: 1.4,
+                fontFamily: 'Inter',
               }}
             >
               {packDescription}
@@ -152,6 +161,7 @@ export async function GET(request: NextRequest) {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
+              fontFamily: 'Inter',
             }}
           >
             <span>Created by</span>
@@ -169,6 +179,14 @@ export async function GET(request: NextRequest) {
       {
         width: 1200,
         height: 630,
+        fonts: [
+          {
+            name: 'Inter',
+            data: fontData,
+            weight: 700,
+            style: 'normal',
+          },
+        ],
       }
     );
   } catch (error) {
