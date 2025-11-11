@@ -62,6 +62,13 @@ export async function GET(request: NextRequest) {
 
     console.log('Generating image with:', { packName, creatorName });
 
+    // Fetch the logo image
+    const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}/mutable_logo_transparent.png`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}/mutable_logo_transparent.png`
+      : 'http://localhost:3000/mutable_logo_transparent.png';
+
     return new ImageResponse(
       (
         <div
@@ -76,7 +83,7 @@ export async function GET(request: NextRequest) {
             padding: '80px',
           }}
         >
-          {/* Logo - Red circle with white speech bubble and X */}
+          {/* Logo */}
           <div
             style={{
               display: 'flex',
@@ -85,52 +92,14 @@ export async function GET(request: NextRequest) {
               marginBottom: '60px',
             }}
           >
-            <div
+            <img
+              src={logoUrl}
+              width="200"
+              height="200"
               style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '40px',
-                backgroundColor: '#BE1E2D',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
+                objectFit: 'contain',
               }}
-            >
-              <div
-                style={{
-                  width: '50px',
-                  height: '50px',
-                  borderRadius: '25px',
-                  backgroundColor: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '32px',
-                    fontWeight: 700,
-                    color: '#BE1E2D',
-                    display: 'flex',
-                  }}
-                >
-                  X
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                fontSize: '56px',
-                fontWeight: 700,
-                color: 'white',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              mutable
-            </div>
+            />
           </div>
 
           {/* Pack Name */}
@@ -195,6 +164,13 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('OG Image generation error:', error);
 
+    // Fetch the logo image for fallback
+    const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}/mutable_logo_transparent.png`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}/mutable_logo_transparent.png`
+      : 'http://localhost:3000/mutable_logo_transparent.png';
+
     // Return a fallback error image
     return new ImageResponse(
       (
@@ -208,61 +184,17 @@ export async function GET(request: NextRequest) {
             justifyContent: 'center',
             backgroundColor: '#0a0a0a',
             color: 'white',
-            fontFamily: 'Arial, Helvetica, sans-serif',
           }}
         >
-          <div
+          <img
+            src={logoUrl}
+            width="200"
+            height="200"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '20px',
+              objectFit: 'contain',
               marginBottom: '40px',
             }}
-          >
-            <div
-              style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '40px',
-                backgroundColor: '#BE1E2D',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <div
-                style={{
-                  width: '50px',
-                  height: '50px',
-                  borderRadius: '25px',
-                  backgroundColor: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '32px',
-                    fontWeight: 700,
-                    color: '#BE1E2D',
-                  }}
-                >
-                  X
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                fontSize: '56px',
-                fontWeight: 700,
-                color: 'white',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              mutable
-            </div>
-          </div>
+          />
           <div style={{ fontSize: '40px', color: '#ededed' }}>
             Community Pack
           </div>
