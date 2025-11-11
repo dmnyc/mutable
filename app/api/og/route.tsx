@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     const dtag = searchParams.get('dtag');
     const eventId = searchParams.get('eventId');
 
+    console.log('OG Image request:', { author, dtag, eventId });
+
     // Default relay list (same as your pack page)
     const defaultRelays = [
       'wss://relay.damus.io',
@@ -28,21 +30,39 @@ export async function GET(request: NextRequest) {
       'wss://relay.nostr.bg'
     ];
 
-    // Fetch pack data from Nostr
+    // Fetch pack data from Nostr with timeout
     let pack = null;
-    if (eventId) {
-      pack = await fetchPublicListByEventId(eventId, defaultRelays);
-    } else if (author && dtag) {
-      pack = await fetchPublicListByDTag(author, dtag, defaultRelays);
+    try {
+      if (eventId) {
+        console.log('Fetching by eventId:', eventId);
+        pack = await Promise.race([
+          fetchPublicListByEventId(eventId, defaultRelays),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]) as any;
+      } else if (author && dtag) {
+        console.log('Fetching by author+dtag:', author, dtag);
+        pack = await Promise.race([
+          fetchPublicListByDTag(author, dtag, defaultRelays),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]) as any;
+      }
+      console.log('Pack fetched:', pack ? `${pack.name} (${pack.list.pubkeys.length} items)` : 'null');
+    } catch (error) {
+      console.error('Failed to fetch pack:', error);
     }
 
     // Fetch creator profile if we have the pack
     let creatorName = 'Anonymous';
     if (pack?.author) {
       try {
-        const profile = await fetchProfile(pack.author, defaultRelays);
+        console.log('Fetching creator profile:', pack.author);
+        const profile = await Promise.race([
+          fetchProfile(pack.author, defaultRelays),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]) as any;
         if (profile) {
           creatorName = profile.display_name || profile.name || 'Anonymous';
+          console.log('Creator name:', creatorName);
         }
       } catch (error) {
         console.error('Failed to fetch creator profile:', error);
@@ -58,6 +78,8 @@ export async function GET(request: NextRequest) {
       pack.list.tags.length +
       pack.list.threads.length
     ) : 0;
+
+    console.log('Generating image with:', { packName, creatorName, mutedCount });
 
     return new ImageResponse(
       (
