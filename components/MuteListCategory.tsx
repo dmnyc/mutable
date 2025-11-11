@@ -232,30 +232,19 @@ export default function MuteListCategory({
 
   // Skeleton loader component with shimmer effect
   const SkeletonLoader = () => (
-    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden relative max-w-full">
-      <div className="flex items-center space-x-3 flex-1 min-w-0">
-        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 relative overflow-hidden flex-shrink-0">
-          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-        </div>
+    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg animate-pulse">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
         <div className="flex-1 space-y-2 min-w-0">
-          <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32 max-w-full relative overflow-hidden">
-            <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-          </div>
-          <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-48 max-w-full relative overflow-hidden">
-            <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-          </div>
+          <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32 max-w-full"></div>
+          <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-48 max-w-full"></div>
         </div>
       </div>
-      <div className="flex space-x-2 flex-shrink-0">
-        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded relative overflow-hidden">
-          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-        </div>
-        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded relative overflow-hidden">
-          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-        </div>
-        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded relative overflow-hidden">
-          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-        </div>
+      <div className="flex gap-2 flex-shrink-0">
+        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
+        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
+        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
+        <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
       </div>
     </div>
   );
