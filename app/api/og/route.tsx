@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
             padding: '80px',
           }}
         >
-          {/* Logo - Red circle with white X */}
+          {/* Logo - Red circle with white speech bubble and X */}
           <div
             style={{
               display: 'flex',
@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
             >
               <div
                 style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '24px',
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '25px',
                   backgroundColor: 'white',
                   display: 'flex',
                   alignItems: 'center',
@@ -111,12 +111,13 @@ export async function GET(request: NextRequest) {
               >
                 <div
                   style={{
-                    fontSize: '36px',
-                    fontWeight: 'bold',
+                    fontSize: '32px',
+                    fontWeight: 700,
                     color: '#BE1E2D',
+                    display: 'flex',
                   }}
                 >
-                  ✕
+                  X
                 </div>
               </div>
             </div>
@@ -231,9 +232,9 @@ export async function GET(request: NextRequest) {
             >
               <div
                 style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '24px',
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '25px',
                   backgroundColor: 'white',
                   display: 'flex',
                   alignItems: 'center',
@@ -242,19 +243,19 @@ export async function GET(request: NextRequest) {
               >
                 <div
                   style={{
-                    fontSize: '36px',
-                    fontWeight: 'bold',
+                    fontSize: '32px',
+                    fontWeight: 700,
                     color: '#BE1E2D',
                   }}
                 >
-                  ✕
+                  X
                 </div>
               </div>
             </div>
             <div
               style={{
                 fontSize: '56px',
-                fontWeight: 'normal',
+                fontWeight: 700,
                 color: 'white',
                 letterSpacing: '-0.02em',
               }}
