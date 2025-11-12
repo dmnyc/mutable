@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { RefreshCw, Users, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, List, Copy, Eye } from 'lucide-react';
+import { RefreshCw, Users, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, List, Copy } from 'lucide-react';
 import { MutealResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import {
@@ -523,7 +523,11 @@ export default function Muteuals() {
                   key={muteal.mutedBy}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                  <div
+                    className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
+                    onClick={() => handleViewProfile(muteal)}
+                    title="View profile and mute list"
+                  >
                     {profile?.picture ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -610,15 +614,6 @@ export default function Muteuals() {
                         <UserMinus size={16} />
                       </button>
                     )}
-
-                    {/* View Profile */}
-                    <button
-                      onClick={() => handleViewProfile(muteal)}
-                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                      title="View profile and mute list"
-                    >
-                      <Eye size={16} />
-                    </button>
 
                     {/* View on listr.lol */}
                     <a
