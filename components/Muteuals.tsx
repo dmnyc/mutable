@@ -3,8 +3,9 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { RefreshCw, Users, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, List, Copy } from 'lucide-react';
-import { MutealResult } from '@/types';
+import { RefreshCw, Users, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, List, Copy, Eye } from 'lucide-react';
+import { MutealResult, Profile } from '@/types';
+import UserProfileModal from './UserProfileModal';
 import {
   searchMutealsFromFollows,
   searchMutealsNetworkWide,
@@ -36,6 +37,7 @@ export default function Muteuals() {
   const [progress, setProgress] = useState<string>('');
   const [scanStats, setScanStats] = useState<ScanStats | null>(null);
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleSearch = async () => {
@@ -218,6 +220,10 @@ export default function Muteuals() {
     } catch (error) {
       console.error('Failed to copy npub:', error);
     }
+  };
+
+  const handleViewProfile = (muteal: MutealResult) => {
+    setSelectedProfile(muteal.profile || { pubkey: muteal.mutedBy });
   };
 
   const handleMuteAll = () => {
@@ -606,15 +612,13 @@ export default function Muteuals() {
                     )}
 
                     {/* View Profile */}
-                    <a
-                      href={`https://npub.world/${npub}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => handleViewProfile(muteal)}
                       className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                      title="View profile"
+                      title="View profile and mute list"
                     >
-                      <ExternalLink size={16} />
-                    </a>
+                      <Eye size={16} />
+                    </button>
 
                     {/* View on listr.lol */}
                     <a
@@ -633,6 +637,14 @@ export default function Muteuals() {
           </div>
         </div>
       ) : null}
+
+      {/* User Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+        />
+      )}
     </div>
   );
 }

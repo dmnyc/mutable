@@ -721,7 +721,11 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                             key={`${item.value}-${index}`}
                             className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                           >
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div
+                              className="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer"
+                              onClick={() => profile && setSelectedProfile(profile)}
+                              title={profile ? "View profile" : ""}
+                            >
                               {profile?.picture ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -749,15 +753,6 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                               </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              {profile && (
-                                <button
-                                  onClick={() => setSelectedProfile(profile)}
-                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                                  title="View profile"
-                                >
-                                  <Eye size={14} />
-                                </button>
-                              )}
                               <button
                                 onClick={() => handleRemoveItem('pubkeys', item.value)}
                                 className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"

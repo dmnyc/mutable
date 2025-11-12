@@ -21,6 +21,7 @@ import {
   Copy,
   Sparkles
 } from 'lucide-react';
+import UserProfileModal from './UserProfileModal';
 
 export default function ListCleaner() {
   const { muteList, session, removeMutedItem, addToBlacklist, removeFromBlacklist, blacklistedPubkeys, isBlacklisted } = useStore();
@@ -38,6 +39,7 @@ export default function ListCleaner() {
   const [profilesMap, setProfilesMap] = useState<Map<string, Profile>>(new Map());
   const [loadingProfiles, setLoadingProfiles] = useState<Set<string>>(new Set());
   const [blacklistProfilesMap, setBlacklistProfilesMap] = useState<Map<string, Profile>>(new Map());
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
   // Abort controller for cancelling scan
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -197,6 +199,10 @@ export default function ListCleaner() {
     const npub = hexToNpub(pubkey);
     navigator.clipboard.writeText(npub);
     // Could add a toast notification here
+  };
+
+  const handleViewProfile = (pubkey: string, profile: Profile | undefined) => {
+    setSelectedProfile(profile || { pubkey });
   };
 
   const formatDate = (timestamp: number | null) => {
@@ -472,15 +478,14 @@ export default function ListCleaner() {
                             Copy npub
                           </button>
                           <span className="text-gray-300 dark:text-gray-600">|</span>
-                          <a
-                            href={`https://npub.world/${npub}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => handleViewProfile(result.pubkey, profile)}
                             className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
+                            title="View profile and mute list"
                           >
-                            <ExternalLink size={12} />
+                            <Eye size={12} />
                             View Profile
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -568,15 +573,14 @@ export default function ListCleaner() {
                             Copy npub
                           </button>
                           <span className="text-gray-300 dark:text-gray-600">|</span>
-                          <a
-                            href={`https://npub.world/${npub}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => handleViewProfile(pubkey, profile)}
                             className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
+                            title="View profile and mute list"
                           >
-                            <ExternalLink size={12} />
+                            <Eye size={12} />
                             View Profile
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -600,6 +604,14 @@ export default function ListCleaner() {
           </div>
         )}
       </div>
+
+      {/* User Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+        />
+      )}
     </div>
   );
 }
