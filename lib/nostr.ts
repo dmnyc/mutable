@@ -540,6 +540,21 @@ export async function parsePublicListEvent(event: Event) {
 }
 
 // Publish public mute list
+// Generate URL-safe slug from pack name
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    // Replace spaces and underscores with hyphens
+    .replace(/[\s_]+/g, '-')
+    // Remove any characters that aren't alphanumeric, hyphens, or periods
+    .replace(/[^a-z0-9-.]/g, '')
+    // Replace multiple consecutive hyphens with single hyphen
+    .replace(/-+/g, '-')
+    // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '');
+}
+
 export async function publishPublicList(
   name: string,
   description: string,
@@ -548,7 +563,8 @@ export async function publishPublicList(
   categories: PackCategory[] = []
 ): Promise<Event> {
   const tags = muteListToTags(muteList);
-  tags.unshift(['d', name]);
+  const slug = generateSlug(name);
+  tags.unshift(['d', slug]);
   tags.push(['name', name]);
   if (description) {
     tags.push(['description', description]);
