@@ -271,7 +271,22 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     }
   };
 
-  // Check if a pack with the same name already exists
+  // Generate URL-safe slug from pack name (must match server-side logic)
+  const generateSlug = (name: string): string => {
+    return name
+      .toLowerCase()
+      .trim()
+      // Replace spaces and underscores with hyphens
+      .replace(/[\s_]+/g, '-')
+      // Remove any characters that aren't alphanumeric, hyphens, or periods
+      .replace(/[^a-z0-9-.]/g, '')
+      // Replace multiple consecutive hyphens with single hyphen
+      .replace(/-+/g, '-')
+      // Remove leading/trailing hyphens
+      .replace(/^-+|-+$/g, '');
+  };
+
+  // Check if a pack with the same slug already exists
   const checkForDuplicatePack = async (packName: string): Promise<boolean> => {
     if (!session) return false;
 
@@ -279,8 +294,10 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
       const userPacks = await fetchUserPublicPacks(session.pubkey, session.relays);
       const parsedPacks = await Promise.all(userPacks.map(parsePublicListEvent));
 
-      // Check if any existing pack has the same d-tag (case-sensitive)
-      return parsedPacks.some(pack => pack.dTag === packName.trim());
+      const slug = generateSlug(packName);
+
+      // Check if any existing pack has the same d-tag (slug)
+      return parsedPacks.some(pack => pack.dTag === slug);
     } catch (error) {
       console.error('Failed to check for duplicate packs:', error);
       return false;
