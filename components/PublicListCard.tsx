@@ -569,65 +569,57 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                           return (
                             <div
                               key={item.value}
-                              className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                              className={`flex items-center gap-2 sm:gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
                                 isAlreadyMuted
                                   ? 'bg-gray-100 dark:bg-gray-700/30 border-gray-300 dark:border-gray-600'
                                   : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
                               }`}
+                              onClick={() => setSelectedProfile(profile || { pubkey: item.value })}
+                              title="View profile and mute list"
                             >
-                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 overflow-hidden">
-                                {profile?.picture ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={profile.picture}
-                                    alt={displayName}
-                                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                    <User size={16} className="text-gray-600 dark:text-gray-300" />
-                                  </div>
-                                )}
+                              {profile?.picture ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={profile.picture}
+                                  alt={displayName}
+                                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                  <User size={16} className="text-gray-600 dark:text-gray-300" />
+                                </div>
+                              )}
 
-                                <div className="flex-1 min-w-0 overflow-hidden">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                      {displayName}
-                                    </p>
-                                    {isAlreadyMuted && (
-                                      <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
-                                        In your list
-                                      </span>
-                                    )}
-                                  </div>
-                                  {profile?.nip05 && (
-                                    <p className="text-xs text-green-600 dark:text-green-400 truncate max-w-full">
-                                      ✓ {profile.nip05}
-                                    </p>
-                                  )}
-                                  {!profile?.display_name && !profile?.name && (
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate">
-                                      {hexToNpub(item.value).slice(0, 16)}...
-                                    </p>
-                                  )}
-                                  {item.reason && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic truncate">
-                                      {item.reason}
-                                    </p>
+                              <div className="flex-1 min-w-0 overflow-hidden">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {displayName}
+                                  </p>
+                                  {isAlreadyMuted && (
+                                    <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                                      In your list
+                                    </span>
                                   )}
                                 </div>
+                                {profile?.nip05 && (
+                                  <p className="text-xs text-green-600 dark:text-green-400 truncate max-w-full">
+                                    ✓ {profile.nip05}
+                                  </p>
+                                )}
+                                {!profile?.display_name && !profile?.name && (
+                                  <p className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate">
+                                    {hexToNpub(item.value).slice(0, 16)}...
+                                  </p>
+                                )}
+                                {item.reason && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic truncate">
+                                    {item.reason}
+                                  </p>
+                                )}
                               </div>
-
-                              <button
-                                onClick={() => setSelectedProfile(profile || { pubkey: item.value })}
-                                className="flex-shrink-0 p-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                                title="View profile"
-                              >
-                                <Eye size={16} />
-                              </button>
                             </div>
                           );
                         });
