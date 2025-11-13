@@ -433,9 +433,11 @@ export async function searchPublicListsByAuthor(
   relays: string[] = DEFAULT_RELAYS
 ): Promise<Event[]> {
   const pool = getPool();
+  // Filter by namespace to only get mute packs (mutable or nostrguard)
   return await pool.querySync(relays, {
     kinds: [PUBLIC_LIST_KIND],
-    authors: [authorPubkey]
+    authors: [authorPubkey],
+    '#L': [PACK_NAMESPACE, NOSTRGUARD_NAMESPACE]
   });
 }
 

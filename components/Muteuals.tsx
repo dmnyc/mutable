@@ -4,7 +4,8 @@ import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import { RefreshCw, Users, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, List, Copy } from 'lucide-react';
-import { MutealResult } from '@/types';
+import { MutealResult, Profile } from '@/types';
+import UserProfileModal from './UserProfileModal';
 import {
   searchMutealsFromFollows,
   searchMutealsNetworkWide,
@@ -36,6 +37,7 @@ export default function Muteuals() {
   const [progress, setProgress] = useState<string>('');
   const [scanStats, setScanStats] = useState<ScanStats | null>(null);
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleSearch = async () => {
@@ -218,6 +220,10 @@ export default function Muteuals() {
     } catch (error) {
       console.error('Failed to copy npub:', error);
     }
+  };
+
+  const handleViewProfile = (muteal: MutealResult) => {
+    setSelectedProfile(muteal.profile || { pubkey: muteal.mutedBy });
   };
 
   const handleMuteAll = () => {
@@ -517,7 +523,11 @@ export default function Muteuals() {
                   key={muteal.mutedBy}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                  <div
+                    className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
+                    onClick={() => handleViewProfile(muteal)}
+                    title="View profile and mute list"
+                  >
                     {profile?.picture ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -605,17 +615,6 @@ export default function Muteuals() {
                       </button>
                     )}
 
-                    {/* View Profile */}
-                    <a
-                      href={`https://npub.world/${npub}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                      title="View profile"
-                    >
-                      <ExternalLink size={16} />
-                    </a>
-
                     {/* View on listr.lol */}
                     <a
                       href={`https://listr.lol/${npub}`}
@@ -633,6 +632,14 @@ export default function Muteuals() {
           </div>
         </div>
       ) : null}
+
+      {/* User Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+        />
+      )}
     </div>
   );
 }

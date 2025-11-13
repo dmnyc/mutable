@@ -21,6 +21,7 @@ import {
   Copy,
   Sparkles
 } from 'lucide-react';
+import UserProfileModal from './UserProfileModal';
 
 export default function ListCleaner() {
   const { muteList, session, removeMutedItem, addToBlacklist, removeFromBlacklist, blacklistedPubkeys, isBlacklisted } = useStore();
@@ -38,6 +39,7 @@ export default function ListCleaner() {
   const [profilesMap, setProfilesMap] = useState<Map<string, Profile>>(new Map());
   const [loadingProfiles, setLoadingProfiles] = useState<Set<string>>(new Set());
   const [blacklistProfilesMap, setBlacklistProfilesMap] = useState<Map<string, Profile>>(new Map());
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
   // Abort controller for cancelling scan
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -197,6 +199,10 @@ export default function ListCleaner() {
     const npub = hexToNpub(pubkey);
     navigator.clipboard.writeText(npub);
     // Could add a toast notification here
+  };
+
+  const handleViewProfile = (pubkey: string, profile: Profile | undefined) => {
+    setSelectedProfile(profile || { pubkey });
   };
 
   const formatDate = (timestamp: number | null) => {
@@ -401,7 +407,11 @@ export default function ListCleaner() {
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div
+                      className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleViewProfile(result.pubkey, profile)}
+                      title="View profile and mute list"
+                    >
                       {profile?.picture ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -462,7 +472,7 @@ export default function ListCleaner() {
                         </div>
 
                         {/* Profile Links */}
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleCopyNpub(result.pubkey)}
                             className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
@@ -471,16 +481,6 @@ export default function ListCleaner() {
                             <Copy size={12} />
                             Copy npub
                           </button>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
-                          <a
-                            href={`https://npub.world/${npub}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
-                          >
-                            <ExternalLink size={12} />
-                            View Profile
-                          </a>
                         </div>
                       </div>
                     </div>
@@ -535,7 +535,11 @@ export default function ListCleaner() {
                   className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div
+                      className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleViewProfile(pubkey, profile)}
+                      title="View profile and mute list"
+                    >
                       {profile?.picture ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -558,7 +562,7 @@ export default function ListCleaner() {
                         </div>
 
                         {/* Profile Links */}
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleCopyNpub(pubkey)}
                             className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
@@ -567,16 +571,6 @@ export default function ListCleaner() {
                             <Copy size={12} />
                             Copy npub
                           </button>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
-                          <a
-                            href={`https://npub.world/${npub}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
-                          >
-                            <ExternalLink size={12} />
-                            View Profile
-                          </a>
                         </div>
                       </div>
                     </div>
@@ -600,6 +594,14 @@ export default function ListCleaner() {
           </div>
         )}
       </div>
+
+      {/* User Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+        />
+      )}
     </div>
   );
 }

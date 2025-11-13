@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PublicMuteList, Profile } from '@/types';
 import { useStore } from '@/lib/store';
 import { hexToNpub, fetchProfile, deletePublicList } from '@/lib/nostr';
-import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Share2 } from 'lucide-react';
+import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Share2, ExternalLink } from 'lucide-react';
 import ImportConfirmationDialog from './ImportConfirmationDialog';
 import UserProfileModal from './UserProfileModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +37,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
   const [tagPage, setTagPage] = useState(1);
   const [linkCopied, setLinkCopied] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -239,6 +240,17 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
       setTimeout(() => setLinkCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy link:', error);
+    }
+  };
+
+  const handleCopyNpub = async (pubkey: string) => {
+    const npub = hexToNpub(pubkey);
+    try {
+      await navigator.clipboard.writeText(npub);
+      setCopiedNpub(npub);
+      setTimeout(() => setCopiedNpub(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy npub:', error);
     }
   };
 
@@ -569,13 +581,17 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                           return (
                             <div
                               key={item.value}
-                              className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                              className={`flex items-center justify-between gap-2 sm:gap-3 p-3 rounded-lg border transition-colors ${
                                 isAlreadyMuted
                                   ? 'bg-gray-100 dark:bg-gray-700/30 border-gray-300 dark:border-gray-600'
                                   : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
                               }`}
                             >
-                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 overflow-hidden">
+                              <div
+                                className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
+                                onClick={() => setSelectedProfile(profile || { pubkey: item.value })}
+                                title="View profile and mute list"
+                              >
                                 {profile?.picture ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
@@ -621,13 +637,28 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                                 </div>
                               </div>
 
-                              <button
-                                onClick={() => setSelectedProfile(profile || { pubkey: item.value })}
-                                className="flex-shrink-0 p-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                                title="View profile"
-                              >
-                                <Eye size={16} />
-                              </button>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                  onClick={() => handleCopyNpub(item.value)}
+                                  className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                    copiedNpub === hexToNpub(item.value)
+                                      ? 'text-green-600 dark:text-green-400'
+                                      : 'text-gray-600 dark:text-gray-400'
+                                  }`}
+                                  title={copiedNpub === hexToNpub(item.value) ? 'Copied!' : 'Copy npub'}
+                                >
+                                  <Copy size={16} />
+                                </button>
+                                <a
+                                  href={`https://npub.world/${hexToNpub(item.value)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                  title="View on npub.world"
+                                >
+                                  <ExternalLink size={16} />
+                                </a>
+                              </div>
                             </div>
                           );
                         });

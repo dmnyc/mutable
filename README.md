@@ -139,3 +139,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Built for the Nostr protocol
 - Inspired by [plebs-vs-zombies](https://github.com/dmnyc/plebs-vs-zombies)
+
+## Author
+
+- Created by The Daniel⚡️
+- Vibed with Claude
