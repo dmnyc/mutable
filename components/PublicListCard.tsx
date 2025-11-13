@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PublicMuteList, Profile } from '@/types';
 import { useStore } from '@/lib/store';
 import { hexToNpub, fetchProfile, deletePublicList } from '@/lib/nostr';
-import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Share2 } from 'lucide-react';
+import { Copy, ChevronDown, ChevronUp, User, Calendar, Shield, Check, Tag, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Share2, ExternalLink } from 'lucide-react';
 import ImportConfirmationDialog from './ImportConfirmationDialog';
 import UserProfileModal from './UserProfileModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -649,6 +649,15 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                                 >
                                   <Copy size={16} />
                                 </button>
+                                <a
+                                  href={`https://npub.world/${hexToNpub(item.value)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                  title="View on npub.world"
+                                >
+                                  <ExternalLink size={16} />
+                                </a>
                               </div>
                             </div>
                           );
