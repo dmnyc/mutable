@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import {
@@ -14,10 +14,10 @@ import {
   PACK_CATEGORIES,
   PackCategory
 } from '@/lib/nostr';
-import { Search, Plus, RefreshCw, Package, User } from 'lucide-react';
+import { Search, Plus, RefreshCw, Package, User, Loader2 } from 'lucide-react';
 import PublicListCard from './PublicListCard';
 import CreatePublicList from './CreatePublicList';
-import { PublicMuteList } from '@/types';
+import { PublicMuteList, Profile } from '@/types';
 
 export default function PublicLists() {
   const { session } = useAuth();
@@ -34,6 +34,12 @@ export default function PublicLists() {
   const [userPacks, setUserPacks] = useState<PublicMuteList[]>([]);
   const [loadingUserPacks, setLoadingUserPacks] = useState(false);
   const [hasCheckedForPacks, setHasCheckedForPacks] = useState(false);
+
+  // Profile search states for author search
+  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>([]);
+  const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
+  const [showProfileResults, setShowProfileResults] = useState(false);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = async () => {
     if (!session) return;
@@ -133,6 +139,106 @@ export default function PublicLists() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
+      setShowProfileResults(false);
+    }
+  };
+
+  // Real-time profile search for author search
+  useEffect(() => {
+    const searchUserProfiles = async () => {
+      // Only search when in author search mode
+      if (searchType !== 'author' || !searchQuery.trim() || !session) {
+        setProfileSearchResults([]);
+        setShowProfileResults(false);
+        return;
+      }
+
+      // Don't search if it's already a valid npub or hex pubkey
+      if (searchQuery.startsWith('npub') || searchQuery.match(/^[0-9a-f]{64}$/i)) {
+        setProfileSearchResults([]);
+        setShowProfileResults(false);
+        return;
+      }
+
+      setIsSearchingProfiles(true);
+      setShowProfileResults(true);
+      try {
+        const results = await searchProfiles(searchQuery, session.relays, 10);
+        setProfileSearchResults(results);
+      } catch (error) {
+        console.error('Profile search failed:', error);
+        setProfileSearchResults([]);
+      } finally {
+        setIsSearchingProfiles(false);
+      }
+    };
+
+    // Debounce search - wait 300ms after user stops typing
+    const timeoutId = setTimeout(searchUserProfiles, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, searchType, session]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target as Node)) {
+        setShowProfileResults(false);
+      }
+    };
+
+    if (showProfileResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showProfileResults]);
+
+  // Handle selecting a profile from search results
+  const handleSelectProfile = async (profile: Profile) => {
+    setSearchQuery(profile.display_name || profile.name || profile.nip05 || '');
+    setShowProfileResults(false);
+
+    // Immediately search for packs from this user
+    try {
+      setPublicListsLoading(true);
+      setSearchError(null);
+
+      const events = await searchPublicListsByAuthor(profile.pubkey, session!.relays);
+      const parsedLists = await Promise.all(events.map(parsePublicListEvent));
+
+      // Deduplicate packs by author+dTag
+      const packsMap = new Map<string, PublicMuteList>();
+      for (const pack of parsedLists) {
+        const key = `${pack.author}:${pack.dTag}`;
+        const existing = packsMap.get(key);
+        if (!existing || pack.createdAt > existing.createdAt) {
+          packsMap.set(key, pack);
+        }
+      }
+      const deduplicatedLists = Array.from(packsMap.values());
+
+      // Filter out test packs
+      const TEST_USER_PUBKEYS = [
+        '84dee6e676e5bb67b4ad4e042cf70cbd8681155db535942fcc6a0533858a7240',
+        'faeb29828b98fbffdb127bea32203da2275f9223eff9a4ec95851cc9b1d3a262',
+      ];
+
+      const filteredLists = deduplicatedLists.filter(pack => {
+        if (pack.name.toLowerCase().includes('test')) return false;
+        if (TEST_USER_PUBKEYS.includes(pack.author)) return false;
+        return true;
+      });
+
+      setPublicLists(filteredLists);
+
+      if (filteredLists.length === 0) {
+        setSearchError('No community packs found');
+      }
+    } catch (error) {
+      setSearchError(
+        error instanceof Error ? error.message : 'Failed to search community packs'
+      );
+    } finally {
+      setPublicListsLoading(false);
     }
   };
 
@@ -343,19 +449,70 @@ export default function PublicLists() {
           )}
 
           {searchType !== 'browse' && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  searchType === 'name'
-                    ? 'Enter pack name (e.g., "spam-bots")'
-                    : 'Enter username, NIP-05, npub, or pubkey'
-                }
-                className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white"
-              />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1" ref={searchDropdownRef}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  onFocus={() => {
+                    if (searchType === 'author' && profileSearchResults.length > 0) {
+                      setShowProfileResults(true);
+                    }
+                  }}
+                  placeholder={
+                    searchType === 'name'
+                      ? 'Enter pack name (e.g., "spam-bots")'
+                      : 'Enter username, NIP-05, npub, or pubkey'
+                  }
+                  className="w-full px-4 py-2 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white"
+                />
+                {searchType === 'author' && isSearchingProfiles && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 size={16} className="animate-spin text-gray-400" />
+                  </div>
+                )}
+
+                {/* Profile search results dropdown */}
+                {searchType === 'author' && showProfileResults && profileSearchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                    {profileSearchResults.map((profile) => (
+                      <button
+                        key={profile.pubkey}
+                        onClick={() => handleSelectProfile(profile)}
+                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                      >
+                        {profile.picture ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={profile.picture}
+                            alt={profile.display_name || profile.name || 'User'}
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                            <User size={20} className="text-gray-600 dark:text-gray-300" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-white truncate">
+                            {profile.display_name || profile.name || 'Anonymous'}
+                          </p>
+                          {profile.nip05 && (
+                            <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                              ✓ {profile.nip05}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleSearch}
                 disabled={publicListsLoading || !searchQuery.trim()}
