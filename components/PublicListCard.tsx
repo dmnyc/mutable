@@ -37,6 +37,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
   const [tagPage, setTagPage] = useState(1);
   const [linkCopied, setLinkCopied] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -239,6 +240,17 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
       setTimeout(() => setLinkCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy link:', error);
+    }
+  };
+
+  const handleCopyNpub = async (pubkey: string) => {
+    const npub = hexToNpub(pubkey);
+    try {
+      await navigator.clipboard.writeText(npub);
+      setCopiedNpub(npub);
+      setTimeout(() => setCopiedNpub(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy npub:', error);
     }
   };
 
@@ -619,6 +631,20 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                                     {item.reason}
                                   </p>
                                 )}
+                                <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => handleCopyNpub(item.value)}
+                                    className={`flex items-center gap-1 text-xs transition-colors ${
+                                      copiedNpub === hexToNpub(item.value)
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
+                                    title="Copy npub"
+                                  >
+                                    <Copy size={12} />
+                                    {copiedNpub === hexToNpub(item.value) ? 'Copied!' : 'Copy npub'}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
