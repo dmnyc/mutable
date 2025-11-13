@@ -10,6 +10,7 @@ import {
   fetchUserPublicPacks,
   parsePublicListEvent,
   npubToHex,
+  searchProfiles,
   PACK_CATEGORIES,
   PackCategory
 } from '@/lib/nostr';
@@ -44,11 +45,37 @@ export default function PublicLists() {
 
       let events;
       if (searchType === 'author') {
-        // Convert npub to hex if needed
+        // Try to resolve username/NIP-05 to pubkey
         let authorPubkey = searchQuery.trim();
+
+        // If it's already an npub, convert to hex
         if (authorPubkey.startsWith('npub')) {
           authorPubkey = npubToHex(authorPubkey);
         }
+        // If it's not a hex pubkey, try to search for profiles by username/NIP-05
+        else if (!authorPubkey.match(/^[0-9a-f]{64}$/i)) {
+          console.log(`Searching for user by username/NIP-05: ${authorPubkey}`);
+          const profiles = await searchProfiles(authorPubkey, session.relays, 10);
+
+          if (profiles.length === 0) {
+            setSearchError(`No user found with username or NIP-05: "${authorPubkey}"`);
+            setPublicListsLoading(false);
+            return;
+          }
+
+          // If multiple matches, use the first one (you could add UI to let user select)
+          authorPubkey = profiles[0].pubkey;
+          console.log(`Resolved "${searchQuery}" to pubkey: ${authorPubkey}`);
+
+          // Show which user we're searching for
+          const displayName = profiles[0].display_name || profiles[0].name || profiles[0].nip05;
+          if (profiles.length > 1) {
+            setSearchError(`Found ${profiles.length} users matching "${searchQuery}". Showing packs from: ${displayName}`);
+          } else {
+            setSearchError(`Searching packs from: ${displayName}`);
+          }
+        }
+
         events = await searchPublicListsByAuthor(authorPubkey, session.relays);
       } else if (searchType === 'name') {
         events = await searchPublicListsByName(searchQuery.trim(), session.relays);
@@ -60,13 +87,26 @@ export default function PublicLists() {
 
       const parsedLists = await Promise.all(events.map(parsePublicListEvent));
 
+      // Deduplicate packs by author+dTag, keeping only the latest version
+      // This handles cases where relays return multiple versions of the same pack
+      const packsMap = new Map<string, PublicMuteList>();
+      for (const pack of parsedLists) {
+        const key = `${pack.author}:${pack.dTag}`;
+        const existing = packsMap.get(key);
+        // Keep the pack with the latest createdAt timestamp
+        if (!existing || pack.createdAt > existing.createdAt) {
+          packsMap.set(key, pack);
+        }
+      }
+      const deduplicatedLists = Array.from(packsMap.values());
+
       // Filter out test packs - by name containing 'test' or known test user pubkeys
       const TEST_USER_PUBKEYS = [
         '84dee6e676e5bb67b4ad4e042cf70cbd8681155db535942fcc6a0533858a7240',
         'faeb29828b98fbffdb127bea32203da2275f9223eff9a4ec95851cc9b1d3a262', // test user
       ];
 
-      const filteredLists = parsedLists.filter(pack => {
+      const filteredLists = deduplicatedLists.filter(pack => {
         // Skip packs where the pack name contains 'test' (case-insensitive)
         if (pack.name.toLowerCase().includes('test')) return false;
 
@@ -107,7 +147,19 @@ export default function PublicLists() {
       const events = await fetchUserPublicPacks(session.pubkey, session.relays);
       const parsedPacks = await Promise.all(events.map(parsePublicListEvent));
 
-      setUserPacks(parsedPacks);
+      // Deduplicate packs by dTag, keeping only the latest version
+      const packsMap = new Map<string, PublicMuteList>();
+      for (const pack of parsedPacks) {
+        const key = pack.dTag;
+        const existing = packsMap.get(key);
+        // Keep the pack with the latest createdAt timestamp
+        if (!existing || pack.createdAt > existing.createdAt) {
+          packsMap.set(key, pack);
+        }
+      }
+      const deduplicatedPacks = Array.from(packsMap.values());
+
+      setUserPacks(deduplicatedPacks);
     } catch (error) {
       setSearchError(
         error instanceof Error ? error.message : 'Failed to load your packs'
@@ -300,7 +352,7 @@ export default function PublicLists() {
                 placeholder={
                   searchType === 'name'
                     ? 'Enter pack name (e.g., "spam-bots")'
-                    : 'Enter author npub or pubkey'
+                    : 'Enter username, NIP-05, npub, or pubkey'
                 }
                 className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white"
               />
