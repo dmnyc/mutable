@@ -17,8 +17,11 @@ import {
   ChevronDown,
   ChevronRight,
   VolumeX,
-  Volume2
+  Volume2,
+  Search
 } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
 interface UserProfileModalProps {
   profile: Profile;
@@ -427,6 +430,37 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Mute-o-Scope Link */}
+          <div className="border border-purple-200 dark:border-purple-600 rounded-lg p-4 bg-purple-50 dark:bg-purple-900/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1">
+                <Image
+                  src="/mute_o_scope_icon.svg"
+                  alt="Mute-o-Scope"
+                  width={32}
+                  height={32}
+                  className="flex-shrink-0"
+                />
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                    See who is muting {getDisplayName()}
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Use Mute-o-Scope to search public mute lists network-wide
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/mute-o-scope?npub=${hexToNpub(profile.pubkey)}`}
+                target="_blank"
+                className="ml-4 flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Search size={16} />
+                <span className="whitespace-nowrap">Search</span>
+              </Link>
+            </div>
           </div>
 
           {/* User's Mute List */}

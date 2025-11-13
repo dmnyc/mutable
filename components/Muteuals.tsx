@@ -82,34 +82,35 @@ export default function Muteuals() {
         // Use expanded relay list for network-wide search
         const expandedRelays = getExpandedRelayList(session.relays);
 
+        // Stream results as they're found and enrich each one immediately
         muteuals = await searchMutealsNetworkWide(
           session.pubkey,
           expandedRelays,
           (count) => {
             setProgress(`Found ${count} Muteual${count === 1 ? '' : 's'}...`);
           },
-          abortControllerRef.current?.signal
+          abortControllerRef.current?.signal,
+          async (result) => {
+            // Add result immediately (shows as "Loading profile...")
+            setResults(prev => [...prev, result]);
+
+            // Enrich this specific result with profile data
+            try {
+              const enriched = await enrichMutealsWithProfiles([result], session.relays);
+              // Update just this result in the list
+              setResults(prev => prev.map(r =>
+                r.mutedBy === result.mutedBy ? enriched[0] : r
+              ));
+            } catch (err) {
+              console.error('Failed to enrich profile:', err);
+            }
+          }
         );
 
         // For network-wide, we don't have detailed stats but we can show what we found
         stats.totalChecked = muteuals.length;
         stats.withPublicLists = muteuals.length;
         stats.listsAnalyzed = muteuals.length;
-      }
-
-      if (muteuals.length > 0) {
-        setProgress('Loading profiles...');
-        const enriched = await enrichMutealsWithProfiles(
-          muteuals,
-          session.relays,
-          (current, total) => {
-            setProgress(`Loading profile ${current} of ${total}...`);
-          },
-          abortControllerRef.current?.signal
-        );
-        setResults(enriched);
-      } else {
-        setResults([]);
       }
 
       setScanStats(stats);

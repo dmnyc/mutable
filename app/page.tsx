@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from '@/components/AuthModal';
+import { Lock, Unlock } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
@@ -56,12 +58,45 @@ export default function Home() {
           <p className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-8">
             Your Nostr Mute List Manager
           </p>
-          <button
-            onClick={() => setShowAuthModal(true)}
-            className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-lg hover:shadow-xl"
-          >
-            Connect with Nostr
-          </button>
+
+          {/* Main Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+              <Lock size={20} />
+              Connect with Nostr
+            </button>
+
+            <Link
+              href="/mute-o-scope"
+              className="px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+              <Image
+                src="/mute_o_scope_icon_white.svg"
+                alt="Mute-o-Scope"
+                width={20}
+                height={20}
+              />
+              Mute-o-Scope
+            </Link>
+          </div>
+
+          {/* Mute-o-Scope Info Card */}
+          <div className="max-w-md mx-auto mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-3">
+              <Unlock className="text-green-600 dark:text-green-400 flex-shrink-0 mt-1" size={24} />
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  Try Mute-o-Scope - No Login Required
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Search any npub to see who is publicly muting them. Perfect for checking your reputation or investigating profiles.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
