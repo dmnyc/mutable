@@ -349,22 +349,24 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            {isMuted ? (
-              <button
-                onClick={handleUnmute}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <UserCheck size={16} />
-                <span>Unmute User</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleMute}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <UserX size={16} />
-                <span>Mute User</span>
-              </button>
+            {session && (
+              isMuted ? (
+                <button
+                  onClick={handleUnmute}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <UserCheck size={16} />
+                  <span>Unmute User</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleMute}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <UserX size={16} />
+                  <span>Mute User</span>
+                </button>
+              )
             )}
 
             {isFollowingUser && !checkingFollow && (
@@ -388,31 +390,32 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
           </div>
 
           {/* Check if muting me */}
-          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                  Is {getDisplayName()} muting me publicly?
-                </h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Check if this user has you in their public mute list
-                </p>
+          {session && (
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                    Is {getDisplayName()} muting me publicly?
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Check if this user has you in their public mute list
+                  </p>
+                </div>
+                <button
+                  onClick={handleCheckIfMutingMe}
+                  disabled={checkingIfMutingMe}
+                  className="ml-4 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                >
+                  {checkingIfMutingMe ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      <span>Checking...</span>
+                    </>
+                  ) : (
+                    <span>Check</span>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={handleCheckIfMutingMe}
-                disabled={checkingIfMutingMe || !session}
-                className="ml-4 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
-              >
-                {checkingIfMutingMe ? (
-                  <>
-                    <Loader2 className="animate-spin" size={16} />
-                    <span>Checking...</span>
-                  </>
-                ) : (
-                  <span>Check</span>
-                )}
-              </button>
-            </div>
             {isMutingMe !== null && (
               <div className={`mt-3 p-3 rounded-lg ${
                 isMutingMe
@@ -430,14 +433,15 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 </p>
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Mute-o-Scope Link */}
           <div className="border border-purple-200 dark:border-purple-600 rounded-lg p-4 bg-purple-50 dark:bg-purple-900/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1">
                 <Image
-                  src="/mute_o_scope_icon.svg"
+                  src="/mute_o_scope_icon_white.svg"
                   alt="Mute-o-Scope"
                   width={32}
                   height={32}
