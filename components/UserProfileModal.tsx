@@ -60,12 +60,22 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   // Load user's mute list and check follow status
   useEffect(() => {
     const loadUserData = async () => {
-      if (!session) return;
+      // Default relays for when not logged in
+      const DEFAULT_RELAYS = [
+        'wss://relay.damus.io',
+        'wss://relay.primal.net',
+        'wss://nos.lol',
+        'wss://relay.nostr.band',
+        'wss://nostr.wine',
+        'wss://relay.snort.social'
+      ];
 
-      // Load mute list
+      const relays = session?.relays || DEFAULT_RELAYS;
+
+      // Load mute list (works for both logged in and logged out)
       setLoadingMuteList(true);
       try {
-        const event = await fetchMuteList(profile.pubkey, session.relays);
+        const event = await fetchMuteList(profile.pubkey, relays);
         if (event) {
           const parsed = await parseMuteListEvent(event);
           setUserMuteList(parsed);
@@ -76,15 +86,17 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
         setLoadingMuteList(false);
       }
 
-      // Check if following
-      setCheckingFollow(true);
-      try {
-        const following = await isFollowing(profile.pubkey, session.pubkey, session.relays);
-        setIsFollowingUser(following);
-      } catch (error) {
-        console.error('Failed to check follow status:', error);
-      } finally {
-        setCheckingFollow(false);
+      // Check if following (only when logged in)
+      if (session) {
+        setCheckingFollow(true);
+        try {
+          const following = await isFollowing(profile.pubkey, session.pubkey, session.relays);
+          setIsFollowingUser(following);
+        } catch (error) {
+          console.error('Failed to check follow status:', error);
+        } finally {
+          setCheckingFollow(false);
+        }
       }
     };
 
@@ -205,7 +217,19 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   };
 
   const loadMutedProfiles = async (startIndex = 0, count = displayedPubkeysCount) => {
-    if (!userMuteList || !session) return;
+    if (!userMuteList) return;
+
+    // Default relays for when not logged in
+    const DEFAULT_RELAYS = [
+      'wss://relay.damus.io',
+      'wss://relay.primal.net',
+      'wss://nos.lol',
+      'wss://relay.nostr.band',
+      'wss://nostr.wine',
+      'wss://relay.snort.social'
+    ];
+
+    const relays = session?.relays || DEFAULT_RELAYS;
 
     setLoadingProfiles(true);
     const profilesMap = new Map<string, Profile>(mutedProfiles);
@@ -218,7 +242,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       if (profilesMap.has(item.value)) return;
 
       try {
-        const profile = await fetchProfile(item.value, session.relays);
+        const profile = await fetchProfile(item.value, relays);
         if (profile) {
           profilesMap.set(item.value, profile);
         }
@@ -567,26 +591,28 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                                   >
                                     {copySuccess === `muted-${item.value}` ? <UserCheck size={16} /> : <Copy size={16} />}
                                   </button>
-                                  {isAlreadyMuted ? (
-                                    <button
-                                      onClick={() => {
-                                        removeMutedItem(item.value, 'pubkeys');
-                                      }}
-                                      className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                      title="Already muted - click to unmute"
-                                    >
-                                      <VolumeX size={16} />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => {
-                                        addMutedItem({ type: 'pubkey', value: item.value, reason: item.reason }, 'pubkeys');
-                                      }}
-                                      className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                                      title="Mute this user"
-                                    >
-                                      <Volume2 size={16} />
-                                    </button>
+                                  {session && (
+                                    isAlreadyMuted ? (
+                                      <button
+                                        onClick={() => {
+                                          removeMutedItem(item.value, 'pubkeys');
+                                        }}
+                                        className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                        title="Already muted - click to unmute"
+                                      >
+                                        <VolumeX size={16} />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          addMutedItem({ type: 'pubkey', value: item.value, reason: item.reason }, 'pubkeys');
+                                        }}
+                                        className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                                        title="Mute this user"
+                                      >
+                                        <Volume2 size={16} />
+                                      </button>
+                                    )
                                   )}
                                   <button
                                     onClick={() => window.open(`https://npub.world/${hexToNpub(item.value)}`, '_blank')}
@@ -713,7 +739,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   </p>
                 )}
 
-                {getTotalMutedItems() > 0 && (
+                {session && getTotalMutedItems() > 0 && (
                   <button
                     onClick={handleMergeMuteList}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
