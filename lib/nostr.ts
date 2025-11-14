@@ -789,41 +789,57 @@ export function hexToNpub(hex: string): string {
 // Fetch profile metadata for a specific pubkey
 export async function fetchProfile(
   pubkey: string,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  timeoutMs: number = 5000 // 5 second timeout for mobile
 ): Promise<Profile | null> {
   const pool = getPool();
 
   // Use expanded relay list to maximize chances of finding the profile
   const expandedRelays = getExpandedRelayList(relays);
 
-  // Query multiple events and pick the newest one (in case of stale data)
-  const events = await pool.querySync(expandedRelays, {
-    kinds: [PROFILE_KIND],
-    authors: [pubkey],
-    limit: 5
-  });
-
-  if (events.length === 0) return null;
-
-  // Sort by created_at descending to get the most recent profile
-  events.sort((a, b) => b.created_at - a.created_at);
-  const newestEvent = events[0];
-
   try {
-    const metadata = JSON.parse(newestEvent.content);
-    return {
-      pubkey,
-      name: metadata.name || '',
-      display_name: metadata.display_name || '',
-      about: metadata.about || '',
-      picture: metadata.picture || '',
-      banner: metadata.banner || '',
-      nip05: metadata.nip05 || '',
-      lud16: metadata.lud16 || '',
-      website: metadata.website || ''
-    };
+    // Add timeout wrapper around querySync
+    const events = await Promise.race([
+      pool.querySync(expandedRelays, {
+        kinds: [PROFILE_KIND],
+        authors: [pubkey],
+        limit: 5
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), timeoutMs)
+      )
+    ]);
+
+    if (events.length === 0) return null;
+
+    // Sort by created_at descending to get the most recent profile
+    events.sort((a, b) => b.created_at - a.created_at);
+    const newestEvent = events[0];
+
+    try {
+      const metadata = JSON.parse(newestEvent.content);
+      return {
+        pubkey,
+        name: metadata.name || '',
+        display_name: metadata.display_name || '',
+        about: metadata.about || '',
+        picture: metadata.picture || '',
+        banner: metadata.banner || '',
+        nip05: metadata.nip05 || '',
+        lud16: metadata.lud16 || '',
+        website: metadata.website || ''
+      };
+    } catch (error) {
+      console.error(`Failed to parse profile for ${pubkey.substring(0, 8)}:`, error);
+      return null;
+    }
   } catch (error) {
-    console.error(`Failed to parse profile for ${pubkey.substring(0, 8)}:`, error);
+    // Timeout or fetch error - return null gracefully
+    if (error instanceof Error && error.message === 'Profile fetch timeout') {
+      console.warn(`Profile fetch timeout for ${pubkey.substring(0, 8)}`);
+    } else {
+      console.error(`Failed to fetch profile for ${pubkey.substring(0, 8)}:`, error);
+    }
     return null;
   }
 }
@@ -1455,33 +1471,56 @@ export async function enrichMutealsWithProfiles(
   muteuals: MutealResult[],
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (current: number, total: number) => void,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  batchSize: number = 10 // Fetch 10 profiles in parallel
 ): Promise<MutealResult[]> {
-  const enriched: MutealResult[] = [];
+  // Process in batches for better performance on mobile
+  const batches: MutealResult[][] = [];
+  for (let i = 0; i < muteuals.length; i += batchSize) {
+    batches.push(muteuals.slice(i, i + batchSize));
+  }
 
-  for (let i = 0; i < muteuals.length; i++) {
+  const enriched: MutealResult[] = [];
+  let processedCount = 0;
+
+  for (const batch of batches) {
     // Check if enrichment was aborted
     if (abortSignal?.aborted) {
-      console.log(`Profile enrichment aborted after ${i}/${muteuals.length} profiles`);
+      console.log(`Profile enrichment aborted after ${processedCount}/${muteuals.length} profiles`);
       // Return what we have so far with remaining items without profiles
-      return [...enriched, ...muteuals.slice(i)];
+      const remainingIndex = processedCount;
+      return [...enriched, ...muteuals.slice(remainingIndex)];
     }
 
-    const muteal = muteuals[i];
+    // Fetch all profiles in this batch in parallel with Promise.allSettled
+    // This ensures one timeout doesn't block others
+    const profilePromises = batch.map(muteal =>
+      fetchProfile(muteal.mutedBy, relays)
+        .then(profile => ({ muteal, profile }))
+        .catch(error => {
+          console.error(`Failed to fetch profile for ${muteal.mutedBy}:`, error);
+          return { muteal, profile: null };
+        })
+    );
 
+    const results = await Promise.allSettled(profilePromises);
+
+    // Process results
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        enriched.push({
+          ...result.value.muteal,
+          profile: result.value.profile || undefined
+        });
+      } else {
+        // This shouldn't happen since we catch errors above, but just in case
+        console.error('Unexpected rejection in batch:', result.reason);
+      }
+    });
+
+    processedCount += batch.length;
     if (onProgress) {
-      onProgress(i + 1, muteuals.length);
-    }
-
-    try {
-      const profile = await fetchProfile(muteal.mutedBy, relays);
-      enriched.push({
-        ...muteal,
-        profile: profile || undefined
-      });
-    } catch (error) {
-      console.error(`Failed to fetch profile for ${muteal.mutedBy}:`, error);
-      enriched.push(muteal);
+      onProgress(processedCount, muteuals.length);
     }
   }
 
