@@ -1340,69 +1340,54 @@ export async function searchMutealsNetworkWide(
     events = await new Promise<Event[]>((resolve, reject) => {
       const collectedEvents: Event[] = [];
       const seenEventIds = new Set<string>();
-      const relayEventCounts = new Map<string, number>(); // Track events per relay
       let timeout: NodeJS.Timeout;
       let eoseCount = 0; // Track EOSE from each relay
-      const eoseRelays = new Set<string>(); // Track which relays sent EOSE
 
-      // Subscribe to each relay individually so we can track which ones respond
-      const subs = relays.map(relay => {
-        return pool.subscribeMany(
-          [relay], // Single relay
-          {
-            kinds: [MUTE_LIST_KIND],
-            '#p': [userPubkey],
-            limit: 5000 // High limit to ensure we get all results
-          } as any,
-          {
-            onevent(event) {
-              // Deduplicate events by ID (same event from multiple relays)
-              if (!seenEventIds.has(event.id)) {
-                seenEventIds.add(event.id);
-                collectedEvents.push(event);
+      const sub = pool.subscribeMany(
+        relays,
+        {
+          kinds: [MUTE_LIST_KIND],
+          '#p': [userPubkey],
+          limit: 5000 // High limit to ensure we get all results
+        } as any, // Type assertion needed for tag filter
+        {
+          onevent(event) {
+            // Deduplicate events by ID (same event from multiple relays)
+            if (!seenEventIds.has(event.id)) {
+              seenEventIds.add(event.id);
+              collectedEvents.push(event);
 
-                // Track which relay sent this
-                const count = relayEventCounts.get(relay) || 0;
-                relayEventCounts.set(relay, count + 1);
+              // Update last event time when we receive a NEW event
+              lastEventTime = Date.now();
 
-                // Update last event time when we receive a NEW event
-                lastEventTime = Date.now();
-
-                // Update progress as events come in
-                if (onProgress && collectedEvents.length % 10 === 0) {
-                  onProgress(collectedEvents.length);
-                }
-              }
-            },
-            oneose() {
-              // EOSE (End of Stored Events) received from this relay
-              if (!eoseRelays.has(relay)) {
-                eoseRelays.add(relay);
-                eoseCount++;
-                const relayCount = relayEventCounts.get(relay) || 0;
-                console.log(`✓ EOSE from ${relay} (${relayCount} events) - ${eoseCount}/${relays.length} relays done`);
-
-                // If we've received EOSE from all relays, we can close immediately
-                if (eoseCount >= relays.length) {
-                  console.log(`Received EOSE from all ${relays.length} relays, closing with ${collectedEvents.length} events`);
-                  console.log('Events per relay:', Array.from(relayEventCounts.entries()).map(([r, c]) => `${r}: ${c}`).join(', '));
-                  clearInterval(checkInterval);
-                  clearTimeout(timeout);
-                  subs.forEach(s => s.close());
-                  resolve(collectedEvents);
-                }
+              // Update progress as events come in
+              if (onProgress && collectedEvents.length % 10 === 0) {
+                onProgress(collectedEvents.length);
               }
             }
+          },
+          oneose() {
+            // EOSE (End of Stored Events) received from a relay
+            eoseCount++;
+            console.log(`Received EOSE ${eoseCount}/${relays.length}, collected ${collectedEvents.length} events so far`);
+
+            // If we've received EOSE from all relays, we can close immediately
+            if (eoseCount >= relays.length) {
+              console.log(`Received EOSE from all ${relays.length} relays, closing with ${collectedEvents.length} events`);
+              clearInterval(checkInterval);
+              clearTimeout(timeout);
+              sub.close();
+              resolve(collectedEvents);
+            }
           }
-        );
-      });
+        }
+      );
 
       // Set timeout - very long to ensure all relays respond, especially on mobile
       // For users with many mute lists (600+), we need sufficient time
       timeout = setTimeout(() => {
         console.log(`Query timeout reached after 60s, collected ${collectedEvents.length} events from ${eoseCount}/${relays.length} relays`);
-        console.log('Events per relay:', Array.from(relayEventCounts.entries()).map(([r, c]) => `${r}: ${c}`).join(', '));
-        subs.forEach(s => s.close());
+        sub.close();
         resolve(collectedEvents);
       }, 60000); // 60 second timeout
 
@@ -1417,10 +1402,9 @@ export async function searchMutealsNetworkWide(
         // 2. No new events for 15 seconds (very conservative for mobile)
         if (eoseCount > 0 && timeSinceLastEvent > 15000) {
           console.log(`No new events for 15s and received ${eoseCount}/${relays.length} EOSE, closing with ${collectedEvents.length} events`);
-          console.log('Events per relay:', Array.from(relayEventCounts.entries()).map(([r, c]) => `${r}: ${c}`).join(', '));
           clearInterval(checkInterval);
           clearTimeout(timeout);
-          subs.forEach(s => s.close());
+          sub.close();
           resolve(collectedEvents);
         }
       }, 1000);
