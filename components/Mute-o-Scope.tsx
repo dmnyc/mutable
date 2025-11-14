@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut } from 'lucide-react';
+import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X } from 'lucide-react';
 import { MutealResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import GlobalUserSearch from './GlobalUserSearch';
@@ -327,6 +327,19 @@ export default function MuteOScope() {
 
   const handleUserSelect = (profile: Profile) => {
     setSelectedProfile(profile);
+  };
+
+  const handleReset = () => {
+    setSearchQuery('');
+    setTargetPubkey(null);
+    setTargetProfile(null);
+    setAllResults([]);
+    setDisplayedResults([]);
+    setDisplayCount(INITIAL_LOAD_COUNT);
+    setError(null);
+    setProgress('');
+    setProfileSearchResults([]);
+    setShowProfileResults(false);
   };
 
   return (
@@ -672,6 +685,16 @@ export default function MuteOScope() {
                   </>
                 )}
               </button>
+              {(searchQuery || allResults.length > 0) && !searching && (
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
+                  title="Reset search"
+                >
+                  <X size={20} />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+              )}
             </div>
           </div>
 
