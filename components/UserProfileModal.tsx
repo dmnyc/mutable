@@ -28,6 +28,15 @@ interface UserProfileModalProps {
   onClose: () => void;
 }
 
+const DEFAULT_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.primal.net',
+  'wss://nos.lol',
+  'wss://relay.nostr.band',
+  'wss://nostr.wine',
+  'wss://relay.snort.social'
+];
+
 export default function UserProfileModal({ profile, onClose }: UserProfileModalProps) {
   const { session } = useAuth();
   const { muteList, addMutedItem, removeMutedItem } = useStore();
@@ -60,17 +69,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   // Load user's mute list and check follow status
   useEffect(() => {
     const loadUserData = async () => {
-      // Default relays for when not logged in
-      const DEFAULT_RELAYS = [
-        'wss://relay.damus.io',
-        'wss://relay.primal.net',
-        'wss://nos.lol',
-        'wss://relay.nostr.band',
-        'wss://nostr.wine',
-        'wss://relay.snort.social'
-      ];
-
-      const relays = session?.relays || DEFAULT_RELAYS;
+      const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
 
       // Load mute list (works for both logged in and logged out)
       setLoadingMuteList(true);
@@ -87,7 +86,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       }
 
       // Check if following (only when logged in)
-      if (session) {
+      if (session && session.pubkey && session.relays) {
         setCheckingFollow(true);
         try {
           const following = await isFollowing(profile.pubkey, session.pubkey, session.relays);
@@ -97,6 +96,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
         } finally {
           setCheckingFollow(false);
         }
+      } else {
+        setCheckingFollow(false);
       }
     };
 
@@ -219,17 +220,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   const loadMutedProfiles = async (startIndex = 0, count = displayedPubkeysCount) => {
     if (!userMuteList) return;
 
-    // Default relays for when not logged in
-    const DEFAULT_RELAYS = [
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-      'wss://nos.lol',
-      'wss://relay.nostr.band',
-      'wss://nostr.wine',
-      'wss://relay.snort.social'
-    ];
-
-    const relays = session?.relays || DEFAULT_RELAYS;
+    const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
 
     setLoadingProfiles(true);
     const profilesMap = new Map<string, Profile>(mutedProfiles);
@@ -268,21 +259,22 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   };
 
   const handleCheckIfMutingMe = async () => {
-    if (!session) return;
+    if (!session || !session.pubkey || !session.relays) return;
 
     setCheckingIfMutingMe(true);
     try {
       // Fetch their public mute list if not already loaded
       let muteList = userMuteList;
       if (!muteList) {
-        const event = await fetchMuteList(profile.pubkey, session.relays);
+        const relays = (session.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+        const event = await fetchMuteList(profile.pubkey, relays);
         if (event) {
           muteList = await parseMuteListEvent(event);
         }
       }
 
       // Check if my pubkey is in their public mute list
-      if (muteList) {
+      if (muteList && session.pubkey) {
         const isMuted = muteList.pubkeys.some(item => item.value === session.pubkey);
         setIsMutingMe(isMuted);
       } else {
