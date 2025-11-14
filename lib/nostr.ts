@@ -1322,8 +1322,6 @@ export async function searchMutealsNetworkWide(
   const muteuals: MutealResult[] = [];
   const seenPubkeys = new Set<string>();
 
-  console.log('Network-wide search: Querying for kind 10000 mute lists with your pubkey in public tags:', userPubkey);
-
   // Query all mute lists (kind 10000) that contain the user's pubkey in PUBLIC tags
   // Per NIP-51, kind 10000 mute lists have:
   // - PUBLIC mutes in the 'tags' array (what we search)
@@ -1334,8 +1332,6 @@ export async function searchMutealsNetworkWide(
     kinds: [MUTE_LIST_KIND], // kind 10000
     '#p': [userPubkey]
   });
-
-  console.log(`Found ${events.length} kind:10000 mute list events with your pubkey in public 'p' tags`);
 
   // Group events by author to find the LATEST one per author
   // Kind 10000 is REPLACEABLE, so we should only use the newest event per author
@@ -1434,10 +1430,6 @@ export async function searchMutealsNetworkWide(
     if (hasMuted) {
       seenPubkeys.add(event.pubkey);
 
-      console.log(`✅ CONFIRMED MUTEUAL: ${event.pubkey} has muted you in their public mute list (kind:10000)`);
-      console.log(`   Event ID: ${event.id}`);
-      console.log(`   Your pubkey was found in 'p' tags`);
-
       const result: MutealResult = {
         mutedBy: event.pubkey,
         listName: 'Public Mute List',
@@ -1457,12 +1449,9 @@ export async function searchMutealsNetworkWide(
       if (onProgress) {
         onProgress(muteuals.length);
       }
-    } else {
-      console.log(`⚠️  Event has 'p' tags but NOT your pubkey - this shouldn't happen with #p filter!`);
     }
   }
 
-  console.log(`Final count: ${muteuals.length} confirmed Muteuals`);
   return muteuals;
 }
 
