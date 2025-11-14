@@ -642,6 +642,37 @@ export async function updatePublicList(
   return signedEvent;
 }
 
+// Publish a text note (kind 1) to relays
+export async function publishTextNote(
+  content: string,
+  tags: string[][] = [],
+  relays: string[] = DEFAULT_RELAYS
+): Promise<{ success: boolean; event?: Event; error?: string }> {
+  try {
+    const eventTemplate: EventTemplate = {
+      kind: 1, // Text note
+      tags,
+      content,
+      created_at: Math.floor(Date.now() / 1000)
+    };
+
+    const signedEvent = await signWithNip07(eventTemplate);
+    const pool = getPool();
+
+    await Promise.any(
+      pool.publish(relays, signedEvent)
+    );
+
+    return { success: true, event: signedEvent };
+  } catch (error) {
+    console.error('Failed to publish text note:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to publish note'
+    };
+  }
+}
+
 // Delete a public pack (publish kind 5 deletion event)
 export async function deletePublicList(
   packEventId: string,
