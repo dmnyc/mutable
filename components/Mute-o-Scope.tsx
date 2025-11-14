@@ -656,7 +656,7 @@ export default function MuteOScope() {
         </div>
 
         {/* Results Section */}
-        {!searching && results.length === 0 && targetPubkey && !error && (
+        {!searching && allResults.length === 0 && targetPubkey && !error && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
             <div className="text-center">
               <Users className="mx-auto mb-3 text-green-500" size={48} />
