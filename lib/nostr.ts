@@ -968,7 +968,7 @@ async function connectToPrimal(): Promise<boolean> {
 
       primalWs.onerror = (error) => {
         clearTimeout(connectionTimeout);
-        console.error('❌ Primal cache WebSocket error:', error);
+        // Silently fail - we have relay fallback
         primalConnected = false;
         primalConnecting = false;
         reject(error);
