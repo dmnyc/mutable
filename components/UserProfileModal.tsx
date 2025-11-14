@@ -62,9 +62,43 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   });
   const [checkingIfMutingMe, setCheckingIfMutingMe] = useState(false);
   const [isMutingMe, setIsMutingMe] = useState<boolean | null>(null);
+  const [enrichedProfile, setEnrichedProfile] = useState<Profile>(profile);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Check if this user is currently muted
   const isMuted = muteList.pubkeys.some(item => item.value === profile.pubkey);
+
+  // Check if profile is incomplete (only has pubkey)
+  const isIncompleteProfile = !profile.name && !profile.display_name && !profile.picture;
+
+  // Load profile metadata if incomplete
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!isIncompleteProfile) {
+        setEnrichedProfile(profile);
+        return;
+      }
+
+      setLoadingProfile(true);
+      try {
+        const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+        const fetchedProfile = await fetchProfile(profile.pubkey, relays);
+        if (fetchedProfile) {
+          setEnrichedProfile(fetchedProfile);
+        } else {
+          // Keep the original profile with just pubkey
+          setEnrichedProfile(profile);
+        }
+      } catch (error) {
+        console.error('Failed to load profile metadata:', error);
+        setEnrichedProfile(profile);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [profile, session, isIncompleteProfile]);
 
   // Load user's mute list and check follow status
   useEffect(() => {
@@ -186,7 +220,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   };
 
   const getDisplayName = () => {
-    return profile.display_name || profile.name || 'Anonymous';
+    if (loadingProfile) return 'Loading...';
+    return enrichedProfile.display_name || enrichedProfile.name || 'Anonymous';
   };
 
   const getTruncatedNpub = (pubkey: string) => {
@@ -294,10 +329,14 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between">
           <div className="flex items-start space-x-4 flex-1">
-            {profile.picture ? (
+            {loadingProfile ? (
+              <div className="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                <Loader2 size={24} className="text-gray-600 dark:text-gray-300 animate-spin" />
+              </div>
+            ) : enrichedProfile.picture ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={profile.picture}
+                src={enrichedProfile.picture}
                 alt={getDisplayName()}
                 className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 onError={(e) => {
@@ -315,9 +354,9 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {getDisplayName()}
               </h2>
-              {profile.nip05 && (
+              {enrichedProfile.nip05 && (
                 <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                  ✓ {profile.nip05}
+                  ✓ {enrichedProfile.nip05}
                 </p>
               )}
             </div>
