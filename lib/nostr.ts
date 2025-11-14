@@ -1461,7 +1461,7 @@ export async function enrichMutealsWithProfiles(
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (current: number, total: number) => void,
   abortSignal?: AbortSignal,
-  batchSize: number = 2 // Fetch 2 profiles in parallel (reduced for mobile reliability)
+  batchSize: number = 5 // Fetch 5 profiles in parallel
 ): Promise<MutealResult[]> {
   // Process in batches for better performance on mobile
   const batches: MutealResult[][] = [];
@@ -1513,10 +1513,9 @@ export async function enrichMutealsWithProfiles(
         onProgress(processedCount, muteuals.length);
       }
 
-      // Delay between batches to let relay connections recover
-      // Longer delay helps prevent mobile connection pool exhaustion
+      // Small delay between batches to let relay connections recover
       if (processedCount < muteuals.length) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (batchError) {
       // If entire batch fails, log it and continue with next batch

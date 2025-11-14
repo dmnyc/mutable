@@ -48,6 +48,7 @@ export default function MuteOScope() {
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Profile search dropdown states
   const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>([]);
@@ -138,6 +139,32 @@ export default function MuteOScope() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showProfileResults]);
+
+  // Infinite scroll - automatically load more when trigger comes into view
+  useEffect(() => {
+    const trigger = loadMoreTriggerRef.current;
+    if (!trigger) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        // If trigger is visible and we have more results to load and not already loading
+        if (entry.isIntersecting && allResults.length > displayedResults.length && !loadingMore) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 } // Trigger when 10% of the element is visible
+    );
+
+    observer.observe(trigger);
+
+    return () => {
+      if (trigger) {
+        observer.unobserve(trigger);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allResults.length, displayedResults.length, loadingMore]); // handleLoadMore intentionally not included to avoid recreation
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -637,13 +664,22 @@ export default function MuteOScope() {
           </div>
 
           {/* Progress Display */}
-          {searching && progress && (
+          {searching && (
             <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
-              <div className="flex items-center justify-center space-x-3">
-                <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
-                <div className="text-blue-900 dark:text-blue-100 font-medium">
-                  {progress}
-                </div>
+              <div className="flex flex-col items-center space-y-2">
+                {allResults.length > 0 && (
+                  <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                    Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
+                  </div>
+                )}
+                {progress && (
+                  <div className="flex items-center space-x-3">
+                    <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
+                    <div className="text-blue-900 dark:text-blue-100 font-medium">
+                      {progress}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -674,14 +710,16 @@ export default function MuteOScope() {
 
         {displayedResults.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
+              </h3>
               {allResults.length > displayedResults.length && (
-                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                  (showing {displayedResults.length})
-                </span>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Showing {displayedResults.length} of {allResults.length}
+                </p>
               )}
-            </h3>
+            </div>
 
             <div className="space-y-3">
               {displayedResults.map((muteal) => {
@@ -769,29 +807,32 @@ export default function MuteOScope() {
               })}
             </div>
 
-            {/* Load More Button */}
+            {/* Infinite Scroll Trigger */}
             {allResults.length > displayedResults.length && (
-              <div className="mt-6 flex justify-center">
-                <button
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                  className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed"
-                >
-                  {loadingMore ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      <span>Loading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw size={20} />
-                      <span>
-                        Load {Math.min(LOAD_MORE_COUNT, allResults.length - displayedResults.length)} More
-                        ({allResults.length - displayedResults.length} remaining)
-                      </span>
-                    </>
-                  )}
-                </button>
+              <div className="mt-6">
+                {/* Invisible trigger element for intersection observer */}
+                <div ref={loadMoreTriggerRef} className="h-4" />
+
+                {/* Loading indicator or scroll prompt */}
+                {loadingMore && progress ? (
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
+                    <div className="flex items-center justify-center space-x-3">
+                      <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
+                      <div className="text-blue-900 dark:text-blue-100 font-medium">
+                        {progress}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleLoadMore}
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg text-center hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:border-gray-300 dark:hover:border-gray-500 transition-colors cursor-pointer"
+                  >
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Scroll down or click to load more • {allResults.length - displayedResults.length} remaining
+                    </p>
+                  </button>
+                )}
               </div>
             )}
           </div>
