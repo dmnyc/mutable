@@ -177,31 +177,35 @@ export default function MuteOScope() {
       // Use expanded relay list for better coverage
       const expandedRelays = getExpandedRelayList(relays);
 
-      // Stream results as they're found and enrich each one immediately
-      await searchMutealsNetworkWide(
+      // Collect all results first (don't stream)
+      const rawResults = await searchMutealsNetworkWide(
         pubkey,
         expandedRelays,
         (count) => {
           setProgress(`Found ${count} public mute list${count === 1 ? '' : 's'}...`);
-        },
-        undefined, // no abort signal
-        async (result) => {
-          // Add result immediately (shows as "Loading profile...")
-          setResults(prev => [...prev, result]);
+        }
+        // No streaming callback - collect all first
+      );
 
-          // Enrich this specific result with profile data
-          try {
-            const enriched = await enrichMutealsWithProfiles([result], relays);
-            // Update just this result in the list
-            setResults(prev => prev.map(r =>
-              r.mutedBy === result.mutedBy ? enriched[0] : r
-            ));
-          } catch (err) {
-            console.error('Failed to enrich profile:', err);
-          }
+      if (rawResults.length === 0) {
+        setResults([]);
+        setProgress('');
+        setSearching(false);
+        return;
+      }
+
+      // Now enrich all results in one batch
+      setProgress(`Loading profiles for ${rawResults.length} result${rawResults.length === 1 ? '' : 's'}...`);
+      const enriched = await enrichMutealsWithProfiles(
+        rawResults,
+        relays,
+        (current, total) => {
+          setProgress(`Loading profiles... ${current}/${total}`);
         }
       );
 
+      // Display complete results
+      setResults(enriched);
       setProgress('');
     } catch (err) {
       console.error('Search error:', err);
