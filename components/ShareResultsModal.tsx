@@ -168,17 +168,15 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
             </label>
             {!isMe ? (
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <span>Hey </span>
-                <span className="text-blue-600 dark:text-blue-400 font-medium">{getDisplayName()}</span>
-                <span>, I just found you on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</span>
-                <br /><br />
-                <span>Scope your mutes here: https://mutable.top/mute-o-scope</span>
+                <div>Hey <span className="text-blue-600 dark:text-blue-400 font-medium">{getDisplayName()}</span>, I just found you on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</div>
+                <br />
+                <div>Scope your mutes here: https://mutable.top/mute-o-scope</div>
               </div>
             ) : (
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <span>I just found myself on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</span>
-                <br /><br />
-                <span>Scope your mutes here: https://mutable.top/mute-o-scope</span>
+                <div>I just found myself on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</div>
+                <br />
+                <div>Scope your mutes here: https://mutable.top/mute-o-scope</div>
               </div>
             )}
             <div className="mt-2">
