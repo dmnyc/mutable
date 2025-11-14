@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X, Share } from 'lucide-react';
+import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X, Share, Menu } from 'lucide-react';
 import { MutealResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import ShareResultsModal from './ShareResultsModal';
@@ -59,6 +59,7 @@ export default function MuteOScope() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Profile search dropdown states
@@ -532,11 +533,72 @@ export default function MuteOScope() {
 
               {/* Mobile Navigation */}
               <div className="lg:hidden">
-                <div className="flex items-center justify-between w-full py-4">
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="flex items-center justify-between w-full py-4"
+                >
                   <span className="font-semibold text-base text-gray-900 dark:text-white">
                     Mute-o-Scope
                   </span>
-                </div>
+                  {mobileMenuOpen ? (
+                    <X size={20} className="text-gray-900 dark:text-white" />
+                  ) : (
+                    <Menu size={20} className="text-gray-900 dark:text-white" />
+                  )}
+                </button>
+
+                {/* Mobile Dropdown Menu */}
+                {mobileMenuOpen && (
+                  <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        My Mute List
+                      </Link>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        Community Packs
+                      </Link>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        Muteuals
+                      </Link>
+                      <div className="block w-full text-left py-3 px-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold">
+                        Mute-o-Scope
+                      </div>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        Backups
+                      </Link>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        List Cleaner
+                      </Link>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        Settings
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
