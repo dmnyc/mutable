@@ -145,7 +145,9 @@ export default function MuteOScope() {
     try {
       setSearching(true);
       setError(null);
-      setResults([]);
+      setAllResults([]);
+      setDisplayedResults([]);
+      setDisplayCount(INITIAL_LOAD_COUNT);
       setProgress('Starting search...');
 
       // Convert to hex pubkey
