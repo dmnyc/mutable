@@ -128,6 +128,24 @@ export default function MuteOScope() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, relays]);
 
+  // Auto-trigger search when a complete npub, nprofile, or hex is entered
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    // Check if it's a complete npub (63 chars), nprofile, or hex (64 chars)
+    const isCompleteNpub = query.startsWith('npub') && query.length === 63;
+    const isCompleteNprofile = query.startsWith('nprofile');
+    const isCompleteHex = query.match(/^[0-9a-f]{64}$/i);
+
+    if ((isCompleteNpub || isCompleteNprofile || isCompleteHex) && !searching && !targetPubkey) {
+      // Auto-trigger search after a brief delay
+      const timeoutId = setTimeout(() => {
+        handleSearch();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, searching, targetPubkey]);
+
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -192,6 +210,8 @@ export default function MuteOScope() {
             setProgress('Loading profile...');
             const profile = await fetchProfile(pubkey, relays);
             setTargetProfile(profile);
+            // Update search query to show display name
+            setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
           } else if (!pubkey.match(/^[0-9a-f]{64}$/i)) {
             // Try to resolve username
             setProgress('Searching for user...');
@@ -208,6 +228,8 @@ export default function MuteOScope() {
             setProgress('Loading profile...');
             const profile = await fetchProfile(pubkey, relays);
             setTargetProfile(profile);
+            // Update search query to show display name
+            setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
           }
         } catch (conversionError) {
           console.error('Failed to convert npub:', conversionError);
