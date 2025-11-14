@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X } from 'lucide-react';
+import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X, Share } from 'lucide-react';
 import { MutealResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
+import ShareResultsModal from './ShareResultsModal';
 import GlobalUserSearch from './GlobalUserSearch';
 import Footer from './Footer';
 import Image from 'next/image';
@@ -48,6 +49,7 @@ export default function MuteOScope() {
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Profile search dropdown states
@@ -745,14 +747,26 @@ export default function MuteOScope() {
 
         {displayedResults.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
-              </h3>
-              {allResults.length > displayedResults.length && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Showing {displayedResults.length} of {allResults.length}
-                </p>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
+                </h3>
+                {allResults.length > displayedResults.length && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Showing {displayedResults.length} of {allResults.length}
+                  </p>
+                )}
+              </div>
+              {targetProfile && (
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0"
+                  title="Share these results"
+                >
+                  <Share size={20} />
+                  <span className="hidden sm:inline">Share</span>
+                </button>
               )}
             </div>
 
@@ -878,6 +892,15 @@ export default function MuteOScope() {
             <UserProfileModal
               profile={selectedProfile}
               onClose={() => setSelectedProfile(null)}
+            />
+          )}
+
+          {/* Share Results Modal */}
+          {showShareModal && targetProfile && (
+            <ShareResultsModal
+              targetProfile={targetProfile}
+              resultCount={allResults.length}
+              onClose={() => setShowShareModal(false)}
             />
           )}
         </div>
