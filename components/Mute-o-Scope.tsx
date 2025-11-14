@@ -566,6 +566,13 @@ export default function MuteOScope() {
               <strong>Note:</strong> This tool only shows public (unencrypted) mute lists. Many users keep their mute lists private, which cannot be scanned.
             </p>
           </div>
+
+          {/* Mobile Performance Warning */}
+          <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg md:hidden">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <strong>Mobile Notice:</strong> Low bandwidth mobile connections may result in incomplete search results. For best performance, we recommend using a desktop browser with a stable connection.
+            </p>
+          </div>
         </div>
 
         {/* Search Section */}

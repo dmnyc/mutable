@@ -1367,19 +1367,21 @@ export async function searchMutealsNetworkWide(
         }
       );
 
-      // Set timeout - longer for mobile to ensure all relays respond
+      // Set timeout - much longer for mobile to ensure all relays respond
+      // For users with many mute lists (400+), we need more time
       timeout = setTimeout(() => {
-        console.log(`Query timeout reached, collected ${collectedEvents.length} events so far`);
+        console.log(`Query timeout reached after 45s, collected ${collectedEvents.length} events`);
         sub.close();
         resolve(collectedEvents);
-      }, 25000); // 25 second timeout
+      }, 45000); // 45 second timeout
 
       // Also resolve early if we get EOSE from all relays faster
       // This is handled by watching for when events stop coming in
       let lastEventTime = Date.now();
       const checkInterval = setInterval(() => {
-        if (Date.now() - lastEventTime > 3000) { // No events for 3 seconds
-          console.log(`No new events for 3s, closing subscription with ${collectedEvents.length} events`);
+        // Wait longer for inactivity on mobile - 8 seconds instead of 3
+        if (Date.now() - lastEventTime > 8000) {
+          console.log(`No new events for 8s, closing subscription with ${collectedEvents.length} events`);
           clearInterval(checkInterval);
           clearTimeout(timeout);
           sub.close();
@@ -1434,13 +1436,14 @@ export async function searchMutealsNetworkWide(
 
     try {
       // Add timeout protection for mobile reliability
+      // Longer timeout for verification queries
       const batchEvents = await Promise.race([
         pool.querySync(relays, {
           kinds: [MUTE_LIST_KIND],
           authors: batches[i]
         }),
         new Promise<Event[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Batch query timeout')), 10000)
+          setTimeout(() => reject(new Error('Batch query timeout')), 15000)
         )
       ]);
       console.log(`  Got ${batchEvents.length} events from batch ${i + 1}`);
@@ -1453,7 +1456,7 @@ export async function searchMutealsNetworkWide(
 
     // Small delay between batches to avoid overwhelming mobile connections
     if (i < batches.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
 
