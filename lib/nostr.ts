@@ -1340,6 +1340,7 @@ export async function searchMutealsNetworkWide(
       const collectedEvents: Event[] = [];
       const seenEventIds = new Set<string>();
       let timeout: NodeJS.Timeout;
+      let eoseCount = 0; // Track EOSE from each relay
 
       const sub = pool.subscribeMany(
         relays,
@@ -1354,6 +1355,9 @@ export async function searchMutealsNetworkWide(
               seenEventIds.add(event.id);
               collectedEvents.push(event);
 
+              // Update last event time when we receive a NEW event
+              lastEventTime = Date.now();
+
               // Update progress as events come in
               if (onProgress && collectedEvents.length % 10 === 0) {
                 onProgress(collectedEvents.length);
@@ -1361,34 +1365,41 @@ export async function searchMutealsNetworkWide(
             }
           },
           oneose() {
-            // EOSE (End of Stored Events) received from all relays
-            console.log(`Received EOSE, collected ${collectedEvents.length} events`);
+            // EOSE (End of Stored Events) received from a relay
+            eoseCount++;
+            console.log(`Received EOSE from relay ${eoseCount}/${relays.length}, collected ${collectedEvents.length} events so far`);
+
+            // If we've received EOSE from all relays, we can close immediately
+            if (eoseCount >= relays.length) {
+              console.log(`Received EOSE from all ${relays.length} relays, closing with ${collectedEvents.length} events`);
+              clearInterval(checkInterval);
+              clearTimeout(timeout);
+              sub.close();
+              resolve(collectedEvents);
+            }
           }
         }
       );
 
-      // Set timeout - much longer for mobile to ensure all relays respond
-      // For users with many mute lists (400+), we need more time
+      // Set timeout - very long to ensure all relays respond, especially on mobile
+      // For users with many mute lists (600+), we need sufficient time
       timeout = setTimeout(() => {
-        console.log(`Query timeout reached after 45s, collected ${collectedEvents.length} events`);
+        console.log(`Query timeout reached after 60s, collected ${collectedEvents.length} events`);
         sub.close();
         resolve(collectedEvents);
-      }, 45000); // 45 second timeout
+      }, 60000); // 60 second timeout
 
       // Also resolve early if we get EOSE from all relays faster
       // This is handled by watching for when events stop coming in
       let lastEventTime = Date.now();
       const checkInterval = setInterval(() => {
-        // Wait longer for inactivity on mobile - 8 seconds instead of 3
-        if (Date.now() - lastEventTime > 8000) {
-          console.log(`No new events for 8s, closing subscription with ${collectedEvents.length} events`);
+        // Wait for inactivity - if no new events for 10 seconds, assume all relays are done
+        if (Date.now() - lastEventTime > 10000) {
+          console.log(`No new events for 10s, closing subscription with ${collectedEvents.length} events`);
           clearInterval(checkInterval);
           clearTimeout(timeout);
           sub.close();
           resolve(collectedEvents);
-        }
-        if (collectedEvents.length > 0) {
-          lastEventTime = Date.now();
         }
       }, 1000);
     });
@@ -1414,104 +1425,15 @@ export async function searchMutealsNetworkWide(
 
   console.log(`After initial deduplication: ${eventsByAuthor.size} unique authors (removed ${events.length - eventsByAuthor.size} duplicate events)`);
 
-  // CRITICAL FIX: Now fetch the ACTUAL latest kind:10000 for each author
-  // The #p filter only gives us events WHERE WE'RE MUTED, but there might be newer events where we're NOT
-  // However, for large result sets on mobile, skip verification to avoid timeouts
-  const authorsToCheck = Array.from(eventsByAuthor.keys());
-
-  if (authorsToCheck.length > 150) {
-    console.log(`⚠️ Large result set (${authorsToCheck.length} authors) - skipping verification to improve mobile reliability`);
-    console.log(`Results show users who have muted you in their most recent public mute list`);
-    // Skip verification step and continue with existing results
-  } else {
-    console.log('Fetching latest kind:10000 events for each author to verify...');
-
-    // Batch the authors query to avoid overwhelming relays
-    // Smaller batch size for better mobile reliability
-    const BATCH_SIZE = 50;
-    const batches: string[][] = [];
-    for (let i = 0; i < authorsToCheck.length; i += BATCH_SIZE) {
-      batches.push(authorsToCheck.slice(i, i + BATCH_SIZE));
-    }
-
-    console.log(`Split ${authorsToCheck.length} authors into ${batches.length} batches for querying`);
-
-    let latestEvents: Event[] = [];
-    const failedBatches = new Set<number>(); // Track which batches failed
-
-    for (let i = 0; i < batches.length; i++) {
-      console.log(`Fetching batch ${i + 1}/${batches.length} (${batches[i].length} authors)...`);
-
-      try {
-        // Add timeout protection for mobile reliability
-        // Longer timeout for verification queries
-        const batchEvents = await Promise.race([
-          pool.querySync(relays, {
-            kinds: [MUTE_LIST_KIND],
-            authors: batches[i]
-          }),
-          new Promise<Event[]>((_, reject) =>
-            setTimeout(() => reject(new Error('Batch query timeout')), 15000)
-          )
-        ]);
-        console.log(`  Got ${batchEvents.length} events from batch ${i + 1}`);
-        latestEvents = latestEvents.concat(batchEvents);
-      } catch (error) {
-        console.error(`  ⚠️ Batch ${i + 1} failed or timed out:`, error);
-        // Track failed batch - we'll keep original events for these authors
-        failedBatches.add(i);
-        console.log(`  Marked batch ${i + 1} as failed - will keep original events for these ${batches[i].length} authors`);
-      }
-
-      // Small delay between batches to avoid overwhelming mobile connections
-      if (i < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-    }
-
-    console.log(`Fetched ${latestEvents.length} total kind:10000 events from these ${authorsToCheck.length} authors`);
-    console.log(`${failedBatches.size} batches failed - keeping original events for those authors`);
-
-    // Update our map with the truly latest events
-    // BUT: Only update if we successfully verified that author
-    // If a batch failed, keep the original event (which we know had the user muted)
-    const verifiedAuthors = new Set<string>();
-    for (const event of latestEvents) {
-      verifiedAuthors.add(event.pubkey);
-    }
-
-    let updatedCount = 0;
-    let removedCount = 0;
-    for (const event of latestEvents) {
-      const existing = eventsByAuthor.get(event.pubkey);
-      if (existing && event.created_at > existing.created_at) {
-        console.log(`⚠️  Found NEWER event for ${event.pubkey}:`);
-        console.log(`   Old: ${existing.id} (${new Date(existing.created_at * 1000).toISOString()})`);
-        console.log(`   New: ${event.id} (${new Date(event.created_at * 1000).toISOString()})`);
-
-        // Check if the newer event still has the user muted
-        const stillMuted = event.tags.some(tag => tag[0] === 'p' && tag[1] === userPubkey);
-        if (stillMuted) {
-          eventsByAuthor.set(event.pubkey, event);
-          updatedCount++;
-        } else {
-          // User was unmuted in newer event - remove from results
-          eventsByAuthor.delete(event.pubkey);
-          removedCount++;
-          console.log(`   User was UNMUTED in newer event - removing from results`);
-        }
-      } else if (!existing) {
-        // This is a new event we didn't have before
-        const isMuted = event.tags.some(tag => tag[0] === 'p' && tag[1] === userPubkey);
-        if (isMuted) {
-          eventsByAuthor.set(event.pubkey, event);
-          console.log(`   Found mute in verification that wasn't in initial query`);
-        }
-      }
-    }
-
-    console.log(`Updated ${updatedCount} events with newer versions, removed ${removedCount} where user was unmuted`);
-  }
+  // Note: We previously had a "verification step" that re-fetched events for each author
+  // to check if they had newer events where the user was unmuted. However, this is
+  // unnecessary because:
+  // 1. Kind 10000 is a REPLACEABLE event - relays automatically return only the latest version
+  // 2. The #p filter already ensures we only get events where the user IS muted
+  // 3. The verification step caused timeouts and data loss on mobile
+  // 4. If someone unmuted you, their latest event wouldn't match the #p filter anyway
+  //
+  // Therefore, we trust the initial query results as authoritative.
 
   // Get user's follow list to check if they're following the muteals
   const followListEvent = await fetchFollowList(userPubkey, relays);
