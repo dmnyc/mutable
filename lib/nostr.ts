@@ -1328,10 +1328,75 @@ export async function searchMutealsNetworkWide(
   // - PRIVATE mutes encrypted in the 'content' field (which we cannot see)
   // NOTE: Kind 10000 is a REPLACEABLE event, meaning each user should only have ONE
   // But we might get multiple old versions from different relays
-  const events = await pool.querySync(relays, {
-    kinds: [MUTE_LIST_KIND], // kind 10000
-    '#p': [userPubkey]
-  });
+
+  console.log(`Searching ${relays.length} relays for mute lists containing ${userPubkey.substring(0, 8)}...`);
+
+  // Use subscription-based approach for better mobile reliability
+  // This allows us to collect events as they stream in rather than waiting for all relays
+  let events: Event[] = [];
+
+  try {
+    events = await new Promise<Event[]>((resolve, reject) => {
+      const collectedEvents: Event[] = [];
+      const seenEventIds = new Set<string>();
+      let timeout: NodeJS.Timeout;
+
+      const sub = pool.subscribeMany(
+        relays,
+        {
+          kinds: [MUTE_LIST_KIND],
+          '#p': [userPubkey]
+        } as any, // Type assertion needed for tag filter
+        {
+          onevent(event) {
+            // Deduplicate events by ID (same event from multiple relays)
+            if (!seenEventIds.has(event.id)) {
+              seenEventIds.add(event.id);
+              collectedEvents.push(event);
+
+              // Update progress as events come in
+              if (onProgress && collectedEvents.length % 10 === 0) {
+                onProgress(collectedEvents.length);
+              }
+            }
+          },
+          oneose() {
+            // EOSE (End of Stored Events) received from all relays
+            console.log(`Received EOSE, collected ${collectedEvents.length} events`);
+          }
+        }
+      );
+
+      // Set timeout - longer for mobile to ensure all relays respond
+      timeout = setTimeout(() => {
+        console.log(`Query timeout reached, collected ${collectedEvents.length} events so far`);
+        sub.close();
+        resolve(collectedEvents);
+      }, 25000); // 25 second timeout
+
+      // Also resolve early if we get EOSE from all relays faster
+      // This is handled by watching for when events stop coming in
+      let lastEventTime = Date.now();
+      const checkInterval = setInterval(() => {
+        if (Date.now() - lastEventTime > 3000) { // No events for 3 seconds
+          console.log(`No new events for 3s, closing subscription with ${collectedEvents.length} events`);
+          clearInterval(checkInterval);
+          clearTimeout(timeout);
+          sub.close();
+          resolve(collectedEvents);
+        }
+        if (collectedEvents.length > 0) {
+          lastEventTime = Date.now();
+        }
+      }, 1000);
+    });
+
+    console.log(`Initial query returned ${events.length} events`);
+  } catch (error) {
+    console.error('⚠️ Initial query failed:', error);
+    console.error('This may indicate slow relay connections. Try again or check your connection.');
+    return [];
+  }
 
   // Group events by author to find the LATEST one per author
   // Kind 10000 is REPLACEABLE, so we should only use the newest event per author
@@ -1354,8 +1419,8 @@ export async function searchMutealsNetworkWide(
   const authorsToCheck = Array.from(eventsByAuthor.keys());
 
   // Batch the authors query to avoid overwhelming relays
-  // Split into batches of 100 authors
-  const BATCH_SIZE = 100;
+  // Smaller batch size for better mobile reliability
+  const BATCH_SIZE = 50;
   const batches: string[][] = [];
   for (let i = 0; i < authorsToCheck.length; i += BATCH_SIZE) {
     batches.push(authorsToCheck.slice(i, i + BATCH_SIZE));
@@ -1366,12 +1431,30 @@ export async function searchMutealsNetworkWide(
   let latestEvents: Event[] = [];
   for (let i = 0; i < batches.length; i++) {
     console.log(`Fetching batch ${i + 1}/${batches.length} (${batches[i].length} authors)...`);
-    const batchEvents = await pool.querySync(relays, {
-      kinds: [MUTE_LIST_KIND],
-      authors: batches[i]
-    });
-    console.log(`  Got ${batchEvents.length} events from batch ${i + 1}`);
-    latestEvents = latestEvents.concat(batchEvents);
+
+    try {
+      // Add timeout protection for mobile reliability
+      const batchEvents = await Promise.race([
+        pool.querySync(relays, {
+          kinds: [MUTE_LIST_KIND],
+          authors: batches[i]
+        }),
+        new Promise<Event[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Batch query timeout')), 10000)
+        )
+      ]);
+      console.log(`  Got ${batchEvents.length} events from batch ${i + 1}`);
+      latestEvents = latestEvents.concat(batchEvents);
+    } catch (error) {
+      console.error(`  ⚠️ Batch ${i + 1} failed or timed out:`, error);
+      // Continue with next batch even if this one fails
+      console.log(`  Continuing with next batch...`);
+    }
+
+    // Small delay between batches to avoid overwhelming mobile connections
+    if (i < batches.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
 
   console.log(`Fetched ${latestEvents.length} total kind:10000 events from these ${authorsToCheck.length} authors`);
