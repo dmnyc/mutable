@@ -795,16 +795,19 @@ export async function fetchPublicListByDTag(
   return parsed;
 }
 
-// Convert npub to hex
+// Convert npub or nprofile to hex
 export function npubToHex(npub: string): string {
   try {
     const decoded = nip19.decode(npub);
     if (decoded.type === 'npub') {
       return decoded.data;
     }
-    throw new Error('Invalid npub format');
+    if (decoded.type === 'nprofile') {
+      return decoded.data.pubkey;
+    }
+    throw new Error('Invalid npub/nprofile format');
   } catch (error) {
-    throw new Error('Failed to decode npub');
+    throw new Error('Failed to decode npub/nprofile');
   }
 }
 

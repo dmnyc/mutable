@@ -103,8 +103,8 @@ export default function MuteOScope() {
         return;
       }
 
-      // Don't search if it's already a valid npub or hex pubkey
-      if (searchQuery.startsWith('npub') || searchQuery.match(/^[0-9a-f]{64}$/i)) {
+      // Don't search if it's already a valid npub, nprofile, or hex pubkey
+      if (searchQuery.startsWith('npub') || searchQuery.startsWith('nprofile') || searchQuery.match(/^[0-9a-f]{64}$/i)) {
         setProfileSearchResults([]);
         setShowProfileResults(false);
         return;
@@ -186,8 +186,12 @@ export default function MuteOScope() {
       // Only do conversion if we don't already have a valid pubkey
       if (!targetPubkey) {
         try {
-          if (pubkey.startsWith('npub')) {
+          if (pubkey.startsWith('npub') || pubkey.startsWith('nprofile')) {
             pubkey = npubToHex(pubkey);
+            // Fetch profile for the npub/nprofile
+            setProgress('Loading profile...');
+            const profile = await fetchProfile(pubkey, relays);
+            setTargetProfile(profile);
           } else if (!pubkey.match(/^[0-9a-f]{64}$/i)) {
             // Try to resolve username
             setProgress('Searching for user...');
@@ -199,6 +203,11 @@ export default function MuteOScope() {
             }
             pubkey = profiles[0].pubkey;
             setTargetProfile(profiles[0]);
+          } else {
+            // Direct hex pubkey entered - fetch profile
+            setProgress('Loading profile...');
+            const profile = await fetchProfile(pubkey, relays);
+            setTargetProfile(profile);
           }
         } catch (conversionError) {
           console.error('Failed to convert npub:', conversionError);
@@ -617,7 +626,7 @@ export default function MuteOScope() {
                       setShowProfileResults(true);
                     }
                   }}
-                  placeholder="Enter username, NIP-05, npub, or pubkey..."
+                  placeholder="Enter username, NIP-05, npub, nprofile, or pubkey..."
                   className="w-full px-4 py-3 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-lg"
                   disabled={searching}
                 />
