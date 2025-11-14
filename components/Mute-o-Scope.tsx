@@ -40,7 +40,7 @@ const getMuteScore = (count: number): { emoji: string; label: string } => {
   if (count <= 50) return { emoji: '🟩', label: 'Average' };
   if (count <= 75) return { emoji: '🟨', label: 'Moderate' };
   if (count <= 100) return { emoji: '🟧', label: 'High' };
-  if (count <= 200) return { emoji: '🟥', label: 'Critical' };
+  if (count <= 200) return { emoji: '🟥', label: 'Severe' };
   if (count <= 300) return { emoji: '🟪', label: 'Legendary' };
   if (count <= 400) return { emoji: '🟫', label: 'Shitlisted' };
   return { emoji: '⬛', label: 'Blacklisted' };
