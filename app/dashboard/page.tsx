@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import Image from 'next/image';
+import Link from 'next/link';
 import { LogOut, User, Menu, X } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
@@ -307,6 +308,16 @@ export default function Dashboard() {
             >
               Muteuals
             </button>
+            <Link
+              href="/mute-o-scope"
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+                activeTab === 'muteOScope'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Mute-o-Scope
+            </Link>
             <button
               onClick={() => setActiveTab('backups')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -349,6 +360,7 @@ export default function Dashboard() {
                 {activeTab === 'myList' && 'My Mute List'}
                 {activeTab === 'publicLists' && 'Community Packs'}
                 {activeTab === 'muteuals' && 'Muteuals'}
+                {activeTab === 'muteOScope' && 'Mute-o-Scope'}
                 {activeTab === 'backups' && 'Backups'}
                 {activeTab === 'listCleaner' && 'List Cleaner'}
                 {activeTab === 'settings' && 'Settings'}
@@ -403,6 +415,17 @@ export default function Dashboard() {
                   >
                     Muteuals
                   </button>
+                  <Link
+                    href="/mute-o-scope"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'muteOScope'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Mute-o-Scope
+                  </Link>
                   <button
                     onClick={() => {
                       setActiveTab('backups');

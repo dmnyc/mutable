@@ -1299,7 +1299,8 @@ export async function searchMutealsNetworkWide(
   userPubkey: string,
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (count: number) => void,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  onResultFound?: (result: MutealResult) => void
 ): Promise<MutealResult[]> {
   const pool = getPool();
   const muteuals: MutealResult[] = [];
@@ -1339,10 +1340,27 @@ export async function searchMutealsNetworkWide(
   console.log('Fetching latest kind:10000 events for each author to verify...');
 
   const authorsToCheck = Array.from(eventsByAuthor.keys());
-  const latestEvents = await pool.querySync(relays, {
-    kinds: [MUTE_LIST_KIND],
-    authors: authorsToCheck
-  });
+
+  // Batch the authors query to avoid overwhelming relays
+  // Split into batches of 100 authors
+  const BATCH_SIZE = 100;
+  const batches: string[][] = [];
+  for (let i = 0; i < authorsToCheck.length; i += BATCH_SIZE) {
+    batches.push(authorsToCheck.slice(i, i + BATCH_SIZE));
+  }
+
+  console.log(`Split ${authorsToCheck.length} authors into ${batches.length} batches for querying`);
+
+  let latestEvents: Event[] = [];
+  for (let i = 0; i < batches.length; i++) {
+    console.log(`Fetching batch ${i + 1}/${batches.length} (${batches[i].length} authors)...`);
+    const batchEvents = await pool.querySync(relays, {
+      kinds: [MUTE_LIST_KIND],
+      authors: batches[i]
+    });
+    console.log(`  Got ${batchEvents.length} events from batch ${i + 1}`);
+    latestEvents = latestEvents.concat(batchEvents);
+  }
 
   console.log(`Fetched ${latestEvents.length} total kind:10000 events from these ${authorsToCheck.length} authors`);
 
@@ -1404,14 +1422,21 @@ export async function searchMutealsNetworkWide(
       console.log(`   Event ID: ${event.id}`);
       console.log(`   Your pubkey was found in 'p' tags`);
 
-      muteuals.push({
+      const result: MutealResult = {
         mutedBy: event.pubkey,
         listName: 'Public Mute List',
         listDescription: undefined,
         mutedAt: event.created_at,
         isFollowing: followedPubkeys.has(event.pubkey),
         eventId: event.id
-      });
+      };
+
+      muteuals.push(result);
+
+      // Call streaming callback immediately when result is found
+      if (onResultFound) {
+        onResultFound(result);
+      }
 
       if (onProgress) {
         onProgress(muteuals.length);

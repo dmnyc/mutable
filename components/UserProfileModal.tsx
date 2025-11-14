@@ -17,13 +17,25 @@ import {
   ChevronDown,
   ChevronRight,
   VolumeX,
-  Volume2
+  Volume2,
+  Search
 } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
 interface UserProfileModalProps {
   profile: Profile;
   onClose: () => void;
 }
+
+const DEFAULT_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.primal.net',
+  'wss://nos.lol',
+  'wss://relay.nostr.band',
+  'wss://nostr.wine',
+  'wss://relay.snort.social'
+];
 
 export default function UserProfileModal({ profile, onClose }: UserProfileModalProps) {
   const { session } = useAuth();
@@ -57,12 +69,12 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   // Load user's mute list and check follow status
   useEffect(() => {
     const loadUserData = async () => {
-      if (!session) return;
+      const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
 
-      // Load mute list
+      // Load mute list (works for both logged in and logged out)
       setLoadingMuteList(true);
       try {
-        const event = await fetchMuteList(profile.pubkey, session.relays);
+        const event = await fetchMuteList(profile.pubkey, relays);
         if (event) {
           const parsed = await parseMuteListEvent(event);
           setUserMuteList(parsed);
@@ -73,14 +85,18 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
         setLoadingMuteList(false);
       }
 
-      // Check if following
-      setCheckingFollow(true);
-      try {
-        const following = await isFollowing(profile.pubkey, session.pubkey, session.relays);
-        setIsFollowingUser(following);
-      } catch (error) {
-        console.error('Failed to check follow status:', error);
-      } finally {
+      // Check if following (only when logged in)
+      if (session && session.pubkey && session.relays) {
+        setCheckingFollow(true);
+        try {
+          const following = await isFollowing(profile.pubkey, session.pubkey, session.relays);
+          setIsFollowingUser(following);
+        } catch (error) {
+          console.error('Failed to check follow status:', error);
+        } finally {
+          setCheckingFollow(false);
+        }
+      } else {
         setCheckingFollow(false);
       }
     };
@@ -202,7 +218,9 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   };
 
   const loadMutedProfiles = async (startIndex = 0, count = displayedPubkeysCount) => {
-    if (!userMuteList || !session) return;
+    if (!userMuteList) return;
+
+    const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
 
     setLoadingProfiles(true);
     const profilesMap = new Map<string, Profile>(mutedProfiles);
@@ -215,7 +233,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       if (profilesMap.has(item.value)) return;
 
       try {
-        const profile = await fetchProfile(item.value, session.relays);
+        const profile = await fetchProfile(item.value, relays);
         if (profile) {
           profilesMap.set(item.value, profile);
         }
@@ -241,21 +259,22 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   };
 
   const handleCheckIfMutingMe = async () => {
-    if (!session) return;
+    if (!session || !session.pubkey || !session.relays) return;
 
     setCheckingIfMutingMe(true);
     try {
       // Fetch their public mute list if not already loaded
       let muteList = userMuteList;
       if (!muteList) {
-        const event = await fetchMuteList(profile.pubkey, session.relays);
+        const relays = (session.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+        const event = await fetchMuteList(profile.pubkey, relays);
         if (event) {
           muteList = await parseMuteListEvent(event);
         }
       }
 
       // Check if my pubkey is in their public mute list
-      if (muteList) {
+      if (muteList && session.pubkey) {
         const isMuted = muteList.pubkeys.some(item => item.value === session.pubkey);
         setIsMutingMe(isMuted);
       } else {
@@ -346,22 +365,24 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            {isMuted ? (
-              <button
-                onClick={handleUnmute}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <UserCheck size={16} />
-                <span>Unmute User</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleMute}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <UserX size={16} />
-                <span>Mute User</span>
-              </button>
+            {session && (
+              isMuted ? (
+                <button
+                  onClick={handleUnmute}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <UserCheck size={16} />
+                  <span>Unmute User</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleMute}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <UserX size={16} />
+                  <span>Mute User</span>
+                </button>
+              )
             )}
 
             {isFollowingUser && !checkingFollow && (
@@ -385,31 +406,32 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
           </div>
 
           {/* Check if muting me */}
-          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                  Is {getDisplayName()} muting me publicly?
-                </h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Check if this user has you in their public mute list
-                </p>
+          {session && (
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                    Is {getDisplayName()} muting me publicly?
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Check if this user has you in their public mute list
+                  </p>
+                </div>
+                <button
+                  onClick={handleCheckIfMutingMe}
+                  disabled={checkingIfMutingMe}
+                  className="ml-4 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                >
+                  {checkingIfMutingMe ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      <span>Checking...</span>
+                    </>
+                  ) : (
+                    <span>Check</span>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={handleCheckIfMutingMe}
-                disabled={checkingIfMutingMe || !session}
-                className="ml-4 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
-              >
-                {checkingIfMutingMe ? (
-                  <>
-                    <Loader2 className="animate-spin" size={16} />
-                    <span>Checking...</span>
-                  </>
-                ) : (
-                  <span>Check</span>
-                )}
-              </button>
-            </div>
             {isMutingMe !== null && (
               <div className={`mt-3 p-3 rounded-lg ${
                 isMutingMe
@@ -427,6 +449,38 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 </p>
               </div>
             )}
+            </div>
+          )}
+
+          {/* Mute-o-Scope Link */}
+          <div className="border border-purple-200 dark:border-purple-600 rounded-lg p-4 bg-purple-50 dark:bg-purple-900/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1">
+                <Image
+                  src="/mute_o_scope_icon_white.svg"
+                  alt="Mute-o-Scope"
+                  width={32}
+                  height={32}
+                  className="flex-shrink-0"
+                />
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                    See who is muting {getDisplayName()}
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Use Mute-o-Scope to search public mute lists network-wide
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/mute-o-scope?npub=${hexToNpub(profile.pubkey)}`}
+                target="_blank"
+                className="ml-4 flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Search size={16} />
+                <span className="whitespace-nowrap">Search</span>
+              </Link>
+            </div>
           </div>
 
           {/* User's Mute List */}
@@ -529,26 +583,28 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                                   >
                                     {copySuccess === `muted-${item.value}` ? <UserCheck size={16} /> : <Copy size={16} />}
                                   </button>
-                                  {isAlreadyMuted ? (
-                                    <button
-                                      onClick={() => {
-                                        removeMutedItem(item.value, 'pubkeys');
-                                      }}
-                                      className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                      title="Already muted - click to unmute"
-                                    >
-                                      <VolumeX size={16} />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => {
-                                        addMutedItem({ type: 'pubkey', value: item.value, reason: item.reason }, 'pubkeys');
-                                      }}
-                                      className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                                      title="Mute this user"
-                                    >
-                                      <Volume2 size={16} />
-                                    </button>
+                                  {session && (
+                                    isAlreadyMuted ? (
+                                      <button
+                                        onClick={() => {
+                                          removeMutedItem(item.value, 'pubkeys');
+                                        }}
+                                        className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                        title="Already muted - click to unmute"
+                                      >
+                                        <VolumeX size={16} />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          addMutedItem({ type: 'pubkey', value: item.value, reason: item.reason }, 'pubkeys');
+                                        }}
+                                        className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                                        title="Mute this user"
+                                      >
+                                        <Volume2 size={16} />
+                                      </button>
+                                    )
                                   )}
                                   <button
                                     onClick={() => window.open(`https://npub.world/${hexToNpub(item.value)}`, '_blank')}
@@ -675,7 +731,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   </p>
                 )}
 
-                {getTotalMutedItems() > 0 && (
+                {session && getTotalMutedItems() > 0 && (
                   <button
                     onClick={handleMergeMuteList}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

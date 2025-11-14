@@ -20,7 +20,7 @@ interface AppState {
   importedPackItems: Record<string, Set<string>>; // packId -> Set of imported item values
 
   // UI state
-  activeTab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings' | 'listCleaner';
+  activeTab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings' | 'listCleaner' | 'muteOScope';
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
@@ -40,7 +40,7 @@ interface AppState {
   getImportedCount: (packId: string) => number;
   getNewItemsCount: (pack: PublicMuteList) => number;
   markPackItemsAsImported: (packId: string, items: string[]) => void;
-  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings' | 'listCleaner') => void;
+  setActiveTab: (tab: 'myList' | 'publicLists' | 'muteuals' | 'backups' | 'settings' | 'listCleaner' | 'muteOScope') => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
 
