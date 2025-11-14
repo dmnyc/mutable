@@ -1461,7 +1461,7 @@ export async function enrichMutealsWithProfiles(
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (current: number, total: number) => void,
   abortSignal?: AbortSignal,
-  batchSize: number = 3 // Fetch 3 profiles in parallel to avoid pool exhaustion
+  batchSize: number = 2 // Fetch 2 profiles in parallel (reduced for mobile reliability)
 ): Promise<MutealResult[]> {
   // Process in batches for better performance on mobile
   const batches: MutealResult[][] = [];
@@ -1473,48 +1473,62 @@ export async function enrichMutealsWithProfiles(
   let processedCount = 0;
 
   for (const batch of batches) {
-    // Check if enrichment was aborted
-    if (abortSignal?.aborted) {
-      console.log(`Profile enrichment aborted after ${processedCount}/${muteuals.length} profiles`);
-      // Return what we have so far with remaining items without profiles
-      const remainingIndex = processedCount;
-      return [...enriched, ...muteuals.slice(remainingIndex)];
-    }
-
-    // Fetch all profiles in this batch in parallel with Promise.allSettled
-    // This ensures one timeout doesn't block others
-    const profilePromises = batch.map(muteal =>
-      fetchProfile(muteal.mutedBy, relays)
-        .then(profile => ({ muteal, profile }))
-        .catch(error => {
-          console.error(`Failed to fetch profile for ${muteal.mutedBy}:`, error);
-          return { muteal, profile: null };
-        })
-    );
-
-    const results = await Promise.allSettled(profilePromises);
-
-    // Process results
-    results.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        enriched.push({
-          ...result.value.muteal,
-          profile: result.value.profile || undefined
-        });
-      } else {
-        // This shouldn't happen since we catch errors above, but just in case
-        console.error('Unexpected rejection in batch:', result.reason);
+    try {
+      // Check if enrichment was aborted
+      if (abortSignal?.aborted) {
+        console.log(`Profile enrichment aborted after ${processedCount}/${muteuals.length} profiles`);
+        // Return what we have so far with remaining items without profiles
+        const remainingIndex = processedCount;
+        return [...enriched, ...muteuals.slice(remainingIndex)];
       }
-    });
 
-    processedCount += batch.length;
-    if (onProgress) {
-      onProgress(processedCount, muteuals.length);
-    }
+      // Fetch all profiles in this batch in parallel with Promise.allSettled
+      // This ensures one timeout doesn't block others
+      const profilePromises = batch.map(muteal =>
+        fetchProfile(muteal.mutedBy, relays)
+          .then(profile => ({ muteal, profile }))
+          .catch(error => {
+            console.error(`Failed to fetch profile for ${muteal.mutedBy}:`, error);
+            return { muteal, profile: null };
+          })
+      );
 
-    // Small delay between batches to let relay connections recover
-    if (processedCount < muteuals.length) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const results = await Promise.allSettled(profilePromises);
+
+      // Process results
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          enriched.push({
+            ...result.value.muteal,
+            profile: result.value.profile || undefined
+          });
+        } else {
+          // This shouldn't happen since we catch errors above, but just in case
+          console.error('Unexpected rejection in batch:', result.reason);
+        }
+      });
+
+      processedCount += batch.length;
+      if (onProgress) {
+        onProgress(processedCount, muteuals.length);
+      }
+
+      // Delay between batches to let relay connections recover
+      // Longer delay helps prevent mobile connection pool exhaustion
+      if (processedCount < muteuals.length) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    } catch (batchError) {
+      // If entire batch fails, log it and continue with next batch
+      console.error(`Batch processing error, continuing with next batch:`, batchError);
+      // Add the batch items without profiles so they still appear
+      batch.forEach(muteal => {
+        enriched.push({
+          ...muteal,
+          profile: undefined
+        });
+      });
+      processedCount += batch.length;
     }
   }
 
