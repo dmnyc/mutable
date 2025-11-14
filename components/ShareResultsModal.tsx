@@ -28,16 +28,26 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
     return `@${npub.substring(0, 16)}...`;
   };
 
+  // Get Mute Score based on mute count
+  const getMuteScore = (count: number): { emoji: string; label: string } => {
+    if (count === 0) return { emoji: '🟦', label: 'Pristine' };
+    if (count <= 25) return { emoji: '🟩', label: 'Average' };
+    if (count <= 75) return { emoji: '🟨', label: 'Moderate' };
+    if (count <= 100) return { emoji: '🟧', label: 'High' };
+    return { emoji: '🟥', label: 'Severe' };
+  };
+
   // Generate the actual share message (with nostr:npub for posting)
   const getActualShareMessage = (isMeValue: boolean = isMe) => {
     const npub = hexToNpub(targetProfile.pubkey);
     const baseUrl = 'https://mutable.top/mute-o-scope';
+    const muteScore = getMuteScore(resultCount);
 
     if (isMeValue) {
-      return `I just found myself on ${resultCount} public mute list${resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!\n\nScope your mutes here: 🔍\n${baseUrl}`;
+      return `I just found myself on ${resultCount} public mute list${resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
     } else {
       // Include nostr: mention so clients will parse it and create a clickable link
-      return `Hey nostr:${npub}, I just found you on ${resultCount} public mute list${resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!\n\nScope your mutes here: 🔍\n${baseUrl}`;
+      return `Hey nostr:${npub}, I just found you on ${resultCount} public mute list${resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
     }
   };
 
@@ -87,12 +97,9 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
       const tags: string[][] = [
         ['p', targetProfile.pubkey], // Tag the target user
         ['t', 'MuteOScope'],
-        ['t', 'Mutable']
+        ['t', 'Mutable'],
+        ['client', 'Mutable'] // Client tag to show "Posted from Mutable"
       ];
-
-      // Add client tag if we have the app event ID
-      // TODO: Replace with actual Mutable app event coordinates
-      // tags.push(['client', 'Mutable', '31990:...', 'wss://relay.damus.io']);
 
       const messageToShare = getActualShareMessage(isMe);
       const result = await publishTextNote(messageToShare, tags, session.relays);
@@ -170,12 +177,16 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                 <div>Hey <span className="text-blue-600 dark:text-blue-400 font-medium">{getDisplayName()}</span>, I just found you on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</div>
                 <br />
+                <div>{getMuteScore(resultCount).emoji} Mute Score: {getMuteScore(resultCount).label}</div>
+                <br />
                 <div>Scope your mutes here: 🔍</div>
                 <div>https://mutable.top/mute-o-scope</div>
               </div>
             ) : (
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                 <div>I just found myself on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</div>
+                <br />
+                <div>{getMuteScore(resultCount).emoji} Mute Score: {getMuteScore(resultCount).label}</div>
                 <br />
                 <div>Scope your mutes here: 🔍</div>
                 <div>https://mutable.top/mute-o-scope</div>

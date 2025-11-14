@@ -33,6 +33,15 @@ const DEFAULT_RELAYS = [
 const INITIAL_LOAD_COUNT = 20;
 const LOAD_MORE_COUNT = 20;
 
+// Get Mute Score based on mute count
+const getMuteScore = (count: number): { emoji: string; label: string } => {
+  if (count === 0) return { emoji: '🟦', label: 'Pristine' };
+  if (count <= 25) return { emoji: '🟩', label: 'Average' };
+  if (count <= 75) return { emoji: '🟨', label: 'Moderate' };
+  if (count <= 100) return { emoji: '🟧', label: 'High' };
+  return { emoji: '🟥', label: 'Severe' };
+};
+
 export default function MuteOScope() {
   const searchParams = useSearchParams();
   const { session, disconnect } = useAuth();
@@ -778,27 +787,35 @@ export default function MuteOScope() {
 
         {displayedResults.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
+            <div className="mb-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
                 </h3>
+                {targetProfile && (
+                  <button
+                    onClick={() => setShowShareModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0"
+                    title="Share these results"
+                  >
+                    <Share size={20} />
+                    <span className="hidden sm:inline">Share</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <span className="text-2xl">{getMuteScore(allResults.length).emoji}</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Mute Score: {getMuteScore(allResults.length).label}
+                  </span>
+                </div>
                 {allResults.length > displayedResults.length && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     Showing {displayedResults.length} of {allResults.length}
                   </p>
                 )}
               </div>
-              {targetProfile && (
-                <button
-                  onClick={() => setShowShareModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0"
-                  title="Share these results"
-                >
-                  <Share size={20} />
-                  <span className="hidden sm:inline">Share</span>
-                </button>
-              )}
             </div>
 
             <div className="space-y-3">
