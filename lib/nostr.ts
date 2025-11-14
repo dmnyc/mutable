@@ -1330,6 +1330,7 @@ export async function searchMutealsNetworkWide(
   // But we might get multiple old versions from different relays
 
   console.log(`Searching ${relays.length} relays for mute lists containing ${userPubkey.substring(0, 8)}...`);
+  console.log(`Relays: ${relays.join(', ')}`);
 
   // Use subscription-based approach for better mobile reliability
   // This allows us to collect events as they stream in rather than waiting for all relays
@@ -1389,13 +1390,17 @@ export async function searchMutealsNetworkWide(
         resolve(collectedEvents);
       }, 60000); // 60 second timeout
 
-      // Also resolve early if we get EOSE from all relays faster
-      // This is handled by watching for when events stop coming in
+      // Fallback: Also resolve if events stop coming in AND we've waited long enough for EOSE
+      // This is only a safety net - we should normally close via EOSE callback above
       let lastEventTime = Date.now();
       const checkInterval = setInterval(() => {
-        // Wait for inactivity - if no new events for 10 seconds, assume all relays are done
-        if (Date.now() - lastEventTime > 10000) {
-          console.log(`No new events for 10s, closing subscription with ${collectedEvents.length} events`);
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+
+        // Only use inactivity timer if:
+        // 1. We've received EOSE from at least SOME relays (not stuck)
+        // 2. No new events for 15 seconds (very conservative for mobile)
+        if (eoseCount > 0 && timeSinceLastEvent > 15000) {
+          console.log(`No new events for 15s and received ${eoseCount}/${relays.length} EOSE, closing with ${collectedEvents.length} events`);
           clearInterval(checkInterval);
           clearTimeout(timeout);
           sub.close();

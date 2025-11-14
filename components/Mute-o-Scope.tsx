@@ -217,7 +217,7 @@ export default function MuteOScope() {
         pubkey,
         expandedRelays,
         (count) => {
-          setProgress(`Found ${count} public mute list${count === 1 ? '' : 's'}...`);
+          setProgress(`Scanning relays... ${count} event${count === 1 ? '' : 's'} collected`);
         }
         // No streaming callback - collect all first
       );
@@ -230,12 +230,17 @@ export default function MuteOScope() {
         return;
       }
 
-      // Store all results
+      // Store all results (already deduplicated by searchMutealsNetworkWide)
       setAllResults(rawResults);
+
+      // Show final count before loading profiles
+      setProgress(`Found on ${rawResults.length} public mute list${rawResults.length === 1 ? '' : 's'} - loading profiles...`);
 
       // Only enrich the first batch for initial display
       const initialBatch = rawResults.slice(0, INITIAL_LOAD_COUNT);
-      setProgress(`Loading first ${initialBatch.length} profile${initialBatch.length === 1 ? '' : 's'}...`);
+
+      // Small delay to let the "Found on X" message show before profile loading
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const enriched = await enrichMutealsWithProfiles(
         initialBatch,
