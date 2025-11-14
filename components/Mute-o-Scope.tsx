@@ -220,7 +220,9 @@ export default function MuteOScope() {
             const profile = await fetchProfile(pubkey, relays);
             setTargetProfile(profile);
             // Update search query to show display name
-            setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
+            if (profile) {
+              setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
+            }
           } else if (!pubkey.match(/^[0-9a-f]{64}$/i)) {
             // Try to resolve username
             setProgress('Searching for user...');
@@ -238,7 +240,9 @@ export default function MuteOScope() {
             const profile = await fetchProfile(pubkey, relays);
             setTargetProfile(profile);
             // Update search query to show display name
-            setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
+            if (profile) {
+              setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
+            }
           }
         } catch (conversionError) {
           console.error('Failed to convert npub:', conversionError);
