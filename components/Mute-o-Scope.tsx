@@ -29,6 +29,9 @@ const DEFAULT_RELAYS = [
   'wss://relay.snort.social'
 ];
 
+const INITIAL_LOAD_COUNT = 20;
+const LOAD_MORE_COUNT = 20;
+
 export default function MuteOScope() {
   const searchParams = useSearchParams();
   const { session, disconnect } = useAuth();
@@ -36,7 +39,10 @@ export default function MuteOScope() {
   const [targetPubkey, setTargetPubkey] = useState<string | null>(null);
   const [targetProfile, setTargetProfile] = useState<Profile | null>(null);
   const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState<MutealResult[]>([]);
+  const [allResults, setAllResults] = useState<MutealResult[]>([]); // All search results
+  const [displayedResults, setDisplayedResults] = useState<MutealResult[]>([]); // Currently displayed results
+  const [displayCount, setDisplayCount] = useState(INITIAL_LOAD_COUNT);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>('');
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
@@ -188,24 +194,31 @@ export default function MuteOScope() {
       );
 
       if (rawResults.length === 0) {
-        setResults([]);
+        setAllResults([]);
+        setDisplayedResults([]);
         setProgress('');
         setSearching(false);
         return;
       }
 
-      // Now enrich all results in one batch
-      setProgress(`Loading profiles for ${rawResults.length} result${rawResults.length === 1 ? '' : 's'}...`);
+      // Store all results
+      setAllResults(rawResults);
+
+      // Only enrich the first batch for initial display
+      const initialBatch = rawResults.slice(0, INITIAL_LOAD_COUNT);
+      setProgress(`Loading first ${initialBatch.length} profile${initialBatch.length === 1 ? '' : 's'}...`);
+
       const enriched = await enrichMutealsWithProfiles(
-        rawResults,
+        initialBatch,
         relays,
         (current, total) => {
           setProgress(`Loading profiles... ${current}/${total}`);
         }
       );
 
-      // Display complete results
-      setResults(enriched);
+      // Display initial results
+      setDisplayedResults(enriched);
+      setDisplayCount(INITIAL_LOAD_COUNT);
       setProgress('');
     } catch (err) {
       console.error('Search error:', err);
@@ -227,6 +240,35 @@ export default function MuteOScope() {
     if (e.key === 'Enter') {
       handleSearch();
       setShowProfileResults(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+
+    const relays = session?.relays || DEFAULT_RELAYS;
+    const currentCount = displayedResults.length;
+    const nextBatch = allResults.slice(currentCount, currentCount + LOAD_MORE_COUNT);
+
+    if (nextBatch.length === 0) return;
+
+    setLoadingMore(true);
+    try {
+      const enriched = await enrichMutealsWithProfiles(
+        nextBatch,
+        relays,
+        (current, total) => {
+          setProgress(`Loading more profiles... ${current}/${total}`);
+        }
+      );
+
+      setDisplayedResults(prev => [...prev, ...enriched]);
+      setDisplayCount(prev => prev + LOAD_MORE_COUNT);
+      setProgress('');
+    } catch (err) {
+      console.error('Failed to load more:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -628,14 +670,19 @@ export default function MuteOScope() {
           </div>
         )}
 
-        {results.length > 0 && (
+        {displayedResults.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Found on {results.length} Public Mute List{results.length === 1 ? '' : 's'}
+              Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
+              {allResults.length > displayedResults.length && (
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                  (showing {displayedResults.length})
+                </span>
+              )}
             </h3>
 
             <div className="space-y-3">
-              {results.map((muteal) => {
+              {displayedResults.map((muteal) => {
                 const profile = muteal.profile;
                 const displayName = profile?.display_name || profile?.name || (profile ? 'Anonymous' : 'Loading profile...');
                 const npub = hexToNpub(muteal.mutedBy);
@@ -719,6 +766,32 @@ export default function MuteOScope() {
                 );
               })}
             </div>
+
+            {/* Load More Button */}
+            {allResults.length > displayedResults.length && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      <span>Loading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={20} />
+                      <span>
+                        Load {Math.min(LOAD_MORE_COUNT, allResults.length - displayedResults.length)} More
+                        ({allResults.length - displayedResults.length} remaining)
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
