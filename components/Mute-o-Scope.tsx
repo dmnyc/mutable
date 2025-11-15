@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X, Share, Menu } from 'lucide-react';
+import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X, Share, Menu, Info } from 'lucide-react';
 import { MutealResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import ShareResultsModal from './ShareResultsModal';
+import MuteScoreModal from './MuteScoreModal';
 import GlobalUserSearch from './GlobalUserSearch';
 import Footer from './Footer';
 import Image from 'next/image';
@@ -63,6 +64,7 @@ export default function MuteOScope() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showMuteScoreModal, setShowMuteScoreModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
@@ -876,12 +878,17 @@ export default function MuteOScope() {
                 )}
               </div>
               <div className="flex items-center justify-between gap-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <button
+                  onClick={() => setShowMuteScoreModal(true)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                  title="Click to view all Mute Score levels"
+                >
                   <span className="text-2xl">{getMuteScore(allResults.length).emoji}</span>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white">
                     Mute Score: {getMuteScore(allResults.length).label}
                   </span>
-                </div>
+                  <Info size={16} className="text-gray-500 dark:text-gray-400" />
+                </button>
                 {allResults.length > displayedResults.length && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Showing {displayedResults.length} of {allResults.length}
@@ -1021,6 +1028,13 @@ export default function MuteOScope() {
               targetProfile={targetProfile}
               resultCount={allResults.length}
               onClose={() => setShowShareModal(false)}
+            />
+          )}
+
+          {/* Mute Score Modal */}
+          {showMuteScoreModal && (
+            <MuteScoreModal
+              onClose={() => setShowMuteScoreModal(false)}
             />
           )}
         </div>
