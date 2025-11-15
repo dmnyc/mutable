@@ -1,10 +1,13 @@
 # Mutable
 
-A web-based client for managing Nostr mute lists. Mutable allows users to back up, edit, discover, and share mute lists seamlessly.
+A web-based client for managing Nostr mute lists. Mutable allows users to back up, edit, discover, and share mute lists seamlessly. Features Mute-o-Scope, a powerful tool to search who is publicly muting any Nostr profile.
 
 ## Features
 
 ### Mute-o-Scope 🔍 NEW
+
+Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across public mute lists (kind:10000) to show you exactly who has muted a specific npub, complete with a color-coded Mute Score that indicates the profile's overall visibility on Nostr.
+
 - **No Login Required**: Search any npub to see who is publicly muting them
 - **Real-time Profile Search**: Dynamic profile search with autocomplete
 - **Mute Score System**: Color-coded scoring system with 9 levels based on public mute list count
