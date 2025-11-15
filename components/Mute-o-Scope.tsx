@@ -673,25 +673,27 @@ export default function MuteOScope() {
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                   Mute-o-Scope
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-3">
+                <p className="text-gray-600 dark:text-gray-400">
                   Search any npub to see who is publicly muting them
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {!session && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium border border-green-200 dark:border-green-700">
-                      🔓 No sign-in required
-                    </span>
-                  )}
-                  {session && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium border border-purple-200 dark:border-purple-700">
-                      ⚡ Using your relays
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-200 dark:border-blue-700">
-                    👁️ Public lists only
-                  </span>
-                </div>
               </div>
+            </div>
+
+            {/* Callout badges - full width row */}
+            <div className="flex flex-wrap gap-2">
+              {!session && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium border border-green-200 dark:border-green-700">
+                  🔓 No sign-in required
+                </span>
+              )}
+              {session && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium border border-purple-200 dark:border-purple-700">
+                  ⚡ Using your relays
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-200 dark:border-blue-700">
+                👁️ Public lists only
+              </span>
             </div>
 
           {/* Info Banner */}
