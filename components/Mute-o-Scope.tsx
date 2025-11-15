@@ -512,8 +512,9 @@ export default function MuteOScope() {
                 >
                   Muteuals
                 </Link>
-                <div className="py-4 px-1 border-b-2 border-red-600 text-red-600 dark:border-red-500 dark:text-red-500 font-semibold text-base">
+                <div className="py-4 px-1 border-b-2 border-red-600 text-red-600 dark:border-red-500 dark:text-red-500 font-semibold text-base flex items-center gap-2">
                   Mute-o-Scope
+                  <span className="text-xs font-bold px-1.5 py-0.5 bg-red-600 text-white rounded">NEW</span>
                 </div>
                 <Link
                   href="/dashboard"
@@ -576,8 +577,9 @@ export default function MuteOScope() {
                       >
                         Muteuals
                       </Link>
-                      <div className="block w-full text-left py-3 px-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold">
+                      <div className="block w-full text-left py-3 px-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold flex items-center justify-between">
                         Mute-o-Scope
+                        <span className="text-xs font-bold px-1.5 py-0.5 bg-red-600 text-white rounded">NEW</span>
                       </div>
                       <Link
                         href="/dashboard"
