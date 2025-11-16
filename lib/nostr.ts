@@ -9,10 +9,13 @@ import {
 import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList } from '@/types';
 
 // Default relay list - reliable, well-maintained relays
-// Based on what works consistently across clients
+// Based on what works consistently across clients and 2024-2025 recommendations
+// Includes Primal's cache relays for better data coverage
 export const DEFAULT_RELAYS = [
   'wss://relay.damus.io',
   'wss://relay.primal.net',
+  'wss://cache1.primal.net',
+  'wss://cache2.primal.net',
   'wss://nos.lol',
   'wss://relay.nostr.band',
   'wss://nostr.wine',
@@ -21,8 +24,12 @@ export const DEFAULT_RELAYS = [
   'wss://purplepag.es',
   'wss://relay.current.fyi',
   'wss://nostr-pub.wellorder.net',
-  'wss://aggr.nostr.land',
-  'wss://nostr.land'
+  'wss://relay.nostriches.org',
+  'wss://nostr.bitcoiner.social',
+  'wss://relay.orangepill.dev',
+  'wss://relay.nostrati.com',
+  'wss://relay.nostrich.de',
+  'wss://offchain.pub'
 ];
 
 // Get expanded relay list by combining user's relays with defaults

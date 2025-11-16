@@ -846,10 +846,38 @@ export default function MuteOScope() {
           )}
         </div>
 
-        {/* Results Section */}
+        {/* Results Section - Zero Mutes (Pristine) */}
         {!searching && allResults.length === 0 && targetPubkey && !error && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-            <div className="text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="mb-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Found on 0 Public Mute Lists
+                </h3>
+                {targetProfile && (
+                  <button
+                    onClick={() => setShowShareModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0"
+                    title="Share these results"
+                  >
+                    <Share size={20} />
+                    <span className="hidden sm:inline">Share</span>
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setShowMuteScoreModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                title="Click to view all Mute Score levels"
+              >
+                <span className="text-2xl">{getMuteScore(0).emoji}</span>
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Mute Score: {getMuteScore(0).label}
+                </span>
+                <Info size={16} className="text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+            <div className="text-center p-8">
               <Users className="mx-auto mb-3 text-green-500" size={48} />
               <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 No Public Mute Lists Found
@@ -906,6 +934,32 @@ export default function MuteOScope() {
                 const npub = hexToNpub(muteal.mutedBy);
                 const isLoading = !profile;
 
+                // Format mute date for display
+                const formatMuteDate = (timestamp?: number): string => {
+                  if (!timestamp) return '';
+
+                  const muteDate = new Date(timestamp * 1000);
+                  const now = new Date();
+                  const diffTime = Math.abs(now.getTime() - muteDate.getTime());
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                  if (diffDays === 0) return 'today';
+                  if (diffDays === 1) return 'yesterday';
+                  if (diffDays < 7) {
+                    return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+                  }
+                  if (diffDays < 30) {
+                    const weeks = Math.floor(diffDays / 7);
+                    return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+                  }
+                  if (diffDays < 365) {
+                    const months = Math.floor(diffDays / 30);
+                    return months === 1 ? '1 month ago' : `${months} months ago`;
+                  }
+                  const years = Math.floor(diffDays / 365);
+                  return years === 1 ? '1 year ago' : `${years} years ago`;
+                };
+
                 return (
                   <div
                     key={muteal.mutedBy}
@@ -947,9 +1001,9 @@ export default function MuteOScope() {
                             ✓ {profile.nip05}
                           </div>
                         )}
-                        {muteal.listName && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                            List: {muteal.listName}
+                        {muteal.mutedAt && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Last muted {formatMuteDate(muteal.mutedAt)}
                           </div>
                         )}
                       </div>
