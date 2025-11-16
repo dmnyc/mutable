@@ -260,9 +260,9 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
         <div className="p-6">
           {/* Header */}
           <div className="mb-4">
-            {/* Title and Buttons Row */}
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="flex items-center gap-2 min-w-0 flex-shrink">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+              {/* Title Section */}
+              <div className="flex items-center gap-2 min-w-0">
                 <Shield className="text-red-600 dark:text-red-500 flex-shrink-0" size={20} />
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   {list.name}
@@ -276,7 +276,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
 
               {/* Action Buttons */}
               {isOwner ? (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                 <button
                   onClick={handleCopyLink}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -361,8 +361,8 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                   )}
                 </button>
               </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
+              ) : (
+              <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                 <button
                   onClick={handleCopyLink}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -419,7 +419,7 @@ export default function PublicListCard({ list, isOwner = false, onEdit, onDelete
                   </button>
                 )}
               </div>
-            )}
+              )}
             </div>
 
             {/* Description Row */}
