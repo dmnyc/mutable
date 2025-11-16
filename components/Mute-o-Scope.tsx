@@ -66,6 +66,7 @@ export default function MuteOScope() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showMuteScoreModal, setShowMuteScoreModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [shareButtonClicked, setShareButtonClicked] = useState(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Profile search dropdown states
@@ -856,8 +857,13 @@ export default function MuteOScope() {
                 </h3>
                 {targetProfile && (
                   <button
-                    onClick={() => setShowShareModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0"
+                    onClick={() => {
+                      setShareButtonClicked(true);
+                      setShowShareModal(true);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0 ${
+                      !shareButtonClicked ? 'animate-pulse-glow' : ''
+                    }`}
                     title="Share these results"
                   >
                     <Share size={20} />
@@ -898,8 +904,13 @@ export default function MuteOScope() {
                 </h3>
                 {targetProfile && (
                   <button
-                    onClick={() => setShowShareModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0"
+                    onClick={() => {
+                      setShareButtonClicked(true);
+                      setShowShareModal(true);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0 ${
+                      !shareButtonClicked ? 'animate-pulse-glow' : ''
+                    }`}
                     title="Share these results"
                   >
                     <Share size={20} />
@@ -1003,7 +1014,7 @@ export default function MuteOScope() {
                         )}
                         {muteal.mutedAt && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Last muted {formatMuteDate(muteal.mutedAt)}
+                            Muted {formatMuteDate(muteal.mutedAt)}
                           </div>
                         )}
                       </div>

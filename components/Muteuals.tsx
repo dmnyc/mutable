@@ -519,6 +519,32 @@ export default function Muteuals() {
               const displayName = profile?.display_name || profile?.name || 'Anonymous';
               const npub = hexToNpub(muteal.mutedBy);
 
+              // Format mute date for display
+              const formatMuteDate = (timestamp?: number): string => {
+                if (!timestamp) return '';
+
+                const muteDate = new Date(timestamp * 1000);
+                const now = new Date();
+                const diffTime = Math.abs(now.getTime() - muteDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 0) return 'today';
+                if (diffDays === 1) return 'yesterday';
+                if (diffDays < 7) {
+                  return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+                }
+                if (diffDays < 30) {
+                  const weeks = Math.floor(diffDays / 7);
+                  return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+                }
+                if (diffDays < 365) {
+                  const months = Math.floor(diffDays / 30);
+                  return months === 1 ? '1 month ago' : `${months} months ago`;
+                }
+                const years = Math.floor(diffDays / 365);
+                return years === 1 ? '1 year ago' : `${years} years ago`;
+              };
+
               return (
                 <div
                   key={muteal.mutedBy}
@@ -561,9 +587,9 @@ export default function Muteuals() {
                           ✓ {profile.nip05}
                         </div>
                       )}
-                      {muteal.listName && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                          List: {muteal.listName}
+                      {muteal.mutedAt && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Muted {formatMuteDate(muteal.mutedAt)}
                         </div>
                       )}
                     </div>
