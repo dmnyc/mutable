@@ -1370,8 +1370,8 @@ export async function searchMutealsNetworkWide(
   // NOTE: Kind 10000 is a REPLACEABLE event, meaning each user should only have ONE
   // But we might get multiple old versions from different relays
 
-  console.log(`Searching ${relays.length} relays for mute lists containing ${userPubkey.substring(0, 8)}...`);
-  console.log(`Relays: ${relays.join(', ')}`);
+  console.log(`🔍 Searching ${relays.length} relays for mute lists containing ${userPubkey.substring(0, 8)}...`);
+  console.log(`📡 Relays being queried:`, relays);
 
   // Use subscription-based approach for better mobile reliability
   // This allows us to collect events as they stream in rather than waiting for all relays
@@ -1382,7 +1382,10 @@ export async function searchMutealsNetworkWide(
       const collectedEvents: Event[] = [];
       const seenEventIds = new Set<string>();
       let timeout: NodeJS.Timeout;
+      let checkInterval: NodeJS.Timeout;
       let eoseCount = 0; // Track EOSE from each relay
+      let lastEventTime = Date.now();
+      let resolved = false; // Guard against multiple resolutions
 
       const sub = pool.subscribeMany(
         relays,
@@ -1412,13 +1415,22 @@ export async function searchMutealsNetworkWide(
             eoseCount++;
             console.log(`Received EOSE ${eoseCount}/${relays.length}, collected ${collectedEvents.length} events so far`);
 
-            // If we've received EOSE from all relays, we can close immediately
+            // If we've received EOSE from all relays, wait a bit for any in-flight events
             if (eoseCount >= relays.length) {
-              console.log(`Received EOSE from all ${relays.length} relays, closing with ${collectedEvents.length} events`);
-              clearInterval(checkInterval);
-              clearTimeout(timeout);
-              sub.close();
-              resolve(collectedEvents);
+              const eventCountBeforeWait = collectedEvents.length;
+              console.log(`⏳ Received EOSE from all ${relays.length} relays at ${eventCountBeforeWait} events, waiting 5s for in-flight events...`);
+              // Give a 5-second grace period for any events still in transit (especially on mobile)
+              // This is especially important on slower connections where events may arrive after EOSE
+              setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                const additionalEvents = collectedEvents.length - eventCountBeforeWait;
+                console.log(`✅ Grace period complete! Started with ${eventCountBeforeWait}, received ${additionalEvents} more during wait, closing with ${collectedEvents.length} total events`);
+                clearInterval(checkInterval);
+                clearTimeout(timeout);
+                sub.close();
+                resolve(collectedEvents);
+              }, 5000); // Increased to 5 seconds for mobile reliability
             }
           }
         }
@@ -1427,6 +1439,8 @@ export async function searchMutealsNetworkWide(
       // Set timeout - very long to ensure all relays respond, especially on mobile
       // For users with many mute lists (600+), we need sufficient time
       timeout = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
         console.log(`Query timeout reached after 60s, collected ${collectedEvents.length} events from ${eoseCount}/${relays.length} relays`);
         sub.close();
         resolve(collectedEvents);
@@ -1434,15 +1448,16 @@ export async function searchMutealsNetworkWide(
 
       // Fallback: Also resolve if events stop coming in AND we've waited long enough for EOSE
       // This is only a safety net - we should normally close via EOSE callback above
-      let lastEventTime = Date.now();
-      const checkInterval = setInterval(() => {
+      checkInterval = setInterval(() => {
         const timeSinceLastEvent = Date.now() - lastEventTime;
 
         // Only use inactivity timer if:
         // 1. We've received EOSE from at least SOME relays (not stuck)
-        // 2. No new events for 15 seconds (very conservative for mobile)
-        if (eoseCount > 0 && timeSinceLastEvent > 15000) {
-          console.log(`No new events for 15s and received ${eoseCount}/${relays.length} EOSE, closing with ${collectedEvents.length} events`);
+        // 2. No new events for 20 seconds (very conservative for mobile/slow connections)
+        if (eoseCount > 0 && timeSinceLastEvent > 20000) {
+          if (resolved) return;
+          resolved = true;
+          console.log(`No new events for 20s and received ${eoseCount}/${relays.length} EOSE, closing with ${collectedEvents.length} events`);
           clearInterval(checkInterval);
           clearTimeout(timeout);
           sub.close();
@@ -1466,11 +1481,11 @@ export async function searchMutealsNetworkWide(
     if (!existing || event.created_at > existing.created_at) {
       eventsByAuthor.set(event.pubkey, event);
     } else {
-      console.log(`Skipping older event from ${event.pubkey}: ${new Date(event.created_at * 1000).toISOString()} (newer: ${new Date(existing.created_at * 1000).toISOString()})`);
+      console.log(`⏭️  Skipping older event from ${event.pubkey.substring(0, 8)}: ${new Date(event.created_at * 1000).toISOString()} (newer: ${new Date(existing.created_at * 1000).toISOString()})`);
     }
   }
 
-  console.log(`After initial deduplication: ${eventsByAuthor.size} unique authors (removed ${events.length - eventsByAuthor.size} duplicate events)`);
+  console.log(`🔄 After deduplication: ${eventsByAuthor.size} unique authors (removed ${events.length - eventsByAuthor.size} duplicate/stale events from total ${events.length})`);
 
   // Note: We previously had a "verification step" that re-fetched events for each author
   // to check if they had newer events where the user was unmuted. However, this is

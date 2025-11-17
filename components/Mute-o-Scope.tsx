@@ -19,17 +19,9 @@ import {
   npubToHex,
   searchProfiles,
   getExpandedRelayList,
-  fetchProfile
+  fetchProfile,
+  DEFAULT_RELAYS
 } from '@/lib/nostr';
-
-const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-  'wss://nostr.wine',
-  'wss://relay.snort.social'
-];
 
 const INITIAL_LOAD_COUNT = 20;
 const LOAD_MORE_COUNT = 20;
