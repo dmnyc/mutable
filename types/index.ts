@@ -147,3 +147,11 @@ export interface AccountActivityStatus {
   hasProfile: boolean;
   isLikelyAbandoned: boolean;
 }
+
+// Domain purge result (user with specific NIP-05 domain)
+export interface DomainPurgeResult {
+  pubkey: string;
+  profile?: Profile;
+  nip05: string;
+  isFollowing: boolean;
+}

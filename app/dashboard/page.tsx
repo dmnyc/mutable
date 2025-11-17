@@ -13,6 +13,7 @@ import Muteuals from '@/components/Muteuals';
 import Backups from '@/components/Backups';
 import Settings from '@/components/Settings';
 import ListCleaner from '@/components/ListCleaner';
+import DomainPurge from '@/components/DomainPurge';
 import GlobalUserSearch from '@/components/GlobalUserSearch';
 import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -310,15 +311,24 @@ export default function Dashboard() {
             </button>
             <Link
               href="/mute-o-scope"
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors flex items-center gap-2 ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'muteOScope'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
               Mute-o-Scope
-              <span className="text-xs font-bold px-1.5 py-0.5 bg-red-600 text-white rounded">NEW</span>
             </Link>
+            <button
+              onClick={() => setActiveTab('domainPurge')}
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+                activeTab === 'domainPurge'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Domain Purge
+            </button>
             <button
               onClick={() => setActiveTab('backups')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -361,6 +371,7 @@ export default function Dashboard() {
                 {activeTab === 'myList' && 'My Mute List'}
                 {activeTab === 'publicLists' && 'Community Packs'}
                 {activeTab === 'muteuals' && 'Muteuals'}
+                {activeTab === 'domainPurge' && 'Domain Purge'}
                 {activeTab === 'muteOScope' && 'Mute-o-Scope'}
                 {activeTab === 'backups' && 'Backups'}
                 {activeTab === 'listCleaner' && 'List Cleaner'}
@@ -419,15 +430,27 @@ export default function Dashboard() {
                   <Link
                     href="/mute-o-scope"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors flex items-center justify-between ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
                       activeTab === 'muteOScope'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
                     Mute-o-Scope
-                    <span className="text-xs font-bold px-1.5 py-0.5 bg-red-600 text-white rounded">NEW</span>
                   </Link>
+                  <button
+                    onClick={() => {
+                      setActiveTab('domainPurge');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'domainPurge'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Domain Purge
+                  </button>
                   <button
                     onClick={() => {
                       setActiveTab('backups');
@@ -486,6 +509,7 @@ export default function Dashboard() {
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
+        {activeTab === 'domainPurge' && <DomainPurge />}
         {activeTab === 'backups' && <Backups />}
         {activeTab === 'listCleaner' && <ListCleaner />}
         {activeTab === 'settings' && <Settings />}

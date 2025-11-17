@@ -6,7 +6,7 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList, DomainPurgeResult } from '@/types';
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients and 2024-2025 recommendations
@@ -858,7 +858,10 @@ export async function fetchProfile(
     const newestEvent = events[0];
 
     try {
-      const metadata = JSON.parse(newestEvent.content);
+      // Sanitize content by removing control characters before parsing
+      // Control characters (ASCII 0-31 and 127-159) can break JSON.parse()
+      const sanitizedContent = newestEvent.content.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      const metadata = JSON.parse(sanitizedContent);
       return {
         pubkey,
         name: metadata.name || '',
@@ -1924,4 +1927,175 @@ export async function batchCheckAccountActivity(
   console.log(`Summary: ${abandoned} likely abandoned, ${noProfile} without profiles`);
 
   return results;
+}
+
+// ============================================================================
+// DOMAIN PURGE FUNCTIONS
+// ============================================================================
+
+/**
+ * Search for all users in follow list with a specific NIP-05 domain
+ * @param domain - The domain to search for (e.g., "example.com")
+ * @param userPubkey - The user's pubkey
+ * @param relays - Relays to query
+ * @param onProgress - Progress callback (current, total)
+ * @param abortSignal - AbortSignal to cancel the operation
+ * @returns Array of users with matching domain
+ */
+export async function searchFollowsByNip05Domain(
+  domain: string,
+  userPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal
+): Promise<DomainPurgeResult[]> {
+  console.log(`🔍 Searching for follows with NIP-05 domain: ${domain}`);
+
+  // Normalize domain (remove @ prefix if present, convert to lowercase)
+  const normalizedDomain = domain.replace(/^@/, '').toLowerCase().trim();
+
+  if (!normalizedDomain) {
+    throw new Error('Domain cannot be empty');
+  }
+
+  // Fetch user's follow list
+  const followPubkeys = await getFollowListPubkeys(userPubkey, relays);
+
+  if (followPubkeys.length === 0) {
+    console.log('No follows found');
+    return [];
+  }
+
+  console.log(`Found ${followPubkeys.length} follows to check`);
+
+  const results: DomainPurgeResult[] = [];
+  const BATCH_SIZE = 10; // Process profiles in batches
+
+  // Process follows in batches
+  for (let i = 0; i < followPubkeys.length; i += BATCH_SIZE) {
+    if (abortSignal?.aborted) {
+      throw new Error('Search cancelled');
+    }
+
+    const batch = followPubkeys.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(followPubkeys.length / BATCH_SIZE);
+
+    console.log(`Processing batch ${batchNum}/${totalBatches}`);
+
+    // Fetch profiles for this batch
+    const profilePromises = batch.map(async (pubkey) => {
+      try {
+        const profile = await fetchProfile(pubkey, relays);
+        return { pubkey, profile };
+      } catch (err) {
+        console.error(`Failed to fetch profile for ${pubkey}:`, err);
+        return { pubkey, profile: null };
+      }
+    });
+
+    const batchResults = await Promise.allSettled(profilePromises);
+
+    // Check each profile for matching NIP-05 domain
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled' && result.value.profile?.nip05) {
+        const nip05 = result.value.profile.nip05.toLowerCase();
+
+        // Check if NIP-05 ends with the domain (handles both "user@domain.com" and "domain.com")
+        if (nip05.endsWith(`@${normalizedDomain}`) || nip05 === normalizedDomain) {
+          results.push({
+            pubkey: result.value.pubkey,
+            profile: result.value.profile,
+            nip05: result.value.profile.nip05,
+            isFollowing: true // They're in the follow list, so we know this is true
+          });
+
+          console.log(`✅ Found match: ${result.value.profile.nip05}`);
+        }
+      }
+    }
+
+    // Report progress
+    if (onProgress) {
+      const processed = Math.min(i + BATCH_SIZE, followPubkeys.length);
+      onProgress(processed, followPubkeys.length);
+    }
+
+    // Small delay between batches
+    if (i + BATCH_SIZE < followPubkeys.length && !abortSignal?.aborted) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  console.log(`✅ Domain search complete: Found ${results.length} matches for domain "${normalizedDomain}"`);
+
+  return results;
+}
+
+/**
+ * Mass mute and unfollow users from domain purge results
+ * @param pubkeys - Array of pubkeys to mute and unfollow
+ * @param userPubkey - The user's pubkey
+ * @param relays - Relays to use
+ * @param currentMuteList - Current mute list to update
+ * @param reason - Optional reason for muting
+ * @returns Updated mute list event and follow list event
+ */
+export async function massMuteAndUnfollowDomain(
+  pubkeys: string[],
+  userPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  currentMuteList: MuteList,
+  reason: string = 'Domain purge'
+): Promise<{ muteEvent: Event; followEvent: Event }> {
+  console.log(`🚫 Mass muting and unfollowing ${pubkeys.length} users`);
+
+  // 1. Add all pubkeys to mute list (if not already muted)
+  const updatedMuteList = { ...currentMuteList };
+
+  for (const pubkey of pubkeys) {
+    const alreadyMuted = updatedMuteList.pubkeys.some(m => m.value === pubkey);
+    if (!alreadyMuted) {
+      updatedMuteList.pubkeys.push({
+        type: 'pubkey',
+        value: pubkey,
+        reason,
+        private: false // Public mutes by default
+      });
+    }
+  }
+
+  // 2. Publish updated mute list
+  const muteEvent = await publishMuteList(updatedMuteList, relays);
+  console.log('✅ Mute list published');
+
+  // 3. Update follow list to remove all these pubkeys
+  const currentFollowList = await fetchFollowList(userPubkey, relays);
+
+  if (!currentFollowList) {
+    throw new Error('Failed to fetch current follow list');
+  }
+
+  // Filter out all the pubkeys we're unfollowing
+  const updatedTags = currentFollowList.tags.filter(
+    tag => tag[0] === 'p' && !pubkeys.includes(tag[1])
+  );
+
+  const followEventTemplate: EventTemplate = {
+    kind: FOLLOW_LIST_KIND,
+    tags: updatedTags,
+    content: currentFollowList.content || '',
+    created_at: Math.floor(Date.now() / 1000)
+  };
+
+  const followEvent = await signWithNip07(followEventTemplate);
+  const pool = getPool();
+
+  await Promise.any(
+    pool.publish(relays, followEvent)
+  );
+
+  console.log('✅ Follow list updated');
+
+  return { muteEvent, followEvent };
 }
