@@ -231,7 +231,7 @@ export default function DomainPurge() {
         {/* Info Box */}
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>How it works:</strong> Enter a NIP-05 domain (e.g., "example.com") and Mutable will search through
+            <strong>How it works:</strong> Enter a NIP-05 domain (e.g., &quot;example.com&quot;) and Mutable will search through
             everyone you follow to find users with that domain in their profile. You can then mass-mute and unfollow them.
           </p>
         </div>
@@ -251,7 +251,7 @@ export default function DomainPurge() {
             disabled={searching}
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Enter just the domain (e.g., "mostr.pub", "primal.net", "example.com")
+            Enter just the domain (e.g., &quot;mostr.pub&quot;, &quot;primal.net&quot;, &quot;example.com&quot;)
           </p>
         </div>
 
