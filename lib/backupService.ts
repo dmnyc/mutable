@@ -242,6 +242,30 @@ class BackupService {
     const daysSince = (Date.now() - lastBackup.createdAt) / (1000 * 60 * 60 * 24);
     return daysSince >= daysSinceLastBackup;
   }
+
+  /**
+   * Restore a mute list backup
+   * Returns the MuteList data if successful, null otherwise
+   */
+  restoreMuteListBackup(backupId: string): MuteList | null {
+    const backup = this.getBackupById(backupId);
+    if (!backup || backup.type !== 'mute-list') {
+      return null;
+    }
+    return backup.data as MuteList;
+  }
+
+  /**
+   * Restore a follow list backup
+   * Returns the pubkey array if successful, null otherwise
+   */
+  restoreFollowListBackup(backupId: string): string[] | null {
+    const backup = this.getBackupById(backupId);
+    if (!backup || backup.type !== 'follow-list') {
+      return null;
+    }
+    return backup.data as string[];
+  }
 }
 
 // Create singleton instance

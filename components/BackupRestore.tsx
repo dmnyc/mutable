@@ -2,10 +2,13 @@
 
 import { useState, useRef } from 'react';
 import { useStore } from '@/lib/store';
+import { useAuth } from '@/hooks/useAuth';
 import { MuteList } from '@/types';
+import { publishMuteList } from '@/lib/nostr';
 import { Download, Upload, Archive } from 'lucide-react';
 
 export default function BackupRestore() {
+  const { session } = useAuth();
   const { muteList, setMuteList, setHasUnsavedChanges } = useStore();
   const [showMenu, setShowMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,7 +34,7 @@ export default function BackupRestore() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const imported: MuteList = JSON.parse(content);
@@ -47,8 +50,21 @@ export default function BackupRestore() {
         }
 
         setMuteList(imported);
-        setHasUnsavedChanges(true);
-        alert('Backup imported successfully! Remember to publish your changes.');
+
+        // Auto-publish if user is logged in
+        if (session) {
+          try {
+            await publishMuteList(imported, session.relays);
+            setHasUnsavedChanges(false);
+            alert('Backup imported and published successfully!');
+          } catch (error) {
+            setHasUnsavedChanges(true);
+            alert('Backup imported but failed to publish. Please try publishing manually.');
+          }
+        } else {
+          setHasUnsavedChanges(true);
+          alert('Backup imported successfully! Please sign in to publish your changes.');
+        }
       } catch (error) {
         alert('Failed to import backup: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import { backupService, Backup } from '@/lib/backupService';
-import { getFollowListPubkeys } from '@/lib/nostr';
+import { getFollowListPubkeys, publishMuteList } from '@/lib/nostr';
 import {
   Archive,
   Download,
@@ -22,7 +22,7 @@ import {
 
 export default function Backups() {
   const { session } = useAuth();
-  const { muteList } = useStore();
+  const { muteList, setMuteList } = useStore();
   const [backups, setBackups] = useState<Backup[]>([]);
   const [selectedType, setSelectedType] = useState<'all' | 'mute-list' | 'follow-list'>('all');
   const [isCreating, setIsCreating] = useState(false);
@@ -167,6 +167,49 @@ export default function Backups() {
       setTimeout(() => setSuccessMessage(null), 3000);
     } else {
       setErrorMessage('Failed to delete all backups');
+      setTimeout(() => setErrorMessage(null), 3000);
+    }
+  };
+
+  const handleRestoreBackup = async (backup: Backup) => {
+    if (!session) {
+      setErrorMessage('Please sign in to restore backups');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
+    if (backup.type === 'mute-list') {
+      if (!confirm('Are you sure you want to restore this mute list backup? This will replace your current mute list and publish it immediately.')) {
+        return;
+      }
+
+      try {
+        const restoredMuteList = backupService.restoreMuteListBackup(backup.id);
+        if (!restoredMuteList) {
+          setErrorMessage('Failed to restore backup');
+          setTimeout(() => setErrorMessage(null), 3000);
+          return;
+        }
+
+        // Update the mute list in the store
+        setMuteList(restoredMuteList);
+
+        // Publish immediately
+        try {
+          await publishMuteList(restoredMuteList, session.relays);
+          setSuccessMessage('Backup restored and published successfully!');
+          setTimeout(() => setSuccessMessage(null), 5000);
+        } catch (publishError) {
+          setErrorMessage('Backup restored but failed to publish. Please try publishing manually.');
+          setTimeout(() => setErrorMessage(null), 5000);
+        }
+      } catch (error) {
+        setErrorMessage('Failed to restore and publish backup');
+        setTimeout(() => setErrorMessage(null), 3000);
+      }
+    } else {
+      // Follow list backup - not implemented yet
+      setErrorMessage('Follow list restore is not yet implemented');
       setTimeout(() => setErrorMessage(null), 3000);
     }
   };
@@ -405,6 +448,13 @@ export default function Backups() {
                 </div>
 
                 <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleRestoreBackup(backup)}
+                    className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                    title="Restore and publish this backup"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
                   <button
                     onClick={() => handleExportBackup(backup)}
                     className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"

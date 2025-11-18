@@ -279,7 +279,7 @@ async function decryptPrivateMutes(encryptedContent: string, authorPubkey: strin
 
 // Parse mute list event into structured data (handles both public and private mutes)
 // If skipCategoryTags is true, 't' tags are skipped (used for kind 30001 public lists where 't' = category, not muted hashtag)
-export async function parseMuteListEvent(event: Event, skipCategoryTags: boolean = false): Promise<MuteList> {
+export async function parseMuteListEvent(event: Event, skipCategoryTags: boolean = false, categoriesToSkip: string[] = []): Promise<MuteList> {
   const muteList: MuteList = {
     pubkeys: [],
     words: [],
@@ -300,8 +300,11 @@ export async function parseMuteListEvent(event: Event, skipCategoryTags: boolean
         muteList.words.push({ type: 'word', value, reason, private: false });
         break;
       case 't':
-        // For kind 30001 (public lists), 't' tags are categories, not muted hashtags
-        if (!skipCategoryTags) {
+        // For kind 30001 (public lists), some 't' tags are pack categories, not muted hashtags
+        // Skip if it's in the categoriesToSkip array (e.g., "spam", "scam", etc.)
+        // This allows us to distinguish between pack categories and actual muted hashtags
+        const isCategory = categoriesToSkip.length > 0 && categoriesToSkip.includes(value);
+        if (!skipCategoryTags && !isCategory) {
           muteList.tags.push({ type: 'tag', value, reason, private: false });
         }
         break;
@@ -527,11 +530,15 @@ export async function parsePublicListEvent(event: Event) {
   const isMutablePack = namespaceTag === PACK_NAMESPACE;
   const isNostrguardPack = namespaceTag === NOSTRGUARD_NAMESPACE;
 
-  // Extract category tags (t tags)
+  // Extract category tags (t tags that match known categories)
+  const categoryValues = Object.values(PACK_CATEGORIES);
   const categories = event.tags
     .filter(tag => tag[0] === 't')
     .map(tag => tag[1])
-    .filter(cat => Object.values(PACK_CATEGORIES).includes(cat as PackCategory)) as PackCategory[];
+    .filter(cat => categoryValues.includes(cat as PackCategory)) as PackCategory[];
+
+  // Parse the mute list - pass the category values so we can skip only those specific tags
+  const list = await parseMuteListEvent(event, false, categories);
 
   return {
     id: event.id,
@@ -540,7 +547,7 @@ export async function parsePublicListEvent(event: Event) {
     description: descTag,
     author: event.pubkey,
     createdAt: event.created_at,
-    list: await parseMuteListEvent(event, true),  // Skip 't' tags as they're categories in kind 30001
+    list,
     categories,
     isMutablePack,  // Track whether this is a mutable-namespaced pack
     isNostrguardPack,  // Track whether this is a nostrguard pack

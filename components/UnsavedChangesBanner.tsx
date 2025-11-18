@@ -38,25 +38,25 @@ export default function UnsavedChangesBanner({ onPublish, onDiscard, onClean }: 
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={onDiscard}
-              className="px-4 sm:px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors flex items-center gap-2"
+              className="px-3 sm:px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors flex items-center gap-2"
             >
               <Trash2 size={18} />
-              <span className="hidden sm:inline">Discard</span>
+              <span>Discard</span>
             </button>
             <button
               onClick={onClean}
-              className="px-4 sm:px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
+              className="px-3 sm:px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
               title="Clean up inactive profiles before publishing"
             >
               <Sparkles size={18} />
-              <span className="hidden sm:inline">Clean</span>
+              <span>Clean</span>
             </button>
             <button
               onClick={onPublish}
-              className="px-4 sm:px-6 py-2.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2"
+              className="px-3 sm:px-6 py-2.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2"
             >
               <Save size={18} />
-              <span className="hidden sm:inline">Publish</span>
+              <span>Publish</span>
             </button>
           </div>
         </div>
