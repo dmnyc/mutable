@@ -1006,7 +1006,7 @@ export default function MuteOScope() {
                         )}
                         {muteal.mutedAt && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Muted {formatMuteDate(muteal.mutedAt)}
+                            Updated {formatMuteDate(muteal.mutedAt)}
                           </div>
                         )}
                       </div>
