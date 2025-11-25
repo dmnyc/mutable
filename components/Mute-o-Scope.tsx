@@ -46,6 +46,7 @@ export default function MuteOScope() {
   const [targetPubkey, setTargetPubkey] = useState<string | null>(null);
   const [targetProfile, setTargetProfile] = useState<Profile | null>(null);
   const [searching, setSearching] = useState(false);
+  const [searchCompleted, setSearchCompleted] = useState(false);
   const [allResults, setAllResults] = useState<MutealResult[]>([]); // All search results
   const [displayedResults, setDisplayedResults] = useState<MutealResult[]>([]); // Currently displayed results
   const [displayCount, setDisplayCount] = useState(INITIAL_LOAD_COUNT);
@@ -200,6 +201,7 @@ export default function MuteOScope() {
 
     try {
       setSearching(true);
+      setSearchCompleted(false);
       setError(null);
       setAllResults([]);
       setDisplayedResults([]);
@@ -272,6 +274,7 @@ export default function MuteOScope() {
         setAllResults([]);
         setDisplayedResults([]);
         setProgress('');
+        setSearchCompleted(true);
         setSearching(false);
         return;
       }
@@ -300,6 +303,7 @@ export default function MuteOScope() {
       setDisplayedResults(enriched);
       setDisplayCount(INITIAL_LOAD_COUNT);
       setProgress('');
+      setSearchCompleted(true);
     } catch (err) {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'Failed to search for public mute lists');
@@ -384,6 +388,7 @@ export default function MuteOScope() {
     setDisplayCount(INITIAL_LOAD_COUNT);
     setError(null);
     setProgress('');
+    setSearchCompleted(false);
     setProfileSearchResults([]);
     setShowProfileResults(false);
   };
@@ -718,6 +723,7 @@ export default function MuteOScope() {
                     if (targetPubkey) {
                       setTargetPubkey(null);
                       setTargetProfile(null);
+                      setSearchCompleted(false);
                     }
                   }}
                   onKeyPress={handleKeyPress}
@@ -840,7 +846,7 @@ export default function MuteOScope() {
         </div>
 
         {/* Results Section - Zero Mutes (Pristine) */}
-        {!searching && allResults.length === 0 && targetPubkey && !error && (
+        {!searching && searchCompleted && allResults.length === 0 && targetPubkey && !error && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="mb-4">
               <div className="flex items-start justify-between gap-4 mb-3">
