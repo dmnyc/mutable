@@ -10,6 +10,7 @@ import { LogOut, User, Menu, X } from 'lucide-react';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
+import Reciprocals from '@/components/Reciprocals';
 import Backups from '@/components/Backups';
 import Settings from '@/components/Settings';
 import ListCleaner from '@/components/ListCleaner';
@@ -278,7 +279,7 @@ export default function Dashboard() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex space-x-8">
+          <div className="hidden xl:flex space-x-8">
             <button
               onClick={() => setActiveTab('myList')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -308,6 +309,16 @@ export default function Dashboard() {
               }`}
             >
               Muteuals
+            </button>
+            <button
+              onClick={() => setActiveTab('reciprocals')}
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+                activeTab === 'reciprocals'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Reciprocals
             </button>
             <Link
               href="/mute-o-scope"
@@ -362,7 +373,7 @@ export default function Dashboard() {
           </div>
 
           {/* Mobile Navigation */}
-          <div className="lg:hidden">
+          <div className="xl:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="flex items-center justify-between w-full py-4"
@@ -371,17 +382,21 @@ export default function Dashboard() {
                 {activeTab === 'myList' && 'My Mute List'}
                 {activeTab === 'publicLists' && 'Community Packs'}
                 {activeTab === 'muteuals' && 'Muteuals'}
+                {activeTab === 'reciprocals' && 'Reciprocals'}
                 {activeTab === 'domainPurge' && 'Domain Purge'}
                 {activeTab === 'muteOScope' && 'Mute-o-Scope'}
                 {activeTab === 'backups' && 'Backups'}
                 {activeTab === 'listCleaner' && 'List Cleaner'}
                 {activeTab === 'settings' && 'Settings'}
               </span>
-              {mobileMenuOpen ? (
-                <X size={20} className="text-gray-900 dark:text-white" />
-              ) : (
-                <Menu size={20} className="text-gray-900 dark:text-white" />
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Menu</span>
+                {mobileMenuOpen ? (
+                  <X size={20} className="text-gray-900 dark:text-white" />
+                ) : (
+                  <Menu size={20} className="text-gray-900 dark:text-white" />
+                )}
+              </div>
             </button>
 
             {/* Mobile Dropdown Menu */}
@@ -426,6 +441,19 @@ export default function Dashboard() {
                     }`}
                   >
                     Muteuals
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('reciprocals');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                      activeTab === 'reciprocals'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Reciprocals
                   </button>
                   <Link
                     href="/mute-o-scope"
@@ -509,6 +537,7 @@ export default function Dashboard() {
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
+        {activeTab === 'reciprocals' && <Reciprocals />}
         {activeTab === 'domainPurge' && <DomainPurge />}
         {activeTab === 'backups' && <Backups />}
         {activeTab === 'listCleaner' && <ListCleaner />}

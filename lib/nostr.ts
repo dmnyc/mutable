@@ -6,7 +6,7 @@ import {
   nip19,
   nip04
 } from 'nostr-tools';
-import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList, DomainPurgeResult } from '@/types';
+import { MuteList, MuteItem, MUTE_LIST_KIND, PUBLIC_LIST_KIND, Profile, PROFILE_KIND, FOLLOW_LIST_KIND, RELAY_LIST_KIND, MutealResult, PublicMuteList, DomainPurgeResult, ReciprocalResult } from '@/types';
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients and 2024-2025 recommendations
@@ -2105,4 +2105,239 @@ export async function massMuteAndUnfollowDomain(
   console.log('✅ Follow list updated');
 
   return { muteEvent, followEvent };
+}
+
+// Check reciprocal follows - find users you follow who don't follow you back
+export async function checkReciprocalFollows(
+  userPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal
+): Promise<string[]> {
+  const pool = getPool();
+
+  // Step 1: Get the user's follow list (who they follow)
+  const userFollowList = await fetchFollowList(userPubkey, relays);
+
+  if (!userFollowList) {
+    return []; // User follows nobody or follow list couldn't be fetched
+  }
+
+  // Extract all followed pubkeys
+  const followedPubkeys = userFollowList.tags
+    .filter(tag => tag[0] === 'p' && tag[1])
+    .map(tag => tag[1]);
+
+  if (followedPubkeys.length === 0) {
+    return []; // User follows nobody
+  }
+
+  const totalToCheck = followedPubkeys.length;
+
+  // Step 2: Query followed users' follow lists in chunks to avoid relay limits
+  // Most relays reject queries with too many authors (>100-500)
+  const expandedRelays = getExpandedRelayList(relays);
+  const CHUNK_SIZE = 100; // Query 100 authors at a time
+  const allFollowListEvents: Event[] = [];
+
+  for (let i = 0; i < followedPubkeys.length; i += CHUNK_SIZE) {
+    // Check for abort
+    if (abortSignal?.aborted) {
+      return [];
+    }
+
+    const chunk = followedPubkeys.slice(i, i + CHUNK_SIZE);
+    const chunkNum = Math.floor(i / CHUNK_SIZE) + 1;
+    const totalChunks = Math.ceil(followedPubkeys.length / CHUNK_SIZE);
+
+    if (onProgress) {
+      onProgress(i, totalToCheck);
+    }
+
+    try {
+      const events = await pool.querySync(expandedRelays, {
+        kinds: [FOLLOW_LIST_KIND],
+        authors: chunk
+      });
+
+      allFollowListEvents.push(...events);
+    } catch (err) {
+      console.error(`Reciprocals check: Error fetching chunk ${chunkNum}:`, err);
+    }
+
+    // Small delay between chunks to avoid overwhelming relays
+    if (i + CHUNK_SIZE < followedPubkeys.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  // Check for abort
+  if (abortSignal?.aborted) {
+    return [];
+  }
+
+  // Step 3: Deduplicate events - keep only the newest event per author
+  const followListsByAuthor = new Map<string, Event>();
+
+  for (const event of allFollowListEvents) {
+    const existing = followListsByAuthor.get(event.pubkey);
+
+    // Keep the newer event (higher created_at timestamp)
+    if (!existing || event.created_at > existing.created_at) {
+      followListsByAuthor.set(event.pubkey, event);
+    }
+  }
+
+  // Log summary of results
+  const missingCount = followedPubkeys.length - followListsByAuthor.size;
+  if (missingCount > 0) {
+    console.log(`Reciprocals: Successfully fetched ${followListsByAuthor.size}/${followedPubkeys.length} follow lists (${missingCount} missing - may show as non-reciprocal)`);
+  }
+
+  // Step 4: Check each followed user to see if they follow back
+  const nonReciprocalFollows: string[] = [];
+  const missingFollowLists: string[] = [];
+  let checked = 0;
+
+  for (const followedPubkey of followedPubkeys) {
+    // Check for abort
+    if (abortSignal?.aborted) {
+      break;
+    }
+
+    const theirFollowList = followListsByAuthor.get(followedPubkey);
+
+    if (!theirFollowList) {
+      // Couldn't fetch their follow list - mark as non-reciprocal but track separately
+      nonReciprocalFollows.push(followedPubkey);
+      missingFollowLists.push(followedPubkey);
+    } else {
+      // We have their follow list - check if they follow back
+      const followsBack = theirFollowList.tags.some(
+        tag => tag[0] === 'p' && tag[1] === userPubkey
+      );
+
+      if (!followsBack) {
+        nonReciprocalFollows.push(followedPubkey);
+      }
+    }
+
+    checked++;
+
+    // Report progress every 10 users
+    if (onProgress && checked % 10 === 0) {
+      onProgress(checked, totalToCheck);
+    }
+  }
+
+  // Step 5: Second pass - try to fetch missing follow lists from users' preferred relays (NIP-65)
+  if (missingFollowLists.length > 0 && !abortSignal?.aborted) {
+    console.log(`Reciprocals: ${missingFollowLists.length} follow lists missing. Starting second pass with NIP-65 relay discovery...`);
+
+    if (onProgress) {
+      onProgress(0, missingFollowLists.length);
+    }
+
+    const SECOND_PASS_CHUNK_SIZE = 20; // Smaller chunks for second pass
+    let recoveredCount = 0;
+
+    for (let i = 0; i < missingFollowLists.length; i += SECOND_PASS_CHUNK_SIZE) {
+      if (abortSignal?.aborted) break;
+
+      const chunk = missingFollowLists.slice(i, i + SECOND_PASS_CHUNK_SIZE);
+
+      if (onProgress) {
+        onProgress(i, missingFollowLists.length);
+      }
+
+      // Fetch relay lists for this chunk
+      const relayListPromises = chunk.map(pubkey =>
+        fetchRelayListFromNostr(pubkey).catch(() => ({ writeRelays: [], metadata: null }))
+      );
+      const relayLists = await Promise.all(relayListPromises);
+
+      // For each user, try their preferred relays
+      for (let j = 0; j < chunk.length; j++) {
+        if (abortSignal?.aborted) break;
+
+        const pubkey = chunk[j];
+        const { writeRelays } = relayLists[j];
+
+        if (writeRelays.length === 0) continue;
+
+        try {
+          // Query this user's preferred relays for their follow list
+          const events = await pool.querySync(writeRelays, {
+            kinds: [FOLLOW_LIST_KIND],
+            authors: [pubkey],
+            limit: 1
+          });
+
+          if (events.length > 0) {
+            const followList = events[0];
+            const followsBack = followList.tags.some(
+              tag => tag[0] === 'p' && tag[1] === userPubkey
+            );
+
+            // Remove from non-reciprocal list if they actually follow back
+            if (followsBack) {
+              const index = nonReciprocalFollows.indexOf(pubkey);
+              if (index !== -1) {
+                nonReciprocalFollows.splice(index, 1);
+                recoveredCount++;
+              }
+            }
+          }
+        } catch (err) {
+          // Relay query failed, keep as non-reciprocal
+        }
+      }
+
+      // Small delay between chunks
+      if (i + SECOND_PASS_CHUNK_SIZE < missingFollowLists.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    if (recoveredCount > 0) {
+      console.log(`Reciprocals: Second pass recovered ${recoveredCount} follow lists, reducing false positives from ${missingFollowLists.length} to ${missingFollowLists.length - recoveredCount}`);
+    } else {
+      console.log(`Reciprocals: Second pass completed, but couldn't recover any follow lists. ${missingFollowLists.length} users still marked as non-reciprocal (possible false positives)`);
+    }
+  }
+
+  // Final progress report
+  if (onProgress && checked > 0) {
+    onProgress(checked, totalToCheck);
+  }
+
+  return nonReciprocalFollows;
+}
+
+// Check if a specific user follows you back
+export async function checkSpecificUserReciprocal(
+  userPubkey: string,
+  targetPubkey: string,
+  relays: string[] = DEFAULT_RELAYS
+): Promise<{ followsBack: boolean; isFollowing: boolean }> {
+  const pool = getPool();
+
+  // Check if user follows the target
+  const userFollowList = await fetchFollowList(userPubkey, relays);
+  const isFollowing = userFollowList?.tags.some(
+    tag => tag[0] === 'p' && tag[1] === targetPubkey
+  ) || false;
+
+  // If user doesn't follow target, reciprocity doesn't apply
+  if (!isFollowing) {
+    return { followsBack: false, isFollowing: false };
+  }
+
+  // Check if target follows user back
+  const targetFollowList = await fetchFollowList(targetPubkey, relays);
+  const followsBack = targetFollowList?.tags.some(
+    tag => tag[0] === 'p' && tag[1] === userPubkey
+  ) || false;
+
+  return { followsBack, isFollowing: true };
 }

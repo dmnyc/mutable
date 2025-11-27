@@ -155,3 +155,11 @@ export interface DomainPurgeResult {
   nip05: string;
   isFollowing: boolean;
 }
+
+// Reciprocal follow result (user you follow who doesn't follow back)
+export interface ReciprocalResult {
+  pubkey: string;
+  profile?: Profile;
+  followsBack: boolean;
+  checkedAt: number; // timestamp when checked
+}
