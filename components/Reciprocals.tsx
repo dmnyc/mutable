@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { RefreshCw, Users, User, VolumeX, ExternalLink, UserMinus, AlertCircle, X, Copy, Loader2, Search } from 'lucide-react';
+import { RefreshCw, Users, User, VolumeX, ExternalLink, UserMinus, AlertCircle, X, Copy, Loader2, Search, Repeat } from 'lucide-react';
 import { ReciprocalResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import {
@@ -542,17 +542,26 @@ export default function Reciprocals() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          Check Reciprocal Follows
-        </h3>
-        <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-          Find users you follow who don&apos;t follow you back. You can check your entire follow list or search for a specific user.
-        </p>
-        <p className="text-xs text-blue-700 dark:text-blue-300">
-          Note: For users with many follows, this may take a while. The check includes a second pass that queries each user&apos;s preferred relays (NIP-65) to minimize false positives.
-        </p>
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <Repeat className="text-red-600 dark:text-red-500 mt-1" size={24} />
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Reciprocals - Check Who Follows Back
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Find users you follow who don&apos;t follow you back. Check your entire follow list or search for a specific user.
+            </p>
+          </div>
+        </div>
+
+        {/* Info Box */}
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Note:</strong> For users with many follows, this may take a while. The check includes a second pass that queries each user&apos;s preferred relays (NIP-65) to minimize false positives.
+          </p>
+        </div>
       </div>
 
       {/* Search Specific User */}
