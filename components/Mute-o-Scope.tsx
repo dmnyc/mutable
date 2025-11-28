@@ -495,41 +495,52 @@ export default function MuteOScope() {
               {/* Desktop Navigation */}
               <div className="hidden lg:flex space-x-8">
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?tab=myList"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
                 >
                   My Mute List
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?tab=publicLists"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
                 >
                   Community Packs
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?tab=muteuals"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
                 >
                   Muteuals
                 </Link>
-                <div className="py-4 px-1 border-b-2 border-red-600 text-red-600 dark:border-red-500 dark:text-red-500 font-semibold text-base flex items-center gap-2">
+                <Link
+                  href="/dashboard?tab=reciprocals"
+                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
+                >
+                  Reciprocals
+                </Link>
+                <div className="py-4 px-1 border-b-2 border-red-600 text-red-600 dark:border-red-500 dark:text-red-500 font-semibold text-base">
                   Mute-o-Scope
-                  <span className="text-xs font-bold px-1.5 py-0.5 bg-red-600 text-white rounded">NEW</span>
                 </div>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?tab=domainPurge"
+                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
+                >
+                  Domain Purge
+                </Link>
+                <Link
+                  href="/dashboard?tab=backups"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
                 >
                   Backups
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?tab=listCleaner"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
                 >
                   List Cleaner
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?tab=settings"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-base transition-colors"
                 >
                   Settings
@@ -557,46 +568,59 @@ export default function MuteOScope() {
                   <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
                       <Link
-                        href="/dashboard"
+                        href="/dashboard?tab=myList"
                         onClick={() => setMobileMenuOpen(false)}
                         className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         My Mute List
                       </Link>
                       <Link
-                        href="/dashboard"
+                        href="/dashboard?tab=publicLists"
                         onClick={() => setMobileMenuOpen(false)}
                         className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         Community Packs
                       </Link>
                       <Link
-                        href="/dashboard"
+                        href="/dashboard?tab=muteuals"
                         onClick={() => setMobileMenuOpen(false)}
                         className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         Muteuals
                       </Link>
-                      <div className="block w-full text-left py-3 px-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold flex items-center justify-between">
+                      <Link
+                        href="/dashboard?tab=reciprocals"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        Reciprocals
+                      </Link>
+                      <div className="block w-full text-left py-3 px-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold">
                         Mute-o-Scope
-                        <span className="text-xs font-bold px-1.5 py-0.5 bg-red-600 text-white rounded">NEW</span>
                       </div>
                       <Link
-                        href="/dashboard"
+                        href="/dashboard?tab=domainPurge"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        Domain Purge
+                      </Link>
+                      <Link
+                        href="/dashboard?tab=backups"
                         onClick={() => setMobileMenuOpen(false)}
                         className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         Backups
                       </Link>
                       <Link
-                        href="/dashboard"
+                        href="/dashboard?tab=listCleaner"
                         onClick={() => setMobileMenuOpen(false)}
                         className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         List Cleaner
                       </Link>
                       <Link
-                        href="/dashboard"
+                        href="/dashboard?tab=settings"
                         onClick={() => setMobileMenuOpen(false)}
                         className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                       >

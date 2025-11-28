@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import Image from 'next/image';
 import Link from 'next/link';
 import { LogOut, User, Menu, X } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
@@ -25,8 +27,9 @@ import { Profile } from '@/types';
 import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
 import { backupService } from '@/lib/backupService';
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session, isConnected, disconnect, reloadMuteList } = useAuth();
   const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -34,6 +37,24 @@ export default function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Function to change tab and update URL
+  const changeTab = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', tab);
+    router.push(`/dashboard?${params.toString()}`, { scroll: false });
+  };
+
+  // Sync URL with activeTab on mount and when URL changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const validTabs = ['myList', 'publicLists', 'muteuals', 'reciprocals', 'backups', 'settings', 'listCleaner', 'muteOScope', 'domainPurge'] as const;
+
+    if (tabParam && validTabs.includes(tabParam as any)) {
+      setActiveTab(tabParam as typeof activeTab);
+    }
+  }, [searchParams, setActiveTab]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -178,7 +199,7 @@ export default function Dashboard() {
   };
 
   const handleCleanFromBanner = () => {
-    setActiveTab('listCleaner');
+    changeTab('listCleaner');
   };
 
   return (
@@ -188,7 +209,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
             <button
-              onClick={() => setActiveTab('myList')}
+              onClick={() => changeTab('myList')}
               className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
               title="Go to My Mute List"
             >
@@ -281,7 +302,7 @@ export default function Dashboard() {
           {/* Desktop Navigation */}
           <div className="hidden xl:flex space-x-8">
             <button
-              onClick={() => setActiveTab('myList')}
+              onClick={() => changeTab('myList')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'myList'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -291,7 +312,7 @@ export default function Dashboard() {
               My Mute List
             </button>
             <button
-              onClick={() => setActiveTab('publicLists')}
+              onClick={() => changeTab('publicLists')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'publicLists'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -301,7 +322,7 @@ export default function Dashboard() {
               Community Packs
             </button>
             <button
-              onClick={() => setActiveTab('muteuals')}
+              onClick={() => changeTab('muteuals')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'muteuals'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -311,7 +332,7 @@ export default function Dashboard() {
               Muteuals
             </button>
             <button
-              onClick={() => setActiveTab('reciprocals')}
+              onClick={() => changeTab('reciprocals')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'reciprocals'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -331,7 +352,7 @@ export default function Dashboard() {
               Mute-o-Scope
             </Link>
             <button
-              onClick={() => setActiveTab('domainPurge')}
+              onClick={() => changeTab('domainPurge')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'domainPurge'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -341,7 +362,7 @@ export default function Dashboard() {
               Domain Purge
             </button>
             <button
-              onClick={() => setActiveTab('backups')}
+              onClick={() => changeTab('backups')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'backups'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -351,7 +372,7 @@ export default function Dashboard() {
               Backups
             </button>
             <button
-              onClick={() => setActiveTab('listCleaner')}
+              onClick={() => changeTab('listCleaner')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'listCleaner'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -361,7 +382,7 @@ export default function Dashboard() {
               List Cleaner
             </button>
             <button
-              onClick={() => setActiveTab('settings')}
+              onClick={() => changeTab('settings')}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === 'settings'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
@@ -390,11 +411,11 @@ export default function Dashboard() {
                 {activeTab === 'settings' && 'Settings'}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Menu</span>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Menu</span>
                 {mobileMenuOpen ? (
-                  <X size={20} className="text-gray-900 dark:text-white" />
+                  <X size={20} strokeWidth={2.5} className="text-gray-900 dark:text-white" />
                 ) : (
-                  <Menu size={20} className="text-gray-900 dark:text-white" />
+                  <Menu size={20} strokeWidth={2.5} className="text-gray-900 dark:text-white" />
                 )}
               </div>
             </button>
@@ -405,7 +426,7 @@ export default function Dashboard() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
                   <button
                     onClick={() => {
-                      setActiveTab('myList');
+                      changeTab('myList');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -418,7 +439,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('publicLists');
+                      changeTab('publicLists');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -431,7 +452,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('muteuals');
+                      changeTab('muteuals');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -444,7 +465,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('reciprocals');
+                      changeTab('reciprocals');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -468,7 +489,7 @@ export default function Dashboard() {
                   </Link>
                   <button
                     onClick={() => {
-                      setActiveTab('domainPurge');
+                      changeTab('domainPurge');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -481,7 +502,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('backups');
+                      changeTab('backups');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -494,7 +515,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('listCleaner');
+                      changeTab('listCleaner');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -507,7 +528,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('settings');
+                      changeTab('settings');
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
@@ -570,5 +591,17 @@ export default function Dashboard() {
         itemCount={muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length}
       />
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

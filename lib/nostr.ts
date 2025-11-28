@@ -1242,6 +1242,42 @@ export async function unfollowUser(
   return signedEvent;
 }
 
+// Remove multiple users from follow list (optimized - publishes once)
+export async function unfollowMultipleUsers(
+  targetPubkeys: string[],
+  relays: string[] = DEFAULT_RELAYS
+): Promise<Event> {
+  // Fetch current follow list
+  const currentFollowList = await fetchFollowList(
+    await getNip07Pubkey(),
+    relays
+  );
+
+  // Create a Set of target pubkeys for efficient lookup
+  const targetSet = new Set(targetPubkeys);
+
+  // Filter out all target pubkeys from the follow list
+  const tags = currentFollowList
+    ? currentFollowList.tags.filter(tag => tag[0] === 'p' && !targetSet.has(tag[1]))
+    : [];
+
+  const eventTemplate: EventTemplate = {
+    kind: FOLLOW_LIST_KIND,
+    tags,
+    content: currentFollowList?.content || '',
+    created_at: Math.floor(Date.now() / 1000)
+  };
+
+  const signedEvent = await signWithNip07(eventTemplate);
+  const pool = getPool();
+
+  await Promise.any(
+    pool.publish(relays, signedEvent)
+  );
+
+  return signedEvent;
+}
+
 // Check if a user is in the follow list
 export async function isFollowing(
   targetPubkey: string,

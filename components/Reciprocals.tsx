@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import { RefreshCw, Users, User, VolumeX, ExternalLink, UserMinus, AlertCircle, X, Copy, Loader2, Search } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
   hexToNpub,
   npubToHex,
   unfollowUser,
+  unfollowMultipleUsers,
   searchProfiles,
   fetchProfile,
   getFollowListPubkeys
@@ -141,6 +142,9 @@ export default function Reciprocals() {
   const handleSearchUser = async () => {
     if (!session || !searchQuery.trim()) return;
 
+    // Close the dropdown when search starts
+    setShowProfileResults(false);
+
     try {
       setSearchingUser(true);
       setError(null);
@@ -226,7 +230,7 @@ export default function Reciprocals() {
       `This will:\n` +
       `• Create a backup of your follow list first\n` +
       `• Remove ${allResults.length} user${allResults.length === 1 ? '' : 's'} from your follow list\n` +
-      `• Publish the updated list to your relays\n\n` +
+      `• Publish the updated list to your relays (one time)\n\n` +
       `This action cannot be undone (except by restoring from backup).`
     );
 
@@ -247,13 +251,11 @@ export default function Reciprocals() {
       );
       backupService.saveBackup(backup);
 
-      setProgress('Unfollowing users...');
+      setProgress(`Publishing updated follow list (removing ${allResults.length} user${allResults.length === 1 ? '' : 's'})...`);
 
-      // Unfollow each user
-      for (let i = 0; i < allResults.length; i++) {
-        await unfollowUser(allResults[i].pubkey, session.relays);
-        setProgress(`Unfollowed ${i + 1}/${allResults.length}...`);
-      }
+      // Unfollow all users at once (optimized - publishes once)
+      const pubkeysToUnfollow = allResults.map(r => r.pubkey);
+      await unfollowMultipleUsers(pubkeysToUnfollow, session.relays);
 
       setProgress('');
       alert(`Successfully unfollowed ${allResults.length} user${allResults.length === 1 ? '' : 's'}!`);
@@ -309,10 +311,20 @@ export default function Reciprocals() {
   const handleUnfollowSingle = async (pubkey: string) => {
     if (!session) return;
 
-    const confirmed = confirm('Unfollow this user?\n\nThis will publish the change to your relays immediately.');
+    const confirmed = confirm('Unfollow this user?\n\nA backup will be created before unfollowing.\nThis will publish the change to your relays immediately.');
     if (!confirmed) return;
 
     try {
+      // Get current follows and create backup first
+      const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const backup = backupService.createFollowListBackup(
+        session.pubkey,
+        currentFollows,
+        'Auto-backup before unfollowing user from Reciprocals'
+      );
+      backupService.saveBackup(backup);
+
+      // Now unfollow
       await unfollowUser(pubkey, session.relays);
 
       // Remove from results
@@ -323,7 +335,7 @@ export default function Reciprocals() {
         setSearchResult(null);
       }
 
-      alert('Successfully unfollowed!');
+      alert('Successfully unfollowed! (Backup saved)');
     } catch (err) {
       console.error('Unfollow error:', err);
       alert('Failed to unfollow user');
@@ -366,7 +378,7 @@ export default function Reciprocals() {
   };
 
   // Real-time profile search as user types
-  useState(() => {
+  useEffect(() => {
     const searchUserProfiles = async () => {
       if (!session || !searchQuery.trim()) {
         setProfileSearchResults([]);
@@ -397,7 +409,7 @@ export default function Reciprocals() {
     // Debounce search - wait 300ms after user stops typing
     const timeoutId = setTimeout(searchUserProfiles, 300);
     return () => clearTimeout(timeoutId);
-  });
+  }, [searchQuery, session]);
 
   const handleSelectProfile = (profile: Profile) => {
     setSearchQuery(profile.display_name || profile.name || profile.nip05 || '');
@@ -445,10 +457,16 @@ export default function Reciprocals() {
               <span className={`font-medium truncate ${isLoading ? 'text-gray-500 dark:text-gray-400 italic' : 'text-gray-900 dark:text-white'}`}>
                 {displayName}
               </span>
-              {!result.followsBack && (
-                <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
-                  Doesn&apos;t follow back
-                </span>
+              {!isLoading && (
+                result.followsBack ? (
+                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded font-medium">
+                    ✓ Follows back
+                  </span>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded font-medium">
+                    ✗ Doesn&apos;t follow back
+                  </span>
+                )
               )}
             </div>
             {profile?.nip05 && (
