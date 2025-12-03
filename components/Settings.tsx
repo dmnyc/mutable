@@ -448,11 +448,20 @@ export default function Settings() {
             <strong className="text-gray-900 dark:text-white">Build:</strong> {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'local'}
           </p>
           <p>
-            <strong className="text-gray-900 dark:text-white">Description:</strong> A Nostr mute list management application
+            <strong className="text-gray-900 dark:text-white">Description:</strong> Mutable is a comprehensive Nostr social graph management tool that helps you curate your follow lists and maintain a healthy social feed through intelligent muting, community-driven filtering, and advanced list management features.
           </p>
-          <p>
-            <strong className="text-gray-900 dark:text-white">Features:</strong> Manage personal mute lists, discover community packs, track muteuals, reciprocals, decimator, and create backups
-          </p>
+          <div>
+            <strong className="text-gray-900 dark:text-white block mb-2">Features:</strong>
+            <ul className="list-disc list-inside space-y-1 ml-4 text-gray-600 dark:text-gray-400">
+              <li><strong className="text-gray-700 dark:text-gray-300">Mute-o-Scope:</strong> Analyze your social graph and discover users to mute based on engagement patterns and follower overlap</li>
+              <li><strong className="text-gray-700 dark:text-gray-300">Public Packs:</strong> Discover and import curated mute lists from the Nostr community (e.g., scammers, spam bots, low-quality accounts)</li>
+              <li><strong className="text-gray-700 dark:text-gray-300">Muteuals:</strong> Find users you follow who have muted you, helping you understand your social dynamics</li>
+              <li><strong className="text-gray-700 dark:text-gray-300">Reciprocals:</strong> Discover who you follow that doesn&apos;t follow you back, with intelligent relay discovery using NIP-65</li>
+              <li><strong className="text-gray-700 dark:text-gray-300">Decimator:</strong> Randomly reduce your follow list by a percentage to keep it manageable, with user protection capabilities</li>
+              <li><strong className="text-gray-700 dark:text-gray-300">Backups:</strong> Automatically backup your follow lists before making changes, with easy restore functionality</li>
+              <li><strong className="text-gray-700 dark:text-gray-300">NIP-51 Support:</strong> Full support for Nostr&apos;s mute list standard with public and private list management</li>
+            </ul>
+          </div>
         </div>
       </div>
 

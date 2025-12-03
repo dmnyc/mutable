@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { RefreshCw, Skull, AlertCircle, Copy, ExternalLink, UserMinus, Share2 } from 'lucide-react';
+import { RefreshCw, Skull, AlertCircle, Copy, ExternalLink, UserMinus, Share2, Shield, ShieldCheck, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import DecimatorShareModal from './DecimatorShareModal';
@@ -13,6 +13,7 @@ import {
   hexToNpub
 } from '@/lib/nostr';
 import { backupService } from '@/lib/backupService';
+import { protectionService } from '@/lib/protectionService';
 
 interface DecimatorResult {
   pubkey: string;
@@ -34,7 +35,42 @@ export default function Decimator() {
   const [followsLoaded, setFollowsLoaded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [decimatedCount, setDecimatedCount] = useState<number>(0);
+  const [protectedPubkeys, setProtectedPubkeys] = useState<Set<string>>(new Set());
+  const [protectedUsers, setProtectedUsers] = useState<DecimatorResult[]>([]);
+  const [showProtectedList, setShowProtectedList] = useState(false);
+  const [loadingProtectedProfiles, setLoadingProtectedProfiles] = useState(false);
+  const [protectedPage, setProtectedPage] = useState(1);
+  const [protectedPageSize, setProtectedPageSize] = useState(10);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load protected users on mount
+  useEffect(() => {
+    const loadProtected = async () => {
+      const protectedSet = protectionService.loadProtectedUsers();
+      setProtectedPubkeys(protectedSet);
+
+      // Load profiles for protected users
+      if (protectedSet.size > 0 && session) {
+        setLoadingProtectedProfiles(true);
+        const pubkeysArray = Array.from(protectedSet);
+        const results: DecimatorResult[] = [];
+
+        for (const pubkey of pubkeysArray) {
+          try {
+            const profile = await fetchProfile(pubkey, session.relays);
+            results.push({ pubkey, profile: profile || undefined });
+          } catch (err) {
+            results.push({ pubkey });
+          }
+        }
+
+        setProtectedUsers(results);
+        setLoadingProtectedProfiles(false);
+      }
+    };
+
+    loadProtected();
+  }, [session]);
 
   // Load follow count when switching to target mode
   const loadFollowCount = async () => {
@@ -60,16 +96,32 @@ export default function Decimator() {
       setProcessing(true);
       setError(null);
       setSelectedUsers([]);
+      setDecimatedCount(0); // Reset decimated count for new selection
       setProgress('Fetching your follow list...');
 
       // Get current follow list
-      const followList = await getFollowListPubkeys(session.pubkey, session.relays);
+      const allFollows = await getFollowListPubkeys(session.pubkey, session.relays);
 
-      if (followList.length === 0) {
+      if (allFollows.length === 0) {
         setError("You don&apos;t follow anyone yet!");
         setProgress('');
         setProcessing(false);
         return;
+      }
+
+      // Filter out protected users from selection pool
+      const followList = allFollows.filter(pubkey => !protectedPubkeys.has(pubkey));
+      const protectedCount = allFollows.length - followList.length;
+
+      if (followList.length === 0) {
+        setError('All of your follows are protected! Remove protection from some users to proceed.');
+        setProgress('');
+        setProcessing(false);
+        return;
+      }
+
+      if (protectedCount > 0) {
+        console.log(`${protectedCount} protected user${protectedCount === 1 ? '' : 's'} excluded from selection`);
       }
 
       // Calculate how many to remove
@@ -95,7 +147,7 @@ export default function Decimator() {
         return;
       }
 
-      setProgress(`Selecting ${numberToRemove} users randomly...`);
+      setProgress(`Selecting ${numberToRemove} users randomly (${protectedCount} protected)...`);
 
       // Shuffle the follow list using Fisher-Yates algorithm
       const shuffled = [...followList];
@@ -138,7 +190,11 @@ export default function Decimator() {
         );
 
         enrichedResults.push(...profiles);
-        setSelectedUsers([...enrichedResults]);
+        // Filter out any users that were protected during loading
+        setSelectedUsers(prev => {
+          const currentProtected = protectionService.loadProtectedUsers();
+          return enrichedResults.filter(user => !currentProtected.has(user.pubkey));
+        });
 
         setProgress(`Loading profiles... ${enrichedResults.length}/${results.length}`);
 
@@ -233,6 +289,61 @@ export default function Decimator() {
     setSelectedProfile(profile);
   };
 
+  const handleToggleProtection = async (pubkey: string) => {
+    const isProtected = protectedPubkeys.has(pubkey);
+
+    if (isProtected) {
+      protectionService.removeProtection(pubkey);
+      setProtectedPubkeys(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(pubkey);
+        return newSet;
+      });
+      // Remove from protected users list
+      setProtectedUsers(prev => prev.filter(user => user.pubkey !== pubkey));
+    } else {
+      protectionService.addProtection(pubkey);
+      setProtectedPubkeys(prev => new Set(prev).add(pubkey));
+
+      // Remove from current selection list if protecting
+      setSelectedUsers(prev => prev.filter(user => user.pubkey !== pubkey));
+
+      // Add to protected users list with profile
+      if (session) {
+        try {
+          const profile = await fetchProfile(pubkey, session.relays);
+          setProtectedUsers(prev => [...prev, { pubkey, profile: profile || undefined }]);
+        } catch (err) {
+          setProtectedUsers(prev => [...prev, { pubkey }]);
+        }
+      }
+    }
+  };
+
+  const handleClearAllProtection = () => {
+    const confirmed = confirm(
+      `Remove protection from all ${protectedPubkeys.size} user${protectedPubkeys.size === 1 ? '' : 's'}?\n\n` +
+      `This will make them eligible for decimation again.`
+    );
+
+    if (!confirmed) return;
+
+    protectionService.clearAllProtection();
+    setProtectedPubkeys(new Set());
+    setProtectedUsers([]);
+    setProtectedPage(1);
+  };
+
+  // Pagination calculations for protected users
+  const protectedTotalPages = Math.ceil(protectedUsers.length / protectedPageSize);
+  const protectedStartIndex = (protectedPage - 1) * protectedPageSize;
+  const protectedEndIndex = protectedStartIndex + protectedPageSize;
+  const protectedCurrentItems = protectedUsers.slice(protectedStartIndex, protectedEndIndex);
+
+  const handleProtectedPageChange = (page: number) => {
+    setProtectedPage(page);
+  };
+
   if (!session) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -275,6 +386,176 @@ export default function Decimator() {
           </div>
         </div>
       </div>
+
+      {/* Protected Users Section */}
+      {protectedPubkeys.size > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => setShowProtectedList(!showProtectedList)}
+              className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <span>Protected Users ({protectedPubkeys.size})</span>
+              {showProtectedList ? (
+                <ChevronUp className="w-5 h-5" />
+              ) : (
+                <ChevronDown className="w-5 h-5" />
+              )}
+            </button>
+            {showProtectedList && (
+              <button
+                onClick={handleClearAllProtection}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear All
+              </button>
+            )}
+          </div>
+
+          {showProtectedList && (
+            <>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                These users will be excluded from random decimation selection.
+              </p>
+
+              {loadingProtectedProfiles ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">Loading profiles...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {protectedCurrentItems.map((user) => (
+                    <div
+                      key={user.pubkey}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div
+                        className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                        onClick={() => user.profile && handleViewProfile(user.profile)}
+                        title={user.profile ? "View profile" : undefined}
+                      >
+                        <div className="relative">
+                          {user.profile?.picture ? (
+                            <img
+                              src={user.profile.picture}
+                              alt=""
+                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                const placeholder = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                                if (placeholder) placeholder.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex-shrink-0" style={{ display: user.profile?.picture ? 'none' : 'flex' }} />
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-600 dark:bg-green-700 flex items-center justify-center">
+                            <ShieldCheck className="w-3 h-3 text-white" />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          {user.profile ? (
+                            <>
+                              <div className="font-medium text-gray-900 dark:text-white truncate">
+                                {user.profile.name || user.profile.display_name || 'Anonymous'}
+                              </div>
+                              {user.profile.nip05 && (
+                                <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                  {user.profile.nip05}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="text-gray-500 dark:text-gray-400 text-sm truncate font-mono">
+                              {user.pubkey.slice(0, 16)}...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleToggleProtection(user.pubkey)}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium transition-colors"
+                          title="Remove protection"
+                        >
+                          Revoke
+                        </button>
+                        <button
+                          onClick={() => handleCopyNpub(user.pubkey)}
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                          title="Copy npub"
+                        >
+                          {copiedNpub === user.pubkey ? (
+                            <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {protectedUsers.length > 0 && protectedTotalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        Showing {protectedStartIndex + 1}-{Math.min(protectedEndIndex, protectedUsers.length)} of {protectedUsers.length}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleProtectedPageChange(protectedPage - 1)}
+                          disabled={protectedPage === 1}
+                          className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                        >
+                          Previous
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: protectedTotalPages }, (_, i) => i + 1).map((page) => {
+                            // Show first page, last page, current page, and adjacent pages
+                            if (
+                              page === 1 ||
+                              page === protectedTotalPages ||
+                              (page >= protectedPage - 1 && page <= protectedPage + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handleProtectedPageChange(page)}
+                                  className={`px-3 py-1 text-sm rounded ${
+                                    protectedPage === page
+                                      ? 'bg-green-600 text-white'
+                                      : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            } else if (page === protectedPage - 2 || page === protectedPage + 2) {
+                              return <span key={page} className="px-1 text-gray-500">...</span>;
+                            }
+                            return null;
+                          })}
+                        </div>
+                        <button
+                          onClick={() => handleProtectedPageChange(protectedPage + 1)}
+                          disabled={protectedPage === protectedTotalPages}
+                          className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Selection Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -486,18 +767,28 @@ export default function Decimator() {
             {selectedUsers.map((user) => (
               <div
                 key={user.pubkey}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  {user.profile?.picture ? (
-                    <img
-                      src={user.profile.picture}
-                      alt=""
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex-shrink-0" />
-                  )}
+                <div
+                  className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                  onClick={() => user.profile && handleViewProfile(user.profile)}
+                  title={user.profile ? "View profile" : undefined}
+                >
+                  <div className="relative w-10 h-10 flex-shrink-0">
+                    {user.profile?.picture ? (
+                      <img
+                        src={user.profile.picture}
+                        alt=""
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const placeholder = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                          if (placeholder) placeholder.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600" style={{ display: user.profile?.picture ? 'none' : 'flex' }} />
+                  </div>
                   <div className="min-w-0 flex-1">
                     {user.profile ? (
                       <>
@@ -519,6 +810,21 @@ export default function Decimator() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
+                    onClick={() => handleToggleProtection(user.pubkey)}
+                    className={`p-2 transition-colors ${
+                      protectedPubkeys.has(user.pubkey)
+                        ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400'
+                    }`}
+                    title={protectedPubkeys.has(user.pubkey) ? 'Remove protection' : 'Protect from decimation'}
+                  >
+                    {protectedPubkeys.has(user.pubkey) ? (
+                      <ShieldCheck className="w-4 h-4" />
+                    ) : (
+                      <Shield className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
                     onClick={() => handleCopyNpub(user.pubkey)}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                     title="Copy npub"
@@ -529,15 +835,6 @@ export default function Decimator() {
                       <Copy className="w-4 h-4" />
                     )}
                   </button>
-                  {user.profile && (
-                    <button
-                      onClick={() => handleViewProfile(user.profile!)}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                      title="View profile"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
