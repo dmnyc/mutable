@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useRelaySync } from '@/hooks/useRelaySync';
 import { useStore } from '@/lib/store';
+import { protectionService } from '@/lib/protectionService';
+import { blacklistService } from '@/lib/blacklistService';
 import packageJson from '../package.json';
 import {
   Settings as SettingsIcon,
@@ -19,18 +22,27 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  Radio
+  Radio,
+  Cloud,
+  CloudOff,
+  Download,
+  Upload
 } from 'lucide-react';
 
 export default function Settings() {
   const router = useRouter();
   const { disconnect } = useAuth();
+  const { triggerSync, getSyncStatus, isOnline } = useRelaySync();
   const { session, setHasCompletedOnboarding } = useStore();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetStep, setResetStep] = useState(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusData, setSyncStatusData] = useState(getSyncStatus());
+  const [protectedCount, setProtectedCount] = useState(0);
+  const [blacklistCount, setBlacklistCount] = useState(0);
 
   // Relay state
   const [userRelayList, setUserRelayList] = useState<{
@@ -121,6 +133,126 @@ export default function Settings() {
       return 0;
     }
     return 0;
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await triggerSync();
+      setSyncStatusData(result || getSyncStatus());
+
+      if (result && result.errors.length === 0) {
+        setSuccessMessage('All app data synced successfully with relays!');
+      } else if (result && result.errors.length > 0) {
+        setErrorMessage(`Sync completed with ${result.errors.length} error(s). Check console for details.`);
+      }
+
+      setTimeout(() => {
+        setSuccessMessage(null);
+        setErrorMessage(null);
+      }, 5000);
+    } catch (error) {
+      setErrorMessage('Failed to sync with relays. Please try again.');
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Poll sync status and counts periodically
+  useEffect(() => {
+    const updateCounts = () => {
+      setProtectedCount(protectionService.getProtectedCount());
+      setBlacklistCount(blacklistService.getBlacklistCount());
+      setSyncStatusData(getSyncStatus());
+    };
+
+    // Initial update
+    updateCounts();
+
+    const interval = setInterval(updateCounts, 2000);
+    return () => clearInterval(interval);
+  }, [getSyncStatus]);
+
+  const handleExportProtectedUsers = () => {
+    const records = protectionService.loadProtectionRecords();
+
+    if (records.length === 0) {
+      alert('No protected users to export.');
+      return;
+    }
+
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      count: records.length,
+      protectedUsers: records
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mutable-protected-users-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setSuccessMessage(`Exported ${records.length} protected user${records.length === 1 ? '' : 's'}`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleImportProtectedUsers = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importData = JSON.parse(content);
+
+        // Validate format
+        if (!importData.protectedUsers || !Array.isArray(importData.protectedUsers)) {
+          throw new Error('Invalid protected users file format');
+        }
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        // Import as append-only (don't overwrite existing)
+        importData.protectedUsers.forEach((user: { pubkey: string; note?: string }) => {
+          if (user.pubkey && !protectionService.isProtected(user.pubkey)) {
+            protectionService.addProtection(user.pubkey, user.note);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        });
+
+        // Update counts
+        setProtectedCount(protectionService.getProtectedCount());
+
+        // Publish to relay if user is online
+        if (session) {
+          protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+        }
+
+        setSuccessMessage(
+          `Import complete!\nAdded: ${addedCount} user${addedCount === 1 ? '' : 's'}\n` +
+          (skippedCount > 0 ? `Skipped ${skippedCount} already protected` : '')
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } catch (error) {
+        setErrorMessage(`Failed to import: ${error instanceof Error ? error.message : 'Invalid file'}`);
+        setTimeout(() => setErrorMessage(null), 5000);
+      }
+    };
+    reader.readAsText(file);
+
+    // Reset input so same file can be selected again
+    event.target.value = '';
   };
 
   return (
@@ -298,6 +430,132 @@ export default function Settings() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Relay Storage Sync Section */}
+      {session && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Cloud size={24} className="text-gray-900 dark:text-white" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Relay Storage Sync</h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* Info about relay storage */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-900 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Multi-Device Sync</p>
+                  <p className="mb-2">Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays. This allows you to seamlessly access your data across all devices.</p>
+                  <p className="text-xs">
+                    <strong>Tip:</strong> Use the export/import buttons to share your protected users list or create local backups. Imports are append-only and won&apos;t overwrite existing protections.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sync status */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  {isOnline ? (
+                    <Cloud size={20} className="text-green-600 dark:text-green-400" />
+                  ) : (
+                    <CloudOff size={20} className="text-gray-400" />
+                  )}
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Sync Status</h3>
+                </div>
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncing || !isOnline}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                  {isSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+              </div>
+
+              {syncStatusData.lastSyncTime && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  Last synced: {new Date(syncStatusData.lastSyncTime).toLocaleString()}
+                </div>
+              )}
+
+              {/* Data counts */}
+              <div className="space-y-4 mt-3">
+                <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 dark:text-gray-400">Protected Users:</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleExportProtectedUsers}
+                        disabled={protectedCount === 0}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        title="Export protected users list"
+                      >
+                        <Download size={14} />
+                        <span>Export</span>
+                      </button>
+                      <label className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer font-medium" title="Import protected users list">
+                        <Upload size={14} />
+                        <span>Import</span>
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportProtectedUsers}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <p className="font-semibold text-gray-900 dark:text-white">{protectedCount}</p>
+                </div>
+                <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                  <span className="text-gray-600 dark:text-gray-400">Blacklisted:</span>
+                  <p className="font-semibold text-gray-900 dark:text-white">{blacklistCount}</p>
+                </div>
+              </div>
+
+              {syncStatusData.syncedServices.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Synced Services ({syncStatusData.syncedServices.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {syncStatusData.syncedServices.map((service) => (
+                      <span
+                        key={service}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded text-xs"
+                      >
+                        <CheckCircle size={12} />
+                        {service}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {syncStatusData.errors.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-2">
+                    Errors ({syncStatusData.errors.length})
+                  </p>
+                  <div className="space-y-1">
+                    {syncStatusData.errors.map((error, i) => (
+                      <div
+                        key={i}
+                        className="text-xs text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-900/30 p-2 rounded"
+                      >
+                        {error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

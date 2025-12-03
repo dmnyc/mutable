@@ -19,9 +19,11 @@ import {
   Sliders,
   ExternalLink,
   Copy,
-  Sparkles
+  Sparkles,
+  Shield
 } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
+import { protectionService } from '@/lib/protectionService';
 
 export default function ListCleaner() {
   const { muteList, session, removeMutedItem, addToBlacklist, removeFromBlacklist, blacklistedPubkeys, isBlacklisted } = useStore();
@@ -173,6 +175,11 @@ export default function ListCleaner() {
   };
 
   const handleRemoveAccount = (pubkey: string) => {
+    if (protectionService.isProtected(pubkey)) {
+      alert('⚠️ This user is protected and cannot be removed.\n\nYou can manage protected users in the Decimator tab.');
+      return;
+    }
+
     removeMutedItem(pubkey, 'pubkeys');
     addToBlacklist(pubkey);
 
@@ -182,13 +189,33 @@ export default function ListCleaner() {
 
   const handleBulkRemove = () => {
     const inactiveAccounts = scanResults.filter(r => r.isLikelyAbandoned);
+    const protectedPubkeys = protectionService.loadProtectedUsers();
+    const unprotectedAccounts = inactiveAccounts.filter(a => !protectedPubkeys.has(a.pubkey));
+    const protectedCount = inactiveAccounts.length - unprotectedAccounts.length;
 
-    inactiveAccounts.forEach(account => {
+    if (unprotectedAccounts.length === 0) {
+      alert('⚠️ All inactive accounts are protected.\n\nYou can manage protected users in the Decimator tab.');
+      return;
+    }
+
+    let confirmMsg = `Remove ${unprotectedAccounts.length} inactive ${unprotectedAccounts.length === 1 ? 'account' : 'accounts'}?\n\n`;
+
+    if (protectedCount > 0) {
+      confirmMsg += `⚠️ ${protectedCount} ${protectedCount === 1 ? 'account is' : 'accounts are'} protected and will be skipped.\n\n`;
+    }
+
+    confirmMsg += `This will remove them from your mute list and add them to the blacklist to prevent re-import.`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    unprotectedAccounts.forEach(account => {
       removeMutedItem(account.pubkey, 'pubkeys');
       addToBlacklist(account.pubkey);
     });
 
-    setScanResults([]);
+    setScanResults(prev => prev.filter(r => !unprotectedAccounts.some(a => a.pubkey === r.pubkey)));
   };
 
   const handleRemoveFromBlacklist = (pubkey: string) => {
@@ -403,7 +430,11 @@ export default function ListCleaner() {
                 <div
                   key={result.pubkey}
                   className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                    result.isLikelyAbandoned ? 'bg-red-50 dark:bg-red-900/10' : ''
+                    protectionService.isProtected(result.pubkey)
+                      ? 'bg-green-50 dark:bg-green-900/10 border-l-4 border-green-500'
+                      : result.isLikelyAbandoned
+                      ? 'bg-red-50 dark:bg-red-900/10'
+                      : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -428,6 +459,12 @@ export default function ListCleaner() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium truncate">{displayName}</p>
+                          {protectionService.isProtected(result.pubkey) && (
+                            <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded whitespace-nowrap">
+                              <Shield size={12} />
+                              Protected
+                            </span>
+                          )}
                           {result.isLikelyAbandoned ? (
                             <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded whitespace-nowrap">
                               inactive
@@ -485,7 +522,7 @@ export default function ListCleaner() {
                       </div>
                     </div>
 
-                    {result.isLikelyAbandoned && (
+                    {result.isLikelyAbandoned && !protectionService.isProtected(result.pubkey) && (
                       <button
                         onClick={() => handleRemoveAccount(result.pubkey)}
                         className="ml-4 px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm flex-shrink-0"

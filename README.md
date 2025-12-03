@@ -35,6 +35,13 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Subscribe**: Copy public list contents into your personal mute list
 - **Create**: Publish your own public mute lists for others to use
 
+### Multi-Device Sync via Relay Storage (NIP-78) ☁️ NEW
+- **Persistent Settings**: Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays
+- **Seamless Multi-Device**: Access your data across all devices without manual backups
+- **Encrypted Storage**: Sensitive data (protected users, blacklist) is encrypted using NIP-04
+- **Manual Sync**: Trigger manual sync from Settings page
+- **Sync Status**: View real-time sync status and last sync time
+
 ### Authentication
 - **NIP-07**: Connect using browser extensions (Alby, nos2x)
 - **NIP-46**: Remote signer support (coming soon)
@@ -111,10 +118,17 @@ mutable/
 │   ├── ShareResultsModal.tsx  # Share results to Nostr
 │   └── UserProfileModal.tsx   # User profile viewer
 ├── hooks/                 # Custom React hooks
-│   └── useAuth.ts
+│   ├── useAuth.ts        # Authentication hook
+│   └── useRelaySync.ts   # Relay storage sync hook
 ├── lib/                   # Library code
 │   ├── nostr.ts          # Nostr protocol functions
-│   └── store.ts          # Zustand state management
+│   ├── store.ts          # Zustand state management
+│   ├── relayStorage.ts   # NIP-78 relay storage implementation
+│   ├── syncManager.ts    # Sync coordination service
+│   ├── protectionService.ts  # Protected users management
+│   ├── blacklistService.ts   # Blacklist management
+│   ├── preferencesService.ts # App preferences management
+│   └── importedPacksService.ts # Imported packs tracking
 ├── types/                 # TypeScript type definitions
 │   └── index.ts
 └── public/               # Static assets
@@ -144,7 +158,38 @@ mutable/
 
 - **kind:10000**: Personal mute list (replaceable event)
 - **kind:30001**: Public/categorized mute list (parameterized replaceable event)
+- **kind:30078**: Application-specific data (NIP-78) - used for relay storage sync
 - **kind:1**: Text note (for sharing Mute-o-Scope results)
+
+## Relay Storage Implementation
+
+Mutable implements NIP-78 (Application-specific Data) to sync your settings across devices:
+
+### Synced Data Types
+
+1. **Protected Users** (`d-tag: mutable:protected-users`)
+   - Users protected from the Decimator feature
+   - Encrypted with NIP-04
+
+2. **Blacklist** (`d-tag: mutable:blacklist`)
+   - Pubkeys prevented from re-import (removed inactive profiles)
+   - Encrypted with NIP-04
+
+3. **Preferences** (`d-tag: mutable:preferences`)
+   - Theme, onboarding status, and other app settings
+   - Not encrypted (non-sensitive data)
+
+4. **Imported Packs** (`d-tag: mutable:imported-packs`)
+   - Tracking of which community packs have been imported
+   - Not encrypted (tracking data)
+
+### How It Works
+
+- **Automatic Sync**: Data syncs automatically on login and session restore
+- **Timestamp Resolution**: Conflicts are resolved using timestamp (newest wins)
+- **Local Cache**: localStorage serves as offline cache for quick access
+- **Manual Sync**: Available in Settings for on-demand synchronization
+- **Encryption**: Sensitive data encrypted to your own pubkey using NIP-04
 
 ## Default Relays
 

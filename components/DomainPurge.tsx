@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
-import { RefreshCw, Globe, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, Copy, Trash2 } from 'lucide-react';
+import { RefreshCw, Globe, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, Copy, Trash2, Shield } from 'lucide-react';
 import { DomainPurgeResult, Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
 import {
@@ -14,6 +14,7 @@ import {
   getFollowListPubkeys
 } from '@/lib/nostr';
 import { backupService } from '@/lib/backupService';
+import { protectionService } from '@/lib/protectionService';
 
 export default function DomainPurge() {
   const { session } = useAuth();
@@ -140,12 +141,27 @@ export default function DomainPurge() {
   const handlePurgeAll = async () => {
     if (!session || results.length === 0) return;
 
-    const userCount = results.length;
+    // Filter out protected users
+    const protectedPubkeys = protectionService.loadProtectedUsers();
+    const unprotectedResults = results.filter(r => !protectedPubkeys.has(r.pubkey));
+    const protectedCount = results.length - unprotectedResults.length;
+
+    if (unprotectedResults.length === 0) {
+      alert('⚠️ All users in this search are protected.\n\nYou can manage protected users in the Decimator tab.');
+      return;
+    }
+
+    const userCount = unprotectedResults.length;
     const userText = userCount === 1 ? 'user' : 'users';
 
-    const confirmMsg = `DOMAIN PURGE: Mass mute and unfollow ${userCount === 1 ? 'this' : `all ${userCount}`} ${userText}?\n\n` +
-      `Domain: ${domain}\n\n` +
-      `This will:\n` +
+    let confirmMsg = `DOMAIN PURGE: Mass mute and unfollow ${userCount === 1 ? 'this' : `all ${userCount}`} ${userText}?\n\n` +
+      `Domain: ${domain}\n\n`;
+
+    if (protectedCount > 0) {
+      confirmMsg += `⚠️ ${protectedCount} ${protectedCount === 1 ? 'user is' : 'users are'} protected and will be skipped.\n\n`;
+    }
+
+    confirmMsg += `This will:\n` +
       `1. Add ${userCount === 1 ? 'this' : `all ${userCount}`} ${userText} to your mute list\n` +
       `2. Remove ${userCount === 1 ? 'this' : `all ${userCount}`} ${userText} from your follow list\n` +
       `3. Create automatic backups of your current mute list and follow list\n` +
@@ -177,10 +193,10 @@ export default function DomainPurge() {
       );
       backupService.saveBackup(followBackup);
 
-      setProgress('Muting and unfollowing users...');
+      setProgress(`Muting and unfollowing ${userCount} ${userText}...`);
 
-      // Step 2: Mass mute and unfollow
-      const pubkeys = results.map(r => r.pubkey);
+      // Step 2: Mass mute and unfollow (only unprotected users)
+      const pubkeys = unprotectedResults.map(r => r.pubkey);
       const { muteEvent, followEvent } = await massMuteAndUnfollowDomain(
         pubkeys,
         session.pubkey,
@@ -338,11 +354,16 @@ export default function DomainPurge() {
             {results.map((result) => {
               const npub = hexToNpub(result.pubkey);
               const isAlreadyMuted = muteList.pubkeys.some(m => m.value === result.pubkey);
+              const isProtected = protectionService.isProtected(result.pubkey);
 
               return (
                 <div
                   key={result.pubkey}
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className={`border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                    isProtected
+                      ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/10'
+                      : 'border-gray-200 dark:border-gray-700'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     {/* User Info */}
@@ -370,6 +391,12 @@ export default function DomainPurge() {
                           >
                             {result.profile?.display_name || result.profile?.name || 'Anonymous'}
                           </button>
+                          {isProtected && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded text-xs font-medium" title="Protected from mass operations">
+                              <Shield size={12} />
+                              Protected
+                            </span>
+                          )}
                           {result.profile?.nip05 && (
                             <span className="text-green-600 dark:text-green-400 text-xs" title="NIP-05 verified">
                               ✓

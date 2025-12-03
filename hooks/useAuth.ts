@@ -7,6 +7,7 @@ import {
   fetchMuteList,
   parseMuteListEvent
 } from '@/lib/nostr';
+import { syncManager } from '@/lib/syncManager';
 import { UserSession } from '@/types';
 
 export function useAuth() {
@@ -48,6 +49,12 @@ export function useAuth() {
 
       // Fetch user's mute list
       await loadMuteList(pubkey, relays);
+
+      // Sync all app data with relay storage
+      syncManager.syncAll(pubkey, relays).catch((error) => {
+        console.error('Failed to sync app data with relays:', error);
+        // Don't throw - sync errors shouldn't block login
+      });
 
       return newSession;
     } catch (error) {
@@ -104,6 +111,11 @@ export function useAuth() {
       setAuthState('connected');
       // Refresh mute list to ensure we have latest data from relays
       loadMuteList(session.pubkey, session.relays);
+
+      // Sync all app data with relay storage
+      syncManager.syncAll(session.pubkey, session.relays).catch((error) => {
+        console.error('Failed to sync app data with relays:', error);
+      });
     }
   }, [session, authState, setAuthState, loadMuteList]);
 
