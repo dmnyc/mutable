@@ -23,7 +23,7 @@ export async function generateMetadata({
   }
 
   // Build static OG image URL with absolute path
-  const ogImageUrl = 'https://www.mutable.top/mutable_community_pack.png';
+  const ogImageUrl = 'https://www.mutable.top/mutable_public_mute_list.png';
 
   const title = packName;
   const description = `A curated mute list for Nostr`;

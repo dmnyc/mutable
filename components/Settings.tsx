@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
+import packageJson from '../package.json';
 import {
   Settings as SettingsIcon,
   Trash2,
@@ -441,13 +442,16 @@ export default function Settings() {
 
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong className="text-gray-900 dark:text-white">Version:</strong> 0.3.0
+            <strong className="text-gray-900 dark:text-white">Version:</strong> {packageJson.version}
+          </p>
+          <p>
+            <strong className="text-gray-900 dark:text-white">Build:</strong> {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'local'}
           </p>
           <p>
             <strong className="text-gray-900 dark:text-white">Description:</strong> A Nostr mute list management application
           </p>
           <p>
-            <strong className="text-gray-900 dark:text-white">Features:</strong> Manage personal mute lists, discover community packs, track muteuals, and create backups
+            <strong className="text-gray-900 dark:text-white">Features:</strong> Manage personal mute lists, discover community packs, track muteuals, reciprocals, decimator, and create backups
           </p>
         </div>
       </div>

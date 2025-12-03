@@ -13,6 +13,7 @@ import MyMuteList from '@/components/MyMuteList';
 import PublicLists from '@/components/PublicLists';
 import Muteuals from '@/components/Muteuals';
 import Reciprocals from '@/components/Reciprocals';
+import Decimator from '@/components/Decimator';
 import Backups from '@/components/Backups';
 import Settings from '@/components/Settings';
 import ListCleaner from '@/components/ListCleaner';
@@ -49,7 +50,7 @@ function DashboardContent() {
   // Sync URL with activeTab on mount and when URL changes
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    const validTabs = ['myList', 'publicLists', 'muteuals', 'reciprocals', 'backups', 'settings', 'listCleaner', 'muteOScope', 'domainPurge'] as const;
+    const validTabs = ['myList', 'publicLists', 'muteuals', 'reciprocals', 'decimator', 'backups', 'settings', 'listCleaner', 'muteOScope', 'domainPurge'] as const;
 
     if (tabParam && validTabs.includes(tabParam as any)) {
       setActiveTab(tabParam as typeof activeTab);
@@ -303,27 +304,27 @@ function DashboardContent() {
           <div className="hidden xl:flex space-x-8">
             <button
               onClick={() => changeTab('myList')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'myList'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              My Mute List
+              My Mutes
             </button>
             <button
               onClick={() => changeTab('publicLists')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'publicLists'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Community Packs
+              Mute Packs
             </button>
             <button
               onClick={() => changeTab('muteuals')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'muteuals'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -333,7 +334,7 @@ function DashboardContent() {
             </button>
             <button
               onClick={() => changeTab('reciprocals')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'reciprocals'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -343,7 +344,7 @@ function DashboardContent() {
             </button>
             <Link
               href="/mute-o-scope"
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'muteOScope'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -353,7 +354,7 @@ function DashboardContent() {
             </Link>
             <button
               onClick={() => changeTab('domainPurge')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'domainPurge'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -362,18 +363,18 @@ function DashboardContent() {
               Domain Purge
             </button>
             <button
-              onClick={() => changeTab('backups')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
-                activeTab === 'backups'
+              onClick={() => changeTab('decimator')}
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+                activeTab === 'decimator'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Backups
+              Decimator
             </button>
             <button
               onClick={() => changeTab('listCleaner')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'listCleaner'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -382,8 +383,18 @@ function DashboardContent() {
               List Cleaner
             </button>
             <button
+              onClick={() => changeTab('backups')}
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+                activeTab === 'backups'
+                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Backups
+            </button>
+            <button
               onClick={() => changeTab('settings')}
-              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'settings'
                   ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -400,14 +411,15 @@ function DashboardContent() {
               className="flex items-center justify-between w-full py-4"
             >
               <span className="font-semibold text-base text-gray-900 dark:text-white">
-                {activeTab === 'myList' && 'My Mute List'}
-                {activeTab === 'publicLists' && 'Community Packs'}
+                {activeTab === 'myList' && 'My Mutes'}
+                {activeTab === 'publicLists' && 'Mute Packs'}
                 {activeTab === 'muteuals' && 'Muteuals'}
                 {activeTab === 'reciprocals' && 'Reciprocals'}
+                {activeTab === 'decimator' && 'Decimator'}
                 {activeTab === 'domainPurge' && 'Domain Purge'}
                 {activeTab === 'muteOScope' && 'Mute-o-Scope'}
-                {activeTab === 'backups' && 'Backups'}
                 {activeTab === 'listCleaner' && 'List Cleaner'}
+                {activeTab === 'backups' && 'Backups'}
                 {activeTab === 'settings' && 'Settings'}
               </span>
               <div className="flex items-center gap-2">
@@ -429,33 +441,33 @@ function DashboardContent() {
                       changeTab('myList');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'myList'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
-                    My Mute List
+                    My Mutes
                   </button>
                   <button
                     onClick={() => {
                       changeTab('publicLists');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'publicLists'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
-                    Community Packs
+                    Mute Packs
                   </button>
                   <button
                     onClick={() => {
                       changeTab('muteuals');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'muteuals'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -468,7 +480,7 @@ function DashboardContent() {
                       changeTab('reciprocals');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'reciprocals'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -479,7 +491,7 @@ function DashboardContent() {
                   <Link
                     href="/mute-o-scope"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'muteOScope'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -492,7 +504,7 @@ function DashboardContent() {
                       changeTab('domainPurge');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'domainPurge'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -502,23 +514,23 @@ function DashboardContent() {
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('backups');
+                      changeTab('decimator');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
-                      activeTab === 'backups'
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
+                      activeTab === 'decimator'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
-                    Backups
+                    Decimator
                   </button>
                   <button
                     onClick={() => {
                       changeTab('listCleaner');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'listCleaner'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -528,10 +540,23 @@ function DashboardContent() {
                   </button>
                   <button
                     onClick={() => {
+                      changeTab('backups');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
+                      activeTab === 'backups'
+                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Backups
+                  </button>
+                  <button
+                    onClick={() => {
                       changeTab('settings');
                       setMobileMenuOpen(false);
                     }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg transition-colors ${
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === 'settings'
                         ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                         : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -559,9 +584,10 @@ function DashboardContent() {
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
         {activeTab === 'reciprocals' && <Reciprocals />}
+        {activeTab === 'decimator' && <Decimator />}
         {activeTab === 'domainPurge' && <DomainPurge />}
-        {activeTab === 'backups' && <Backups />}
         {activeTab === 'listCleaner' && <ListCleaner />}
+        {activeTab === 'backups' && <Backups />}
         {activeTab === 'settings' && <Settings />}
       </main>
 
