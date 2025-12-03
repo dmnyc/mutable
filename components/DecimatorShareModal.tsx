@@ -119,7 +119,7 @@ export default function DecimatorShareModal({ decimatedCount, onClose }: Decimat
             <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
               <div>I just decimated {decimatedCount} of my follows using Decimator by #Mutable! 💀</div>
               <br />
-              <div>Cull your follows randomly by any amount you like – it's nothing personal!</div>
+              <div>Cull your follows randomly by any amount you like – it&apos;s nothing personal!</div>
               <br />
               <div>Try it here:</div>
               <div>https://mutable.top</div>
