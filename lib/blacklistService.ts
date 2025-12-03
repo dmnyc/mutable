@@ -14,23 +14,68 @@ class BlacklistService {
   private storageKey = 'mutable_blacklisted_pubkeys';
   private syncInProgress = false;
 
+  // Cache for performance optimization
+  private cache: {
+    blacklist: Set<string> | null;
+    storageVersion: string | null;
+  } = {
+    blacklist: null,
+    storageVersion: null,
+  };
+
   /**
-   * Load blacklisted pubkeys from localStorage
+   * Get current localStorage value for cache validation
+   */
+  private getCurrentStorageVersion(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(this.storageKey);
+  }
+
+  /**
+   * Check if cache is valid
+   */
+  private isCacheValid(): boolean {
+    const currentVersion = this.getCurrentStorageVersion();
+    return this.cache.storageVersion === currentVersion;
+  }
+
+  /**
+   * Invalidate cache (call after any modification)
+   */
+  private invalidateCache(): void {
+    this.cache.blacklist = null;
+    this.cache.storageVersion = null;
+  }
+
+  /**
+   * Load blacklisted pubkeys from localStorage (cached)
    */
   loadBlacklist(): Set<string> {
     if (typeof window === 'undefined') return new Set<string>();
 
+    // Return cached value if valid
+    if (this.isCacheValid() && this.cache.blacklist) {
+      return this.cache.blacklist;
+    }
+
+    // Load and cache
     try {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         const array = JSON.parse(stored);
-        return new Set<string>(array);
+        const blacklist = new Set<string>(array);
+        this.cache.blacklist = blacklist;
+        this.cache.storageVersion = stored;
+        return blacklist;
       }
     } catch (error) {
       console.error('Failed to load blacklist from localStorage:', error);
     }
 
-    return new Set<string>();
+    const emptySet = new Set<string>();
+    this.cache.blacklist = emptySet;
+    this.cache.storageVersion = null;
+    return emptySet;
   }
 
   /**
@@ -41,6 +86,7 @@ class BlacklistService {
 
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(Array.from(pubkeys)));
+      this.invalidateCache(); // Invalidate cache after save
       return true;
     } catch (error) {
       console.error('Failed to save blacklist to localStorage:', error);
@@ -101,6 +147,7 @@ class BlacklistService {
 
     try {
       localStorage.setItem(this.storageKey, JSON.stringify([]));
+      this.invalidateCache(); // Invalidate cache after clear
       return true;
     } catch (error) {
       console.error('Failed to clear blacklist:', error);

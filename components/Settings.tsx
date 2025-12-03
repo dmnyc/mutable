@@ -255,6 +255,87 @@ export default function Settings() {
     event.target.value = '';
   };
 
+  const handleExportBlacklist = () => {
+    const pubkeys = blacklistService.getBlacklistedPubkeys();
+
+    if (pubkeys.length === 0) {
+      alert('No blacklisted users to export.');
+      return;
+    }
+
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      count: pubkeys.length,
+      blacklistedPubkeys: pubkeys
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mutable-blacklist-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setSuccessMessage(`Exported ${pubkeys.length} blacklisted user${pubkeys.length === 1 ? '' : 's'}`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleImportBlacklist = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importData = JSON.parse(content);
+
+        // Validate format
+        if (!importData.blacklistedPubkeys || !Array.isArray(importData.blacklistedPubkeys)) {
+          throw new Error('Invalid blacklist file format');
+        }
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        // Import as append-only (don't overwrite existing)
+        importData.blacklistedPubkeys.forEach((pubkey: string) => {
+          if (pubkey && !blacklistService.isBlacklisted(pubkey)) {
+            blacklistService.addToBlacklist(pubkey);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        });
+
+        // Update counts
+        setBlacklistCount(blacklistService.getBlacklistCount());
+
+        // Publish to relay if user is online
+        if (session) {
+          blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+        }
+
+        setSuccessMessage(
+          `Import complete!\nAdded: ${addedCount} user${addedCount === 1 ? '' : 's'}\n` +
+          (skippedCount > 0 ? `Skipped ${skippedCount} already blacklisted` : '')
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } catch (error) {
+        setErrorMessage(`Failed to import: ${error instanceof Error ? error.message : 'Invalid file'}`);
+        setTimeout(() => setErrorMessage(null), 5000);
+      }
+    };
+    reader.readAsText(file);
+
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
@@ -451,7 +532,7 @@ export default function Settings() {
                   <p className="font-semibold mb-1">Multi-Device Sync</p>
                   <p className="mb-2">Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays. This allows you to seamlessly access your data across all devices.</p>
                   <p className="text-xs">
-                    <strong>Tip:</strong> Use the export/import buttons to share your protected users list or create local backups. Imports are append-only and won&apos;t overwrite existing protections.
+                    <strong>Tip:</strong> Use the export/import buttons to share your lists or create local backups. Imports are append-only and won&apos;t overwrite existing data.
                   </p>
                 </div>
               </div>
@@ -514,7 +595,30 @@ export default function Settings() {
                   <p className="font-semibold text-gray-900 dark:text-white">{protectedCount}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
-                  <span className="text-gray-600 dark:text-gray-400">Blacklisted:</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 dark:text-gray-400">Blacklisted:</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleExportBlacklist}
+                        disabled={blacklistCount === 0}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        title="Export blacklist"
+                      >
+                        <Download size={14} />
+                        <span>Export</span>
+                      </button>
+                      <label className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer font-medium" title="Import blacklist">
+                        <Upload size={14} />
+                        <span>Import</span>
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportBlacklist}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
                   <p className="font-semibold text-gray-900 dark:text-white">{blacklistCount}</p>
                 </div>
               </div>

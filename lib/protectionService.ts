@@ -20,35 +20,89 @@ class ProtectionService {
   private storageKey = 'mutable_protected_users';
   private syncInProgress = false;
 
+  // Cache for performance optimization
+  private cache: {
+    records: ProtectionRecord[] | null;
+    pubkeySet: Set<string> | null;
+    lastCheck: number;
+    storageVersion: string | null;
+  } = {
+    records: null,
+    pubkeySet: null,
+    lastCheck: 0,
+    storageVersion: null,
+  };
+
   /**
-   * Load protected pubkeys from localStorage
+   * Get current localStorage value for cache validation
    */
-  loadProtectedUsers(): Set<string> {
+  private getCurrentStorageVersion(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(this.storageKey);
+  }
+
+  /**
+   * Check if cache is valid
+   */
+  private isCacheValid(): boolean {
+    // Cache is valid if storage hasn't changed
+    const currentVersion = this.getCurrentStorageVersion();
+    return this.cache.storageVersion === currentVersion;
+  }
+
+  /**
+   * Invalidate cache (call after any modification)
+   */
+  private invalidateCache(): void {
+    this.cache.records = null;
+    this.cache.pubkeySet = null;
+    this.cache.storageVersion = null;
+  }
+
+  /**
+   * Load and cache protection records
+   */
+  private loadAndCacheRecords(): ProtectionRecord[] {
     try {
       const stored = localStorage.getItem(this.storageKey);
-      if (!stored) return new Set();
+      if (!stored) {
+        this.cache.records = [];
+        this.cache.pubkeySet = new Set();
+        this.cache.storageVersion = stored;
+        return [];
+      }
 
       const records: ProtectionRecord[] = JSON.parse(stored);
-      return new Set(records.map(r => r.pubkey));
+      this.cache.records = records;
+      this.cache.pubkeySet = new Set(records.map(r => r.pubkey));
+      this.cache.storageVersion = stored;
+      return records;
     } catch (error) {
-      console.error('Failed to load protected users:', error);
-      return new Set();
+      console.error('Failed to load protection records:', error);
+      this.cache.records = [];
+      this.cache.pubkeySet = new Set();
+      return [];
     }
   }
 
   /**
-   * Load all protection records with metadata
+   * Load protected pubkeys from localStorage (cached)
+   */
+  loadProtectedUsers(): Set<string> {
+    if (!this.isCacheValid()) {
+      this.loadAndCacheRecords();
+    }
+    return this.cache.pubkeySet || new Set();
+  }
+
+  /**
+   * Load all protection records with metadata (cached)
    */
   loadProtectionRecords(): ProtectionRecord[] {
-    try {
-      const stored = localStorage.getItem(this.storageKey);
-      if (!stored) return [];
-
-      return JSON.parse(stored);
-    } catch (error) {
-      console.error('Failed to load protection records:', error);
-      return [];
+    if (!this.isCacheValid()) {
+      this.loadAndCacheRecords();
     }
+    return this.cache.records || [];
   }
 
   /**
@@ -57,6 +111,7 @@ class ProtectionService {
   private saveProtectionRecords(records: ProtectionRecord[]): boolean {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(records));
+      this.invalidateCache(); // Invalidate cache after save
       return true;
     } catch (error) {
       console.error('Failed to save protection records:', error);
@@ -127,6 +182,7 @@ class ProtectionService {
   clearAllProtection(): boolean {
     try {
       localStorage.removeItem(this.storageKey);
+      this.invalidateCache(); // Invalidate cache after clear
       return true;
     } catch (error) {
       console.error('Failed to clear protection records:', error);
