@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { MuteList, UserSession, AuthState, PublicMuteList } from '@/types';
+import { MuteList, UserSession, AuthState, PublicMuteList, Profile } from '@/types';
 
 interface AppState {
   // Auth state
   authState: AuthState;
   session: UserSession | null;
+  userProfile: Profile | null; // Cached user profile for faster loading
 
   // Mute list state
   muteList: MuteList;
@@ -30,6 +31,7 @@ interface AppState {
   // Actions
   setAuthState: (state: AuthState) => void;
   setSession: (session: UserSession | null) => void;
+  setUserProfile: (profile: Profile | null) => void;
   setMuteList: (list: MuteList) => void;
   setMuteListLoading: (loading: boolean) => void;
   setMuteListError: (error: string | null) => void;
@@ -92,6 +94,7 @@ export const useStore = create<AppState>()(
       // Initial state
       authState: 'disconnected',
       session: null,
+      userProfile: null,
       muteList: initialMuteList,
       muteListLoading: false,
       muteListError: null,
@@ -112,6 +115,8 @@ export const useStore = create<AppState>()(
         session,
         authState: session ? 'connected' : 'disconnected'
       }),
+
+      setUserProfile: (profile) => set({ userProfile: profile }),
 
       // Mute list actions
       setMuteList: (list) => set({
@@ -270,6 +275,7 @@ export const useStore = create<AppState>()(
       clearSession: () => set({
         session: null,
         authState: 'disconnected',
+        userProfile: null,
         muteList: initialMuteList,
         muteListLastFetched: null,
         hasUnsavedChanges: false,

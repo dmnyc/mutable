@@ -5,7 +5,8 @@ import {
   getNip07Pubkey,
   getNip07Relays,
   fetchMuteList,
-  parseMuteListEvent
+  parseMuteListEvent,
+  fetchProfile
 } from '@/lib/nostr';
 import { syncManager } from '@/lib/syncManager';
 import { UserSession } from '@/types';
@@ -16,6 +17,7 @@ export function useAuth() {
     authState,
     setSession,
     setAuthState,
+    setUserProfile,
     setMuteList,
     setMuteListLoading,
     setMuteListError,
@@ -46,6 +48,18 @@ export function useAuth() {
 
       setSession(newSession);
       setAuthState('connected');
+
+      // Fetch and cache user profile (don't block on failure)
+      fetchProfile(pubkey, relays)
+        .then((profile) => {
+          if (profile) {
+            setUserProfile(profile);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch user profile:', error);
+          // Don't throw - profile fetch errors shouldn't block login
+        });
 
       // Fetch user's mute list
       await loadMuteList(pubkey, relays);

@@ -32,9 +32,8 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, isConnected, disconnect, reloadMuteList } = useAuth();
-  const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList } = useStore();
+  const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList, userProfile, setUserProfile } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -70,21 +69,25 @@ function DashboardContent() {
     }
   }, [isConnected, hasCompletedOnboarding]);
 
-  // Load user profile
+  // Load user profile (if not already cached)
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (session?.pubkey) {
+      if (session?.pubkey && !userProfile) {
+        // Only fetch if we don't have a cached profile
         try {
           const profile = await fetchProfile(session.pubkey, session.relays);
-          setUserProfile(profile);
+          if (profile) {
+            setUserProfile(profile);
+          }
         } catch (error) {
           console.error('Failed to load user profile:', error);
+          // Don't clear cached profile on fetch error
         }
       }
     };
 
     loadUserProfile();
-  }, [session]);
+  }, [session, userProfile, setUserProfile]);
 
   // Refresh mute list when tab becomes visible
   useEffect(() => {
