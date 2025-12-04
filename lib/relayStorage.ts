@@ -354,8 +354,49 @@ export async function syncData<T extends StorageData>(
     };
   }
 
-  // Both exist - use timestamp to resolve
+  // Both exist - use smart conflict resolution
   if (localData && relayData) {
+    // Special handling for protected users: merge and take union
+    if (dTag === D_TAGS.PROTECTED_USERS) {
+      const localUsers = (localData as ProtectedUsersData).users || [];
+      const relayUsers = (relayData as ProtectedUsersData).users || [];
+
+      console.log(`[RelayStorage] Protected users - Local: ${localUsers.length}, Relay: ${relayUsers.length}`);
+
+      // Create a map to deduplicate by pubkey, keeping the earliest addedAt
+      const userMap = new Map<string, ProtectedUsersData['users'][0]>();
+
+      // Add relay users first
+      relayUsers.forEach(user => {
+        userMap.set(user.pubkey, user);
+      });
+
+      // Add/update with local users (keep earliest addedAt)
+      localUsers.forEach(user => {
+        const existing = userMap.get(user.pubkey);
+        if (!existing || user.addedAt < existing.addedAt) {
+          userMap.set(user.pubkey, user);
+        }
+      });
+
+      const mergedUsers = Array.from(userMap.values());
+      console.log(`[RelayStorage] Merged protected users: ${mergedUsers.length} total`);
+
+      // If merged count is different from either source, we need to publish
+      const needsPublish = mergedUsers.length !== relayUsers.length;
+
+      return {
+        data: {
+          version: 1,
+          timestamp: Date.now(),
+          users: mergedUsers,
+        } as T,
+        source: needsPublish ? 'merged' : 'relay',
+        needsPublish,
+      };
+    }
+
+    // For other data types, use timestamp-based resolution
     if (localData.timestamp > relayData.timestamp) {
       return {
         data: localData,
