@@ -166,53 +166,6 @@ export default function Settings() {
     }
   };
 
-  const handleTestProtectedSync = async () => {
-    if (!session) return;
-
-    setIsSyncing(true);
-    try {
-      const localCount = protectionService.getProtectedCount();
-      console.log(`[Settings] Starting sync - Local count: ${localCount}, Relays: ${session.relays.length}`);
-
-      // First, try to manually publish to test
-      try {
-        const records = protectionService.loadProtectionRecords();
-        console.log('[Settings] Testing direct publish with', records.length, 'records');
-      } catch (e) {
-        console.error('[Settings] Failed to load records:', e);
-      }
-
-      const success = await protectionService.syncWithRelay(session.pubkey, session.relays);
-      const newCount = protectionService.getProtectedCount();
-
-      console.log(`[Settings] Sync completed - Success: ${success}, New count: ${newCount}`);
-
-      if (success) {
-        if (newCount > localCount) {
-          setSuccessMessage(`✅ Synced! Downloaded ${newCount - localCount} new protected users (${localCount} → ${newCount})`);
-        } else if (newCount < localCount) {
-          setSuccessMessage(`✅ Synced! Removed ${localCount - newCount} protected users (${localCount} → ${newCount})`);
-        } else {
-          setSuccessMessage(`✅ Synced! Protected users up to date (${newCount})`);
-        }
-      } else {
-        setErrorMessage('❌ Protected users sync failed');
-      }
-
-      setProtectedCount(newCount);
-      setTimeout(() => {
-        setSuccessMessage(null);
-        setErrorMessage(null);
-      }, 10000);
-    } catch (error) {
-      console.error('[Settings] Sync error:', error);
-      setErrorMessage('❌ Sync error: ' + (error instanceof Error ? error.message : 'Unknown'));
-      setTimeout(() => setErrorMessage(null), 10000);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   const handleForceRepublish = async () => {
     if (!session) return;
 
@@ -725,15 +678,6 @@ export default function Settings() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-gray-600 dark:text-gray-400">Protected Users:</span>
                     <div className="flex gap-2">
-                      <button
-                        onClick={handleTestProtectedSync}
-                        disabled={isSyncing || !session}
-                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                        title="Test sync with relay"
-                      >
-                        <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-                        <span>Sync</span>
-                      </button>
                       <button
                         onClick={() => setShowProtectedManager(true)}
                         disabled={protectedCount === 0}
