@@ -291,7 +291,8 @@ export async function syncData<T extends StorageData>(
   userPubkey: string,
   relays: string[]
 ): Promise<SyncResult<T>> {
-  console.log(`[RelayStorage] Syncing ${dTag}...`);
+  const expandedRelays = getExpandedRelayList(relays);
+  console.log(`[RelayStorage] Syncing ${dTag} using ${expandedRelays.length} relays (${relays.length} user + defaults)`);
   const relayData = await fetchAppData(dTag, userPubkey, relays) as T | null;
   console.log(`[RelayStorage] ${dTag} - Relay data:`, relayData ? `Found (timestamp: ${relayData.timestamp})` : 'null');
   console.log(`[RelayStorage] ${dTag} - Local data:`, localData ? `Found (timestamp: ${localData.timestamp})` : 'null');

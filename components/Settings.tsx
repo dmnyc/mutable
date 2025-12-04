@@ -171,23 +171,34 @@ export default function Settings() {
     setIsSyncing(true);
     try {
       const localCount = protectionService.getProtectedCount();
+      console.log(`[Settings] Starting sync - Local count: ${localCount}, Relays: ${session.relays.length}`);
+
       const success = await protectionService.syncWithRelay(session.pubkey, session.relays);
       const newCount = protectionService.getProtectedCount();
 
+      console.log(`[Settings] Sync completed - Success: ${success}, New count: ${newCount}`);
+
       if (success) {
-        setSuccessMessage(`Protected users sync: ${localCount} before → ${newCount} after sync`);
+        if (newCount > localCount) {
+          setSuccessMessage(`✅ Synced! Downloaded ${newCount - localCount} new protected users (${localCount} → ${newCount})`);
+        } else if (newCount < localCount) {
+          setSuccessMessage(`✅ Synced! Removed ${localCount - newCount} protected users (${localCount} → ${newCount})`);
+        } else {
+          setSuccessMessage(`✅ Synced! Protected users up to date (${newCount})`);
+        }
       } else {
-        setErrorMessage('Protected users sync failed');
+        setErrorMessage('❌ Protected users sync failed');
       }
 
       setProtectedCount(newCount);
       setTimeout(() => {
         setSuccessMessage(null);
         setErrorMessage(null);
-      }, 8000);
+      }, 10000);
     } catch (error) {
-      setErrorMessage('Protected users sync error: ' + (error instanceof Error ? error.message : 'Unknown'));
-      setTimeout(() => setErrorMessage(null), 8000);
+      console.error('[Settings] Sync error:', error);
+      setErrorMessage('❌ Sync error: ' + (error instanceof Error ? error.message : 'Unknown'));
+      setTimeout(() => setErrorMessage(null), 10000);
     } finally {
       setIsSyncing(false);
     }
