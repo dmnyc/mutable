@@ -7,6 +7,8 @@ import { useRelaySync } from '@/hooks/useRelaySync';
 import { useStore } from '@/lib/store';
 import { protectionService } from '@/lib/protectionService';
 import { blacklistService } from '@/lib/blacklistService';
+import { fetchProfile, hexToNpub } from '@/lib/nostr';
+import { Profile } from '@/types';
 import packageJson from '../package.json';
 import {
   Settings as SettingsIcon,
@@ -26,7 +28,8 @@ import {
   Cloud,
   CloudOff,
   Download,
-  Upload
+  Upload,
+  User
 } from 'lucide-react';
 
 export default function Settings() {
@@ -43,6 +46,9 @@ export default function Settings() {
   const [syncStatusData, setSyncStatusData] = useState(getSyncStatus());
   const [protectedCount, setProtectedCount] = useState(0);
   const [blacklistCount, setBlacklistCount] = useState(0);
+  const [showProtectedManager, setShowProtectedManager] = useState(false);
+  const [showBlacklistManager, setShowBlacklistManager] = useState(false);
+  const [profiles, setProfiles] = useState<Record<string, Profile | null>>({});
 
   // Relay state
   const [userRelayList, setUserRelayList] = useState<{
@@ -173,6 +179,45 @@ export default function Settings() {
     const interval = setInterval(updateCounts, 2000);
     return () => clearInterval(interval);
   }, [getSyncStatus]);
+
+  // Fetch profiles when modals open
+  useEffect(() => {
+    if (!session || (!showProtectedManager && !showBlacklistManager)) return;
+
+    const fetchProfiles = async () => {
+      const pubkeysToFetch: string[] = [];
+
+      if (showProtectedManager) {
+        pubkeysToFetch.push(...protectionService.getProtectedPubkeys());
+      }
+
+      if (showBlacklistManager) {
+        pubkeysToFetch.push(...blacklistService.getBlacklistedPubkeys());
+      }
+
+      // Filter out already fetched profiles
+      const uniquePubkeys = [...new Set(pubkeysToFetch)].filter(pk => profiles[pk] === undefined);
+
+      if (uniquePubkeys.length === 0) return;
+
+      console.log('Fetching profiles for', uniquePubkeys.length, 'pubkeys');
+
+      // Fetch profiles
+      for (const pubkey of uniquePubkeys) {
+        fetchProfile(pubkey, session.relays)
+          .then(profile => {
+            console.log('Fetched profile for', pubkey, profile);
+            setProfiles(prev => ({ ...prev, [pubkey]: profile }));
+          })
+          .catch((err) => {
+            console.error('Failed to fetch profile for', pubkey, err);
+            setProfiles(prev => ({ ...prev, [pubkey]: null }));
+          });
+      }
+    };
+
+    fetchProfiles();
+  }, [showProtectedManager, showBlacklistManager, session]);
 
   const handleExportProtectedUsers = () => {
     const records = protectionService.loadProtectionRecords();
@@ -572,6 +617,14 @@ export default function Settings() {
                     <span className="text-gray-600 dark:text-gray-400">Protected Users:</span>
                     <div className="flex gap-2">
                       <button
+                        onClick={() => setShowProtectedManager(true)}
+                        disabled={protectedCount === 0}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        title="View and manage protected users"
+                      >
+                        <span>Manage</span>
+                      </button>
+                      <button
                         onClick={handleExportProtectedUsers}
                         disabled={protectedCount === 0}
                         className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
@@ -598,6 +651,14 @@ export default function Settings() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-gray-600 dark:text-gray-400">Blacklisted:</span>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowBlacklistManager(true)}
+                        disabled={blacklistCount === 0}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        title="View and manage blacklist"
+                      >
+                        <span>Manage</span>
+                      </button>
                       <button
                         onClick={handleExportBlacklist}
                         disabled={blacklistCount === 0}
@@ -861,6 +922,175 @@ export default function Settings() {
                 className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Protected Users Manager Modal */}
+      {showProtectedManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Manage Protected Users ({protectedCount})</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">These users are protected from mass operations</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-2">
+                {protectionService.loadProtectionRecords().map((record) => {
+                  const profile = profiles[record.pubkey];
+                  const displayName = profile?.display_name || profile?.name || record.pubkey.slice(0, 16) + '...';
+                  const npub = hexToNpub(record.pubkey);
+                  const truncatedNpub = `${npub.slice(0, 12)}...${npub.slice(-6)}`;
+
+                  return (
+                    <div key={record.pubkey} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                      {profile?.picture ? (
+                        <img
+                          src={profile.picture}
+                          alt={displayName}
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                          <User size={20} className="text-gray-600 dark:text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-gray-900 dark:text-white">{displayName}</div>
+                        <div className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">{truncatedNpub}</div>
+                        {record.note && <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">{record.note}</div>}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remove protection for ${displayName}?`)) {
+                            protectionService.removeProtection(record.pubkey);
+                            setProtectedCount(protectionService.getProtectedCount());
+                            if (session) {
+                              protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                            }
+                          }
+                        }}
+                        className="ml-2 px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded whitespace-nowrap"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+              <button
+                onClick={() => {
+                  if (confirm(`Remove ALL ${protectedCount} protected users? This cannot be undone!`)) {
+                    protectionService.clearAllProtection();
+                    setProtectedCount(0);
+                    setShowProtectedManager(false);
+                    if (session) {
+                      protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                    }
+                    setSuccessMessage('All protected users removed');
+                    setTimeout(() => setSuccessMessage(null), 3000);
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={() => setShowProtectedManager(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blacklist Manager Modal */}
+      {showBlacklistManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Manage Blacklist ({blacklistCount})</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Blacklisted users won&apos;t be re-imported</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-2">
+                {blacklistService.getBlacklistedPubkeys().map((pubkey) => {
+                  const profile = profiles[pubkey];
+                  const displayName = profile?.display_name || profile?.name || pubkey.slice(0, 16) + '...';
+                  const npub = hexToNpub(pubkey);
+                  const truncatedNpub = `${npub.slice(0, 12)}...${npub.slice(-6)}`;
+
+                  return (
+                    <div key={pubkey} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                      {profile?.picture ? (
+                        <img
+                          src={profile.picture}
+                          alt={displayName}
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                          <User size={20} className="text-gray-600 dark:text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-gray-900 dark:text-white">{displayName}</div>
+                        <div className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">{truncatedNpub}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remove ${displayName} from blacklist?`)) {
+                            blacklistService.removeFromBlacklist(pubkey);
+                            setBlacklistCount(blacklistService.getBlacklistCount());
+                            if (session) {
+                              blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                            }
+                          }
+                        }}
+                        className="ml-2 px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded whitespace-nowrap"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+              <button
+                onClick={() => {
+                  if (confirm(`Remove ALL ${blacklistCount} blacklisted users? This cannot be undone!`)) {
+                    blacklistService.clearBlacklist();
+                    setBlacklistCount(0);
+                    setShowBlacklistManager(false);
+                    if (session) {
+                      blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                    }
+                    setSuccessMessage('All blacklisted users removed');
+                    setTimeout(() => setSuccessMessage(null), 3000);
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={() => setShowBlacklistManager(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
