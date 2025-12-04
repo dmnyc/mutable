@@ -8,7 +8,7 @@ import { useStore } from '@/lib/store';
 import { protectionService } from '@/lib/protectionService';
 import { blacklistService } from '@/lib/blacklistService';
 import { fetchProfile, hexToNpub } from '@/lib/nostr';
-import { publishAppData, D_TAGS, ProtectedUsersData } from '@/lib/relayStorage';
+import { publishAppData, D_TAGS, ProtectedUsersData, BlacklistData } from '@/lib/relayStorage';
 import { Profile } from '@/types';
 import packageJson from '../package.json';
 import {
@@ -218,32 +218,41 @@ export default function Settings() {
 
     setIsSyncing(true);
     try {
-      const records = protectionService.loadProtectionRecords();
-      console.log('[Settings] Force republishing', records.length, 'protected users to all relays');
+      // Publish to ALL relays including mobile relays
+      const allRelays = [
+        ...session.relays,
+        'wss://nostrelay.yeghro.com',
+        'wss://nostr.land',
+        'wss://offchain.pub',
+      ];
 
-      // Prepare data in storage format
-      const data: ProtectedUsersData = {
+      // 1. Republish Protected Users
+      const protectedRecords = protectionService.loadProtectionRecords();
+      const protectedData: ProtectedUsersData = {
         version: 1,
         timestamp: Date.now(),
-        users: records.map(r => ({
+        users: protectedRecords.map(r => ({
           pubkey: r.pubkey,
           addedAt: r.addedAt,
           reason: r.note,
         })),
       };
 
-      // Publish to ALL relays including mobile relays
-      const allRelays = [
-        ...session.relays,
-        'wss://nostrelay.yeghro.com', // Mobile relay that was missing data
-        'wss://nostr.land',
-        'wss://offchain.pub',
-      ];
+      console.log('[Settings] Republishing', protectedRecords.length, 'protected users to', allRelays.length, 'relays');
+      await publishAppData(D_TAGS.PROTECTED_USERS, protectedData, session.pubkey, allRelays, true);
 
-      console.log('[Settings] Publishing to', allRelays.length, 'relays (including mobile relays)');
-      await publishAppData(D_TAGS.PROTECTED_USERS, data, session.pubkey, allRelays, true);
+      // 2. Republish Blacklist
+      const blacklistPubkeys = blacklistService.getBlacklistedPubkeys();
+      const blacklistData: BlacklistData = {
+        version: 1,
+        timestamp: Date.now(),
+        pubkeys: blacklistPubkeys,
+      };
 
-      setSuccessMessage(`✅ Force published ${records.length} protected users to ${allRelays.length} relays!`);
+      console.log('[Settings] Republishing', blacklistPubkeys.length, 'blacklisted users to', allRelays.length, 'relays');
+      await publishAppData(D_TAGS.BLACKLIST, blacklistData, session.pubkey, allRelays, true);
+
+      setSuccessMessage(`✅ Republished ${protectedRecords.length} protected users and ${blacklistPubkeys.length} blacklisted users to ${allRelays.length} relays!`);
       setTimeout(() => setSuccessMessage(null), 10000);
     } catch (error) {
       console.error('[Settings] Force republish error:', error);
@@ -683,14 +692,25 @@ export default function Settings() {
                   )}
                   <h3 className="font-semibold text-gray-900 dark:text-white">Sync Status</h3>
                 </div>
-                <button
-                  onClick={handleManualSync}
-                  disabled={isSyncing || !isOnline}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
-                >
-                  <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                  {isSyncing ? 'Syncing...' : 'Sync Now'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleManualSync}
+                    disabled={isSyncing || !isOnline}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                    {isSyncing ? 'Syncing...' : 'Sync Now'}
+                  </button>
+                  <button
+                    onClick={handleForceRepublish}
+                    disabled={isSyncing || !isOnline}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
+                    title="Force republish all data to all relays"
+                  >
+                    <Cloud size={16} />
+                    Republish All
+                  </button>
+                </div>
               </div>
 
               {syncStatusData.lastSyncTime && (
@@ -713,15 +733,6 @@ export default function Settings() {
                       >
                         <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
                         <span>Sync</span>
-                      </button>
-                      <button
-                        onClick={handleForceRepublish}
-                        disabled={isSyncing || !session || protectedCount === 0}
-                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                        title="Force republish to all relays (including mobile relays)"
-                      >
-                        <Cloud size={14} />
-                        <span>Republish</span>
                       </button>
                       <button
                         onClick={() => setShowProtectedManager(true)}
