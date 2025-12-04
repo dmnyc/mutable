@@ -145,17 +145,38 @@ export async function publishAppData(
 
   // Publish to relays
   console.log(`[RelayStorage] Publishing ${dTag} to ${expandedRelays.length} relays...`);
-  const publishResults = await Promise.allSettled(
-    pool.publish(expandedRelays, signedEvent)
-  );
+  console.log(`[RelayStorage] Event details:`, {
+    kind: signedEvent.kind,
+    tags: signedEvent.tags,
+    contentLength: signedEvent.content.length,
+    created_at: new Date(signedEvent.created_at * 1000).toISOString()
+  });
 
-  const successCount = publishResults.filter(r => r.status === 'fulfilled').length;
-  const failCount = publishResults.filter(r => r.status === 'rejected').length;
-  console.log(`[RelayStorage] Publish ${dTag}: ${successCount} succeeded, ${failCount} failed`);
+  const publishPromises = pool.publish(expandedRelays, signedEvent);
+  const publishResults = await Promise.allSettled(publishPromises);
 
-  if (successCount === 0) {
+  const successfulRelays: string[] = [];
+  const failedRelays: string[] = [];
+
+  publishResults.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      successfulRelays.push(expandedRelays[index]);
+      console.log(`[RelayStorage] ✅ ${expandedRelays[index]} - fulfilled`);
+    } else {
+      failedRelays.push(expandedRelays[index]);
+      console.log(`[RelayStorage] ❌ ${expandedRelays[index]} - ${result.reason}`);
+    }
+  });
+
+  console.log(`[RelayStorage] Publish ${dTag}: ${successfulRelays.length} succeeded, ${failedRelays.length} failed`);
+
+  if (successfulRelays.length === 0) {
     console.error(`[RelayStorage] WARNING: Failed to publish ${dTag} to any relay!`);
   }
+
+  // Give relays time to process and verify the event was stored
+  console.log(`[RelayStorage] Waiting 2s for relay processing...`);
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
   return signedEvent;
 }
@@ -171,14 +192,18 @@ export async function fetchAppData(
 ): Promise<StorageData | null> {
   const pool = getPool();
   const expandedRelays = getExpandedRelayList(relays);
+  console.log(`[RelayStorage] Fetching ${dTag} from ${expandedRelays.length} relays (timeout: ${timeoutMs}ms)`);
 
   return new Promise((resolve) => {
     let latestEvent: Event | null = null;
+    let eventSource: string | null = null;
     const timeoutId = setTimeout(() => {
       sub.close();
       if (latestEvent) {
+        console.log(`[RelayStorage] Fetch ${dTag}: Found event from relay (created: ${new Date(latestEvent.created_at * 1000).toISOString()})`);
         processEvent(latestEvent).then(resolve).catch(() => resolve(null));
       } else {
+        console.log(`[RelayStorage] Fetch ${dTag}: No event found after timeout`);
         resolve(null);
       }
     }, timeoutMs);

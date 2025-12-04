@@ -281,13 +281,22 @@ class ProtectionService {
       // If local was newer, publish to relay
       if (syncResult.needsPublish) {
         console.log('[ProtectionService] Publishing local data to relay');
-        await publishAppData(
-          D_TAGS.PROTECTED_USERS,
-          syncResult.data,
-          userPubkey,
-          relays,
-          true // encrypted
-        );
+        console.log('[ProtectionService] Data to publish:', syncResult.data);
+
+        // Test: Try publishing unencrypted to see if encryption is the issue
+        console.log('[ProtectionService] Testing unencrypted publish...');
+        try {
+          await publishAppData(
+            D_TAGS.PROTECTED_USERS,
+            syncResult.data,
+            userPubkey,
+            relays,
+            false // UNENCRYPTED for testing
+          );
+          console.log('[ProtectionService] Unencrypted publish completed');
+        } catch (error) {
+          console.error('[ProtectionService] Unencrypted publish failed:', error);
+        }
       }
 
       console.log(`[ProtectionService] Protection sync completed (source: ${syncResult.source})`);

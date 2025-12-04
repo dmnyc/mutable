@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store';
 import { protectionService } from '@/lib/protectionService';
 import { blacklistService } from '@/lib/blacklistService';
 import { fetchProfile, hexToNpub } from '@/lib/nostr';
+import { publishAppData, D_TAGS, ProtectedUsersData } from '@/lib/relayStorage';
 import { Profile } from '@/types';
 import packageJson from '../package.json';
 import {
@@ -173,6 +174,14 @@ export default function Settings() {
       const localCount = protectionService.getProtectedCount();
       console.log(`[Settings] Starting sync - Local count: ${localCount}, Relays: ${session.relays.length}`);
 
+      // First, try to manually publish to test
+      try {
+        const records = protectionService.loadProtectionRecords();
+        console.log('[Settings] Testing direct publish with', records.length, 'records');
+      } catch (e) {
+        console.error('[Settings] Failed to load records:', e);
+      }
+
       const success = await protectionService.syncWithRelay(session.pubkey, session.relays);
       const newCount = protectionService.getProtectedCount();
 
@@ -198,6 +207,47 @@ export default function Settings() {
     } catch (error) {
       console.error('[Settings] Sync error:', error);
       setErrorMessage('❌ Sync error: ' + (error instanceof Error ? error.message : 'Unknown'));
+      setTimeout(() => setErrorMessage(null), 10000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleForceRepublish = async () => {
+    if (!session) return;
+
+    setIsSyncing(true);
+    try {
+      const records = protectionService.loadProtectionRecords();
+      console.log('[Settings] Force republishing', records.length, 'protected users to all relays');
+
+      // Prepare data in storage format
+      const data: ProtectedUsersData = {
+        version: 1,
+        timestamp: Date.now(),
+        users: records.map(r => ({
+          pubkey: r.pubkey,
+          addedAt: r.addedAt,
+          reason: r.note,
+        })),
+      };
+
+      // Publish to ALL relays including mobile relays
+      const allRelays = [
+        ...session.relays,
+        'wss://nostrelay.yeghro.com', // Mobile relay that was missing data
+        'wss://nostr.land',
+        'wss://offchain.pub',
+      ];
+
+      console.log('[Settings] Publishing to', allRelays.length, 'relays (including mobile relays)');
+      await publishAppData(D_TAGS.PROTECTED_USERS, data, session.pubkey, allRelays, true);
+
+      setSuccessMessage(`✅ Force published ${records.length} protected users to ${allRelays.length} relays!`);
+      setTimeout(() => setSuccessMessage(null), 10000);
+    } catch (error) {
+      console.error('[Settings] Force republish error:', error);
+      setErrorMessage('❌ Republish failed: ' + (error instanceof Error ? error.message : 'Unknown'));
       setTimeout(() => setErrorMessage(null), 10000);
     } finally {
       setIsSyncing(false);
@@ -663,6 +713,15 @@ export default function Settings() {
                       >
                         <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
                         <span>Sync</span>
+                      </button>
+                      <button
+                        onClick={handleForceRepublish}
+                        disabled={isSyncing || !session || protectedCount === 0}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        title="Force republish to all relays (including mobile relays)"
+                      >
+                        <Cloud size={14} />
+                        <span>Republish</span>
                       </button>
                       <button
                         onClick={() => setShowProtectedManager(true)}
