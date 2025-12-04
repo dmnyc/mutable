@@ -165,6 +165,34 @@ export default function Settings() {
     }
   };
 
+  const handleTestProtectedSync = async () => {
+    if (!session) return;
+
+    setIsSyncing(true);
+    try {
+      const localCount = protectionService.getProtectedCount();
+      const success = await protectionService.syncWithRelay(session.pubkey, session.relays);
+      const newCount = protectionService.getProtectedCount();
+
+      if (success) {
+        setSuccessMessage(`Protected users sync: ${localCount} before → ${newCount} after sync`);
+      } else {
+        setErrorMessage('Protected users sync failed');
+      }
+
+      setProtectedCount(newCount);
+      setTimeout(() => {
+        setSuccessMessage(null);
+        setErrorMessage(null);
+      }, 8000);
+    } catch (error) {
+      setErrorMessage('Protected users sync error: ' + (error instanceof Error ? error.message : 'Unknown'));
+      setTimeout(() => setErrorMessage(null), 8000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Poll sync status and counts periodically
   useEffect(() => {
     const updateCounts = () => {
@@ -616,6 +644,15 @@ export default function Settings() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-gray-600 dark:text-gray-400">Protected Users:</span>
                     <div className="flex gap-2">
+                      <button
+                        onClick={handleTestProtectedSync}
+                        disabled={isSyncing || !session}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        title="Test sync with relay"
+                      >
+                        <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                        <span>Sync</span>
+                      </button>
                       <button
                         onClick={() => setShowProtectedManager(true)}
                         disabled={protectedCount === 0}

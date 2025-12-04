@@ -144,9 +144,18 @@ export async function publishAppData(
   const signedEvent = await signWithNip07(eventTemplate);
 
   // Publish to relays
-  await Promise.allSettled(
+  console.log(`[RelayStorage] Publishing ${dTag} to ${expandedRelays.length} relays...`);
+  const publishResults = await Promise.allSettled(
     pool.publish(expandedRelays, signedEvent)
   );
+
+  const successCount = publishResults.filter(r => r.status === 'fulfilled').length;
+  const failCount = publishResults.filter(r => r.status === 'rejected').length;
+  console.log(`[RelayStorage] Publish ${dTag}: ${successCount} succeeded, ${failCount} failed`);
+
+  if (successCount === 0) {
+    console.error(`[RelayStorage] WARNING: Failed to publish ${dTag} to any relay!`);
+  }
 
   return signedEvent;
 }
@@ -282,7 +291,10 @@ export async function syncData<T extends StorageData>(
   userPubkey: string,
   relays: string[]
 ): Promise<SyncResult<T>> {
+  console.log(`[RelayStorage] Syncing ${dTag}...`);
   const relayData = await fetchAppData(dTag, userPubkey, relays) as T | null;
+  console.log(`[RelayStorage] ${dTag} - Relay data:`, relayData ? `Found (timestamp: ${relayData.timestamp})` : 'null');
+  console.log(`[RelayStorage] ${dTag} - Local data:`, localData ? `Found (timestamp: ${localData.timestamp})` : 'null');
 
   // No data exists anywhere - create empty data with current timestamp
   if (!localData && !relayData) {

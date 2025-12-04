@@ -233,7 +233,7 @@ class ProtectionService {
    */
   async syncWithRelay(userPubkey: string, relays: string[]): Promise<boolean> {
     if (this.syncInProgress) {
-      console.log('Sync already in progress');
+      console.log('[ProtectionService] Sync already in progress');
       return false;
     }
 
@@ -242,9 +242,20 @@ class ProtectionService {
     try {
       // Load local data
       const localRecords = this.loadProtectionRecords();
+      console.log(`[ProtectionService] Local records count: ${localRecords.length}`);
       const localData = localRecords.length > 0
         ? this.toStorageFormat(localRecords)
         : null;
+
+      if (localData) {
+        console.log(`[ProtectionService] Local data to sync:`, {
+          version: localData.version,
+          timestamp: localData.timestamp,
+          userCount: localData.users.length
+        });
+      } else {
+        console.log('[ProtectionService] No local data to sync');
+      }
 
       // Sync with relay
       const syncResult = await syncData<ProtectedUsersData>(
@@ -254,14 +265,22 @@ class ProtectionService {
         relays
       );
 
+      console.log(`[ProtectionService] Sync result:`, {
+        source: syncResult.source,
+        needsPublish: syncResult.needsPublish,
+        dataUserCount: syncResult.data.users?.length || 0
+      });
+
       // Only update local storage if relay data is newer
       if (syncResult.source === 'relay' || syncResult.source === 'merged') {
         const syncedRecords = this.fromStorageFormat(syncResult.data);
+        console.log(`[ProtectionService] Updating local storage with ${syncedRecords.length} records from ${syncResult.source}`);
         this.saveProtectionRecords(syncedRecords);
       }
 
       // If local was newer, publish to relay
       if (syncResult.needsPublish) {
+        console.log('[ProtectionService] Publishing local data to relay');
         await publishAppData(
           D_TAGS.PROTECTED_USERS,
           syncResult.data,
@@ -271,10 +290,10 @@ class ProtectionService {
         );
       }
 
-      console.log(`Protection sync completed (source: ${syncResult.source})`);
+      console.log(`[ProtectionService] Protection sync completed (source: ${syncResult.source})`);
       return true;
     } catch (error) {
-      console.error('Failed to sync protection data:', error);
+      console.error('[ProtectionService] Failed to sync protection data:', error);
       return false;
     } finally {
       this.syncInProgress = false;
