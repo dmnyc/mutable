@@ -5,6 +5,8 @@ import { Profile, MuteList } from '@/types';
 import { fetchMuteList, parseMuteListEvent, hexToNpub, isFollowing, unfollowUser, fetchProfile } from '@/lib/nostr';
 import { useStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
+import { useRelaySync } from '@/hooks/useRelaySync';
+import { protectionService } from '@/lib/protectionService';
 import {
   X,
   Copy,
@@ -18,7 +20,9 @@ import {
   ChevronRight,
   VolumeX,
   Volume2,
-  Search
+  Search,
+  Shield,
+  ShieldCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -40,6 +44,7 @@ const DEFAULT_RELAYS = [
 export default function UserProfileModal({ profile, onClose }: UserProfileModalProps) {
   const { session } = useAuth();
   const { muteList, addMutedItem, removeMutedItem } = useStore();
+  const { addProtection: addProtectionToRelay, removeProtection: removeProtectionFromRelay } = useRelaySync();
   const [userMuteList, setUserMuteList] = useState<MuteList | null>(null);
   const [loadingMuteList, setLoadingMuteList] = useState(false);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
@@ -64,9 +69,15 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   const [isMutingMe, setIsMutingMe] = useState<boolean | null>(null);
   const [enrichedProfile, setEnrichedProfile] = useState<Profile>(profile);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [isProtected, setIsProtected] = useState(false);
 
   // Check if this user is currently muted
   const isMuted = muteList.pubkeys.some(item => item.value === profile.pubkey);
+
+  // Check if this user is protected on mount
+  useEffect(() => {
+    setIsProtected(protectionService.isProtected(profile.pubkey));
+  }, [profile.pubkey]);
 
   // Check if profile is incomplete (only has pubkey)
   const isIncompleteProfile = !profile.name && !profile.display_name && !profile.picture;
@@ -162,6 +173,16 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       alert('Failed to unfollow user. Please try again.');
     } finally {
       setUnfollowing(false);
+    }
+  };
+
+  const handleToggleProtection = async () => {
+    if (isProtected) {
+      await removeProtectionFromRelay(profile.pubkey);
+      setIsProtected(false);
+    } else {
+      await addProtectionToRelay(profile.pubkey);
+      setIsProtected(true);
     }
   };
 
@@ -433,6 +454,28 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 <UserMinus size={16} />
                 <span>{unfollowing ? 'Unfollowing...' : 'Unfollow'}</span>
               </button>
+            )}
+
+            {session && (
+              isProtected ? (
+                <button
+                  onClick={handleToggleProtection}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  title="Remove protection (allow decimation)"
+                >
+                  <ShieldCheck size={16} />
+                  <span>Protected</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleToggleProtection}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  title="Protect from decimation"
+                >
+                  <Shield size={16} />
+                  <span>Protect</span>
+                </button>
+              )
             )}
 
             <button

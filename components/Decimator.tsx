@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRelaySync } from '@/hooks/useRelaySync';
 import { RefreshCw, Skull, AlertCircle, Copy, ExternalLink, UserMinus, Share2, Shield, ShieldCheck, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { Profile } from '@/types';
 import UserProfileModal from './UserProfileModal';
@@ -22,6 +23,7 @@ interface DecimatorResult {
 
 export default function Decimator() {
   const { session } = useAuth();
+  const { addProtection: addProtectionToRelay, removeProtection: removeProtectionFromRelay } = useRelaySync();
   const [processing, setProcessing] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<DecimatorResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -293,7 +295,8 @@ export default function Decimator() {
     const isProtected = protectedPubkeys.has(pubkey);
 
     if (isProtected) {
-      protectionService.removeProtection(pubkey);
+      // Remove from protected list and sync to relay
+      await removeProtectionFromRelay(pubkey);
       setProtectedPubkeys(prev => {
         const newSet = new Set(prev);
         newSet.delete(pubkey);
@@ -302,7 +305,8 @@ export default function Decimator() {
       // Remove from protected users list
       setProtectedUsers(prev => prev.filter(user => user.pubkey !== pubkey));
     } else {
-      protectionService.addProtection(pubkey);
+      // Add to protected list and sync to relay
+      await addProtectionToRelay(pubkey);
       setProtectedPubkeys(prev => new Set(prev).add(pubkey));
 
       // Remove from current selection list if protecting
