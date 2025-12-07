@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/lib/store';
 import { backupService, Backup } from '@/lib/backupService';
-import { getFollowListPubkeys, publishMuteList } from '@/lib/nostr';
+import { getFollowListPubkeys, publishMuteList, publishFollowList } from '@/lib/nostr';
 import {
   Archive,
   Download,
@@ -207,10 +207,32 @@ export default function Backups() {
         setErrorMessage('Failed to restore and publish backup');
         setTimeout(() => setErrorMessage(null), 3000);
       }
-    } else {
-      // Follow list backup - not implemented yet
-      setErrorMessage('Follow list restore is not yet implemented');
-      setTimeout(() => setErrorMessage(null), 3000);
+    } else if (backup.type === 'follow-list') {
+      if (!confirm('Are you sure you want to restore this follow list backup? This will replace your current follow list and publish it immediately.')) {
+        return;
+      }
+
+      try {
+        const restoredFollowList = backupService.restoreFollowListBackup(backup.id);
+        if (!restoredFollowList) {
+          setErrorMessage('Failed to restore backup');
+          setTimeout(() => setErrorMessage(null), 3000);
+          return;
+        }
+
+        // Publish follow list immediately
+        try {
+          await publishFollowList(restoredFollowList, session.relays);
+          setSuccessMessage(`Follow list restored and published successfully! (${restoredFollowList.length} follows)`);
+          setTimeout(() => setSuccessMessage(null), 5000);
+        } catch (publishError) {
+          setErrorMessage('Backup restored but failed to publish. Please try publishing manually.');
+          setTimeout(() => setErrorMessage(null), 5000);
+        }
+      } catch (error) {
+        setErrorMessage('Failed to restore and publish backup');
+        setTimeout(() => setErrorMessage(null), 3000);
+      }
     }
   };
 

@@ -437,6 +437,32 @@ export async function publishMuteList(
   return signedEvent;
 }
 
+// Publish follow list (kind:3)
+export async function publishFollowList(
+  followPubkeys: string[],
+  relays: string[] = DEFAULT_RELAYS,
+  content: string = ''
+): Promise<Event> {
+  // Convert pubkeys to tags
+  const tags = followPubkeys.map(pubkey => ['p', pubkey]);
+
+  const eventTemplate: EventTemplate = {
+    kind: FOLLOW_LIST_KIND,
+    tags,
+    content, // Usually empty or relay metadata JSON
+    created_at: Math.floor(Date.now() / 1000)
+  };
+
+  const signedEvent = await signWithNip07(eventTemplate);
+  const pool = getPool();
+
+  await Promise.any(
+    pool.publish(relays, signedEvent)
+  );
+
+  return signedEvent;
+}
+
 // Search for public mute lists by author
 export async function searchPublicListsByAuthor(
   authorPubkey: string,
