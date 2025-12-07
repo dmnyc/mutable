@@ -7,7 +7,7 @@ import { useRelaySync } from '@/hooks/useRelaySync';
 import { useStore } from '@/lib/store';
 import { protectionService } from '@/lib/protectionService';
 import { blacklistService } from '@/lib/blacklistService';
-import { fetchProfile, hexToNpub } from '@/lib/nostr';
+import { fetchProfile, hexToNpub, npubToHex } from '@/lib/nostr';
 import { publishAppData, D_TAGS, ProtectedUsersData, BlacklistData } from '@/lib/relayStorage';
 import { Profile } from '@/types';
 import packageJson from '../package.json';
@@ -50,6 +50,8 @@ export default function Settings() {
   const [showProtectedManager, setShowProtectedManager] = useState(false);
   const [showBlacklistManager, setShowBlacklistManager] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, Profile | null>>({});
+  const [manualProtectedInput, setManualProtectedInput] = useState('');
+  const [manualBlacklistInput, setManualBlacklistInput] = useState('');
 
   // Relay state
   const [userRelayList, setUserRelayList] = useState<{
@@ -997,6 +999,43 @@ export default function Settings() {
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">Manage Protected Users ({protectedCount})</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">These users are protected from mass operations</p>
+
+              {/* Manual Entry Field */}
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter npub or nprofile..."
+                  value={manualProtectedInput}
+                  onChange={(e) => setManualProtectedInput(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={() => {
+                    try {
+                      const trimmed = manualProtectedInput.trim();
+                      if (!trimmed) return;
+
+                      const hexPubkey = npubToHex(trimmed);
+                      protectionService.addProtection(hexPubkey);
+                      setProtectedCount(protectionService.getProtectedCount());
+                      setManualProtectedInput('');
+
+                      if (session) {
+                        protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                      }
+
+                      setSuccessMessage('User added to protection list');
+                      setTimeout(() => setSuccessMessage(null), 3000);
+                    } catch (error) {
+                      setErrorMessage('Invalid npub/nprofile format');
+                      setTimeout(() => setErrorMessage(null), 3000);
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
+                >
+                  Add
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -1082,6 +1121,43 @@ export default function Settings() {
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">Manage Blacklist ({blacklistCount})</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Blacklisted users won&apos;t be re-imported</p>
+
+              {/* Manual Entry Field */}
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter npub or nprofile..."
+                  value={manualBlacklistInput}
+                  onChange={(e) => setManualBlacklistInput(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={() => {
+                    try {
+                      const trimmed = manualBlacklistInput.trim();
+                      if (!trimmed) return;
+
+                      const hexPubkey = npubToHex(trimmed);
+                      blacklistService.addToBlacklist(hexPubkey);
+                      setBlacklistCount(blacklistService.getBlacklistedPubkeys().length);
+                      setManualBlacklistInput('');
+
+                      if (session) {
+                        blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                      }
+
+                      setSuccessMessage('User added to blacklist');
+                      setTimeout(() => setSuccessMessage(null), 3000);
+                    } catch (error) {
+                      setErrorMessage('Invalid npub/nprofile format');
+                      setTimeout(() => setErrorMessage(null), 3000);
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
+                >
+                  Add
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
