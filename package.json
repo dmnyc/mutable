@@ -12,6 +12,7 @@
     "edit-custom-list": "ts-node scripts/edit-custom-list.ts"
   },
   "dependencies": {
+    "@nostr-dev-kit/ndk": "^2.18.1",
     "@vercel/analytics": "^1.5.0",
     "lucide-react": "^0.545.0",
     "next": "^16.0.7",
