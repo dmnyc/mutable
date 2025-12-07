@@ -44,3 +44,24 @@ npm run edit-custom-list nevent1... nsec1... npubs.txt
 ```
 
 This will fetch the existing list, add the `npubs` from `npubs.txt` (or any file you specify), and publish a new event with the updated list, signed with your `nsec`.
+
+## `filter-npubs.ts`
+
+This script filters a list of `npubs` against an existing custom list event to remove any duplicates.
+
+### Usage
+
+```bash
+npm run filter-npubs <nevent> <path-to-npubs-file>
+```
+
+-   `<nevent>`: The `nevent` string of the list you want to filter against.
+-   `<path-to-npubs-file>`: A path to a text file containing the `npubs` you want to filter.
+
+### Example
+
+```bash
+npm run filter-npubs nevent1... npubs.txt
+```
+
+This will create a new file named `filtered-npubs.txt` in the `output` directory containing only the `npubs` that are not already in the list.
