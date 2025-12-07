@@ -2,11 +2,14 @@
   "name": "mutable",
   "version": "0.7.7",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "get-mute-list": "ts-node scripts/get-mute-list.ts",
+    "edit-custom-list": "ts-node scripts/edit-custom-list.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
@@ -26,6 +29,7 @@
     "eslint-config-next": "^16.0.7",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
