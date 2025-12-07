@@ -1,5 +1,5 @@
-import { SimplePool, nip19, Event, getEventHash, getSignature } from 'nostr-tools';
-import NDK from '@nostr-dev-kit/ndk';
+import { SimplePool, nip19, Event, getEventHash, getSignature, getPublicKey } from 'nostr-tools';
+import { bech32 } from 'bech32';
 import * as fs from 'fs';
 
 const RELAYS = [
@@ -11,22 +11,36 @@ const RELAYS = [
   'wss://relay.snort.social',
 ];
 
-async function editCustomList(neventStr: string, nsec: string, npubsFilePath: string) {
-  const ndk = new NDK({ explicitRelayUrls: RELAYS });
-  await ndk.connect();
+function parseTLV(data: Buffer) {
+    const result: { type: number; length: number; value: Buffer }[] = [];
+    let p = 0;
+    while (p < data.length) {
+        const t = data[p];
+        const l = data[p + 1];
+        const v = data.slice(p + 2, p + 2 + l);
+        result.push({ type: t, length: l, value: v });
+        p += 2 + l;
+    }
+    return result;
+}
 
+async function editCustomList(neventStr: string, nsec: string, npubsFilePath: string) {
   const pool = new SimplePool();
 
   try {
-    // 1. Decode nevent to get event id and author pubkey
-    const decodedEvent = ndk.decode(neventStr);
-    const { id, author, relays } = decodedEvent.data;
+    // 1. Decode nevent to get event id
+    const { words } = bech32.decode(neventStr);
+    const data = Buffer.from(bech32.fromWords(words));
+    const tlv = parseTLV(data);
 
-    if (!author) {
-      throw new Error('Could not find author in nevent');
+    const id = tlv.find(e => e.type === 0)?.value.toString('hex');
+    const relays = tlv.filter(e => e.type === 1).map(e => e.value.toString('utf-8'));
+    
+    if (!id) {
+        throw new Error('Could not find event id in nevent');
     }
 
-    const allRelays = [...RELAYS, ...(relays || [])];
+    const allRelays = [...RELAYS, ...relays];
     
     // 2. Fetch the existing list event
     const existingEvent = await pool.get(allRelays, {
@@ -51,6 +65,9 @@ async function editCustomList(neventStr: string, nsec: string, npubsFilePath: st
         throw new Error('Could not find d tag in existing event');
     }
 
+    const { data: nsecData } = nip19.decode(nsec);
+    const pubkey = getPublicKey(nsecData as Uint8Array);
+
     const newEvent: Event = {
       kind: 30000,
       created_at: Math.floor(Date.now() / 1000),
@@ -60,13 +77,12 @@ async function editCustomList(neventStr: string, nsec: string, npubsFilePath: st
         ...existingEvent.tags.filter(t => t[0] !== 'p' && t[0] !== 'd')
       ],
       content: existingEvent.content,
-      pubkey: author.hexpubkey,
+      pubkey,
       id: '',
       sig: ''
     };
 
     // 6. Sign and publish
-    const { data: nsecData } = nip19.decode(nsec);
     newEvent.id = getEventHash(newEvent);
     newEvent.sig = getSignature(newEvent, nsecData as Uint8Array);
 
@@ -79,7 +95,6 @@ async function editCustomList(neventStr: string, nsec: string, npubsFilePath: st
     console.error('❌ Error:', error);
   } finally {
     pool.close(RELAYS);
-    ndk.pool.close(RELAYS);
   }
 }
 

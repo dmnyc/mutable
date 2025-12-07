@@ -1,5 +1,5 @@
 import { SimplePool, nip19 } from 'nostr-tools';
-import NDK from '@nostr-dev-kit/ndk';
+import { bech32 } from 'bech32';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,22 +12,38 @@ const RELAYS = [
   'wss://relay.snort.social',
 ];
 
-async function filterNpubs(neventStr: string, npubsFilePath: string) {
-  const ndk = new NDK({ explicitRelayUrls: RELAYS });
-  await ndk.connect();
+function parseTLV(data: Buffer) {
+    const result: { type: number; length: number; value: Buffer }[] = [];
+    let T = 0, L = 1, V = 2;
+    let p = 0;
+    while (p < data.length) {
+        const t = data[p];
+        const l = data[p + 1];
+        const v = data.slice(p + 2, p + 2 + l);
+        result.push({ type: t, length: l, value: v });
+        p += 2 + l;
+    }
+    return result;
+}
 
+
+async function filterNpubs(neventStr: string, npubsFilePath: string) {
   const pool = new SimplePool();
 
   try {
     // 1. Decode nevent to get event id and author pubkey
-    const decodedEvent = ndk.decode(neventStr);
-    const { id, author, relays } = decodedEvent.data;
+    const { prefix, words } = bech32.decode(neventStr);
+    const data = Buffer.from(bech32.fromWords(words));
+    const tlv = parseTLV(data);
 
-    if (!author) {
-      throw new Error('Could not find author in nevent');
+    const id = tlv.find(e => e.type === 0)?.value.toString('hex');
+    const relays = tlv.filter(e => e.type === 1).map(e => e.value.toString('utf-8'));
+    
+    if (!id) {
+        throw new Error('Could not find event id in nevent');
     }
 
-    const allRelays = [...RELAYS, ...(relays || [])];
+    const allRelays = [...RELAYS, ...relays];
     
     // 2. Fetch the existing list event
     const existingEvent = await pool.get(allRelays, {
@@ -64,7 +80,6 @@ async function filterNpubs(neventStr: string, npubsFilePath: string) {
     console.error('❌ Error:', error);
   } finally {
     pool.close(RELAYS);
-    ndk.pool.close(RELAYS);
   }
 }
 
