@@ -1,5 +1,5 @@
 import { SimplePool, nip19, Event, getEventHash, getSignature } from 'nostr-tools';
-import NDK, { NDKEvent, NDKNip19Event } from '@nostr-dev-kit/ndk';
+import NDK from '@nostr-dev-kit/ndk';
 import * as fs from 'fs';
 
 const RELAYS = [
@@ -19,14 +19,14 @@ async function editCustomList(neventStr: string, nsec: string, npubsFilePath: st
 
   try {
     // 1. Decode nevent to get event id and author pubkey
-    const nevent = new NDKNip19Event(ndk, neventStr);
-    const { id, author, relays } = nevent;
+    const decodedEvent = ndk.decode(neventStr);
+    const { id, author, relays } = decodedEvent.data;
 
     if (!author) {
       throw new Error('Could not find author in nevent');
     }
 
-    const allRelays = [...RELAYS, ...(relays.map(r => r.url) || [])];
+    const allRelays = [...RELAYS, ...(relays || [])];
     
     // 2. Fetch the existing list event
     const existingEvent = await pool.get(allRelays, {

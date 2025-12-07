@@ -1,5 +1,5 @@
 import { SimplePool, nip19 } from 'nostr-tools';
-import NDK, { NDKNip19Event } from '@nostr-dev-kit/ndk';
+import NDK from '@nostr-dev-kit/ndk';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -20,14 +20,14 @@ async function filterNpubs(neventStr: string, npubsFilePath: string) {
 
   try {
     // 1. Decode nevent to get event id and author pubkey
-    const nevent = new NDKNip19Event(ndk, neventStr);
-    const { id, author, relays } = nevent;
+    const decodedEvent = ndk.decode(neventStr);
+    const { id, author, relays } = decodedEvent.data;
 
     if (!author) {
       throw new Error('Could not find author in nevent');
     }
 
-    const allRelays = [...RELAYS, ...(relays.map(r => r.url) || [])];
+    const allRelays = [...RELAYS, ...(relays || [])];
     
     // 2. Fetch the existing list event
     const existingEvent = await pool.get(allRelays, {
