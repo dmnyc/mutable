@@ -1,5 +1,4 @@
-import { SimplePool, nip19, Event, getEventHash, getSignature, getPublicKey } from 'nostr-tools';
-import { bech32 } from 'bech32';
+import { SimplePool, nip19, finalizeEvent, getPublicKey, type Event, type EventTemplate } from 'nostr-tools';
 import * as fs from 'fs';
 
 const RELAYS = [
@@ -11,37 +10,28 @@ const RELAYS = [
   'wss://relay.snort.social',
 ];
 
-function parseTLV(data: Buffer) {
-    const result: { type: number; length: number; value: Buffer }[] = [];
-    let p = 0;
-    while (p < data.length) {
-        const t = data[p];
-        const l = data[p + 1];
-        const v = data.slice(p + 2, p + 2 + l);
-        result.push({ type: t, length: l, value: v });
-        p += 2 + l;
-    }
-    return result;
-}
-
 async function editCustomList(neventStr: string, nsec: string, npubsFilePath: string) {
   const pool = new SimplePool();
 
   try {
-    // 1. Decode nevent to get event id
-    const { words } = bech32.decode(neventStr);
-    const data = Buffer.from(bech32.fromWords(words));
-    const tlv = parseTLV(data);
+    // 1. Clean and decode nevent to get event id and relays
+    // Remove nostr: prefix if present
+    const cleanNevent = neventStr.replace(/^nostr:/, '');
+    const decoded = nip19.decode(cleanNevent);
 
-    const id = tlv.find(e => e.type === 0)?.value.toString('hex');
-    const relays = tlv.filter(e => e.type === 1).map(e => e.value.toString('utf-8'));
-    
+    if (decoded.type !== 'nevent') {
+        throw new Error('Invalid nevent string');
+    }
+
+    const { id, relays: eventRelays } = decoded.data;
+
     if (!id) {
         throw new Error('Could not find event id in nevent');
     }
 
-    const allRelays = [...RELAYS, ...relays];
-    
+    // Deduplicate relays to avoid "duplicate url" error
+    const allRelays = Array.from(new Set([...RELAYS, ...(eventRelays || [])]));
+
     // 2. Fetch the existing list event
     const existingEvent = await pool.get(allRelays, {
         ids: [id],
@@ -55,9 +45,18 @@ async function editCustomList(neventStr: string, nsec: string, npubsFilePath: st
     const newNpubs = fs.readFileSync(npubsFilePath, 'utf-8').split('\n').filter(npub => npub.trim() !== '');
     const newPubkeys = newNpubs.map(npub => nip19.decode(npub).data as string);
 
+    console.log(`📝 Read ${newNpubs.length} npubs from file`);
+
     // 4. Merge and deduplicate
     const existingPubkeys = existingEvent.tags.filter(t => t[0] === 'p').map(t => t[1]);
-    const allPubkeys = [...new Set([...existingPubkeys, ...newPubkeys])];
+    console.log(`📋 Existing list has ${existingPubkeys.length} pubkeys`);
+
+    const allPubkeys = Array.from(new Set([...existingPubkeys, ...newPubkeys]));
+    console.log(`✅ Merged list will have ${allPubkeys.length} pubkeys (${allPubkeys.length - existingPubkeys.length} new)`);
+
+    if (allPubkeys.length === existingPubkeys.length) {
+      console.log('⚠️  No new pubkeys to add - all were duplicates!');
+    }
 
     // 5. Create a new event
     const dTag = existingEvent.tags.find(t => t[0] === 'd');
@@ -66,28 +65,45 @@ async function editCustomList(neventStr: string, nsec: string, npubsFilePath: st
     }
 
     const { data: nsecData } = nip19.decode(nsec);
-    const pubkey = getPublicKey(nsecData as Uint8Array);
 
-    const newEvent: Event = {
+    // Create event template (unsigned event)
+    const eventTemplate: EventTemplate = {
       kind: 30000,
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         dTag,
-        ...allPubkeys.map(pubkey => ["p", pubkey]),
+        ...allPubkeys.map(pk => ["p", pk]),
         ...existingEvent.tags.filter(t => t[0] !== 'p' && t[0] !== 'd')
       ],
       content: existingEvent.content,
-      pubkey,
-      id: '',
-      sig: ''
     };
 
     // 6. Sign and publish
-    newEvent.id = getEventHash(newEvent);
-    newEvent.sig = getSignature(newEvent, nsecData as Uint8Array);
+    const signedEvent = finalizeEvent(eventTemplate, nsecData as Uint8Array);
 
-    console.log('Publishing new event:', newEvent);
-    await pool.publish(allRelays, newEvent);
+    console.log('Publishing new event:', signedEvent);
+
+    const publishPromises = pool.publish(allRelays, signedEvent);
+    const results = await Promise.allSettled(publishPromises);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        console.log(`✅ ${allRelays[i]}: accepted`);
+        successCount++;
+      } else {
+        console.log(`❌ ${allRelays[i]}: ${result.reason}`);
+        failCount++;
+      }
+    });
+
+    console.log(`\n📊 Published to ${successCount}/${allRelays.length} relays (${failCount} failed)`);
+
+    if (successCount === 0) {
+      throw new Error('Event was rejected by all relays! Check your nsec and event signature.');
+    }
 
     console.log('✅ Successfully updated and published the list!');
     

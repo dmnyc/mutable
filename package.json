@@ -10,7 +10,8 @@
     "lint": "next lint",
     "get-mute-list": "ts-node scripts/get-mute-list.ts",
     "edit-custom-list": "ts-node scripts/edit-custom-list.ts",
-    "filter-npubs": "ts-node scripts/filter-npubs.ts"
+    "filter-npubs": "ts-node scripts/filter-npubs.ts",
+    "test-ndk-decode": "ts-node scripts/test-ndk-decode.ts"
   },
   "dependencies": {
     "@nostr-dev-kit/ndk": "^2.18.1",
