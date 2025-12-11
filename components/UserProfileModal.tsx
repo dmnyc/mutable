@@ -22,7 +22,8 @@ import {
   Volume2,
   Search,
   Shield,
-  ShieldCheck
+  ShieldCheck,
+  Edit2
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -54,12 +55,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   const [mutedProfiles, setMutedProfiles] = useState<Map<string, Profile>>(new Map());
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [displayedPubkeysCount, setDisplayedPubkeysCount] = useState(100);
-  const [expandedSections, setExpandedSections] = useState<{
-    pubkeys: boolean;
-    words: boolean;
-    tags: boolean;
-    threads: boolean;
-  }>({
+  const [expandedSections, setExpandedSections] = useState({
     pubkeys: false,
     words: false,
     tags: false,
@@ -72,6 +68,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   const [isProtected, setIsProtected] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [muteReason, setMuteReason] = useState('');
+  const [editingReason, setEditingReason] = useState(false);
+  const [editedReason, setEditedReason] = useState('');
 
   // Check if this user is currently muted
   const isMuted = muteList.pubkeys.some(item => item.value === profile.pubkey);
@@ -162,11 +160,6 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
   const handleUnmute = () => {
     removeMutedItem(profile.pubkey, 'pubkeys');
-  };
-
-  const handleUpdateReason = () => {
-    updateMutedItem(profile.pubkey, profile.pubkey, 'pubkeys', editedReason || undefined);
-    setEditingReason(false);
   };
 
   const handleUpdateReason = () => {
@@ -529,7 +522,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
               <ExternalLink size={16} />
               <span>View Profile</span>
             </button>
-
+          </div>
 
           {/* Display Mute Reason if Muted */}
           {isMuted && (
@@ -607,16 +600,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 </button>
               </div>
             {isMutingMe !== null && (
-              <div className={`mt-3 p-3 rounded-lg ${
-                isMutingMe
-                  ? 'bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                  : 'bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-              }`}>
-                <p className={`text-sm font-medium ${
-                  isMutingMe
-                    ? 'text-red-800 dark:text-red-200'
-                    : 'text-green-800 dark:text-green-200'
-                }`}>
+              <div className={`mt-3 p-3 rounded-lg ${isMutingMe ? 'bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800' : 'bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800'}`}>
+                <p className={`text-sm font-medium ${isMutingMe ? 'text-red-800 dark:text-red-200' : 'text-green-800 dark:text-green-200'}`}>
                   {isMutingMe
                     ? `⚠️ Yes, ${getDisplayName()} is publicly muting you`
                     : `✓ No, ${getDisplayName()} is not publicly muting you`}
@@ -890,7 +875,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                               {item.value.slice(0, 16)}...{item.value.slice(-16)}
                             </code>
                             {item.reason && (
-                              <p className="text-gray-500 dark:text-gray-400 mt-1">{item.reason}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.reason}</p>
                             )}
                           </div>
                         ))}
