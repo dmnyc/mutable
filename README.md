@@ -35,6 +35,13 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Subscribe**: Copy public list contents into your personal mute list
 - **Create**: Publish your own public mute lists for others to use
 
+### Advanced List Management Tools
+- **Muteuals**: Discover users who have publicly muted you in their mute lists.
+- **Reciprocals**: Find users you follow who don't follow you back.
+- **Decimator**: Randomly remove a percentage of your follows to cull your list down to a manageable size.
+- **Domain Purge**: Find and remove all users with a specific NIP-05 domain from your follow list.
+- **List Cleaner**: Scan your mute list for inactive or abandoned profiles.
+
 ### Multi-Device Sync via Relay Storage (NIP-78) ☁️ NEW
 - **Persistent Settings**: Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays
 - **Seamless Multi-Device**: Access your data across all devices without manual backups
@@ -108,15 +115,31 @@ mutable/
 ├── components/            # React components
 │   ├── AuthModal.tsx      # Authentication modal
 │   ├── BackupRestore.tsx  # Backup/restore functionality
+│   ├── Backups.tsx        # Backup management component
 │   ├── CreatePublicList.tsx
-│   ├── MuteListCategory.tsx
+│   ├── Decimator.tsx      # Tool to aggressively filter mute lists
+│   ├── DecimatorShareModal.tsx # Share options for Decimator results
+│   ├── DomainPurge.tsx    # Tool to remove users by NIP-05 domain
+│   ├── Footer.tsx         # Application footer
+│   ├── GlobalUserSearch.tsx # Global search for Nostr profiles
+│   ├── ImportConfirmationDialog.tsx
+│   ├── ListCleaner.tsx    # Tool to identify and remove inactive profiles
 │   ├── Mute-o-Scope.tsx   # Mute-o-Scope component
+│   ├── MuteListCategory.tsx
 │   ├── MuteScoreModal.tsx # Mute Score info modal
+│   ├── Muteuals.tsx       # Component to discover mutual mutes
 │   ├── MyMuteList.tsx
+│   ├── OnboardingModal.tsx # Onboarding flow for new users
+│   ├── PrivacyControls.tsx
 │   ├── PublicListCard.tsx
 │   ├── PublicLists.tsx
+│   ├── PublishSuccessModal.tsx # Success modal for publishing mute list
+│   ├── Reciprocals.tsx    # Component to find non-reciprocal follows
+│   ├── Settings.tsx       # User settings
 │   ├── ShareResultsModal.tsx  # Share results to Nostr
-│   └── UserProfileModal.tsx   # User profile viewer
+│   ├── UnsavedChangesBanner.tsx # Banner for unsaved changes notification
+│   ├── UserProfileModal.tsx   # User profile viewer
+│   └── UserSearchInput.tsx
 ├── hooks/                 # Custom React hooks
 │   ├── useAuth.ts        # Authentication hook
 │   └── useRelaySync.ts   # Relay storage sync hook
@@ -216,4 +239,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Author
 
 - Created by The Daniel⚡️
-- Vibed with Claude
+- Vibed mostly with Claude and a bit with Gemini
