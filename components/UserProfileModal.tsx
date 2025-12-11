@@ -70,6 +70,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   const [enrichedProfile, setEnrichedProfile] = useState<Profile>(profile);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [isProtected, setIsProtected] = useState(false);
+  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [muteReason, setMuteReason] = useState('');
 
   // Check if this user is currently muted
   const isMuted = muteList.pubkeys.some(item => item.value === profile.pubkey);
@@ -149,11 +151,13 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
     loadUserData();
   }, [profile.pubkey, session]);
 
-  const handleMute = () => {
+  const handleMute = (reason?: string) => {
     addMutedItem(
-      { type: 'pubkey', value: profile.pubkey },
+      { type: 'pubkey', value: profile.pubkey, reason: reason || undefined },
       'pubkeys'
     );
+    setShowReasonInput(false);
+    setMuteReason('');
   };
 
   const handleUnmute = () => {
@@ -436,13 +440,43 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 </button>
               ) : (
                 <button
-                  onClick={handleMute}
+                  onClick={() => setShowReasonInput(true)} // Show reason input
                   className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   <UserX size={16} />
                   <span>Mute User</span>
                 </button>
               )
+            )}
+
+            {showReasonInput && (
+              <div className="w-full flex flex-col gap-2 mt-2">
+                <input
+                  type="text"
+                  value={muteReason}
+                  onChange={(e) => setMuteReason(e.target.value)}
+                  placeholder="Reason for muting (optional)"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleMute(muteReason)}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    <UserX size={16} />
+                    <span>Confirm Mute</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowReasonInput(false);
+                      setMuteReason('');
+                    }}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <span>Cancel</span>
+                  </button>
+                </div>
+              </div>
             )}
 
             {isFollowingUser && !checkingFollow && (
@@ -486,6 +520,30 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
               <span>View Profile</span>
             </button>
           </div>
+
+          {/* Display Mute Reason if Muted */}
+          {isMuted && (
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700 mt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                You have muted this user.
+              </h4>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Reason: {muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || 'No reason provided.'}
+              </p>
+            </div>
+          )}
+
+          {/* Display Mute Reason if Muted */}
+          {isMuted && (
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700 mt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                You have muted this user.
+              </h4>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Reason: {muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || 'No reason provided.'}
+              </p>
+            </div>
+          )}
 
           {/* Check if muting me */}
           {session && (

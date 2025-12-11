@@ -138,7 +138,7 @@ mutable/
 │   ├── Settings.tsx       # User settings
 │   ├── ShareResultsModal.tsx  # Share results to Nostr
 │   ├── UnsavedChangesBanner.tsx # Banner for unsaved changes notification
-│   ├── UserProfileModal.tsx   # User profile viewer
+│   ├── UserProfileModal.tsx   # User profile viewer with mute/unmute and reason input
 │   └── UserSearchInput.tsx
 ├── hooks/                 # Custom React hooks
 │   ├── useAuth.ts        # Authentication hook
