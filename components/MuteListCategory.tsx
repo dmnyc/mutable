@@ -299,10 +299,117 @@ export default function MuteListCategory({
               return (
                 <div
                   key={item.value}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-gray-50 dark:bg-gray-700 rounded-lg w-full max-w-full gap-2"
+                  className="flex flex-col p-2 sm:p-3 bg-gray-50 dark:bg-gray-700 rounded-lg w-full max-w-full gap-2"
                 >
-                  {editingValue === item.value ? (
-                    <div className="flex-1 space-y-2 w-full">
+                  {/* User Info Row - Always Displayed */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
+                    <div
+                      className={`flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 w-full ${category === 'pubkeys' ? 'cursor-pointer hover:opacity-80' : ''}`}
+                      onClick={() => category === 'pubkeys' && handleViewProfile(item.value)}
+                    >
+                      {category === 'pubkeys' && (
+                        <>
+                          {profile?.picture ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={profile.picture}
+                              alt={displayName || 'User'}
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                              <User size={14} className="text-gray-600 dark:text-gray-300 sm:w-4 sm:h-4" />
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div className="flex-1 min-w-0 w-full">
+                        {category === 'pubkeys' && displayName ? (
+                          <>
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {displayName}
+                            </p>
+                            {profile?.nip05 && (
+                              <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 break-all leading-tight">
+                                ✓ {profile.nip05}
+                              </p>
+                            )}
+                            <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono break-all leading-tight">
+                              {displayValue(item)}
+                            </p>
+                          </>
+                        ) : category === 'pubkeys' ? (
+                          <p className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white break-all">
+                            {displayValue(item)}
+                          </p>
+                        ) : (
+                          <p className="text-xs sm:text-sm text-gray-900 dark:text-white break-all">
+                            {displayValue(item)}
+                          </p>
+                        )}
+                        {item.reason && (
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 italic break-words leading-tight">
+                            {item.reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex space-x-1 sm:space-x-2 flex-shrink-0 justify-end w-full sm:w-auto">
+                      {/* Privacy Toggle */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleItemPrivacy(item.value, category);
+                        }}
+                        className={`p-1.5 sm:p-2 transition-colors ${
+                          item.private
+                            ? 'text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300'
+                            : 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
+                        }`}
+                        title={item.private ? 'Private (encrypted) - Click to make public' : 'Public (visible to all) - Click to make private'}
+                      >
+                        {item.private ? <Lock size={16} /> : <Unlock size={16} />}
+                      </button>
+                      {category === 'pubkeys' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyNpub(item.value);
+                          }}
+                          className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                          title="Copy npub"
+                        >
+                          {copySuccess === item.value ? <Check size={16} /> : <Copy size={16} />}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(item);
+                        }}
+                        className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                        title={category === 'pubkeys' ? 'Edit reason' : 'Edit'}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemove(item.value);
+                        }}
+                        className="p-1.5 sm:p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Edit Form - Stacked Below User Info */}
+                  {editingValue === item.value && (
+                    <div className="flex-1 space-y-2 w-full border-t border-gray-300 dark:border-gray-600 pt-2">
                       {category !== 'pubkeys' && (
                         <input
                           type="text"
@@ -318,127 +425,25 @@ export default function MuteListCategory({
                         onChange={(e) => setEditReason(e.target.value)}
                         className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                         placeholder="Reason (optional)"
+                        autoFocus
                       />
                       <div className="flex space-x-2">
                         <button
                           onClick={handleSaveEdit}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center gap-1"
                         >
                           <Check size={16} />
+                          <span>Save</span>
                         </button>
                         <button
                           onClick={handleCancelEdit}
-                          className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                          className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 flex items-center gap-1"
                         >
                           <X size={16} />
+                          <span>Cancel</span>
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <div
-                        className={`flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 w-full ${category === 'pubkeys' ? 'cursor-pointer hover:opacity-80' : ''}`}
-                        onClick={() => category === 'pubkeys' && handleViewProfile(item.value)}
-                      >
-                        {category === 'pubkeys' && (
-                          <>
-                            {profile?.picture ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={profile.picture}
-                                alt={displayName || 'User'}
-                                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                <User size={14} className="text-gray-600 dark:text-gray-300 sm:w-4 sm:h-4" />
-                              </div>
-                            )}
-                          </>
-                        )}
-                        <div className="flex-1 min-w-0 w-full">
-                          {category === 'pubkeys' && displayName ? (
-                            <>
-                              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
-                                {displayName}
-                              </p>
-                              {profile?.nip05 && (
-                                <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 break-all leading-tight">
-                                  ✓ {profile.nip05}
-                                </p>
-                              )}
-                              <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono break-all leading-tight">
-                                {displayValue(item)}
-                              </p>
-                            </>
-                          ) : category === 'pubkeys' ? (
-                            <p className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white break-all">
-                              {displayValue(item)}
-                            </p>
-                          ) : (
-                            <p className="text-xs sm:text-sm text-gray-900 dark:text-white break-all">
-                              {displayValue(item)}
-                            </p>
-                          )}
-                          {item.reason && (
-                            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 italic break-words leading-tight">
-                              {item.reason}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex space-x-1 sm:space-x-2 flex-shrink-0 justify-end w-full sm:w-auto">
-                        {/* Privacy Toggle */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleItemPrivacy(item.value, category);
-                          }}
-                          className={`p-1.5 sm:p-2 transition-colors ${
-                            item.private
-                              ? 'text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300'
-                              : 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
-                          }`}
-                          title={item.private ? 'Private (encrypted) - Click to make public' : 'Public (visible to all) - Click to make private'}
-                        >
-                          {item.private ? <Lock size={16} /> : <Unlock size={16} />}
-                        </button>
-                        {category === 'pubkeys' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCopyNpub(item.value);
-                            }}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                            title="Copy npub"
-                          >
-                            {copySuccess === item.value ? <Check size={16} /> : <Copy size={16} />}
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(item);
-                          }}
-                          className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          title={category === 'pubkeys' ? 'Edit reason' : 'Edit'}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemove(item.value);
-                          }}
-                          className="p-1.5 sm:p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </>
                   )}
                 </div>
               );
