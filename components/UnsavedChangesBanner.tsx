@@ -7,10 +7,9 @@ interface UnsavedChangesBannerProps {
   onPublish: () => void;
   onDiscard: () => void;
   onClean: () => void;
-  className?: string;
 }
 
-export default function UnsavedChangesBanner({ onPublish, onDiscard, onClean, className }: UnsavedChangesBannerProps) {
+export default function UnsavedChangesBanner({ onPublish, onDiscard, onClean }: UnsavedChangesBannerProps) {
   const { hasUnsavedChanges, muteList } = useStore();
 
   if (!hasUnsavedChanges) return null;
@@ -19,8 +18,8 @@ export default function UnsavedChangesBanner({ onPublish, onDiscard, onClean, cl
   const totalItems = muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length;
 
   return (
-    <div className={`bg-gray-50 dark:bg-gray-900 ${className}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <AlertCircle size={20} className="flex-shrink-0 text-amber-600 dark:text-amber-500" />

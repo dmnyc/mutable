@@ -600,13 +600,11 @@ function DashboardContent() {
       </div>
 
       {/* Unsaved Changes Banner - Appears below navigation */}
-      <div className="py-8">
-        <UnsavedChangesBanner
-          onPublish={handlePublishFromBanner}
-          onDiscard={handleDiscardFromBanner}
-          onClean={handleCleanFromBanner}
-        />
-      </div>
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
 
       {/* Main Content */}
       <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
