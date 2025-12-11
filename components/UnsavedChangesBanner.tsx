@@ -53,7 +53,7 @@ export default function UnsavedChangesBanner({ onPublish, onDiscard, onClean }: 
             </button>
             <button
               onClick={onPublish}
-              className="px-3 sm:px-6 py-2.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2"
+              className="px-3 sm:px-6 py-2.5 text-sm font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2 animate-pulse-glow"
             >
               <Save size={18} />
               <span>Publish</span>

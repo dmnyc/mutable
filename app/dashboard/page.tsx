@@ -23,6 +23,7 @@ import UserProfileModal from '@/components/UserProfileModal';
 import OnboardingModal from '@/components/OnboardingModal';
 import UnsavedChangesBanner from '@/components/UnsavedChangesBanner';
 import PublishSuccessModal from '@/components/PublishSuccessModal';
+import ConfirmOnExitDialog from '@/components/ConfirmOnExitDialog';
 import Footer from '@/components/Footer';
 import { Profile } from '@/types';
 import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
@@ -37,6 +38,8 @@ function DashboardContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showConfirmOnExit, setShowConfirmOnExit] = useState(false);
+  const [nextUrl, setNextUrl] = useState<string | null>(null);
 
   // Function to change tab and update URL
   const changeTab = (tab: typeof activeTab) => {
@@ -106,14 +109,36 @@ function DashboardContent() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
+        setShowConfirmOnExit(true);
+        setNextUrl(window.location.pathname);
         e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
         return e.returnValue;
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [hasUnsavedChanges]);
+
+
+  const handleConfirmLeave = async () => {
+    await handlePublishFromBanner();
+    if (nextUrl) {
+      router.push(nextUrl);
+    }
+    setShowConfirmOnExit(false);
+  };
+
+  const handleDiscardLeave = () => {
+    if (nextUrl) {
+      router.push(nextUrl);
+    }
+    setShowConfirmOnExit(false);
+  };
+
 
   if (!isConnected || !session) {
     return (
@@ -594,6 +619,12 @@ function DashboardContent() {
         {activeTab === 'settings' && <Settings />}
       </main>
 
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
+
       <Footer />
 
       {/* User Profile Modal */}
@@ -618,6 +649,14 @@ function DashboardContent() {
         isOpen={showPublishSuccess}
         onClose={() => setShowPublishSuccess(false)}
         itemCount={muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length}
+      />
+
+      {/* Confirm on Exit Dialog */}
+      <ConfirmOnExitDialog
+        isOpen={showConfirmOnExit}
+        onConfirm={handleConfirmLeave}
+        onDiscard={handleDiscardLeave}
+        onCancel={() => setShowConfirmOnExit(false)}
       />
     </div>
   );
