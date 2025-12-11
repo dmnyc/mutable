@@ -48,15 +48,7 @@ export default function ConfirmOnExitDialog({
               className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               <Trash2 size={16} />
-              <span>Leave without Saving</span>
-            </button>
-          </div>
-          <div className="mt-3 text-center">
-            <button
-              onClick={onCancel}
-              className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-            >
-              Cancel
+              <span>Discard Changes</span>
             </button>
           </div>
         </div>

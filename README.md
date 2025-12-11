@@ -36,11 +36,11 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Create**: Publish your own public mute lists for others to use
 
 ### Advanced List Management Tools
-- **Muteuals**: Discover users who have publicly muted you in their mute lists.
-- **Reciprocals**: Find users you follow who don't follow you back.
-- **Decimator**: Randomly remove a percentage of your follows to cull your list down to a manageable size.
-- **Domain Purge**: Find and remove all users with a specific NIP-05 domain from your follow list.
-- **List Cleaner**: Scan your mute list for inactive or abandoned profiles.
+- **Muteuals**: Discover users who have publicly muted you in their mute lists
+- **Reciprocals**: Find users you follow who don't follow you back
+- **Decimator**: Randomly remove a percentage of your follows to cull your list down to a manageable size
+- **Domain Purge**: Find and remove all users with a specific NIP-05 domain from your follow list
+- **List Cleaner**: Scan your mute list for inactive or abandoned profiles
 
 ### Multi-Device Sync via Relay Storage (NIP-78) ☁️ NEW
 - **Persistent Settings**: Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays

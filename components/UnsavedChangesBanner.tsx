@@ -19,12 +19,12 @@ export default function UnsavedChangesBanner({ onPublish, onDiscard, onClean }: 
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <AlertCircle size={20} className="flex-shrink-0 text-amber-600 dark:text-amber-500" />
             <div className="text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0">
-              <div className="font-bold">Unsaved changes</div>
+              <h3 className="font-bold text-lg">Unsaved changes</h3>
               <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm truncate">
                 {muteList.pubkeys.length} {muteList.pubkeys.length === 1 ? 'profile' : 'profiles'}
                 {muteList.words.length > 0 && `, ${muteList.words.length} ${muteList.words.length === 1 ? 'word' : 'words'}`}

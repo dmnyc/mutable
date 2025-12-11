@@ -604,6 +604,7 @@ function DashboardContent() {
         onPublish={handlePublishFromBanner}
         onDiscard={handleDiscardFromBanner}
         onClean={handleCleanFromBanner}
+        className="py-8"
       />
 
       {/* Main Content */}
@@ -623,6 +624,7 @@ function DashboardContent() {
         onPublish={handlePublishFromBanner}
         onDiscard={handleDiscardFromBanner}
         onClean={handleCleanFromBanner}
+        className="pb-8"
       />
 
       <Footer />
