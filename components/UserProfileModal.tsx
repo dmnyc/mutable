@@ -169,6 +169,11 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
     setEditingReason(false);
   };
 
+  const handleUpdateReason = () => {
+    updateMutedItem(profile.pubkey, profile.pubkey, 'pubkeys', editedReason || undefined);
+    setEditingReason(false);
+  };
+
   const handleUnfollow = async () => {
     if (!session) return;
 
