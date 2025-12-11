@@ -607,7 +607,7 @@ function DashboardContent() {
       />
 
       {/* Main Content */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 flex-grow">
         {activeTab === 'myList' && <MyMuteList />}
         {activeTab === 'publicLists' && <PublicLists />}
         {activeTab === 'muteuals' && <Muteuals />}
@@ -619,13 +619,11 @@ function DashboardContent() {
         {activeTab === 'settings' && <Settings />}
       </main>
 
-      <div className="pb-8">
-        <UnsavedChangesBanner
-          onPublish={handlePublishFromBanner}
-          onDiscard={handleDiscardFromBanner}
-          onClean={handleCleanFromBanner}
-        />
-      </div>
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
 
       <Footer />
 
