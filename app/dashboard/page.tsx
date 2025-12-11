@@ -600,12 +600,13 @@ function DashboardContent() {
       </div>
 
       {/* Unsaved Changes Banner - Appears below navigation */}
-      <UnsavedChangesBanner
-        onPublish={handlePublishFromBanner}
-        onDiscard={handleDiscardFromBanner}
-        onClean={handleCleanFromBanner}
-        className="py-8"
-      />
+      <div className="py-8">
+        <UnsavedChangesBanner
+          onPublish={handlePublishFromBanner}
+          onDiscard={handleDiscardFromBanner}
+          onClean={handleCleanFromBanner}
+        />
+      </div>
 
       {/* Main Content */}
       <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
@@ -620,12 +621,13 @@ function DashboardContent() {
         {activeTab === 'settings' && <Settings />}
       </main>
 
-      <UnsavedChangesBanner
-        onPublish={handlePublishFromBanner}
-        onDiscard={handleDiscardFromBanner}
-        onClean={handleCleanFromBanner}
-        className="pb-8"
-      />
+      <div className="pb-8">
+        <UnsavedChangesBanner
+          onPublish={handlePublishFromBanner}
+          onDiscard={handleDiscardFromBanner}
+          onClean={handleCleanFromBanner}
+        />
+      </div>
 
       <Footer />
 
