@@ -619,13 +619,13 @@ function DashboardContent() {
         {activeTab === 'settings' && <Settings />}
       </main>
 
-      <UnsavedChangesBanner
-        onPublish={handlePublishFromBanner}
-        onDiscard={handleDiscardFromBanner}
-        onClean={handleCleanFromBanner}
-      />
-
-      <Footer />
+<div className="pt-4 pb-8">
+        <UnsavedChangesBanner
+          onPublish={handlePublishFromBanner}
+          onDiscard={handleDiscardFromBanner}
+          onClean={handleCleanFromBanner}
+        />
+      </div>
 
       {/* User Profile Modal */}
       {selectedProfile && (
