@@ -43,7 +43,7 @@ const DEFAULT_RELAYS = [
 
 export default function UserProfileModal({ profile, onClose }: UserProfileModalProps) {
   const { session } = useAuth();
-  const { muteList, addMutedItem, removeMutedItem } = useStore();
+  const { muteList, addMutedItem, removeMutedItem, updateMutedItem } = useStore();
   const { addProtection: addProtectionToRelay, removeProtection: removeProtectionFromRelay } = useRelaySync();
   const [userMuteList, setUserMuteList] = useState<MuteList | null>(null);
   const [loadingMuteList, setLoadingMuteList] = useState(false);
@@ -162,6 +162,11 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
   const handleUnmute = () => {
     removeMutedItem(profile.pubkey, 'pubkeys');
+  };
+
+  const handleUpdateReason = () => {
+    updateMutedItem(profile.pubkey, profile.pubkey, 'pubkeys', editedReason || undefined);
+    setEditingReason(false);
   };
 
   const handleUnfollow = async () => {
@@ -519,29 +524,53 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
               <ExternalLink size={16} />
               <span>View Profile</span>
             </button>
-          </div>
+
 
           {/* Display Mute Reason if Muted */}
           {isMuted && (
             <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700 mt-4">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                You have muted this user.
-              </h4>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Reason: {muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || 'No reason provided.'}
-              </p>
-            </div>
-          )}
-
-          {/* Display Mute Reason if Muted */}
-          {isMuted && (
-            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700 mt-4">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                You have muted this user.
-              </h4>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Reason: {muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || 'No reason provided.'}
-              </p>
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  You have muted this user.
+                </h4>
+                {!editingReason && (
+                  <button onClick={() => {
+                    setEditedReason(muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || '');
+                    setEditingReason(true);
+                  }} className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                    <Edit2 size={16} />
+                  </button>
+                )}
+              </div>
+              {editingReason ? (
+                <div className="flex flex-col gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={editedReason}
+                    onChange={(e) => setEditedReason(e.target.value)}
+                    placeholder="Reason for muting (optional)"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleUpdateReason}
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <span>Save</span>
+                    </button>
+                    <button
+                      onClick={() => setEditingReason(false)}
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Reason: {muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || 'No reason provided.'}
+                </p>
+              )}
             </div>
           )}
 
