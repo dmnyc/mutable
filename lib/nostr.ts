@@ -1487,12 +1487,18 @@ export async function searchMutealsNetworkWide(
             eoseCount++;
             console.log(`Received EOSE ${eoseCount}/${relays.length}, collected ${collectedEvents.length} events so far`);
 
-            // If we've received EOSE from all relays, wait a bit for any in-flight events
-            if (eoseCount >= relays.length) {
+            // Calculate how many relays we should wait for (80% or all, whichever is first)
+            // This ensures mobile connections don't miss results due to slow/unresponsive relays
+            const targetEoseCount = Math.max(1, Math.ceil(relays.length * 0.8));
+
+            // If we've received EOSE from 80% of relays (or all), wait a bit for any in-flight events
+            if (eoseCount >= targetEoseCount) {
               const eventCountBeforeWait = collectedEvents.length;
-              console.log(`⏳ Received EOSE from all ${relays.length} relays at ${eventCountBeforeWait} events, waiting 5s for in-flight events...`);
-              // Give a 5-second grace period for any events still in transit (especially on mobile)
-              // This is especially important on slower connections where events may arrive after EOSE
+              const receivedFromAll = eoseCount >= relays.length;
+              console.log(`⏳ Received EOSE from ${eoseCount}/${relays.length} relays (target: ${targetEoseCount}) at ${eventCountBeforeWait} events, waiting ${receivedFromAll ? '5s' : '3s'} for in-flight events...`);
+              // Give a grace period for any events still in transit (especially on mobile)
+              // Shorter wait if not all relays responded, to avoid excessive delays
+              const waitTime = receivedFromAll ? 5000 : 3000;
               setTimeout(() => {
                 if (resolved) return;
                 resolved = true;
@@ -1502,7 +1508,7 @@ export async function searchMutealsNetworkWide(
                 clearTimeout(timeout);
                 sub.close();
                 resolve(collectedEvents);
-              }, 5000); // Increased to 5 seconds for mobile reliability
+              }, waitTime);
             }
           }
         }
