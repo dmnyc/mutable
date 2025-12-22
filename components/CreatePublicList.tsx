@@ -392,7 +392,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -407,7 +407,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Success Message */}
           {success && (
             <div className="p-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded text-green-700 dark:text-green-200">
@@ -912,9 +912,11 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
               information publicly.
             </p>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex space-x-3 pt-4">
+        {/* Sticky Footer with Actions */}
+        <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 z-10">
+          <div className="flex space-x-3">
             <button
               onClick={handlePublish}
               disabled={publishing || !listName.trim() || totalItems === 0}

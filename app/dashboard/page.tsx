@@ -92,17 +92,17 @@ function DashboardContent() {
     loadUserProfile();
   }, [session, userProfile, setUserProfile]);
 
-  // Refresh mute list when tab becomes visible
+  // Refresh mute list when tab becomes visible (but only if no unsaved changes)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && session) {
+      if (document.visibilityState === 'visible' && session && !hasUnsavedChanges) {
         reloadMuteList();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [session, reloadMuteList]);
+  }, [session, reloadMuteList, hasUnsavedChanges]);
 
   // Warn before leaving page with unsaved changes
   useEffect(() => {
