@@ -37,9 +37,12 @@ export default function NoteNukeSuccessModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      style={{ margin: 0 }}
+    >
       <div
-        className={`relative bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl shadow-2xl border-2 border-red-500 dark:border-red-600 p-8 max-w-md w-full transform transition-all duration-300 ${
+        className={`relative bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl shadow-2xl border-2 border-red-500 dark:border-red-600 p-8 max-w-md w-full mx-4 transform transition-all duration-300 ${
           show ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
       >
