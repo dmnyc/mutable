@@ -41,6 +41,7 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Decimator**: Randomly remove a percentage of your follows to cull your list down to a manageable size
 - **Domain Purge**: Find and remove all users with a specific NIP-05 domain from your follow list
 - **List Cleaner**: Scan your mute list for inactive or abandoned profiles
+- **Note Nuke** ☢️ **NEW**: Delete Nostr events across multiple relays with a single click
 
 ### Multi-Device Sync via Relay Storage (NIP-78) ☁️ NEW
 - **Persistent Settings**: Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays
@@ -109,6 +110,7 @@ mutable/
 ├── app/                    # Next.js app directory
 │   ├── dashboard/         # Dashboard page
 │   ├── mute-o-scope/      # Mute-o-Scope standalone page
+│   ├── note-nuke/         # Note Nuke standalone page
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Landing page
@@ -129,6 +131,9 @@ mutable/
 │   ├── MuteScoreModal.tsx # Mute Score info modal
 │   ├── Muteuals.tsx       # Component to discover mutual mutes
 │   ├── MyMuteList.tsx
+│   ├── NoteNuke.tsx       # Note Nuke component for event deletion
+│   ├── NoteNukeSuccessModal.tsx # Success modal for event deletion
+│   ├── NoteNukeWrapper.tsx # Wrapper with navigation for standalone route
 │   ├── OnboardingModal.tsx # Onboarding flow for new users
 │   ├── PrivacyControls.tsx
 │   ├── PublicListCard.tsx
@@ -168,6 +173,13 @@ mutable/
 3. **Check Score**: Click the Mute Score badge to see all scoring levels
 4. **Share**: Share results directly to Nostr with automatic tagging
 
+### Note Nuke
+1. **Paste**: Enter a note ID or paste a direct note link
+2. **Preview**: Review the note before deletion
+3. **Select Relays**: Choose which relays to publish the deletion event to
+4. **Deploy**: Broadcast deletion event to selected relays
+5. **Reason**: Optionally add a reason for the deletion
+
 ### Personal Mute List Management
 1. **Connect**: Click "Connect with Nostr" and authorize with your NIP-07 extension
 2. **View Your List**: See your current mute list organized by category
@@ -177,11 +189,12 @@ mutable/
 6. **Discover**: Search for public lists created by other users
 7. **Share**: Create and publish your own public mute lists
 
-## Nostr Event Kinds
+### Nostr Event Kinds
 
 - **kind:10000**: Personal mute list (replaceable event)
 - **kind:30001**: Public/categorized mute list (parameterized replaceable event)
 - **kind:30078**: Application-specific data (NIP-78) - used for relay storage sync
+- **kind:5**: Delete event marker (for Note Nuke)
 - **kind:1**: Text note (for sharing Mute-o-Scope results)
 
 ## Relay Storage Implementation
