@@ -5,6 +5,7 @@ import { User, LogOut, X, Menu } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
+import { useStore } from "@/lib/store";
 import NoteNuke from "./NoteNuke";
 import Footer from "./Footer";
 import { Profile } from "@/types";
@@ -13,6 +14,7 @@ import GlobalUserSearch from "./GlobalUserSearch";
 
 export default function NoteNukeWrapper() {
   const { session, disconnect } = useAuth();
+  const { userProfile } = useStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
@@ -58,14 +60,12 @@ export default function NoteNukeWrapper() {
                 <div className="flex items-center space-x-4 flex-shrink-0">
                   {/* User Profile Display - Desktop */}
                   <div className="hidden md:flex items-center space-x-3">
-                    {session.profile?.picture ? (
+                    {userProfile?.picture ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={session.profile.picture}
+                        src={userProfile.picture}
                         alt={
-                          session.profile.display_name ||
-                          session.profile.name ||
-                          "User"
+                          userProfile.display_name || userProfile.name || "User"
                         }
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
@@ -82,16 +82,16 @@ export default function NoteNukeWrapper() {
                       </div>
                     )}
                     <div className="flex flex-col">
-                      {session.profile && (
+                      {userProfile && (
                         <>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {session.profile.display_name ||
-                              session.profile.name ||
+                            {userProfile.display_name ||
+                              userProfile.name ||
                               "Anonymous"}
                           </span>
-                          {session.profile.nip05 && (
+                          {userProfile.nip05 && (
                             <span className="text-xs text-gray-600 dark:text-gray-400">
-                              {session.profile.nip05}
+                              {userProfile.nip05}
                             </span>
                           )}
                         </>
@@ -101,14 +101,12 @@ export default function NoteNukeWrapper() {
 
                   {/* User Avatar - Mobile */}
                   <div className="md:hidden">
-                    {session.profile?.picture ? (
+                    {userProfile?.picture ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={session.profile.picture}
+                        src={userProfile.picture}
                         alt={
-                          session.profile.display_name ||
-                          session.profile.name ||
-                          "User"
+                          userProfile.display_name || userProfile.name || "User"
                         }
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
