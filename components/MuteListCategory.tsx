@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { MuteItem, MuteList, Profile } from '@/types';
 import { Plus, Trash2, Edit2, X, Check, User, Copy, Lock, Unlock } from 'lucide-react';
-import { npubToHex, hexToNpub, fetchProfile } from '@/lib/nostr';
+import { npubToHex, hexToNpub, fetchProfile, parseEventReference, hexToNote } from '@/lib/nostr';
 import { useAuth } from '@/hooks/useAuth';
 import UserSearchInput from './UserSearchInput';
 import UserProfileModal from './UserProfileModal';
@@ -31,6 +31,9 @@ export default function MuteListCategory({
   const [editingValue, setEditingValue] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editReason, setEditReason] = useState('');
+  const [newEventRef, setNewEventRef] = useState('');
+  const [editEventRef, setEditEventRef] = useState('');
+  const [eventRefError, setEventRefError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loadingProfiles, setLoadingProfiles] = useState(false);
@@ -47,10 +50,21 @@ export default function MuteListCategory({
 
     try {
       let finalValue = newValue.trim();
+      let finalEventRef: string | undefined;
 
       // Convert npub to hex for pubkeys
       if (category === 'pubkeys' && finalValue.startsWith('npub')) {
         finalValue = npubToHex(finalValue);
+      }
+
+      // Validate and convert event reference if provided
+      if (newEventRef.trim()) {
+        const parsedEventRef = parseEventReference(newEventRef.trim());
+        if (!parsedEventRef) {
+          setEventRefError('Invalid event reference format. Use nevent1... or note1...');
+          return;
+        }
+        finalEventRef = parsedEventRef;
       }
 
       const newItem: MuteItem = {
@@ -58,52 +72,85 @@ export default function MuteListCategory({
               category === 'words' ? 'word' :
               category === 'tags' ? 'tag' : 'thread',
         value: finalValue,
-        reason: newReason.trim() || undefined
+        reason: newReason.trim() || undefined,
+        eventRef: finalEventRef
       } as MuteItem;
 
       addMutedItem(newItem, category);
       setNewValue('');
       setNewReason('');
+      setNewEventRef('');
       setIsAdding(false);
       setUseSearchInput(false);
       setError(null);
+      setEventRefError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid format');
     }
   };
 
   const handleProfileSelect = (profile: Profile) => {
+    let finalEventRef: string | undefined;
+
+    // Validate event reference if provided
+    if (newEventRef.trim()) {
+      const parsedEventRef = parseEventReference(newEventRef.trim());
+      if (!parsedEventRef) {
+        setEventRefError('Invalid event reference format. Use nevent1... or note1...');
+        return;
+      }
+      finalEventRef = parsedEventRef;
+    }
+
     const newItem: MuteItem = {
       type: 'pubkey',
       value: profile.pubkey,
-      reason: newReason.trim() || undefined
+      reason: newReason.trim() || undefined,
+      eventRef: finalEventRef
     } as MuteItem;
 
     addMutedItem(newItem, category);
     setNewValue('');
     setNewReason('');
+    setNewEventRef('');
     setIsAdding(false);
     setUseSearchInput(false);
     setError(null);
+    setEventRefError(null);
   };
 
   const handleEdit = (item: MuteItem) => {
     setEditingValue(item.value);
     setEditReason(item.reason || '');
+    setEditEventRef(item.eventRef || '');
     setError(null);
+    setEventRefError(null);
   };
 
   const handleSaveEdit = () => {
     if (!editingValue) return;
 
     try {
-      // For pubkeys, we only update the reason, not the value
+      let finalEventRef: string | undefined;
+
+      // Validate event reference if provided
+      if (editEventRef.trim()) {
+        const parsedEventRef = parseEventReference(editEventRef.trim());
+        if (!parsedEventRef) {
+          setEventRefError('Invalid event reference format. Use nevent1... or note1...');
+          return;
+        }
+        finalEventRef = parsedEventRef;
+      }
+
+      // For pubkeys, we only update the reason and eventRef, not the value
       if (category === 'pubkeys') {
         updateMutedItem(
           editingValue,
           editingValue, // Keep the same pubkey
           category,
-          editReason.trim() || undefined
+          editReason.trim() || undefined,
+          finalEventRef
         );
       } else {
         // For other categories, allow value editing
@@ -115,14 +162,17 @@ export default function MuteListCategory({
           editingValue,
           editValue.trim(),
           category,
-          editReason.trim() || undefined
+          editReason.trim() || undefined,
+          finalEventRef
         );
       }
 
       setEditingValue(null);
       setEditValue('');
       setEditReason('');
+      setEditEventRef('');
       setError(null);
+      setEventRefError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid format');
     }
@@ -132,11 +182,23 @@ export default function MuteListCategory({
     setEditingValue(null);
     setEditValue('');
     setEditReason('');
+    setEditEventRef('');
     setError(null);
+    setEventRefError(null);
   };
 
   const handleRemove = (value: string) => {
     removeMutedItem(value, category);
+  };
+
+  // Generate link to view event on Nostr client
+  const generateEventLink = (eventId: string): string => {
+    try {
+      const note = hexToNote(eventId);
+      return `https://njump.me/${note}`;
+    } catch {
+      return '#';
+    }
   };
 
   // Load profiles for pubkeys (only for current page)
@@ -355,6 +417,21 @@ export default function MuteListCategory({
                             {item.reason}
                           </p>
                         )}
+                        {item.eventRef && (
+                          <a
+                            href={generateEventLink(item.eventRef)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 flex items-center gap-1 break-all leading-tight"
+                            title="View related event"
+                          >
+                            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            {hexToNote(item.eventRef).slice(0, 16)}...
+                          </a>
+                        )}
                       </div>
                     </div>
                     <div className="flex space-x-1 sm:space-x-2 flex-shrink-0 justify-end w-full sm:w-auto">
@@ -427,6 +504,21 @@ export default function MuteListCategory({
                         placeholder="Reason (optional)"
                         autoFocus
                       />
+                      <input
+                        type="text"
+                        value={editEventRef}
+                        onChange={(e) => {
+                          setEditEventRef(e.target.value);
+                          setEventRefError(null);
+                        }}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                        placeholder="Event reference (optional): nevent1... or note1..."
+                      />
+                      {eventRefError && (
+                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          {eventRefError}
+                        </div>
+                      )}
                       <div className="flex space-x-2">
                         <button
                           onClick={handleSaveEdit}
@@ -526,6 +618,21 @@ export default function MuteListCategory({
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                   placeholder="Reason (optional)"
                 />
+                <input
+                  type="text"
+                  value={newEventRef}
+                  onChange={(e) => {
+                    setNewEventRef(e.target.value);
+                    setEventRefError(null);
+                  }}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                  placeholder="Event reference (optional): nevent1... or note1..."
+                />
+                {eventRefError && (
+                  <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {eventRefError}
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
                   <button
                     onClick={() => setUseSearchInput(false)}
@@ -564,6 +671,21 @@ export default function MuteListCategory({
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                   placeholder="Reason (optional)"
                 />
+                <input
+                  type="text"
+                  value={newEventRef}
+                  onChange={(e) => {
+                    setNewEventRef(e.target.value);
+                    setEventRefError(null);
+                  }}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                  placeholder="Event reference (optional): nevent1... or note1..."
+                />
+                {eventRefError && (
+                  <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {eventRefError}
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
                   {category === 'pubkeys' && (
                     <button

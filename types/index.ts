@@ -7,6 +7,7 @@ export interface MutedPubkey {
   type: 'pubkey';
   value: string; // hex pubkey
   reason?: string;
+  eventRef?: string; // hex event ID (converted from nevent/note)
   private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
@@ -14,6 +15,7 @@ export interface MutedWord {
   type: 'word';
   value: string;
   reason?: string;
+  eventRef?: string; // hex event ID (converted from nevent/note)
   private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
@@ -21,6 +23,7 @@ export interface MutedTag {
   type: 'tag';
   value: string; // hashtag without #
   reason?: string;
+  eventRef?: string; // hex event ID (converted from nevent/note)
   private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
@@ -28,6 +31,7 @@ export interface MutedThread {
   type: 'thread';
   value: string; // event id
   reason?: string;
+  eventRef?: string; // hex event ID (converted from nevent/note)
   private?: boolean; // true = encrypted in content, false/undefined = public in tags
 }
 
