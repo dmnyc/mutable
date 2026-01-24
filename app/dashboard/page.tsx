@@ -1,39 +1,49 @@
-'use client';
+"use client";
 
-import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { useStore } from '@/lib/store';
-import Image from 'next/image';
-import Link from 'next/link';
-import { LogOut, User, Menu, X } from 'lucide-react';
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { useStore } from "@/lib/store";
+import Image from "next/image";
+import Link from "next/link";
+import { LogOut, User, Menu, X } from "lucide-react";
 
-export const dynamic = 'force-dynamic';
-import MyMuteList from '@/components/MyMuteList';
-import PublicLists from '@/components/PublicLists';
-import Muteuals from '@/components/Muteuals';
-import Reciprocals from '@/components/Reciprocals';
-import Decimator from '@/components/Decimator';
-import Backups from '@/components/Backups';
-import Settings from '@/components/Settings';
-import ListCleaner from '@/components/ListCleaner';
-import DomainPurge from '@/components/DomainPurge';
-import GlobalUserSearch from '@/components/GlobalUserSearch';
-import UserProfileModal from '@/components/UserProfileModal';
-import OnboardingModal from '@/components/OnboardingModal';
-import UnsavedChangesBanner from '@/components/UnsavedChangesBanner';
-import PublishSuccessModal from '@/components/PublishSuccessModal';
-import ConfirmOnExitDialog from '@/components/ConfirmOnExitDialog';
-import Footer from '@/components/Footer';
-import { Profile } from '@/types';
-import { fetchProfile, getFollowListPubkeys } from '@/lib/nostr';
-import { backupService } from '@/lib/backupService';
+export const dynamic = "force-dynamic";
+import MyMuteList from "@/components/MyMuteList";
+import PublicLists from "@/components/PublicLists";
+import Muteuals from "@/components/Muteuals";
+import Reciprocals from "@/components/Reciprocals";
+import Decimator from "@/components/Decimator";
+import Backups from "@/components/Backups";
+import Settings from "@/components/Settings";
+import ListCleaner from "@/components/ListCleaner";
+import DomainPurge from "@/components/DomainPurge";
+import NoteNuke from "@/components/NoteNuke";
+import GlobalUserSearch from "@/components/GlobalUserSearch";
+import UserProfileModal from "@/components/UserProfileModal";
+import OnboardingModal from "@/components/OnboardingModal";
+import UnsavedChangesBanner from "@/components/UnsavedChangesBanner";
+import PublishSuccessModal from "@/components/PublishSuccessModal";
+import ConfirmOnExitDialog from "@/components/ConfirmOnExitDialog";
+import Footer from "@/components/Footer";
+import { Profile } from "@/types";
+import { fetchProfile, getFollowListPubkeys } from "@/lib/nostr";
+import { backupService } from "@/lib/backupService";
 
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, isConnected, disconnect, reloadMuteList } = useAuth();
-  const { activeTab, setActiveTab, hasUnsavedChanges, hasCompletedOnboarding, setHasCompletedOnboarding, muteList, userProfile, setUserProfile } = useStore();
+  const {
+    activeTab,
+    setActiveTab,
+    hasUnsavedChanges,
+    hasCompletedOnboarding,
+    setHasCompletedOnboarding,
+    muteList,
+    userProfile,
+    setUserProfile,
+  } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
@@ -45,14 +55,26 @@ function DashboardContent() {
   const changeTab = (tab: typeof activeTab) => {
     setActiveTab(tab);
     const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', tab);
+    params.set("tab", tab);
     router.push(`/dashboard?${params.toString()}`, { scroll: false });
   };
 
   // Sync URL with activeTab on mount and when URL changes
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    const validTabs = ['myList', 'publicLists', 'muteuals', 'reciprocals', 'decimator', 'backups', 'settings', 'listCleaner', 'muteOScope', 'domainPurge'] as const;
+    const tabParam = searchParams.get("tab");
+    const validTabs = [
+      "myList",
+      "publicLists",
+      "muteuals",
+      "reciprocals",
+      "decimator",
+      "backups",
+      "settings",
+      "listCleaner",
+      "muteOScope",
+      "domainPurge",
+      "noteNuke",
+    ] as const;
 
     if (tabParam && validTabs.includes(tabParam as any)) {
       setActiveTab(tabParam as typeof activeTab);
@@ -61,7 +83,7 @@ function DashboardContent() {
 
   useEffect(() => {
     if (!isConnected) {
-      router.push('/');
+      router.push("/");
     }
   }, [isConnected, router]);
 
@@ -83,7 +105,7 @@ function DashboardContent() {
             setUserProfile(profile);
           }
         } catch (error) {
-          console.error('Failed to load user profile:', error);
+          console.error("Failed to load user profile:", error);
           // Don't clear cached profile on fetch error
         }
       }
@@ -95,13 +117,18 @@ function DashboardContent() {
   // Refresh mute list when tab becomes visible (but only if no unsaved changes)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && session && !hasUnsavedChanges) {
+      if (
+        document.visibilityState === "visible" &&
+        session &&
+        !hasUnsavedChanges
+      ) {
         reloadMuteList();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [session, reloadMuteList, hasUnsavedChanges]);
 
   // Warn before leaving page with unsaved changes
@@ -111,18 +138,18 @@ function DashboardContent() {
         e.preventDefault();
         setShowConfirmOnExit(true);
         setNextUrl(window.location.pathname);
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        e.returnValue =
+          "You have unsaved changes. Are you sure you want to leave?";
         return e.returnValue;
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [hasUnsavedChanges]);
-
 
   const handleConfirmLeave = async () => {
     await handlePublishFromBanner();
@@ -139,7 +166,6 @@ function DashboardContent() {
     setShowConfirmOnExit(false);
   };
 
-
   if (!isConnected || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -150,7 +176,7 @@ function DashboardContent() {
 
   const handleDisconnect = () => {
     disconnect();
-    router.push('/');
+    router.push("/");
   };
 
   const handleUserSelect = (profile: Profile) => {
@@ -162,35 +188,43 @@ function DashboardContent() {
 
     try {
       // Check if this is truly the first backup
-      const existingMuteBackups = backupService.getBackupsByType('mute-list');
-      const existingFollowBackups = backupService.getBackupsByType('follow-list');
-      const isFirstBackup = existingMuteBackups.length === 0 && existingFollowBackups.length === 0;
+      const existingMuteBackups = backupService.getBackupsByType("mute-list");
+      const existingFollowBackups =
+        backupService.getBackupsByType("follow-list");
+      const isFirstBackup =
+        existingMuteBackups.length === 0 && existingFollowBackups.length === 0;
 
       const backupNote = isFirstBackup
-        ? 'Initial backup created during onboarding'
-        : 'Backup created from onboarding tutorial';
+        ? "Initial backup created during onboarding"
+        : "Backup created from onboarding tutorial";
 
       // Create mute list backup
       const muteBackup = backupService.createMuteListBackup(
         session.pubkey,
         muteList,
-        backupNote
+        backupNote,
       );
       backupService.saveBackup(muteBackup);
 
       // Create follow list backup with retries (3 attempts) for better reliability during onboarding
-      const follows = await getFollowListPubkeys(session.pubkey, session.relays, 3);
+      const follows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+        3,
+      );
       const followBackup = backupService.createFollowListBackup(
         session.pubkey,
         follows,
-        backupNote
+        backupNote,
       );
       backupService.saveBackup(followBackup);
 
-      alert(`Backups created successfully!\n\nMute list: ${muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length} items\nFollow list: ${follows.length} follows`);
+      alert(
+        `Backups created successfully!\n\nMute list: ${muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length} items\nFollow list: ${follows.length} follows`,
+      );
     } catch (error) {
-      console.error('Failed to create backups:', error);
-      alert('Failed to create backups. Please try again.');
+      console.error("Failed to create backups:", error);
+      alert("Failed to create backups. Please try again.");
     }
   };
 
@@ -203,32 +237,38 @@ function DashboardContent() {
     if (!session) return;
 
     try {
-      const { publishMuteList } = await import('@/lib/nostr');
+      const { publishMuteList } = await import("@/lib/nostr");
       await publishMuteList(muteList, session.relays);
       const { setHasUnsavedChanges } = useStore.getState();
       setHasUnsavedChanges(false);
       setShowPublishSuccess(true);
     } catch (error) {
-      console.error('Failed to publish:', error);
-      alert('Failed to publish mute list. Please try again from the My Mute List tab.');
+      console.error("Failed to publish:", error);
+      alert(
+        "Failed to publish mute list. Please try again from the My Mute List tab.",
+      );
     }
   };
 
   const handleDiscardFromBanner = async () => {
     if (!session) return;
 
-    if (confirm('Are you sure you want to discard all unsaved changes? This will reload your mute list from Nostr.')) {
+    if (
+      confirm(
+        "Are you sure you want to discard all unsaved changes? This will reload your mute list from Nostr.",
+      )
+    ) {
       try {
         await reloadMuteList();
       } catch (error) {
-        console.error('Failed to reload mute list:', error);
-        alert('Failed to reload mute list. Please try again.');
+        console.error("Failed to reload mute list:", error);
+        alert("Failed to reload mute list. Please try again.");
       }
     }
   };
 
   const handleCleanFromBanner = () => {
-    changeTab('listCleaner');
+    changeTab("listCleaner");
   };
 
   return (
@@ -238,7 +278,7 @@ function DashboardContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
             <button
-              onClick={() => changeTab('myList')}
+              onClick={() => changeTab("myList")}
               className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
               title="Go to My Mute List"
             >
@@ -267,22 +307,28 @@ function DashboardContent() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userProfile.picture}
-                    alt={userProfile.display_name || userProfile.name || 'User'}
+                    alt={userProfile.display_name || userProfile.name || "User"}
                     className="w-8 h-8 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                      (e.target as HTMLImageElement).src =
+                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                     }}
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                    <User size={16} className="text-gray-600 dark:text-gray-300" />
+                    <User
+                      size={16}
+                      className="text-gray-600 dark:text-gray-300"
+                    />
                   </div>
                 )}
                 <div className="flex flex-col">
                   {userProfile && (
                     <>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {userProfile.display_name || userProfile.name || 'Anonymous'}
+                        {userProfile.display_name ||
+                          userProfile.name ||
+                          "Anonymous"}
                       </span>
                       {userProfile.nip05 && (
                         <span className="text-xs text-gray-600 dark:text-gray-400">
@@ -300,15 +346,19 @@ function DashboardContent() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userProfile.picture}
-                    alt={userProfile.display_name || userProfile.name || 'User'}
+                    alt={userProfile.display_name || userProfile.name || "User"}
                     className="w-8 h-8 rounded-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                      (e.target as HTMLImageElement).src =
+                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                     }}
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                    <User size={16} className="text-gray-600 dark:text-gray-300" />
+                    <User
+                      size={16}
+                      className="text-gray-600 dark:text-gray-300"
+                    />
                   </div>
                 )}
               </div>
@@ -331,41 +381,41 @@ function DashboardContent() {
           {/* Desktop Navigation */}
           <div className="hidden xl:flex space-x-8">
             <button
-              onClick={() => changeTab('myList')}
+              onClick={() => changeTab("myList")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'myList'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "myList"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               My Mutes
             </button>
             <button
-              onClick={() => changeTab('publicLists')}
+              onClick={() => changeTab("publicLists")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'publicLists'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "publicLists"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Mute Packs
             </button>
             <button
-              onClick={() => changeTab('muteuals')}
+              onClick={() => changeTab("muteuals")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'muteuals'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "muteuals"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Muteuals
             </button>
             <button
-              onClick={() => changeTab('reciprocals')}
+              onClick={() => changeTab("reciprocals")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'reciprocals'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "reciprocals"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Reciprocals
@@ -373,59 +423,69 @@ function DashboardContent() {
             <Link
               href="/mute-o-scope"
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'muteOScope'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "muteOScope"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Mute-o-Scope
             </Link>
             <button
-              onClick={() => changeTab('domainPurge')}
+              onClick={() => changeTab("noteNuke")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'domainPurge'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "noteNuke"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              Note Nuke
+            </button>
+            <button
+              onClick={() => changeTab("domainPurge")}
+              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+                activeTab === "domainPurge"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Domain Purge
             </button>
             <button
-              onClick={() => changeTab('decimator')}
+              onClick={() => changeTab("decimator")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'decimator'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "decimator"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Decimator
             </button>
             <button
-              onClick={() => changeTab('listCleaner')}
+              onClick={() => changeTab("listCleaner")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'listCleaner'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "listCleaner"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               List Cleaner
             </button>
             <button
-              onClick={() => changeTab('backups')}
+              onClick={() => changeTab("backups")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'backups'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "backups"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Backups
             </button>
             <button
-              onClick={() => changeTab('settings')}
+              onClick={() => changeTab("settings")}
               className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'settings'
-                  ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                activeTab === "settings"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
               Settings
@@ -439,23 +499,34 @@ function DashboardContent() {
               className="flex items-center justify-between w-full py-4"
             >
               <span className="font-semibold text-base text-gray-900 dark:text-white">
-                {activeTab === 'myList' && 'My Mutes'}
-                {activeTab === 'publicLists' && 'Mute Packs'}
-                {activeTab === 'muteuals' && 'Muteuals'}
-                {activeTab === 'reciprocals' && 'Reciprocals'}
-                {activeTab === 'decimator' && 'Decimator'}
-                {activeTab === 'domainPurge' && 'Domain Purge'}
-                {activeTab === 'muteOScope' && 'Mute-o-Scope'}
-                {activeTab === 'listCleaner' && 'List Cleaner'}
-                {activeTab === 'backups' && 'Backups'}
-                {activeTab === 'settings' && 'Settings'}
+                {activeTab === "myList" && "My Mutes"}
+                {activeTab === "publicLists" && "Mute Packs"}
+                {activeTab === "muteuals" && "Muteuals"}
+                {activeTab === "reciprocals" && "Reciprocals"}
+                {activeTab === "decimator" && "Decimator"}
+                {activeTab === "domainPurge" && "Domain Purge"}
+                {activeTab === "muteOScope" && "Mute-o-Scope"}
+                {activeTab === "noteNuke" && "Note Nuke"}
+                {activeTab === "listCleaner" && "List Cleaner"}
+                {activeTab === "backups" && "Backups"}
+                {activeTab === "settings" && "Settings"}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Menu</span>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+                  Menu
+                </span>
                 {mobileMenuOpen ? (
-                  <X size={20} strokeWidth={2.5} className="text-gray-900 dark:text-white" />
+                  <X
+                    size={20}
+                    strokeWidth={2.5}
+                    className="text-gray-900 dark:text-white"
+                  />
                 ) : (
-                  <Menu size={20} strokeWidth={2.5} className="text-gray-900 dark:text-white" />
+                  <Menu
+                    size={20}
+                    strokeWidth={2.5}
+                    className="text-gray-900 dark:text-white"
+                  />
                 )}
               </div>
             </button>
@@ -466,52 +537,52 @@ function DashboardContent() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
                   <button
                     onClick={() => {
-                      changeTab('myList');
+                      changeTab("myList");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'myList'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "myList"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     My Mutes
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('publicLists');
+                      changeTab("publicLists");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'publicLists'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "publicLists"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Mute Packs
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('muteuals');
+                      changeTab("muteuals");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'muteuals'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "muteuals"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Muteuals
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('reciprocals');
+                      changeTab("reciprocals");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'reciprocals'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "reciprocals"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Reciprocals
@@ -520,74 +591,87 @@ function DashboardContent() {
                     href="/mute-o-scope"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'muteOScope'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "muteOScope"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Mute-o-Scope
                   </Link>
                   <button
                     onClick={() => {
-                      changeTab('domainPurge');
+                      changeTab("noteNuke");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'domainPurge'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "noteNuke"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Note Nuke
+                  </button>
+                  <button
+                    onClick={() => {
+                      changeTab("domainPurge");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
+                      activeTab === "domainPurge"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Domain Purge
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('decimator');
+                      changeTab("decimator");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'decimator'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "decimator"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Decimator
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('listCleaner');
+                      changeTab("listCleaner");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'listCleaner'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "listCleaner"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     List Cleaner
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('backups');
+                      changeTab("backups");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'backups'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "backups"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Backups
                   </button>
                   <button
                     onClick={() => {
-                      changeTab('settings');
+                      changeTab("settings");
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === 'settings'
-                        ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      activeTab === "settings"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     Settings
@@ -608,15 +692,16 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 flex-grow">
-        {activeTab === 'myList' && <MyMuteList />}
-        {activeTab === 'publicLists' && <PublicLists />}
-        {activeTab === 'muteuals' && <Muteuals />}
-        {activeTab === 'reciprocals' && <Reciprocals />}
-        {activeTab === 'decimator' && <Decimator />}
-        {activeTab === 'domainPurge' && <DomainPurge />}
-        {activeTab === 'listCleaner' && <ListCleaner />}
-        {activeTab === 'backups' && <Backups />}
-        {activeTab === 'settings' && <Settings />}
+        {activeTab === "myList" && <MyMuteList />}
+        {activeTab === "publicLists" && <PublicLists />}
+        {activeTab === "muteuals" && <Muteuals />}
+        {activeTab === "reciprocals" && <Reciprocals />}
+        {activeTab === "decimator" && <Decimator />}
+        {activeTab === "noteNuke" && <NoteNuke />}
+        {activeTab === "domainPurge" && <DomainPurge />}
+        {activeTab === "listCleaner" && <ListCleaner />}
+        {activeTab === "backups" && <Backups />}
+        {activeTab === "settings" && <Settings />}
       </main>
 
       <div className={hasUnsavedChanges ? "pb-8" : "pt-8 pb-8"}>
@@ -650,7 +735,12 @@ function DashboardContent() {
       <PublishSuccessModal
         isOpen={showPublishSuccess}
         onClose={() => setShowPublishSuccess(false)}
-        itemCount={muteList.pubkeys.length + muteList.words.length + muteList.tags.length + muteList.threads.length}
+        itemCount={
+          muteList.pubkeys.length +
+          muteList.words.length +
+          muteList.tags.length +
+          muteList.threads.length
+        }
       />
 
       {/* Confirm on Exit Dialog */}
@@ -666,11 +756,13 @@ function DashboardContent() {
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      }
+    >
       <DashboardContent />
     </Suspense>
   );

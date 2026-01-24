@@ -1,17 +1,32 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Search, Users, User, Copy, ExternalLink, AlertCircle, Loader2, Lock, LogOut, X, Share, Menu, Info } from 'lucide-react';
-import { MutealResult, Profile } from '@/types';
-import UserProfileModal from './UserProfileModal';
-import ShareResultsModal from './ShareResultsModal';
-import MuteScoreModal from './MuteScoreModal';
-import GlobalUserSearch from './GlobalUserSearch';
-import Footer from './Footer';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  RefreshCw,
+  Search,
+  Users,
+  User,
+  Copy,
+  ExternalLink,
+  AlertCircle,
+  Loader2,
+  Lock,
+  LogOut,
+  X,
+  Share,
+  Menu,
+  Info,
+} from "lucide-react";
+import { MutealResult, Profile } from "@/types";
+import UserProfileModal from "./UserProfileModal";
+import ShareResultsModal from "./ShareResultsModal";
+import MuteScoreModal from "./MuteScoreModal";
+import GlobalUserSearch from "./GlobalUserSearch";
+import Footer from "./Footer";
+import Image from "next/image";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import {
   searchMutealsNetworkWide,
   enrichMutealsWithProfiles,
@@ -20,29 +35,29 @@ import {
   searchProfiles,
   getExpandedRelayList,
   fetchProfile,
-  DEFAULT_RELAYS
-} from '@/lib/nostr';
+  DEFAULT_RELAYS,
+} from "@/lib/nostr";
 
 const INITIAL_LOAD_COUNT = 20;
 const LOAD_MORE_COUNT = 20;
 
 // Get Mute Score based on mute count
 const getMuteScore = (count: number): { emoji: string; label: string } => {
-  if (count === 0) return { emoji: '⬜', label: 'Pristine' };
-  if (count <= 25) return { emoji: '🟦', label: 'Low' };
-  if (count <= 50) return { emoji: '🟩', label: 'Average' };
-  if (count <= 75) return { emoji: '🟨', label: 'Moderate' };
-  if (count <= 100) return { emoji: '🟧', label: 'High' };
-  if (count <= 200) return { emoji: '🟥', label: 'Severe' };
-  if (count <= 300) return { emoji: '🟪', label: 'Legendary' };
-  if (count <= 400) return { emoji: '🟫', label: 'Shitlisted' };
-  return { emoji: '⬛', label: 'Blacklisted' };
+  if (count === 0) return { emoji: "⬜", label: "Pristine" };
+  if (count <= 25) return { emoji: "🟦", label: "Low" };
+  if (count <= 50) return { emoji: "🟩", label: "Average" };
+  if (count <= 75) return { emoji: "🟨", label: "Moderate" };
+  if (count <= 100) return { emoji: "🟧", label: "High" };
+  if (count <= 200) return { emoji: "🟥", label: "Severe" };
+  if (count <= 300) return { emoji: "🟪", label: "Legendary" };
+  if (count <= 400) return { emoji: "🟫", label: "Shitlisted" };
+  return { emoji: "⬛", label: "Blacklisted" };
 };
 
 export default function MuteOScope() {
   const searchParams = useSearchParams();
   const { session, disconnect } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [targetPubkey, setTargetPubkey] = useState<string | null>(null);
   const [targetProfile, setTargetProfile] = useState<Profile | null>(null);
   const [searching, setSearching] = useState(false);
@@ -52,7 +67,7 @@ export default function MuteOScope() {
   const [displayCount, setDisplayCount] = useState(INITIAL_LOAD_COUNT);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string>('');
+  const [progress, setProgress] = useState<string>("");
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
@@ -63,7 +78,9 @@ export default function MuteOScope() {
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Profile search dropdown states
-  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>([]);
+  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>(
+    [],
+  );
   const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
   const [showProfileResults, setShowProfileResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
@@ -79,7 +96,7 @@ export default function MuteOScope() {
           const profile = await fetchProfile(session.pubkey, session.relays);
           setUserProfile(profile);
         } catch (error) {
-          console.error('Failed to load user profile:', error);
+          console.error("Failed to load user profile:", error);
         }
       } else {
         setUserProfile(null);
@@ -91,12 +108,14 @@ export default function MuteOScope() {
 
   // Auto-populate from URL parameter and trigger search
   useEffect(() => {
-    const npub = searchParams.get('npub');
-    if (npub && npub.startsWith('npub')) {
+    const npub = searchParams.get("npub");
+    if (npub && npub.startsWith("npub")) {
       setSearchQuery(npub);
       // Auto-trigger search after a brief delay to allow component to mount
       setTimeout(() => {
-        const searchButton = document.querySelector('[data-search-button]') as HTMLButtonElement;
+        const searchButton = document.querySelector(
+          "[data-search-button]",
+        ) as HTMLButtonElement;
         if (searchButton) {
           searchButton.click();
         }
@@ -114,7 +133,11 @@ export default function MuteOScope() {
       }
 
       // Don't search if it's already a valid npub, nprofile, or hex pubkey
-      if (searchQuery.startsWith('npub') || searchQuery.startsWith('nprofile') || searchQuery.match(/^[0-9a-f]{64}$/i)) {
+      if (
+        searchQuery.startsWith("npub") ||
+        searchQuery.startsWith("nprofile") ||
+        searchQuery.match(/^[0-9a-f]{64}$/i)
+      ) {
         setProfileSearchResults([]);
         setShowProfileResults(false);
         return;
@@ -126,7 +149,7 @@ export default function MuteOScope() {
         const results = await searchProfiles(searchQuery, relays, 10);
         setProfileSearchResults(results);
       } catch (error) {
-        console.error('Profile search failed:', error);
+        console.error("Profile search failed:", error);
         setProfileSearchResults([]);
       } finally {
         setIsSearchingProfiles(false);
@@ -143,11 +166,15 @@ export default function MuteOScope() {
     const query = searchQuery.trim();
 
     // Check if it's a complete npub (63 chars), nprofile, or hex (64 chars)
-    const isCompleteNpub = query.startsWith('npub') && query.length === 63;
-    const isCompleteNprofile = query.startsWith('nprofile');
+    const isCompleteNpub = query.startsWith("npub") && query.length === 63;
+    const isCompleteNprofile = query.startsWith("nprofile");
     const isCompleteHex = query.match(/^[0-9a-f]{64}$/i);
 
-    if ((isCompleteNpub || isCompleteNprofile || isCompleteHex) && !searching && !targetPubkey) {
+    if (
+      (isCompleteNpub || isCompleteNprofile || isCompleteHex) &&
+      !searching &&
+      !targetPubkey
+    ) {
       // Auto-trigger search after a brief delay
       const timeoutId = setTimeout(() => {
         handleSearch();
@@ -159,14 +186,18 @@ export default function MuteOScope() {
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target as Node)) {
+      if (
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(event.target as Node)
+      ) {
         setShowProfileResults(false);
       }
     };
 
     if (showProfileResults) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showProfileResults]);
 
@@ -179,11 +210,15 @@ export default function MuteOScope() {
       (entries) => {
         const [entry] = entries;
         // If trigger is visible and we have more results to load and not already loading
-        if (entry.isIntersecting && allResults.length > displayedResults.length && !loadingMore) {
+        if (
+          entry.isIntersecting &&
+          allResults.length > displayedResults.length &&
+          !loadingMore
+        ) {
           handleLoadMore();
         }
       },
-      { threshold: 0.1 } // Trigger when 10% of the element is visible
+      { threshold: 0.1 }, // Trigger when 10% of the element is visible
     );
 
     observer.observe(trigger);
@@ -206,7 +241,7 @@ export default function MuteOScope() {
       setAllResults([]);
       setDisplayedResults([]);
       setDisplayCount(INITIAL_LOAD_COUNT);
-      setProgress('Starting search...');
+      setProgress("Starting search...");
 
       // Convert to hex pubkey
       // If we already have a targetPubkey from profile selection, use it
@@ -215,19 +250,24 @@ export default function MuteOScope() {
       // Only do conversion if we don't already have a valid pubkey
       if (!targetPubkey) {
         try {
-          if (pubkey.startsWith('npub') || pubkey.startsWith('nprofile')) {
+          if (pubkey.startsWith("npub") || pubkey.startsWith("nprofile")) {
             pubkey = npubToHex(pubkey);
             // Fetch profile for the npub/nprofile
-            setProgress('Loading profile...');
+            setProgress("Loading profile...");
             const profile = await fetchProfile(pubkey, relays);
             setTargetProfile(profile);
             // Update search query to show display name
             if (profile) {
-              setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
+              setSearchQuery(
+                profile.display_name ||
+                  profile.name ||
+                  profile.nip05 ||
+                  searchQuery,
+              );
             }
           } else if (!pubkey.match(/^[0-9a-f]{64}$/i)) {
             // Try to resolve username
-            setProgress('Searching for user...');
+            setProgress("Searching for user...");
             const profiles = await searchProfiles(pubkey, relays, 10);
             if (profiles.length === 0) {
               setError(`No user found with username or NIP-05: "${pubkey}"`);
@@ -238,16 +278,21 @@ export default function MuteOScope() {
             setTargetProfile(profiles[0]);
           } else {
             // Direct hex pubkey entered - fetch profile
-            setProgress('Loading profile...');
+            setProgress("Loading profile...");
             const profile = await fetchProfile(pubkey, relays);
             setTargetProfile(profile);
             // Update search query to show display name
             if (profile) {
-              setSearchQuery(profile.display_name || profile.name || profile.nip05 || searchQuery);
+              setSearchQuery(
+                profile.display_name ||
+                  profile.name ||
+                  profile.nip05 ||
+                  searchQuery,
+              );
             }
           }
         } catch (conversionError) {
-          console.error('Failed to convert npub:', conversionError);
+          console.error("Failed to convert npub:", conversionError);
           setError(`Invalid npub format. Please check the npub and try again.`);
           setSearching(false);
           return;
@@ -255,7 +300,7 @@ export default function MuteOScope() {
       }
 
       setTargetPubkey(pubkey);
-      setProgress('Searching network for public mute lists...');
+      setProgress("Searching network for public mute lists...");
 
       // Use expanded relay list for better coverage
       const expandedRelays = getExpandedRelayList(relays);
@@ -265,15 +310,17 @@ export default function MuteOScope() {
         pubkey,
         expandedRelays,
         (count) => {
-          setProgress(`Scanning relays... ${count} event${count === 1 ? '' : 's'} collected`);
-        }
+          setProgress(
+            `Scanning relays... ${count} event${count === 1 ? "" : "s"} collected`,
+          );
+        },
         // No streaming callback - collect all first
       );
 
       if (rawResults.length === 0) {
         setAllResults([]);
         setDisplayedResults([]);
-        setProgress('');
+        setProgress("");
         setSearchCompleted(true);
         setSearching(false);
         return;
@@ -283,45 +330,51 @@ export default function MuteOScope() {
       setAllResults(rawResults);
 
       // Show final count before loading profiles
-      setProgress(`Found on ${rawResults.length} public mute list${rawResults.length === 1 ? '' : 's'} - loading profiles...`);
+      setProgress(
+        `Found on ${rawResults.length} public mute list${rawResults.length === 1 ? "" : "s"} - loading profiles...`,
+      );
 
       // Only enrich the first batch for initial display
       const initialBatch = rawResults.slice(0, INITIAL_LOAD_COUNT);
 
       // Small delay to let the "Found on X" message show before profile loading
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       const enriched = await enrichMutealsWithProfiles(
         initialBatch,
         relays,
         (current, total) => {
           setProgress(`Loading profiles... ${current}/${total}`);
-        }
+        },
       );
 
       // Display initial results
       setDisplayedResults(enriched);
       setDisplayCount(INITIAL_LOAD_COUNT);
-      setProgress('');
+      setProgress("");
       setSearchCompleted(true);
     } catch (err) {
-      console.error('Search error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to search for public mute lists');
-      setProgress('');
+      console.error("Search error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to search for public mute lists",
+      );
+      setProgress("");
     } finally {
       setSearching(false);
     }
   };
 
   const handleSelectProfile = (profile: Profile) => {
-    setSearchQuery(profile.display_name || profile.name || profile.nip05 || '');
+    setSearchQuery(profile.display_name || profile.name || profile.nip05 || "");
     setShowProfileResults(false);
     setTargetProfile(profile);
     setTargetPubkey(profile.pubkey); // Store the pubkey so we don't need to search again
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSearch();
       setShowProfileResults(false);
     }
@@ -332,7 +385,10 @@ export default function MuteOScope() {
 
     const relays = session?.relays || DEFAULT_RELAYS;
     const currentCount = displayedResults.length;
-    const nextBatch = allResults.slice(currentCount, currentCount + LOAD_MORE_COUNT);
+    const nextBatch = allResults.slice(
+      currentCount,
+      currentCount + LOAD_MORE_COUNT,
+    );
 
     if (nextBatch.length === 0) return;
 
@@ -343,14 +399,14 @@ export default function MuteOScope() {
         relays,
         (current, total) => {
           setProgress(`Loading more profiles... ${current}/${total}`);
-        }
+        },
       );
 
-      setDisplayedResults(prev => [...prev, ...enriched]);
-      setDisplayCount(prev => prev + LOAD_MORE_COUNT);
-      setProgress('');
+      setDisplayedResults((prev) => [...prev, ...enriched]);
+      setDisplayCount((prev) => prev + LOAD_MORE_COUNT);
+      setProgress("");
     } catch (err) {
-      console.error('Failed to load more:', err);
+      console.error("Failed to load more:", err);
     } finally {
       setLoadingMore(false);
     }
@@ -362,7 +418,7 @@ export default function MuteOScope() {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
     } catch (error) {
-      console.error('Failed to copy npub:', error);
+      console.error("Failed to copy npub:", error);
     }
   };
 
@@ -372,7 +428,7 @@ export default function MuteOScope() {
 
   const handleDisconnect = () => {
     disconnect();
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   const handleUserSelect = (profile: Profile) => {
@@ -380,14 +436,14 @@ export default function MuteOScope() {
   };
 
   const handleReset = () => {
-    setSearchQuery('');
+    setSearchQuery("");
     setTargetPubkey(null);
     setTargetProfile(null);
     setAllResults([]);
     setDisplayedResults([]);
     setDisplayCount(INITIAL_LOAD_COUNT);
     setError(null);
-    setProgress('');
+    setProgress("");
     setSearchCompleted(false);
     setProfileSearchResults([]);
     setShowProfileResults(false);
@@ -431,22 +487,30 @@ export default function MuteOScope() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={userProfile.picture}
-                        alt={userProfile.display_name || userProfile.name || 'User'}
+                        alt={
+                          userProfile.display_name || userProfile.name || "User"
+                        }
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                         }}
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User size={16} className="text-gray-600 dark:text-gray-300" />
+                        <User
+                          size={16}
+                          className="text-gray-600 dark:text-gray-300"
+                        />
                       </div>
                     )}
                     <div className="flex flex-col">
                       {userProfile && (
                         <>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {userProfile.display_name || userProfile.name || 'Anonymous'}
+                            {userProfile.display_name ||
+                              userProfile.name ||
+                              "Anonymous"}
                           </span>
                           {userProfile.nip05 && (
                             <span className="text-xs text-gray-600 dark:text-gray-400">
@@ -464,15 +528,21 @@ export default function MuteOScope() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={userProfile.picture}
-                        alt={userProfile.display_name || userProfile.name || 'User'}
+                        alt={
+                          userProfile.display_name || userProfile.name || "User"
+                        }
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                         }}
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User size={16} className="text-gray-600 dark:text-gray-300" />
+                        <User
+                          size={16}
+                          className="text-gray-600 dark:text-gray-300"
+                        />
                       </div>
                     )}
                   </div>
@@ -521,6 +591,12 @@ export default function MuteOScope() {
                 <div className="py-4 px-1 border-b-2 border-red-600 text-red-600 dark:border-red-500 dark:text-red-500 font-semibold text-sm">
                   Mute-o-Scope
                 </div>
+                <Link
+                  href="/note-nuke"
+                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
+                >
+                  Note Nuke
+                </Link>
                 <Link
                   href="/dashboard?tab=domainPurge"
                   className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
@@ -604,6 +680,13 @@ export default function MuteOScope() {
                       <div className="block w-full text-left py-3 px-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold text-sm">
                         Mute-o-Scope
                       </div>
+                      <Link
+                        href="/note-nuke"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
+                      >
+                        Note Nuke
+                      </Link>
                       <Link
                         href="/dashboard?tab=domainPurge"
                         onClick={() => setMobileMenuOpen(false)}
@@ -731,390 +814,447 @@ export default function MuteOScope() {
               </span>
             </div>
 
-          {/* Info Banner */}
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Note:</strong> This tool only shows public (unencrypted) mute lists. Many users keep their mute lists private, which cannot be scanned.
-            </p>
+            {/* Info Banner */}
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Note:</strong> This tool only shows public (unencrypted)
+                mute lists. Many users keep their mute lists private, which
+                cannot be scanned.
+              </p>
+            </div>
+
+            {/* Mobile Performance Warning */}
+            <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg md:hidden">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>Mobile Notice:</strong> Low bandwidth mobile connections
+                may result in incomplete search results. For best performance,
+                we recommend using a desktop browser with a stable connection.
+              </p>
+            </div>
           </div>
 
-          {/* Mobile Performance Warning */}
-          <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg md:hidden">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              <strong>Mobile Notice:</strong> Low bandwidth mobile connections may result in incomplete search results. For best performance, we recommend using a desktop browser with a stable connection.
-            </p>
-          </div>
-        </div>
+          {/* Search Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <div className="relative" ref={searchDropdownRef}>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      // Clear stored pubkey when user types something new
+                      if (targetPubkey) {
+                        setTargetPubkey(null);
+                        setTargetProfile(null);
+                        setSearchCompleted(false);
+                      }
+                    }}
+                    onKeyPress={handleKeyPress}
+                    onFocus={() => {
+                      if (profileSearchResults.length > 0) {
+                        setShowProfileResults(true);
+                      }
+                    }}
+                    placeholder="Enter username, NIP-05, npub, nprofile, or pubkey..."
+                    className="w-full px-4 py-3 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-lg"
+                    disabled={searching}
+                  />
+                  {isSearchingProfiles && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2
+                        size={20}
+                        className="animate-spin text-gray-400"
+                      />
+                    </div>
+                  )}
 
-        {/* Search Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="relative" ref={searchDropdownRef}>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    // Clear stored pubkey when user types something new
-                    if (targetPubkey) {
-                      setTargetPubkey(null);
-                      setTargetProfile(null);
-                      setSearchCompleted(false);
-                    }
-                  }}
-                  onKeyPress={handleKeyPress}
-                  onFocus={() => {
-                    if (profileSearchResults.length > 0) {
-                      setShowProfileResults(true);
-                    }
-                  }}
-                  placeholder="Enter username, NIP-05, npub, nprofile, or pubkey..."
-                  className="w-full px-4 py-3 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-lg"
-                  disabled={searching}
-                />
-                {isSearchingProfiles && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 size={20} className="animate-spin text-gray-400" />
-                  </div>
-                )}
-
-                {/* Profile search results dropdown */}
-                {showProfileResults && profileSearchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
-                    {profileSearchResults.map((profile) => (
-                      <button
-                        key={profile.pubkey}
-                        onClick={() => handleSelectProfile(profile)}
-                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                      >
-                        {profile.picture ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={profile.picture}
-                            alt={profile.display_name || profile.name || 'User'}
-                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                            <User size={20} className="text-gray-600 dark:text-gray-300" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {profile.display_name || profile.name || 'Anonymous'}
-                          </p>
-                          {profile.nip05 && (
-                            <p className="text-xs text-green-600 dark:text-green-400 truncate">
-                              ✓ {profile.nip05}
-                            </p>
+                  {/* Profile search results dropdown */}
+                  {showProfileResults && profileSearchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                      {profileSearchResults.map((profile) => (
+                        <button
+                          key={profile.pubkey}
+                          onClick={() => handleSelectProfile(profile)}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                        >
+                          {profile.picture ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={profile.picture}
+                              alt={
+                                profile.display_name || profile.name || "User"
+                              }
+                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                              <User
+                                size={20}
+                                className="text-gray-600 dark:text-gray-300"
+                              />
+                            </div>
                           )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button
-                data-search-button
-                onClick={() => {
-                  setShowProfileResults(false);
-                  handleSearch();
-                }}
-                disabled={searching || !searchQuery.trim()}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {searching ? (
-                  <>
-                    <RefreshCw className="animate-spin" size={20} />
-                    <span className="hidden sm:inline">Searching...</span>
-                  </>
-                ) : (
-                  <>
-                    <Search size={20} />
-                    <span className="hidden sm:inline">Search</span>
-                  </>
-                )}
-              </button>
-              {(searchQuery || allResults.length > 0) && !searching && (
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-                  title="Reset search"
-                >
-                  <X size={20} />
-                  <span className="hidden sm:inline">Reset</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Progress Display */}
-          {searching && (
-            <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
-              <div className="flex flex-col items-center space-y-2">
-                {allResults.length > 0 && (
-                  <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                    Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
-                  </div>
-                )}
-                {progress && (
-                  <div className="flex items-center space-x-3">
-                    <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
-                    <div className="text-blue-900 dark:text-blue-100 font-medium">
-                      {progress}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">
+                              {profile.display_name ||
+                                profile.name ||
+                                "Anonymous"}
+                            </p>
+                            {profile.nip05 && (
+                              <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                                ✓ {profile.nip05}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="mt-4 p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 rounded text-red-700 dark:text-red-200 text-sm flex items-start gap-2">
-              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Results Section - Zero Mutes (Pristine) */}
-        {!searching && searchCompleted && allResults.length === 0 && targetPubkey && !error && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="mb-4">
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Found on 0 Public Mute Lists
-                </h3>
-                {targetProfile && (
+                  )}
+                </div>
+                <button
+                  data-search-button
+                  onClick={() => {
+                    setShowProfileResults(false);
+                    handleSearch();
+                  }}
+                  disabled={searching || !searchQuery.trim()}
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {searching ? (
+                    <>
+                      <RefreshCw className="animate-spin" size={20} />
+                      <span className="hidden sm:inline">Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={20} />
+                      <span className="hidden sm:inline">Search</span>
+                    </>
+                  )}
+                </button>
+                {(searchQuery || allResults.length > 0) && !searching && (
                   <button
-                    onClick={() => {
-                      setShareButtonClicked(true);
-                      setShowShareModal(true);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0 ${
-                      !shareButtonClicked ? 'animate-pulse-glow' : ''
-                    }`}
-                    title="Share these results"
+                    onClick={handleReset}
+                    className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
+                    title="Reset search"
                   >
-                    <Share size={20} />
-                    <span className="hidden sm:inline">Share</span>
+                    <X size={20} />
+                    <span className="hidden sm:inline">Reset</span>
                   </button>
                 )}
               </div>
-              <button
-                onClick={() => setShowMuteScoreModal(true)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                title="Click to view all Mute Score levels"
-              >
-                <span className="text-2xl">{getMuteScore(0).emoji}</span>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Mute Score: {getMuteScore(0).label}
-                </span>
-                <Info size={16} className="text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-            <div className="text-center p-8">
-              <Users className="mx-auto mb-3 text-green-500" size={48} />
-              <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                No Public Mute Lists Found
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                This user is not publicly muted by anyone on the scanned relays, or their mute lists are encrypted.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {displayedResults.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="mb-4">
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Found on {allResults.length} Public Mute List{allResults.length === 1 ? '' : 's'}
-                </h3>
-                {targetProfile && (
-                  <button
-                    onClick={() => {
-                      setShareButtonClicked(true);
-                      setShowShareModal(true);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0 ${
-                      !shareButtonClicked ? 'animate-pulse-glow' : ''
-                    }`}
-                    title="Share these results"
-                  >
-                    <Share size={20} />
-                    <span className="hidden sm:inline">Share</span>
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <button
-                  onClick={() => setShowMuteScoreModal(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                  title="Click to view all Mute Score levels"
-                >
-                  <span className="text-2xl">{getMuteScore(allResults.length).emoji}</span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Mute Score: {getMuteScore(allResults.length).label}
-                  </span>
-                  <Info size={16} className="text-gray-500 dark:text-gray-400" />
-                </button>
-                {allResults.length > displayedResults.length && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Showing {displayedResults.length} of {allResults.length}
-                  </p>
-                )}
-              </div>
             </div>
 
-            <div className="space-y-3">
-              {displayedResults.map((muteal) => {
-                const profile = muteal.profile;
-                const displayName = profile?.display_name || profile?.name || (profile ? 'Anonymous' : 'Loading profile...');
-                const npub = hexToNpub(muteal.mutedBy);
-                const isLoading = !profile;
-
-                // Format mute date for display
-                const formatMuteDate = (timestamp?: number): string => {
-                  if (!timestamp) return '';
-
-                  const muteDate = new Date(timestamp * 1000);
-                  const now = new Date();
-                  const diffTime = Math.abs(now.getTime() - muteDate.getTime());
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                  if (diffDays === 0) return 'today';
-                  if (diffDays === 1) return 'yesterday';
-                  if (diffDays < 7) {
-                    return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
-                  }
-                  if (diffDays < 30) {
-                    const weeks = Math.floor(diffDays / 7);
-                    return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-                  }
-                  if (diffDays < 365) {
-                    const months = Math.floor(diffDays / 30);
-                    return months === 1 ? '1 month ago' : `${months} months ago`;
-                  }
-                  const years = Math.floor(diffDays / 365);
-                  return years === 1 ? '1 year ago' : `${years} years ago`;
-                };
-
-                return (
-                  <div
-                    key={muteal.mutedBy}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <div
-                      className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
-                      onClick={() => handleViewProfile(muteal)}
-                      title="View profile and mute list"
-                    >
-                      {isLoading ? (
-                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <Loader2 size={20} className="text-gray-600 dark:text-gray-300 animate-spin" />
-                        </div>
-                      ) : profile?.picture ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={profile.picture}
-                          alt={displayName}
-                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <User size={20} className="text-gray-600 dark:text-gray-300" />
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`font-medium truncate ${isLoading ? 'text-gray-500 dark:text-gray-400 italic' : 'text-gray-900 dark:text-white'}`}>
-                            {displayName}
-                          </span>
-                        </div>
-                        {profile?.nip05 && (
-                          <div className="text-xs text-green-600 dark:text-green-400 truncate">
-                            ✓ {profile.nip05}
-                          </div>
-                        )}
-                        {muteal.mutedAt && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Updated {formatMuteDate(muteal.mutedAt)}
-                          </div>
-                        )}
-                      </div>
+            {/* Progress Display */}
+            {searching && (
+              <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
+                <div className="flex flex-col items-center space-y-2">
+                  {allResults.length > 0 && (
+                    <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                      Found on {allResults.length} Public Mute List
+                      {allResults.length === 1 ? "" : "s"}
                     </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Copy npub Button */}
-                      <button
-                        onClick={() => handleCopyNpub(npub)}
-                        className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                          copiedNpub === npub
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                        title={copiedNpub === npub ? 'Copied!' : 'Copy npub'}
-                      >
-                        <Copy size={16} />
-                      </button>
-
-                      {/* View on npub.world */}
-                      <a
-                        href={`https://npub.world/${npub}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        title="View on npub.world"
-                      >
-                        <ExternalLink size={16} />
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Infinite Scroll Trigger */}
-            {allResults.length > displayedResults.length && (
-              <div className="mt-6">
-                {/* Invisible trigger element for intersection observer */}
-                <div ref={loadMoreTriggerRef} className="h-4" />
-
-                {/* Loading indicator or scroll prompt */}
-                {loadingMore && progress ? (
-                  <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
-                    <div className="flex items-center justify-center space-x-3">
-                      <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
+                  )}
+                  {progress && (
+                    <div className="flex items-center space-x-3">
+                      <RefreshCw
+                        className="animate-spin text-blue-600 dark:text-blue-400"
+                        size={20}
+                      />
                       <div className="text-blue-900 dark:text-blue-100 font-medium">
                         {progress}
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleLoadMore}
-                    className="w-full p-3 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg text-center hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:border-gray-300 dark:hover:border-gray-500 transition-colors cursor-pointer"
-                  >
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Scroll down or click to load more • {allResults.length - displayedResults.length} remaining
-                    </p>
-                  </button>
-                )}
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-4 p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 rounded text-red-700 dark:text-red-200 text-sm flex items-start gap-2">
+                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
           </div>
-        )}
+
+          {/* Results Section - Zero Mutes (Pristine) */}
+          {!searching &&
+            searchCompleted &&
+            allResults.length === 0 &&
+            targetPubkey &&
+            !error && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="mb-4">
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Found on 0 Public Mute Lists
+                    </h3>
+                    {targetProfile && (
+                      <button
+                        onClick={() => {
+                          setShareButtonClicked(true);
+                          setShowShareModal(true);
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0 ${
+                          !shareButtonClicked ? "animate-pulse-glow" : ""
+                        }`}
+                        title="Share these results"
+                      >
+                        <Share size={20} />
+                        <span className="hidden sm:inline">Share</span>
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowMuteScoreModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                    title="Click to view all Mute Score levels"
+                  >
+                    <span className="text-2xl">{getMuteScore(0).emoji}</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Mute Score: {getMuteScore(0).label}
+                    </span>
+                    <Info
+                      size={16}
+                      className="text-gray-500 dark:text-gray-400"
+                    />
+                  </button>
+                </div>
+                <div className="text-center p-8">
+                  <Users className="mx-auto mb-3 text-green-500" size={48} />
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    No Public Mute Lists Found
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    This user is not publicly muted by anyone on the scanned
+                    relays, or their mute lists are encrypted.
+                  </p>
+                </div>
+              </div>
+            )}
+
+          {displayedResults.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="mb-4">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Found on {allResults.length} Public Mute List
+                    {allResults.length === 1 ? "" : "s"}
+                  </h3>
+                  {targetProfile && (
+                    <button
+                      onClick={() => {
+                        setShareButtonClicked(true);
+                        setShowShareModal(true);
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex-shrink-0 ${
+                        !shareButtonClicked ? "animate-pulse-glow" : ""
+                      }`}
+                      title="Share these results"
+                    >
+                      <Share size={20} />
+                      <span className="hidden sm:inline">Share</span>
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <button
+                    onClick={() => setShowMuteScoreModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                    title="Click to view all Mute Score levels"
+                  >
+                    <span className="text-2xl">
+                      {getMuteScore(allResults.length).emoji}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Mute Score: {getMuteScore(allResults.length).label}
+                    </span>
+                    <Info
+                      size={16}
+                      className="text-gray-500 dark:text-gray-400"
+                    />
+                  </button>
+                  {allResults.length > displayedResults.length && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Showing {displayedResults.length} of {allResults.length}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {displayedResults.map((muteal) => {
+                  const profile = muteal.profile;
+                  const displayName =
+                    profile?.display_name ||
+                    profile?.name ||
+                    (profile ? "Anonymous" : "Loading profile...");
+                  const npub = hexToNpub(muteal.mutedBy);
+                  const isLoading = !profile;
+
+                  // Format mute date for display
+                  const formatMuteDate = (timestamp?: number): string => {
+                    if (!timestamp) return "";
+
+                    const muteDate = new Date(timestamp * 1000);
+                    const now = new Date();
+                    const diffTime = Math.abs(
+                      now.getTime() - muteDate.getTime(),
+                    );
+                    const diffDays = Math.ceil(
+                      diffTime / (1000 * 60 * 60 * 24),
+                    );
+
+                    if (diffDays === 0) return "today";
+                    if (diffDays === 1) return "yesterday";
+                    if (diffDays < 7) {
+                      return diffDays === 1
+                        ? "1 day ago"
+                        : `${diffDays} days ago`;
+                    }
+                    if (diffDays < 30) {
+                      const weeks = Math.floor(diffDays / 7);
+                      return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+                    }
+                    if (diffDays < 365) {
+                      const months = Math.floor(diffDays / 30);
+                      return months === 1
+                        ? "1 month ago"
+                        : `${months} months ago`;
+                    }
+                    const years = Math.floor(diffDays / 365);
+                    return years === 1 ? "1 year ago" : `${years} years ago`;
+                  };
+
+                  return (
+                    <div
+                      key={muteal.mutedBy}
+                      className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div
+                        className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
+                        onClick={() => handleViewProfile(muteal)}
+                        title="View profile and mute list"
+                      >
+                        {isLoading ? (
+                          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                            <Loader2
+                              size={20}
+                              className="text-gray-600 dark:text-gray-300 animate-spin"
+                            />
+                          </div>
+                        ) : profile?.picture ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={profile.picture}
+                            alt={displayName}
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                            <User
+                              size={20}
+                              className="text-gray-600 dark:text-gray-300"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`font-medium truncate ${isLoading ? "text-gray-500 dark:text-gray-400 italic" : "text-gray-900 dark:text-white"}`}
+                            >
+                              {displayName}
+                            </span>
+                          </div>
+                          {profile?.nip05 && (
+                            <div className="text-xs text-green-600 dark:text-green-400 truncate">
+                              ✓ {profile.nip05}
+                            </div>
+                          )}
+                          {muteal.mutedAt && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Updated {formatMuteDate(muteal.mutedAt)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Copy npub Button */}
+                        <button
+                          onClick={() => handleCopyNpub(npub)}
+                          className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                            copiedNpub === npub
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-gray-600 dark:text-gray-400"
+                          }`}
+                          title={copiedNpub === npub ? "Copied!" : "Copy npub"}
+                        >
+                          <Copy size={16} />
+                        </button>
+
+                        {/* View on npub.world */}
+                        <a
+                          href={`https://npub.world/${npub}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                          title="View on npub.world"
+                        >
+                          <ExternalLink size={16} />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Infinite Scroll Trigger */}
+              {allResults.length > displayedResults.length && (
+                <div className="mt-6">
+                  {/* Invisible trigger element for intersection observer */}
+                  <div ref={loadMoreTriggerRef} className="h-4" />
+
+                  {/* Loading indicator or scroll prompt */}
+                  {loadingMore && progress ? (
+                    <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
+                      <div className="flex items-center justify-center space-x-3">
+                        <RefreshCw
+                          className="animate-spin text-blue-600 dark:text-blue-400"
+                          size={20}
+                        />
+                        <div className="text-blue-900 dark:text-blue-100 font-medium">
+                          {progress}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleLoadMore}
+                      className="w-full p-3 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg text-center hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:border-gray-300 dark:hover:border-gray-500 transition-colors cursor-pointer"
+                    >
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Scroll down or click to load more •{" "}
+                        {allResults.length - displayedResults.length} remaining
+                      </p>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* User Profile Modal */}
           {selectedProfile && (
@@ -1135,9 +1275,7 @@ export default function MuteOScope() {
 
           {/* Mute Score Modal */}
           {showMuteScoreModal && (
-            <MuteScoreModal
-              onClose={() => setShowMuteScoreModal(false)}
-            />
+            <MuteScoreModal onClose={() => setShowMuteScoreModal(false)} />
           )}
         </div>
       </div>

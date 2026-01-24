@@ -234,7 +234,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Built for the Nostr protocol
-- From the creator of [Plebs vs. Zombies](https://plebsvszombies.cc)
+- From the creator of [Plebs vs. Zombies](https://plebsvszombies.cc) and [Ghostr](https://ghostr.org)
 
 ## Author
 
