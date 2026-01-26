@@ -1,12 +1,19 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Profile, MuteList } from '@/types';
-import { fetchMuteList, parseMuteListEvent, hexToNpub, isFollowing, unfollowUser, fetchProfile } from '@/lib/nostr';
-import { useStore } from '@/lib/store';
-import { useAuth } from '@/hooks/useAuth';
-import { useRelaySync } from '@/hooks/useRelaySync';
-import { protectionService } from '@/lib/protectionService';
+import { useEffect, useState } from "react";
+import { Profile, MuteList } from "@/types";
+import {
+  fetchMuteList,
+  parseMuteListEvent,
+  hexToNpub,
+  isFollowing,
+  unfollowUser,
+  fetchProfile,
+} from "@/lib/nostr";
+import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
+import { useRelaySync } from "@/hooks/useRelaySync";
+import { protectionService } from "@/lib/protectionService";
 import {
   X,
   Copy,
@@ -23,10 +30,10 @@ import {
   Search,
   Shield,
   ShieldCheck,
-  Edit2
-} from 'lucide-react';
-import Link from 'next/link';
-import Image from 'next/image';
+  Edit2,
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 interface UserProfileModalProps {
   profile: Profile;
@@ -34,32 +41,41 @@ interface UserProfileModalProps {
 }
 
 const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-  'wss://nostr.wine',
-  'wss://relay.snort.social'
+  "wss://relay.damus.io",
+  "wss://relay.primal.net",
+  "wss://nos.lol",
+  "wss://relay.nostr.band",
+  "wss://nostr.wine",
+  "wss://relay.snort.social",
 ];
 
-export default function UserProfileModal({ profile, onClose }: UserProfileModalProps) {
+export default function UserProfileModal({
+  profile,
+  onClose,
+}: UserProfileModalProps) {
   const { session } = useAuth();
-  const { muteList, addMutedItem, removeMutedItem, updateMutedItem } = useStore();
-  const { addProtection: addProtectionToRelay, removeProtection: removeProtectionFromRelay } = useRelaySync();
+  const { muteList, addMutedItem, removeMutedItem, updateMutedItem } =
+    useStore();
+  const {
+    addProtection: addProtectionToRelay,
+    removeProtection: removeProtectionFromRelay,
+  } = useRelaySync();
   const [userMuteList, setUserMuteList] = useState<MuteList | null>(null);
   const [loadingMuteList, setLoadingMuteList] = useState(false);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [checkingFollow, setCheckingFollow] = useState(true);
   const [unfollowing, setUnfollowing] = useState(false);
-  const [mutedProfiles, setMutedProfiles] = useState<Map<string, Profile>>(new Map());
+  const [mutedProfiles, setMutedProfiles] = useState<Map<string, Profile>>(
+    new Map(),
+  );
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [displayedPubkeysCount, setDisplayedPubkeysCount] = useState(100);
   const [expandedSections, setExpandedSections] = useState({
     pubkeys: false,
     words: false,
     tags: false,
-    threads: false
+    threads: false,
   });
   const [checkingIfMutingMe, setCheckingIfMutingMe] = useState(false);
   const [isMutingMe, setIsMutingMe] = useState<boolean | null>(null);
@@ -67,12 +83,14 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [isProtected, setIsProtected] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
-  const [muteReason, setMuteReason] = useState('');
+  const [muteReason, setMuteReason] = useState("");
   const [editingReason, setEditingReason] = useState(false);
-  const [editedReason, setEditedReason] = useState('');
+  const [editedReason, setEditedReason] = useState("");
 
   // Check if this user is currently muted
-  const isMuted = muteList.pubkeys.some(item => item.value === profile.pubkey);
+  const isMuted = muteList.pubkeys.some(
+    (item) => item.value === profile.pubkey,
+  );
 
   // Check if this user is protected on mount
   useEffect(() => {
@@ -80,7 +98,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   }, [profile.pubkey]);
 
   // Check if profile is incomplete (only has pubkey)
-  const isIncompleteProfile = !profile.name && !profile.display_name && !profile.picture;
+  const isIncompleteProfile =
+    !profile.name && !profile.display_name && !profile.picture;
 
   // Load profile metadata if incomplete
   useEffect(() => {
@@ -92,7 +111,10 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
       setLoadingProfile(true);
       try {
-        const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+        const relays =
+          session?.relays && session.relays.length > 0
+            ? session.relays
+            : DEFAULT_RELAYS;
         const fetchedProfile = await fetchProfile(profile.pubkey, relays);
         if (fetchedProfile) {
           setEnrichedProfile(fetchedProfile);
@@ -101,7 +123,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
           setEnrichedProfile(profile);
         }
       } catch (error) {
-        console.error('Failed to load profile metadata:', error);
+        console.error("Failed to load profile metadata:", error);
         setEnrichedProfile(profile);
       } finally {
         setLoadingProfile(false);
@@ -114,7 +136,10 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
   // Load user's mute list and check follow status
   useEffect(() => {
     const loadUserData = async () => {
-      const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+      const relays =
+        session?.relays && session.relays.length > 0
+          ? session.relays
+          : DEFAULT_RELAYS;
 
       // Load mute list (works for both logged in and logged out)
       setLoadingMuteList(true);
@@ -125,7 +150,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
           setUserMuteList(parsed);
         }
       } catch (error) {
-        console.error('Failed to load user mute list:', error);
+        console.error("Failed to load user mute list:", error);
       } finally {
         setLoadingMuteList(false);
       }
@@ -134,10 +159,14 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       if (session && session.pubkey && session.relays) {
         setCheckingFollow(true);
         try {
-          const following = await isFollowing(profile.pubkey, session.pubkey, session.relays);
+          const following = await isFollowing(
+            profile.pubkey,
+            session.pubkey,
+            session.relays,
+          );
           setIsFollowingUser(following);
         } catch (error) {
-          console.error('Failed to check follow status:', error);
+          console.error("Failed to check follow status:", error);
         } finally {
           setCheckingFollow(false);
         }
@@ -151,19 +180,24 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
   const handleMute = (reason?: string) => {
     addMutedItem(
-      { type: 'pubkey', value: profile.pubkey, reason: reason || undefined },
-      'pubkeys'
+      { type: "pubkey", value: profile.pubkey, reason: reason || undefined },
+      "pubkeys",
     );
     setShowReasonInput(false);
-    setMuteReason('');
+    setMuteReason("");
   };
 
   const handleUnmute = () => {
-    removeMutedItem(profile.pubkey, 'pubkeys');
+    removeMutedItem(profile.pubkey, "pubkeys");
   };
 
   const handleUpdateReason = () => {
-    updateMutedItem(profile.pubkey, profile.pubkey, 'pubkeys', editedReason || undefined);
+    updateMutedItem(
+      profile.pubkey,
+      profile.pubkey,
+      "pubkeys",
+      editedReason || undefined,
+    );
     setEditingReason(false);
   };
 
@@ -176,8 +210,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       setIsFollowingUser(false);
       alert(`Successfully unfollowed ${getDisplayName()}`);
     } catch (error) {
-      console.error('Failed to unfollow:', error);
-      alert('Failed to unfollow user. Please try again.');
+      console.error("Failed to unfollow:", error);
+      alert("Failed to unfollow user. Please try again.");
     } finally {
       setUnfollowing(false);
     }
@@ -199,42 +233,44 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
     let addedCount = 0;
 
     // Merge pubkeys
-    userMuteList.pubkeys.forEach(item => {
-      const exists = muteList.pubkeys.some(m => m.value === item.value);
+    userMuteList.pubkeys.forEach((item) => {
+      const exists = muteList.pubkeys.some((m) => m.value === item.value);
       if (!exists) {
-        addMutedItem(item, 'pubkeys');
+        addMutedItem(item, "pubkeys");
         addedCount++;
       }
     });
 
     // Merge words
-    userMuteList.words.forEach(item => {
-      const exists = muteList.words.some(m => m.value === item.value);
+    userMuteList.words.forEach((item) => {
+      const exists = muteList.words.some((m) => m.value === item.value);
       if (!exists) {
-        addMutedItem(item, 'words');
+        addMutedItem(item, "words");
         addedCount++;
       }
     });
 
     // Merge tags
-    userMuteList.tags.forEach(item => {
-      const exists = muteList.tags.some(m => m.value === item.value);
+    userMuteList.tags.forEach((item) => {
+      const exists = muteList.tags.some((m) => m.value === item.value);
       if (!exists) {
-        addMutedItem(item, 'tags');
+        addMutedItem(item, "tags");
         addedCount++;
       }
     });
 
     // Merge threads
-    userMuteList.threads.forEach(item => {
-      const exists = muteList.threads.some(m => m.value === item.value);
+    userMuteList.threads.forEach((item) => {
+      const exists = muteList.threads.some((m) => m.value === item.value);
       if (!exists) {
-        addMutedItem(item, 'threads');
+        addMutedItem(item, "threads");
         addedCount++;
       }
     });
 
-    alert(`Successfully merged ${addedCount} new items from ${getDisplayName()}'s mute list!`);
+    alert(
+      `Successfully merged ${addedCount} new items from ${getDisplayName()}'s mute list!`,
+    );
   };
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -243,13 +279,13 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       setCopySuccess(label);
       setTimeout(() => setCopySuccess(null), 2000);
     } catch (error) {
-      console.error('Failed to copy:', error);
+      console.error("Failed to copy:", error);
     }
   };
 
   const getDisplayName = () => {
-    if (loadingProfile) return 'Loading...';
-    return enrichedProfile.display_name || enrichedProfile.name || 'Anonymous';
+    if (loadingProfile) return "Loading...";
+    return enrichedProfile.display_name || enrichedProfile.name || "Anonymous";
   };
 
   const getTruncatedNpub = (pubkey: string) => {
@@ -269,27 +305,41 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
   const toggleSection = async (section: keyof typeof expandedSections) => {
     const newExpanded = !expandedSections[section];
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: newExpanded
+      [section]: newExpanded,
     }));
 
     // Load profiles when expanding pubkeys section
-    if (section === 'pubkeys' && newExpanded && userMuteList && mutedProfiles.size === 0) {
+    if (
+      section === "pubkeys" &&
+      newExpanded &&
+      userMuteList &&
+      mutedProfiles.size === 0
+    ) {
       await loadMutedProfiles();
     }
   };
 
-  const loadMutedProfiles = async (startIndex = 0, count = displayedPubkeysCount) => {
+  const loadMutedProfiles = async (
+    startIndex = 0,
+    count = displayedPubkeysCount,
+  ) => {
     if (!userMuteList) return;
 
-    const relays = (session?.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+    const relays =
+      session?.relays && session.relays.length > 0
+        ? session.relays
+        : DEFAULT_RELAYS;
 
     setLoadingProfiles(true);
     const profilesMap = new Map<string, Profile>(mutedProfiles);
 
     // Only fetch profiles for the current batch
-    const pubkeysToLoad = userMuteList.pubkeys.slice(startIndex, startIndex + count);
+    const pubkeysToLoad = userMuteList.pubkeys.slice(
+      startIndex,
+      startIndex + count,
+    );
 
     const fetchPromises = pubkeysToLoad.map(async (item) => {
       // Skip if already loaded
@@ -329,7 +379,10 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
       // Fetch their public mute list if not already loaded
       let muteList = userMuteList;
       if (!muteList) {
-        const relays = (session.relays && session.relays.length > 0) ? session.relays : DEFAULT_RELAYS;
+        const relays =
+          session.relays && session.relays.length > 0
+            ? session.relays
+            : DEFAULT_RELAYS;
         const event = await fetchMuteList(profile.pubkey, relays);
         if (event) {
           muteList = await parseMuteListEvent(event);
@@ -338,13 +391,15 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
 
       // Check if my pubkey is in their public mute list
       if (muteList && session.pubkey) {
-        const isMuted = muteList.pubkeys.some(item => item.value === session.pubkey);
+        const isMuted = muteList.pubkeys.some(
+          (item) => item.value === session.pubkey,
+        );
         setIsMutingMe(isMuted);
       } else {
         setIsMutingMe(false);
       }
     } catch (error) {
-      console.error('Failed to check if user is muting me:', error);
+      console.error("Failed to check if user is muting me:", error);
       setIsMutingMe(null);
     } finally {
       setCheckingIfMutingMe(false);
@@ -359,7 +414,10 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
           <div className="flex items-start space-x-4 flex-1">
             {loadingProfile ? (
               <div className="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                <Loader2 size={24} className="text-gray-600 dark:text-gray-300 animate-spin" />
+                <Loader2
+                  size={24}
+                  className="text-gray-600 dark:text-gray-300 animate-spin"
+                />
               </div>
             ) : enrichedProfile.picture ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -368,7 +426,8 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 alt={getDisplayName()}
                 className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                  (e.target as HTMLImageElement).src =
+                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                 }}
               />
             ) : (
@@ -401,11 +460,11 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
         <div className="p-6 space-y-6">
           {/* About */}
           {profile.about && (
-            <div>
+            <div className="overflow-hidden">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 About
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+              <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                 {profile.about}
               </p>
             </div>
@@ -421,19 +480,25 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 {getTruncatedNpub(profile.pubkey)}
               </code>
               <button
-                onClick={() => copyToClipboard(hexToNpub(profile.pubkey), 'npub')}
+                onClick={() =>
+                  copyToClipboard(hexToNpub(profile.pubkey), "npub")
+                }
                 className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                 title="Copy npub"
               >
-                {copySuccess === 'npub' ? <UserCheck size={16} /> : <Copy size={16} />}
+                {copySuccess === "npub" ? (
+                  <UserCheck size={16} />
+                ) : (
+                  <Copy size={16} />
+                )}
               </button>
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            {session && (
-              isMuted ? (
+            {session &&
+              (isMuted ? (
                 <button
                   onClick={handleUnmute}
                   className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -449,8 +514,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   <UserX size={16} />
                   <span>Mute User</span>
                 </button>
-              )
-            )}
+              ))}
 
             {showReasonInput && (
               <div className="w-full flex flex-col gap-2 mt-2">
@@ -472,7 +536,7 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   <button
                     onClick={() => {
                       setShowReasonInput(false);
-                      setMuteReason('');
+                      setMuteReason("");
                     }}
                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
                   >
@@ -489,12 +553,12 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-400 disabled:cursor-not-allowed"
               >
                 <UserMinus size={16} />
-                <span>{unfollowing ? 'Unfollowing...' : 'Unfollow'}</span>
+                <span>{unfollowing ? "Unfollowing..." : "Unfollow"}</span>
               </button>
             )}
 
-            {session && (
-              isProtected ? (
+            {session &&
+              (isProtected ? (
                 <button
                   onClick={handleToggleProtection}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -512,11 +576,15 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   <Shield size={16} />
                   <span>Protect</span>
                 </button>
-              )
-            )}
+              ))}
 
             <button
-              onClick={() => window.open(`https://npub.world/${hexToNpub(profile.pubkey)}`, '_blank')}
+              onClick={() =>
+                window.open(
+                  `https://npub.world/${hexToNpub(profile.pubkey)}`,
+                  "_blank",
+                )
+              }
               className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               <ExternalLink size={16} />
@@ -532,10 +600,17 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   You have muted this user.
                 </h4>
                 {!editingReason && (
-                  <button onClick={() => {
-                    setEditedReason(muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || '');
-                    setEditingReason(true);
-                  }} className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                  <button
+                    onClick={() => {
+                      setEditedReason(
+                        muteList.pubkeys.find(
+                          (item) => item.value === profile.pubkey,
+                        )?.reason || "",
+                      );
+                      setEditingReason(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
                     <Edit2 size={16} />
                   </button>
                 )}
@@ -566,7 +641,10 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 </div>
               ) : (
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Reason: {muteList.pubkeys.find(item => item.value === profile.pubkey)?.reason || 'No reason provided.'}
+                  Reason:{" "}
+                  {muteList.pubkeys.find(
+                    (item) => item.value === profile.pubkey,
+                  )?.reason || "No reason provided."}
                 </p>
               )}
             </div>
@@ -599,15 +677,19 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                   )}
                 </button>
               </div>
-            {isMutingMe !== null && (
-              <div className={`mt-3 p-3 rounded-lg ${isMutingMe ? 'bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800' : 'bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800'}`}>
-                <p className={`text-sm font-medium ${isMutingMe ? 'text-red-800 dark:text-red-200' : 'text-green-800 dark:text-green-200'}`}>
-                  {isMutingMe
-                    ? `⚠️ Yes, ${getDisplayName()} is publicly muting you`
-                    : `✓ No, ${getDisplayName()} is not publicly muting you`}
-                </p>
-              </div>
-            )}
+              {isMutingMe !== null && (
+                <div
+                  className={`mt-3 p-3 rounded-lg ${isMutingMe ? "bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800" : "bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800"}`}
+                >
+                  <p
+                    className={`text-sm font-medium ${isMutingMe ? "text-red-800 dark:text-red-200" : "text-green-800 dark:text-green-200"}`}
+                  >
+                    {isMutingMe
+                      ? `⚠️ Yes, ${getDisplayName()} is publicly muting you`
+                      : `✓ No, ${getDisplayName()} is not publicly muting you`}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -661,139 +743,190 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 {userMuteList.pubkeys.length > 0 && (
                   <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                     <button
-                      onClick={() => toggleSection('pubkeys')}
+                      onClick={() => toggleSection("pubkeys")}
                       className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                     >
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         Muted Users ({userMuteList.pubkeys.length})
                       </span>
-                      {expandedSections.pubkeys ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {expandedSections.pubkeys ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
                     </button>
                     {expandedSections.pubkeys && (
                       <div className="p-4 space-y-2 max-h-96 overflow-y-auto">
                         {loadingProfiles && mutedProfiles.size === 0 ? (
                           <div className="flex items-center justify-center py-4">
-                            <Loader2 className="animate-spin text-gray-400" size={20} />
+                            <Loader2
+                              className="animate-spin text-gray-400"
+                              size={20}
+                            />
                             <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
                               Loading profiles...
                             </span>
                           </div>
                         ) : (
                           <>
-                            {userMuteList.pubkeys.slice(0, displayedPubkeysCount).map((item, idx) => {
-                              const profile = mutedProfiles.get(item.value);
-                              const displayName = profile?.display_name || profile?.name;
-                              const isAlreadyMuted = muteList.pubkeys.some(m => m.value === item.value);
+                            {userMuteList.pubkeys
+                              .slice(0, displayedPubkeysCount)
+                              .map((item, idx) => {
+                                const profile = mutedProfiles.get(item.value);
+                                const displayName =
+                                  profile?.display_name || profile?.name;
+                                const isAlreadyMuted = muteList.pubkeys.some(
+                                  (m) => m.value === item.value,
+                                );
 
-                              return (
-                                <div key={idx} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600">
-                                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                  {profile?.picture ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={profile.picture}
-                                      alt={displayName || 'User'}
-                                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-gray-600 dark:text-gray-300 text-sm font-medium">
-                                        {displayName ? displayName[0].toUpperCase() : '?'}
-                                      </span>
-                                    </div>
-                                  )}
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600"
+                                  >
+                                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                      {profile?.picture ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={profile.picture}
+                                          alt={displayName || "User"}
+                                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).src =
+                                              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                          <span className="text-gray-600 dark:text-gray-300 text-sm font-medium">
+                                            {displayName
+                                              ? displayName[0].toUpperCase()
+                                              : "?"}
+                                          </span>
+                                        </div>
+                                      )}
 
-                                  <div className="flex-1 min-w-0">
-                                    {displayName ? (
-                                      <>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                          {displayName}
-                                        </p>
-                                        {profile?.nip05 && (
-                                          <p className="text-xs text-green-600 dark:text-green-400 truncate">
-                                            ✓ {profile.nip05}
+                                      <div className="flex-1 min-w-0">
+                                        {displayName ? (
+                                          <>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                              {displayName}
+                                            </p>
+                                            {profile?.nip05 && (
+                                              <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                                                ✓ {profile.nip05}
+                                              </p>
+                                            )}
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate">
+                                              {hexToNpub(item.value).slice(
+                                                0,
+                                                16,
+                                              )}
+                                              ...
+                                            </p>
+                                          </>
+                                        ) : (
+                                          <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                                            {hexToNpub(item.value).slice(0, 20)}
+                                            ...{hexToNpub(item.value).slice(-8)}
                                           </p>
                                         )}
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate">
-                                          {hexToNpub(item.value).slice(0, 16)}...
-                                        </p>
-                                      </>
-                                    ) : (
-                                      <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                                        {hexToNpub(item.value).slice(0, 20)}...{hexToNpub(item.value).slice(-8)}
-                                      </p>
-                                    )}
-                                    {item.reason && (
-                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
-                                        Reason: {item.reason}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
+                                        {item.reason && (
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
+                                            Reason: {item.reason}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
 
-                                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                  <button
-                                    onClick={() => copyToClipboard(hexToNpub(item.value), `muted-${item.value}`)}
-                                    className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                                    title="Copy npub"
-                                  >
-                                    {copySuccess === `muted-${item.value}` ? <UserCheck size={16} /> : <Copy size={16} />}
-                                  </button>
-                                  {session && (
-                                    isAlreadyMuted ? (
+                                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                                       <button
-                                        onClick={() => {
-                                          removeMutedItem(item.value, 'pubkeys');
-                                        }}
-                                        className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                        title="Already muted - click to unmute"
-                                      >
-                                        <VolumeX size={16} />
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => {
-                                          addMutedItem({ type: 'pubkey', value: item.value, reason: item.reason }, 'pubkeys');
-                                        }}
+                                        onClick={() =>
+                                          copyToClipboard(
+                                            hexToNpub(item.value),
+                                            `muted-${item.value}`,
+                                          )
+                                        }
                                         className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                                        title="Mute this user"
+                                        title="Copy npub"
                                       >
-                                        <Volume2 size={16} />
+                                        {copySuccess ===
+                                        `muted-${item.value}` ? (
+                                          <UserCheck size={16} />
+                                        ) : (
+                                          <Copy size={16} />
+                                        )}
                                       </button>
-                                    )
-                                  )}
-                                  <button
-                                    onClick={() => window.open(`https://npub.world/${hexToNpub(item.value)}`, '_blank')}
-                                    className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    title="View profile"
-                                  >
-                                    <ExternalLink size={16} />
-                                  </button>
-                                </div>
-                                </div>
-                              );
-                            })}
+                                      {session &&
+                                        (isAlreadyMuted ? (
+                                          <button
+                                            onClick={() => {
+                                              removeMutedItem(
+                                                item.value,
+                                                "pubkeys",
+                                              );
+                                            }}
+                                            className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                            title="Already muted - click to unmute"
+                                          >
+                                            <VolumeX size={16} />
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => {
+                                              addMutedItem(
+                                                {
+                                                  type: "pubkey",
+                                                  value: item.value,
+                                                  reason: item.reason,
+                                                },
+                                                "pubkeys",
+                                              );
+                                            }}
+                                            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                                            title="Mute this user"
+                                          >
+                                            <Volume2 size={16} />
+                                          </button>
+                                        ))}
+                                      <button
+                                        onClick={() =>
+                                          window.open(
+                                            `https://npub.world/${hexToNpub(item.value)}`,
+                                            "_blank",
+                                          )
+                                        }
+                                        className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                        title="View profile"
+                                      >
+                                        <ExternalLink size={16} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
 
-                          {/* Load More Button */}
-                          {displayedPubkeysCount < userMuteList.pubkeys.length && (
-                            <button
-                              onClick={handleLoadMore}
-                              disabled={loadingProfiles}
-                              className="w-full mt-4 py-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium disabled:opacity-50"
-                            >
-                              {loadingProfiles ? (
-                                <span className="flex items-center justify-center gap-2">
-                                  <Loader2 className="animate-spin" size={16} />
-                                  Loading...
-                                </span>
-                              ) : (
-                                `Load More (${userMuteList.pubkeys.length - displayedPubkeysCount} remaining)`
-                              )}
-                            </button>
-                          )}
+                            {/* Load More Button */}
+                            {displayedPubkeysCount <
+                              userMuteList.pubkeys.length && (
+                              <button
+                                onClick={handleLoadMore}
+                                disabled={loadingProfiles}
+                                className="w-full mt-4 py-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium disabled:opacity-50"
+                              >
+                                {loadingProfiles ? (
+                                  <span className="flex items-center justify-center gap-2">
+                                    <Loader2
+                                      className="animate-spin"
+                                      size={16}
+                                    />
+                                    Loading...
+                                  </span>
+                                ) : (
+                                  `Load More (${userMuteList.pubkeys.length - displayedPubkeysCount} remaining)`
+                                )}
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -805,21 +938,32 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 {userMuteList.words.length > 0 && (
                   <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                     <button
-                      onClick={() => toggleSection('words')}
+                      onClick={() => toggleSection("words")}
                       className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                     >
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         Muted Words ({userMuteList.words.length})
                       </span>
-                      {expandedSections.words ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {expandedSections.words ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
                     </button>
                     {expandedSections.words && (
                       <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
                         {userMuteList.words.map((item, idx) => (
-                          <div key={idx} className="text-sm bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
-                            <span className="font-medium text-gray-900 dark:text-white">{item.value}</span>
+                          <div
+                            key={idx}
+                            className="text-sm bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                          >
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {item.value}
+                            </span>
                             {item.reason && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.reason}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {item.reason}
+                              </p>
                             )}
                           </div>
                         ))}
@@ -832,21 +976,32 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 {userMuteList.tags.length > 0 && (
                   <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                     <button
-                      onClick={() => toggleSection('tags')}
+                      onClick={() => toggleSection("tags")}
                       className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                     >
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         Muted Tags ({userMuteList.tags.length})
                       </span>
-                      {expandedSections.tags ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {expandedSections.tags ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
                     </button>
                     {expandedSections.tags && (
                       <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
                         {userMuteList.tags.map((item, idx) => (
-                          <div key={idx} className="text-sm bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
-                            <span className="font-medium text-gray-900 dark:text-white">#{item.value}</span>
+                          <div
+                            key={idx}
+                            className="text-sm bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                          >
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              #{item.value}
+                            </span>
                             {item.reason && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.reason}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {item.reason}
+                              </p>
                             )}
                           </div>
                         ))}
@@ -859,23 +1014,33 @@ export default function UserProfileModal({ profile, onClose }: UserProfileModalP
                 {userMuteList.threads.length > 0 && (
                   <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                     <button
-                      onClick={() => toggleSection('threads')}
+                      onClick={() => toggleSection("threads")}
                       className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                     >
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         Muted Threads ({userMuteList.threads.length})
                       </span>
-                      {expandedSections.threads ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {expandedSections.threads ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
                     </button>
                     {expandedSections.threads && (
                       <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
                         {userMuteList.threads.map((item, idx) => (
-                          <div key={idx} className="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                          <div
+                            key={idx}
+                            className="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                          >
                             <code className="font-mono text-gray-900 dark:text-white">
-                              {item.value.slice(0, 16)}...{item.value.slice(-16)}
+                              {item.value.slice(0, 16)}...
+                              {item.value.slice(-16)}
                             </code>
                             {item.reason && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.reason}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {item.reason}
+                              </p>
                             )}
                           </div>
                         ))}

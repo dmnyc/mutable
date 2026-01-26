@@ -1106,14 +1106,15 @@ export function hexToNote(eventId: string): string {
 export async function fetchEventById(
   eventId: string,
   relays: string[] = DEFAULT_RELAYS,
-  timeoutMs: number = 5000,
+  timeoutMs: number = 8000,
 ): Promise<Event | null> {
   const pool = getPool();
-  const uniqueRelays = normalizeRelayList(relays);
+  // Use expanded relay list to maximize chances of finding the event
+  const expandedRelays = getExpandedRelayList(relays);
 
   try {
     const events = await Promise.race([
-      pool.querySync(uniqueRelays, {
+      pool.querySync(expandedRelays, {
         ids: [eventId],
         limit: 3,
       }),

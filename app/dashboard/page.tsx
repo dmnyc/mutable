@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut, User, Menu, X } from "lucide-react";
+import { LogOut, User, Menu, X, Loader2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 import MyMuteList from "@/components/MyMuteList";
@@ -50,6 +50,7 @@ function DashboardContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showConfirmOnExit, setShowConfirmOnExit] = useState(false);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Function to change tab and update URL
   const changeTab = (tab: typeof activeTab) => {
@@ -99,6 +100,7 @@ function DashboardContent() {
     const loadUserProfile = async () => {
       if (session?.pubkey && !userProfile) {
         // Only fetch if we don't have a cached profile
+        setLoadingProfile(true);
         try {
           const profile = await fetchProfile(session.pubkey, session.relays);
           if (profile) {
@@ -107,6 +109,8 @@ function DashboardContent() {
         } catch (error) {
           console.error("Failed to load user profile:", error);
           // Don't clear cached profile on fetch error
+        } finally {
+          setLoadingProfile(false);
         }
       }
     };
@@ -168,8 +172,13 @@ function DashboardContent() {
 
   if (!isConnected || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center space-y-3">
+          <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+          <div className="text-lg text-gray-700 dark:text-gray-300">
+            Loading...
+          </div>
+        </div>
       </div>
     );
   }
@@ -303,7 +312,14 @@ function DashboardContent() {
             <div className="flex items-center space-x-4 flex-shrink-0">
               {/* User Profile Display - Desktop */}
               <div className="hidden md:flex items-center space-x-3">
-                {userProfile?.picture ? (
+                {loadingProfile ? (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center animate-pulse">
+                    <Loader2
+                      size={16}
+                      className="text-gray-500 dark:text-gray-400 animate-spin"
+                    />
+                  </div>
+                ) : userProfile?.picture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userProfile.picture}
@@ -323,7 +339,12 @@ function DashboardContent() {
                   </div>
                 )}
                 <div className="flex flex-col">
-                  {userProfile && (
+                  {loadingProfile ? (
+                    <div className="space-y-1">
+                      <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                      <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    </div>
+                  ) : userProfile ? (
                     <>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         {userProfile.display_name ||
@@ -336,13 +357,20 @@ function DashboardContent() {
                         </span>
                       )}
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               {/* User Avatar - Mobile */}
               <div className="md:hidden">
-                {userProfile?.picture ? (
+                {loadingProfile ? (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center animate-pulse">
+                    <Loader2
+                      size={16}
+                      className="text-gray-500 dark:text-gray-400 animate-spin"
+                    />
+                  </div>
+                ) : userProfile?.picture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userProfile.picture}
@@ -683,15 +711,10 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Unsaved Changes Banner - Appears below navigation */}
-      <UnsavedChangesBanner
-        onPublish={handlePublishFromBanner}
-        onDiscard={handleDiscardFromBanner}
-        onClean={handleCleanFromBanner}
-      />
-
-      {/* Main Content */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 flex-grow">
+      {/* Main Content - add bottom padding when banner is visible */}
+      <main
+        className={`w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 flex-grow ${hasUnsavedChanges ? "pb-24" : "pb-4"}`}
+      >
         {activeTab === "myList" && <MyMuteList />}
         {activeTab === "publicLists" && <PublicLists />}
         {activeTab === "muteuals" && <Muteuals />}
@@ -704,15 +727,14 @@ function DashboardContent() {
         {activeTab === "settings" && <Settings />}
       </main>
 
-      <div className={hasUnsavedChanges ? "pb-8" : "pt-8 pb-8"}>
-        <UnsavedChangesBanner
-          onPublish={handlePublishFromBanner}
-          onDiscard={handleDiscardFromBanner}
-          onClean={handleCleanFromBanner}
-        />
-      </div>
-
       <Footer />
+
+      {/* Fixed Unsaved Changes Banner - always visible at bottom */}
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
 
       {/* User Profile Modal */}
       {selectedProfile && (
@@ -758,8 +780,13 @@ export default function Dashboard() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-lg">Loading...</div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="flex flex-col items-center space-y-3">
+            <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+            <div className="text-lg text-gray-700 dark:text-gray-300">
+              Loading...
+            </div>
+          </div>
         </div>
       }
     >

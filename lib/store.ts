@@ -385,6 +385,8 @@ export const useStore = create<AppState>()(
         muteList: state.muteList,
         hasUnsavedChanges: state.hasUnsavedChanges,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        // Persist user profile for faster display on reload
+        userProfile: state.userProfile,
       }),
     },
   ),

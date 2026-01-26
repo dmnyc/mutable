@@ -181,6 +181,7 @@ export default function MuteListCategory({
 
   const handleEdit = (item: MuteItem) => {
     setEditingValue(item.value);
+    setEditValue(item.value); // Pre-populate edit field for non-pubkey categories
     setEditReason(item.reason || "");
     setEditEventRef(item.eventRef || "");
     setError(null);
@@ -205,17 +206,17 @@ export default function MuteListCategory({
         finalEventRef = parsedEventRef;
       }
 
-      // For pubkeys, we only update the reason and eventRef, not the value
-      if (category === "pubkeys") {
+      // For pubkeys and threads, we only update the reason and eventRef, not the value
+      if (category === "pubkeys" || category === "threads") {
         updateMutedItem(
           editingValue,
-          editingValue, // Keep the same pubkey
+          editingValue, // Keep the same ID
           category,
           editReason.trim() || undefined,
           finalEventRef,
         );
       } else {
-        // For other categories, allow value editing
+        // For words and tags, allow value editing
         if (!editValue.trim()) {
           setError("Value cannot be empty");
           return;
@@ -571,7 +572,7 @@ export default function MuteListCategory({
                                 {displayName}
                               </p>
                               {profile?.nip05 && (
-                                <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 break-all leading-tight">
+                                <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 truncate leading-tight">
                                   ✓ {profile.nip05}
                                 </p>
                               )}
@@ -753,7 +754,8 @@ export default function MuteListCategory({
                     {/* Edit Form - Stacked Below User Info */}
                     {editingValue === item.value && (
                       <div className="flex-1 space-y-2 w-full border-t border-gray-300 dark:border-gray-600 pt-2">
-                        {category !== "pubkeys" && (
+                        {/* Only show value input for words and tags - pubkeys and threads use fixed IDs */}
+                        {category !== "pubkeys" && category !== "threads" && (
                           <input
                             type="text"
                             value={editValue}
