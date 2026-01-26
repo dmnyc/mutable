@@ -380,10 +380,10 @@ export const useStore = create<AppState>()(
       name: "mutable-storage",
       partialize: (state) => ({
         // Persist session, mute list, and unsaved changes flag
+        // Note: activeTab is intentionally NOT persisted so /dashboard always defaults to "myList"
         session: state.session,
         muteList: state.muteList,
         hasUnsavedChanges: state.hasUnsavedChanges,
-        activeTab: state.activeTab,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
     },
