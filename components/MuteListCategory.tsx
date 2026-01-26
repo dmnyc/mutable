@@ -15,6 +15,8 @@ import {
   Unlock,
   ExternalLink,
   MessageSquare,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   npubToHex,
@@ -72,6 +74,9 @@ export default function MuteListCategory({
     Map<string, ThreadEventInfo>
   >(new Map());
   const [loadingThreads, setLoadingThreads] = useState(false);
+  const [visiblePreviews, setVisiblePreviews] = useState<Set<string>>(
+    new Set(),
+  );
 
   const handleAdd = () => {
     if (!newValue.trim()) {
@@ -246,6 +251,18 @@ export default function MuteListCategory({
 
   const handleRemove = (value: string) => {
     removeMutedItem(value, category);
+  };
+
+  const togglePreviewVisibility = (eventId: string) => {
+    setVisiblePreviews((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId);
+      } else {
+        newSet.add(eventId);
+      }
+      return newSet;
+    });
   };
 
   // Generate link to view event on Nostr client
@@ -579,54 +596,26 @@ export default function MuteListCategory({
                                   ✓ {threadAuthor.nip05}
                                 </p>
                               )}
-                              {/* Thread content preview */}
-                              <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 break-words leading-tight">
-                                {threadInfo.event.content.slice(0, 200)}
-                                {threadInfo.event.content.length > 200
-                                  ? "..."
-                                  : ""}
-                              </p>
-                              {/* Note ID and Jumble link */}
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono">
-                                  {safeHexToNote(item.value).slice(0, 20)}...
+                              {/* Thread content preview (conditionally shown) */}
+                              {visiblePreviews.has(item.value) && (
+                                <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 break-words leading-tight">
+                                  {threadInfo.event.content.slice(0, 200)}
+                                  {threadInfo.event.content.length > 200
+                                    ? "..."
+                                    : ""}
                                 </p>
-                                <a
-                                  href={`https://jumble.social/thread/${safeHexToNote(item.value)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                  title="View thread in Jumble"
-                                >
-                                  <ExternalLink
-                                    size={12}
-                                    className="flex-shrink-0"
-                                  />
-                                  View in Jumble
-                                </a>
-                              </div>
+                              )}
+                              {/* Note ID */}
+                              <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono mt-1">
+                                {safeHexToNote(item.value).slice(0, 20)}...
+                              </p>
                             </>
                           ) : category === "threads" ? (
                             <>
                               {/* Fallback when thread info couldn't be fetched */}
                               <p className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white break-all">
-                                {hexToNote(item.value).slice(0, 20)}...
+                                {safeHexToNote(item.value).slice(0, 20)}...
                               </p>
-                              <a
-                                href={`https://jumble.social/thread/${hexToNote(item.value)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 flex items-center gap-1"
-                                title="View thread in Jumble"
-                              >
-                                <ExternalLink
-                                  size={12}
-                                  className="flex-shrink-0"
-                                />
-                                View in Jumble
-                              </a>
                             </>
                           ) : (
                             <p className="text-xs sm:text-sm text-gray-900 dark:text-white break-all">
@@ -666,6 +655,66 @@ export default function MuteListCategory({
                         </div>
                       </div>
                       <div className="flex space-x-1 sm:space-x-2 flex-shrink-0 justify-end w-full sm:w-auto">
+                        {category === "pubkeys" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyNpub(item.value);
+                            }}
+                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                            title="Copy npub"
+                          >
+                            {copySuccess === item.value ? (
+                              <Check size={16} />
+                            ) : (
+                              <Copy size={16} />
+                            )}
+                          </button>
+                        )}
+                        {category === "threads" && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePreviewVisibility(item.value);
+                              }}
+                              className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                              title={
+                                visiblePreviews.has(item.value)
+                                  ? "Hide preview"
+                                  : "Show preview"
+                              }
+                            >
+                              {visiblePreviews.has(item.value) ? (
+                                <EyeOff size={16} />
+                              ) : (
+                                <Eye size={16} />
+                              )}
+                            </button>
+                            <a
+                              href={`https://jumble.social/notes/${safeHexToNote(item.value)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                              title="View note in Jumble"
+                            >
+                              <ExternalLink size={16} />
+                            </a>
+                          </>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(item);
+                          }}
+                          className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                          title={
+                            category === "pubkeys" ? "Edit reason" : "Edit"
+                          }
+                        >
+                          <Edit2 size={16} />
+                        </button>
                         {/* Privacy Toggle */}
                         <button
                           onClick={(e) => {
@@ -688,34 +737,6 @@ export default function MuteListCategory({
                           ) : (
                             <Unlock size={16} />
                           )}
-                        </button>
-                        {category === "pubkeys" && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCopyNpub(item.value);
-                            }}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                            title="Copy npub"
-                          >
-                            {copySuccess === item.value ? (
-                              <Check size={16} />
-                            ) : (
-                              <Copy size={16} />
-                            )}
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(item);
-                          }}
-                          className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          title={
-                            category === "pubkeys" ? "Edit reason" : "Edit"
-                          }
-                        >
-                          <Edit2 size={16} />
                         </button>
                         <button
                           onClick={(e) => {
