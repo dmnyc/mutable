@@ -144,27 +144,27 @@ export default function DashboardNav({ activePage }: DashboardNavProps) {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="flex items-center justify-between w-full py-4"
           >
-            <span className="font-semibold text-base text-gray-900 dark:text-white">
-              {pageNames[activePage]}
-            </span>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-                Menu
-              </span>
               {mobileMenuOpen ? (
                 <X
-                  size={20}
+                  size={22}
                   strokeWidth={2.5}
                   className="text-gray-900 dark:text-white"
                 />
               ) : (
                 <Menu
-                  size={20}
+                  size={22}
                   strokeWidth={2.5}
                   className="text-gray-900 dark:text-white"
                 />
               )}
+              <span className="text-base font-bold text-gray-900 dark:text-white">
+                Menu
+              </span>
             </div>
+            <span className="font-semibold text-base text-gray-500 dark:text-gray-400">
+              {pageNames[activePage]}
+            </span>
           </button>
 
           {/* Mobile Dropdown Menu */}

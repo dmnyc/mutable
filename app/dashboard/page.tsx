@@ -601,7 +601,25 @@ function DashboardContent() {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="flex items-center justify-between w-full py-4"
             >
-              <span className="font-semibold text-base text-gray-900 dark:text-white">
+              <div className="flex items-center gap-2">
+                {mobileMenuOpen ? (
+                  <X
+                    size={22}
+                    strokeWidth={2.5}
+                    className="text-gray-900 dark:text-white"
+                  />
+                ) : (
+                  <Menu
+                    size={22}
+                    strokeWidth={2.5}
+                    className="text-gray-900 dark:text-white"
+                  />
+                )}
+                <span className="text-base font-bold text-gray-900 dark:text-white">
+                  Menu
+                </span>
+              </div>
+              <span className="font-semibold text-base text-gray-500 dark:text-gray-400">
                 {activeTab === "myList" && "My Mutes"}
                 {activeTab === "publicLists" && "Mute Packs"}
                 {activeTab === "muteuals" && "Muteuals"}
@@ -615,24 +633,6 @@ function DashboardContent() {
                 {activeTab === "backups" && "Backups"}
                 {activeTab === "settings" && "Settings"}
               </span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-                  Menu
-                </span>
-                {mobileMenuOpen ? (
-                  <X
-                    size={20}
-                    strokeWidth={2.5}
-                    className="text-gray-900 dark:text-white"
-                  />
-                ) : (
-                  <Menu
-                    size={20}
-                    strokeWidth={2.5}
-                    className="text-gray-900 dark:text-white"
-                  />
-                )}
-              </div>
             </button>
 
             {/* Mobile Dropdown Menu */}
@@ -804,6 +804,20 @@ function DashboardContent() {
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  {/* Logout button at bottom of mobile menu */}
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleDisconnect();
+                      }}
+                      className="flex items-center gap-2 w-full py-3 px-4 rounded-lg font-semibold text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <LogOut size={18} />
+                      Disconnect
+                    </button>
                   </div>
                 </div>
               </div>
