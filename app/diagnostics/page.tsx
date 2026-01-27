@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { fetchAppData, D_TAGS } from '@/lib/relayStorage';
-import { getPool } from '@/lib/nostr';
-import { Filter, Event } from 'nostr-tools';
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchAppData, D_TAGS } from "@/lib/relayStorage";
+import { getPool, DEFAULT_RELAYS } from "@/lib/nostr";
+import { Filter, Event } from "nostr-tools";
 
 // NIP-07 interface (browser extension)
 interface WindowWithNostr extends Window {
@@ -42,17 +42,7 @@ export default function DiagnosticsPage() {
     setResults([]);
 
     // Get all unique relays from session
-    const allRelays = [...new Set([
-      ...session.relays,
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-      'wss://nos.lol',
-      'wss://relay.nostr.band',
-      'wss://nostr.wine',
-      'wss://offchain.pub',
-      'wss://nostr.land',
-      'wss://nostrelay.yeghro.com',
-    ])];
+    const allRelays = [...new Set([...session.relays, ...DEFAULT_RELAYS])];
 
     console.log(`Testing ${allRelays.length} relays individually...`);
 
@@ -64,7 +54,10 @@ export default function DiagnosticsPage() {
       const startTime = Date.now();
 
       try {
-        const result = await new Promise<{ data: any; timestamp: number } | null>((resolve) => {
+        const result = await new Promise<{
+          data: any;
+          timestamp: number;
+        } | null>((resolve) => {
           const timeoutId = setTimeout(() => {
             sub.close();
             resolve(null);
@@ -75,69 +68,79 @@ export default function DiagnosticsPage() {
           const filter: Filter = {
             kinds: [30078],
             authors: [session.pubkey],
-            '#d': [D_TAGS.PROTECTED_USERS],
+            "#d": [D_TAGS.PROTECTED_USERS],
           };
 
-          console.log(`[Diagnostic] Querying ${relay} for kind:30078 with d:${D_TAGS.PROTECTED_USERS}`);
+          console.log(
+            `[Diagnostic] Querying ${relay} for kind:30078 with d:${D_TAGS.PROTECTED_USERS}`,
+          );
 
-          const sub = pool.subscribeMany(
-            [relay],
-            filter,
-            {
-              onevent(event: Event) {
-                console.log(`[Diagnostic] ${relay} returned event:`, {
-                  id: event.id.substring(0, 8),
-                  created_at: new Date(event.created_at * 1000).toISOString(),
-                  tags: event.tags,
-                  contentLength: event.content.length
-                });
-                if (!foundEvent || event.created_at > foundEvent.created_at) {
-                  foundEvent = event;
-                }
-              },
-              async oneose() {
-                console.log(`[Diagnostic] ${relay} EOSE - found:`, !!foundEvent);
-                clearTimeout(timeoutId);
-                sub.close();
+          const sub = pool.subscribeMany([relay], filter, {
+            onevent(event: Event) {
+              console.log(`[Diagnostic] ${relay} returned event:`, {
+                id: event.id.substring(0, 8),
+                created_at: new Date(event.created_at * 1000).toISOString(),
+                tags: event.tags,
+                contentLength: event.content.length,
+              });
+              if (!foundEvent || event.created_at > foundEvent.created_at) {
+                foundEvent = event;
+              }
+            },
+            async oneose() {
+              console.log(`[Diagnostic] ${relay} EOSE - found:`, !!foundEvent);
+              clearTimeout(timeoutId);
+              sub.close();
 
-                if (foundEvent) {
-                  try {
-                    // Check if encrypted
-                    const isEncrypted = foundEvent.tags.find(t => t[0] === 'encrypted')?.[1] === 'true';
+              if (foundEvent) {
+                try {
+                  // Check if encrypted
+                  const isEncrypted =
+                    foundEvent.tags.find((t) => t[0] === "encrypted")?.[1] ===
+                    "true";
 
-                    let data;
-                    if (isEncrypted) {
-                      console.log(`[Diagnostic] ${relay} - event is encrypted, attempting NIP-04 decrypt`);
-                      // Try to decrypt using NIP-04
-                      if (window.nostr?.nip04?.decrypt) {
-                        const decrypted = await window.nostr.nip04.decrypt(foundEvent.pubkey, foundEvent.content);
-                        data = JSON.parse(decrypted);
-                      } else {
-                        console.warn(`[Diagnostic] ${relay} - encrypted but no NIP-04 available`);
-                        resolve({
-                          data: { encrypted: true, users: [] },
-                          timestamp: foundEvent.created_at * 1000
-                        });
-                        return;
-                      }
+                  let data;
+                  if (isEncrypted) {
+                    console.log(
+                      `[Diagnostic] ${relay} - event is encrypted, attempting NIP-04 decrypt`,
+                    );
+                    // Try to decrypt using NIP-04
+                    if (window.nostr?.nip04?.decrypt) {
+                      const decrypted = await window.nostr.nip04.decrypt(
+                        foundEvent.pubkey,
+                        foundEvent.content,
+                      );
+                      data = JSON.parse(decrypted);
                     } else {
-                      data = JSON.parse(foundEvent.content);
+                      console.warn(
+                        `[Diagnostic] ${relay} - encrypted but no NIP-04 available`,
+                      );
+                      resolve({
+                        data: { encrypted: true, users: [] },
+                        timestamp: foundEvent.created_at * 1000,
+                      });
+                      return;
                     }
-
-                    resolve({
-                      data,
-                      timestamp: foundEvent.created_at * 1000
-                    });
-                  } catch (e) {
-                    console.error(`[Diagnostic] ${relay} - failed to parse/decrypt:`, e);
-                    resolve(null);
+                  } else {
+                    data = JSON.parse(foundEvent.content);
                   }
-                } else {
+
+                  resolve({
+                    data,
+                    timestamp: foundEvent.created_at * 1000,
+                  });
+                } catch (e) {
+                  console.error(
+                    `[Diagnostic] ${relay} - failed to parse/decrypt:`,
+                    e,
+                  );
                   resolve(null);
                 }
+              } else {
+                resolve(null);
               }
-            }
-          );
+            },
+          });
         });
 
         const responseTime = Date.now() - startTime;
@@ -161,7 +164,7 @@ export default function DiagnosticsPage() {
         diagnostics.push({
           relay,
           hasData: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
           responseTime: Date.now() - startTime,
         });
       }
@@ -171,17 +174,17 @@ export default function DiagnosticsPage() {
     }
 
     setTesting(false);
-    console.log('Diagnostics complete:', diagnostics);
+    console.log("Diagnostics complete:", diagnostics);
   };
 
   const formatTimestamp = (ts?: number) => {
-    if (!ts) return 'N/A';
+    if (!ts) return "N/A";
     const date = new Date(ts);
     return date.toLocaleString();
   };
 
   const formatRelativeTime = (ts?: number) => {
-    if (!ts) return '';
+    if (!ts) return "";
     const now = Date.now();
     const diff = now - ts;
     const minutes = Math.floor(diff / 60000);
@@ -191,7 +194,7 @@ export default function DiagnosticsPage() {
     if (days > 0) return `${days}d ago`;
     if (hours > 0) return `${hours}h ago`;
     if (minutes > 0) return `${minutes}m ago`;
-    return 'just now';
+    return "just now";
   };
 
   if (!session) {
@@ -225,7 +228,7 @@ export default function DiagnosticsPage() {
             disabled={testing}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {testing ? 'Testing Relays...' : 'Test All Relays'}
+            {testing ? "Testing Relays..." : "Test All Relays"}
           </button>
         </div>
 
@@ -233,7 +236,8 @@ export default function DiagnosticsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <div className="p-4 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Results ({results.filter(r => r.hasData).length} / {results.length} relays have data)
+                Results ({results.filter((r) => r.hasData).length} /{" "}
+                {results.length} relays have data)
               </h2>
             </div>
 
@@ -241,13 +245,15 @@ export default function DiagnosticsPage() {
               {results.map((result, index) => (
                 <div
                   key={index}
-                  className={`p-4 ${result.hasData ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}
+                  className={`p-4 ${result.hasData ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"}`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-2xl ${result.hasData ? 'text-green-600' : 'text-red-600'}`}>
-                          {result.hasData ? '✅' : '❌'}
+                        <span
+                          className={`text-2xl ${result.hasData ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {result.hasData ? "✅" : "❌"}
                         </span>
                         <code className="text-sm font-mono text-gray-900 dark:text-white break-all">
                           {result.relay}
@@ -260,7 +266,8 @@ export default function DiagnosticsPage() {
                             <strong>Protected Users:</strong> {result.userCount}
                           </div>
                           <div className="text-gray-700 dark:text-gray-300">
-                            <strong>Timestamp:</strong> {formatTimestamp(result.timestamp)}
+                            <strong>Timestamp:</strong>{" "}
+                            {formatTimestamp(result.timestamp)}
                             <span className="text-gray-500 dark:text-gray-400 ml-2">
                               ({formatRelativeTime(result.timestamp)})
                             </span>
@@ -273,7 +280,9 @@ export default function DiagnosticsPage() {
 
                       {!result.hasData && (
                         <div className="ml-9 text-sm text-gray-600 dark:text-gray-400">
-                          {result.error ? `Error: ${result.error}` : 'No data found'}
+                          {result.error
+                            ? `Error: ${result.error}`
+                            : "No data found"}
                           {result.responseTime && ` (${result.responseTime}ms)`}
                         </div>
                       )}

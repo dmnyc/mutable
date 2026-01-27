@@ -231,10 +231,17 @@ Mutable implements NIP-78 (Application-specific Data) to sync your settings acro
 
 - wss://relay.damus.io
 - wss://relay.primal.net
+- wss://cache0.primal.net
+- wss://cache1.primal.net
+- wss://cache2.primal.net
 - wss://nos.lol
-- wss://relay.nostr.band
 - wss://nostr.wine
 - wss://relay.snort.social
+- wss://purplepag.es
+- wss://relay.nostr.net
+- wss://nostr.mom
+- wss://offchain.pub
+- wss://relay.noswhere.com
 
 ## Contributing
 

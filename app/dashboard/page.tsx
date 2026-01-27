@@ -57,10 +57,12 @@ function DashboardContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [showConfirmOnExit, setShowConfirmOnExit] = useState(false);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Tools that go in the "Other Stuff" dropdown
   const toolTabs = [
@@ -330,9 +332,21 @@ function DashboardContent() {
             {/* Global Search */}
             <GlobalUserSearch onSelectUser={handleUserSelect} />
 
-            <div className="flex items-center space-x-4 flex-shrink-0">
-              {/* User Profile Display - Desktop */}
-              <div className="hidden md:flex items-center space-x-3">
+            {/* User Menu Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setUserMenuOpen(!userMenuOpen);
+                  setMobileMenuOpen(false);
+                }}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) {
+                    setUserMenuOpen(false);
+                  }
+                }}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                {/* Avatar */}
                 {loadingProfile ? (
                   <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center animate-pulse">
                     <Loader2
@@ -359,7 +373,8 @@ function DashboardContent() {
                     />
                   </div>
                 )}
-                <div className="flex flex-col">
+                {/* Name - hidden on small screens */}
+                <div className="hidden md:flex flex-col text-left">
                   {loadingProfile ? (
                     <div className="space-y-1">
                       <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
@@ -380,57 +395,43 @@ function DashboardContent() {
                     </>
                   ) : null}
                 </div>
-              </div>
+                <ChevronDown
+                  size={16}
+                  className={`text-gray-500 dark:text-gray-400 transition-transform ${
+                    userMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
 
-              {/* User Avatar - Mobile */}
-              <div className="md:hidden">
-                {loadingProfile ? (
-                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center animate-pulse">
-                    <Loader2
-                      size={16}
-                      className="text-gray-500 dark:text-gray-400 animate-spin"
-                    />
-                  </div>
-                ) : userProfile?.picture ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={userProfile.picture}
-                    alt={userProfile.display_name || userProfile.name || "User"}
-                    className="w-8 h-8 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+              {/* Dropdown Menu */}
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 py-1">
+                  <button
+                    onClick={() => {
+                      changeTab("settings");
+                      setUserMenuOpen(false);
                     }}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                    <User
-                      size={16}
-                      className="text-gray-600 dark:text-gray-300"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={() => changeTab("settings")}
-                className={`p-2 rounded-lg transition-colors ${
-                  activeTab === "settings"
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
-                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-                title="Settings"
-              >
-                <SettingsIcon size={20} />
-              </button>
-
-              <button
-                onClick={handleDisconnect}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                title="Disconnect"
-              >
-                <LogOut size={16} />
-              </button>
+                    className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                      activeTab === "settings"
+                        ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <SettingsIcon size={16} />
+                    Settings
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDisconnect();
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Disconnect
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -440,7 +441,7 @@ function DashboardContent() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Desktop Navigation */}
-          <div className="hidden xl:flex space-x-6">
+          <div className="hidden xl:flex justify-center space-x-6">
             <button
               onClick={() => changeTab("myList")}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -597,10 +598,31 @@ function DashboardContent() {
           {/* Mobile Navigation */}
           <div className="xl:hidden">
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => {
+                setMobileMenuOpen(!mobileMenuOpen);
+                setUserMenuOpen(false);
+              }}
               className="flex items-center justify-between w-full py-4"
             >
-              <span className="font-semibold text-base text-gray-900 dark:text-white">
+              <div className="flex items-center gap-2">
+                {mobileMenuOpen ? (
+                  <X
+                    size={22}
+                    strokeWidth={2.5}
+                    className="text-gray-900 dark:text-white"
+                  />
+                ) : (
+                  <Menu
+                    size={22}
+                    strokeWidth={2.5}
+                    className="text-gray-900 dark:text-white"
+                  />
+                )}
+                <span className="text-base font-bold text-gray-900 dark:text-white">
+                  Menu
+                </span>
+              </div>
+              <span className="font-semibold text-base text-gray-500 dark:text-gray-400">
                 {activeTab === "myList" && "My Mutes"}
                 {activeTab === "publicLists" && "Mute Packs"}
                 {activeTab === "muteuals" && "Muteuals"}
@@ -614,30 +636,13 @@ function DashboardContent() {
                 {activeTab === "backups" && "Backups"}
                 {activeTab === "settings" && "Settings"}
               </span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-                  Menu
-                </span>
-                {mobileMenuOpen ? (
-                  <X
-                    size={20}
-                    strokeWidth={2.5}
-                    className="text-gray-900 dark:text-white"
-                  />
-                ) : (
-                  <Menu
-                    size={20}
-                    strokeWidth={2.5}
-                    className="text-gray-900 dark:text-white"
-                  />
-                )}
-              </div>
             </button>
 
             {/* Mobile Dropdown Menu */}
             {mobileMenuOpen && (
               <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+                  {/* Primary pages */}
                   <button
                     onClick={() => {
                       changeTab("myList");
@@ -703,71 +708,6 @@ function DashboardContent() {
                   </Link>
                   <button
                     onClick={() => {
-                      changeTab("noteNuke");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === "noteNuke"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    Note Nuke
-                  </button>
-                  <button
-                    onClick={() => {
-                      changeTab("domainPurge");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === "domainPurge"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    Domain Purge
-                  </button>
-                  <button
-                    onClick={() => {
-                      changeTab("purgatory");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === "purgatory"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    Purgatory
-                  </button>
-                  <button
-                    onClick={() => {
-                      changeTab("decimator");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === "decimator"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    Decimator
-                  </button>
-                  <button
-                    onClick={() => {
-                      changeTab("listCleaner");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === "listCleaner"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    List Cleaner
-                  </button>
-                  <button
-                    onClick={() => {
                       changeTab("backups");
                       setMobileMenuOpen(false);
                     }}
@@ -779,6 +719,95 @@ function DashboardContent() {
                   >
                     Backups
                   </button>
+
+                  {/* Other Stuff Accordion */}
+                  <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+                    <button
+                      onClick={() => setMobileToolsOpen(!mobileToolsOpen)}
+                      className={`flex items-center justify-between w-full py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
+                        isToolTabActive
+                          ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                          : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <span>Other Stuff</span>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${mobileToolsOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+
+                    {/* Tool pages nested under accordion */}
+                    {mobileToolsOpen && (
+                      <div className="ml-4 mt-1 space-y-1">
+                        <button
+                          onClick={() => {
+                            changeTab("noteNuke");
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "noteNuke"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Note Nuke
+                        </button>
+                        <button
+                          onClick={() => {
+                            changeTab("domainPurge");
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "domainPurge"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Domain Purge
+                        </button>
+                        <button
+                          onClick={() => {
+                            changeTab("purgatory");
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "purgatory"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Purgatory
+                        </button>
+                        <button
+                          onClick={() => {
+                            changeTab("decimator");
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "decimator"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Decimator
+                        </button>
+                        <button
+                          onClick={() => {
+                            changeTab("listCleaner");
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "listCleaner"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          List Cleaner
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
