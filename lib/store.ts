@@ -37,6 +37,7 @@ interface AppState {
     | "listCleaner"
     | "muteOScope"
     | "domainPurge"
+    | "purgatory"
     | "decimator"
     | "noteNuke";
   showAuthModal: boolean;
@@ -70,6 +71,7 @@ interface AppState {
       | "listCleaner"
       | "muteOScope"
       | "domainPurge"
+      | "purgatory"
       | "decimator"
       | "noteNuke",
   ) => void;
