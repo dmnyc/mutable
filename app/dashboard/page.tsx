@@ -6,7 +6,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut, User, Menu, X } from "lucide-react";
+import {
+  LogOut,
+  User,
+  Menu,
+  X,
+  Loader2,
+  Settings as SettingsIcon,
+  ChevronDown,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 import MyMuteList from "@/components/MyMuteList";
@@ -18,6 +26,7 @@ import Backups from "@/components/Backups";
 import Settings from "@/components/Settings";
 import ListCleaner from "@/components/ListCleaner";
 import DomainPurge from "@/components/DomainPurge";
+import Purgatory from "@/components/Purgatory";
 import NoteNuke from "@/components/NoteNuke";
 import GlobalUserSearch from "@/components/GlobalUserSearch";
 import UserProfileModal from "@/components/UserProfileModal";
@@ -50,6 +59,18 @@ function DashboardContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showConfirmOnExit, setShowConfirmOnExit] = useState(false);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+
+  // Tools that go in the "Other Stuff" dropdown
+  const toolTabs = [
+    "noteNuke",
+    "domainPurge",
+    "purgatory",
+    "decimator",
+    "listCleaner",
+  ] as const;
+  const isToolTabActive = toolTabs.includes(activeTab as any);
 
   // Function to change tab and update URL
   const changeTab = (tab: typeof activeTab) => {
@@ -73,6 +94,7 @@ function DashboardContent() {
       "listCleaner",
       "muteOScope",
       "domainPurge",
+      "purgatory",
       "noteNuke",
     ] as const;
 
@@ -99,6 +121,7 @@ function DashboardContent() {
     const loadUserProfile = async () => {
       if (session?.pubkey && !userProfile) {
         // Only fetch if we don't have a cached profile
+        setLoadingProfile(true);
         try {
           const profile = await fetchProfile(session.pubkey, session.relays);
           if (profile) {
@@ -107,6 +130,8 @@ function DashboardContent() {
         } catch (error) {
           console.error("Failed to load user profile:", error);
           // Don't clear cached profile on fetch error
+        } finally {
+          setLoadingProfile(false);
         }
       }
     };
@@ -168,8 +193,13 @@ function DashboardContent() {
 
   if (!isConnected || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center space-y-3">
+          <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+          <div className="text-lg text-gray-700 dark:text-gray-300">
+            Loading...
+          </div>
+        </div>
       </div>
     );
   }
@@ -303,7 +333,14 @@ function DashboardContent() {
             <div className="flex items-center space-x-4 flex-shrink-0">
               {/* User Profile Display - Desktop */}
               <div className="hidden md:flex items-center space-x-3">
-                {userProfile?.picture ? (
+                {loadingProfile ? (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center animate-pulse">
+                    <Loader2
+                      size={16}
+                      className="text-gray-500 dark:text-gray-400 animate-spin"
+                    />
+                  </div>
+                ) : userProfile?.picture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userProfile.picture}
@@ -323,7 +360,12 @@ function DashboardContent() {
                   </div>
                 )}
                 <div className="flex flex-col">
-                  {userProfile && (
+                  {loadingProfile ? (
+                    <div className="space-y-1">
+                      <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                      <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    </div>
+                  ) : userProfile ? (
                     <>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         {userProfile.display_name ||
@@ -336,13 +378,20 @@ function DashboardContent() {
                         </span>
                       )}
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               {/* User Avatar - Mobile */}
               <div className="md:hidden">
-                {userProfile?.picture ? (
+                {loadingProfile ? (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center animate-pulse">
+                    <Loader2
+                      size={16}
+                      className="text-gray-500 dark:text-gray-400 animate-spin"
+                    />
+                  </div>
+                ) : userProfile?.picture ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userProfile.picture}
@@ -364,6 +413,18 @@ function DashboardContent() {
               </div>
 
               <button
+                onClick={() => changeTab("settings")}
+                className={`p-2 rounded-lg transition-colors ${
+                  activeTab === "settings"
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title="Settings"
+              >
+                <SettingsIcon size={20} />
+              </button>
+
+              <button
                 onClick={handleDisconnect}
                 className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
                 title="Disconnect"
@@ -379,10 +440,10 @@ function DashboardContent() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Desktop Navigation */}
-          <div className="hidden xl:flex space-x-8">
+          <div className="hidden xl:flex space-x-6">
             <button
               onClick={() => changeTab("myList")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "myList"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -392,7 +453,7 @@ function DashboardContent() {
             </button>
             <button
               onClick={() => changeTab("publicLists")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "publicLists"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -402,7 +463,7 @@ function DashboardContent() {
             </button>
             <button
               onClick={() => changeTab("muteuals")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "muteuals"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -412,7 +473,7 @@ function DashboardContent() {
             </button>
             <button
               onClick={() => changeTab("reciprocals")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "reciprocals"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -422,7 +483,7 @@ function DashboardContent() {
             </button>
             <Link
               href="/mute-o-scope"
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "muteOScope"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -431,48 +492,8 @@ function DashboardContent() {
               Mute-o-Scope
             </Link>
             <button
-              onClick={() => changeTab("noteNuke")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === "noteNuke"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Note Nuke
-            </button>
-            <button
-              onClick={() => changeTab("domainPurge")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === "domainPurge"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Domain Purge
-            </button>
-            <button
-              onClick={() => changeTab("decimator")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === "decimator"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Decimator
-            </button>
-            <button
-              onClick={() => changeTab("listCleaner")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === "listCleaner"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              List Cleaner
-            </button>
-            <button
               onClick={() => changeTab("backups")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
+              className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "backups"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -480,16 +501,97 @@ function DashboardContent() {
             >
               Backups
             </button>
-            <button
-              onClick={() => changeTab("settings")}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === "settings"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Settings
-            </button>
+
+            {/* Other Stuff Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+                onBlur={() =>
+                  setTimeout(() => setToolsDropdownOpen(false), 150)
+                }
+                className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors flex items-center gap-1 ${
+                  isToolTabActive
+                    ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}
+              >
+                Other Stuff
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${toolsDropdownOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {toolsDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-[180px] z-50">
+                  <button
+                    onClick={() => {
+                      changeTab("noteNuke");
+                      setToolsDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                      activeTab === "noteNuke"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Note Nuke
+                  </button>
+                  <button
+                    onClick={() => {
+                      changeTab("domainPurge");
+                      setToolsDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                      activeTab === "domainPurge"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Domain Purge
+                  </button>
+                  <button
+                    onClick={() => {
+                      changeTab("purgatory");
+                      setToolsDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                      activeTab === "purgatory"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Purgatory
+                  </button>
+                  <button
+                    onClick={() => {
+                      changeTab("decimator");
+                      setToolsDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                      activeTab === "decimator"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Decimator
+                  </button>
+                  <button
+                    onClick={() => {
+                      changeTab("listCleaner");
+                      setToolsDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                      activeTab === "listCleaner"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    List Cleaner
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile Navigation */}
@@ -505,6 +607,7 @@ function DashboardContent() {
                 {activeTab === "reciprocals" && "Reciprocals"}
                 {activeTab === "decimator" && "Decimator"}
                 {activeTab === "domainPurge" && "Domain Purge"}
+                {activeTab === "purgatory" && "Purgatory"}
                 {activeTab === "muteOScope" && "Mute-o-Scope"}
                 {activeTab === "noteNuke" && "Note Nuke"}
                 {activeTab === "listCleaner" && "List Cleaner"}
@@ -626,6 +729,19 @@ function DashboardContent() {
                   </button>
                   <button
                     onClick={() => {
+                      changeTab("purgatory");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
+                      activeTab === "purgatory"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Purgatory
+                  </button>
+                  <button
+                    onClick={() => {
                       changeTab("decimator");
                       setMobileMenuOpen(false);
                     }}
@@ -663,19 +779,6 @@ function DashboardContent() {
                   >
                     Backups
                   </button>
-                  <button
-                    onClick={() => {
-                      changeTab("settings");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                      activeTab === "settings"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    Settings
-                  </button>
                 </div>
               </div>
             )}
@@ -683,15 +786,10 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Unsaved Changes Banner - Appears below navigation */}
-      <UnsavedChangesBanner
-        onPublish={handlePublishFromBanner}
-        onDiscard={handleDiscardFromBanner}
-        onClean={handleCleanFromBanner}
-      />
-
-      {/* Main Content */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 flex-grow">
+      {/* Main Content - add bottom padding when banner is visible */}
+      <main
+        className={`w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 flex-grow ${hasUnsavedChanges ? "pb-24" : "pb-4"}`}
+      >
         {activeTab === "myList" && <MyMuteList />}
         {activeTab === "publicLists" && <PublicLists />}
         {activeTab === "muteuals" && <Muteuals />}
@@ -699,20 +797,20 @@ function DashboardContent() {
         {activeTab === "decimator" && <Decimator />}
         {activeTab === "noteNuke" && <NoteNuke />}
         {activeTab === "domainPurge" && <DomainPurge />}
+        {activeTab === "purgatory" && <Purgatory />}
         {activeTab === "listCleaner" && <ListCleaner />}
         {activeTab === "backups" && <Backups />}
         {activeTab === "settings" && <Settings />}
       </main>
 
-      <div className={hasUnsavedChanges ? "pb-8" : "pt-8 pb-8"}>
-        <UnsavedChangesBanner
-          onPublish={handlePublishFromBanner}
-          onDiscard={handleDiscardFromBanner}
-          onClean={handleCleanFromBanner}
-        />
-      </div>
-
       <Footer />
+
+      {/* Fixed Unsaved Changes Banner - always visible at bottom */}
+      <UnsavedChangesBanner
+        onPublish={handlePublishFromBanner}
+        onDiscard={handleDiscardFromBanner}
+        onClean={handleCleanFromBanner}
+      />
 
       {/* User Profile Modal */}
       {selectedProfile && (
@@ -758,8 +856,13 @@ export default function Dashboard() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-lg">Loading...</div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="flex flex-col items-center space-y-3">
+            <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+            <div className="text-lg text-gray-700 dark:text-gray-300">
+              Loading...
+            </div>
+          </div>
         </div>
       }
     >

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { X, Zap, Key } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useState } from "react";
+import { X, Zap, Key, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await connectWithNip07();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect');
+      setError(err instanceof Error ? err.message : "Failed to connect");
     } finally {
       setConnecting(false);
     }
@@ -57,23 +57,32 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           {/* NIP-07 Option */}
           <button
             onClick={handleNip07Connect}
-            disabled={connecting}
+            disabled={connecting || !hasNip07Extension}
             className={`w-full p-4 border-2 rounded-lg text-left transition-colors ${
-              hasNip07Extension
-                ? 'border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20'
-                : 'border-gray-300 dark:border-gray-600 opacity-50 cursor-not-allowed'
+              hasNip07Extension && !connecting
+                ? "border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                : "border-gray-300 dark:border-gray-600 opacity-50 cursor-not-allowed"
             }`}
           >
             <div className="flex items-center mb-2">
-              <Zap className="mr-2 text-purple-600" size={24} />
+              {connecting ? (
+                <Loader2
+                  className="mr-2 text-purple-600 animate-spin"
+                  size={24}
+                />
+              ) : (
+                <Zap className="mr-2 text-purple-600" size={24} />
+              )}
               <span className="font-semibold text-gray-900 dark:text-white">
-                Browser Extension (NIP-07)
+                {connecting ? "Connecting..." : "Browser Extension (NIP-07)"}
               </span>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {hasNip07Extension
-                ? 'Connect using Alby, nos2x, or another NIP-07 extension'
-                : 'No extension detected. Please install a NIP-07 compatible extension.'}
+              {connecting
+                ? "Please approve the connection in your extension"
+                : hasNip07Extension
+                  ? "Connect using Alby, nos2x, or another NIP-07 extension"
+                  : "No extension detected. Please install a NIP-07 compatible extension."}
             </p>
           </button>
 
@@ -103,7 +112,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               Need a Nostr extension?
             </p>
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              Install{' '}
+              Install{" "}
               <a
                 href="https://getalby.com/"
                 target="_blank"
@@ -111,8 +120,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 className="underline hover:no-underline"
               >
                 Alby
-              </a>{' '}
-              or{' '}
+              </a>{" "}
+              or{" "}
               <a
                 href="https://github.com/fiatjaf/nos2x"
                 target="_blank"
@@ -120,7 +129,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 className="underline hover:no-underline"
               >
                 nos2x
-              </a>{' '}
+              </a>{" "}
               to get started.
             </p>
           </div>

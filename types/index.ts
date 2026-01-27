@@ -1,10 +1,10 @@
-import { Event } from 'nostr-tools';
+import { Event } from "nostr-tools";
 
 // Mute list item types
-export type MuteItemType = 'pubkey' | 'word' | 'tag' | 'thread';
+export type MuteItemType = "pubkey" | "word" | "tag" | "thread";
 
 export interface MutedPubkey {
-  type: 'pubkey';
+  type: "pubkey";
   value: string; // hex pubkey
   reason?: string;
   eventRef?: string; // hex event ID (converted from nevent/note)
@@ -12,7 +12,7 @@ export interface MutedPubkey {
 }
 
 export interface MutedWord {
-  type: 'word';
+  type: "word";
   value: string;
   reason?: string;
   eventRef?: string; // hex event ID (converted from nevent/note)
@@ -20,7 +20,7 @@ export interface MutedWord {
 }
 
 export interface MutedTag {
-  type: 'tag';
+  type: "tag";
   value: string; // hashtag without #
   reason?: string;
   eventRef?: string; // hex event ID (converted from nevent/note)
@@ -28,7 +28,7 @@ export interface MutedTag {
 }
 
 export interface MutedThread {
-  type: 'thread';
+  type: "thread";
   value: string; // event id
   reason?: string;
   eventRef?: string; // hex event ID (converted from nevent/note)
@@ -73,12 +73,12 @@ export interface UserSession {
   pubkey: string;
   relays: string[];
   connected: boolean;
-  signerType: 'nip07' | 'nip46' | null;
+  signerType: "nip07" | "nip46" | null;
   relayListMetadata?: RelayListMetadata; // Cached NIP-65 relay list details
 }
 
 // Authentication state
-export type AuthState = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type AuthState = "disconnected" | "connecting" | "connected" | "error";
 
 // Nostr event kinds used in the app
 // Per NIP-51: kind 10000 is the mute list
@@ -92,19 +92,19 @@ export const RELAY_LIST_KIND = 10002; // NIP-65: Relay List Metadata
 
 // Type guards
 export function isMutedPubkey(item: MuteItem): item is MutedPubkey {
-  return item.type === 'pubkey';
+  return item.type === "pubkey";
 }
 
 export function isMutedWord(item: MuteItem): item is MutedWord {
-  return item.type === 'word';
+  return item.type === "word";
 }
 
 export function isMutedTag(item: MuteItem): item is MutedTag {
-  return item.type === 'tag';
+  return item.type === "tag";
 }
 
 export function isMutedThread(item: MuteItem): item is MutedThread {
-  return item.type === 'thread';
+  return item.type === "thread";
 }
 
 // Extended Nostr Event type with our specific kinds
@@ -166,4 +166,23 @@ export interface ReciprocalResult {
   profile?: Profile;
   followsBack: boolean;
   checkedAt: number; // timestamp when checked
+}
+
+// Client filter result (user publishing with a specific client tag)
+export interface ClientFilterResult {
+  pubkey: string;
+  profile?: Profile;
+  clientTag: string; // The actual client tag value found
+  eventCount: number; // Number of events found with this client
+  lastSeen: number; // Timestamp of most recent event with this client
+}
+
+// Hellthread result (user who has posted top-level notes with excessive p tags)
+export interface HellthreadResult {
+  pubkey: string;
+  profile?: Profile;
+  hellthreadCount: number; // Total hellthread posts found
+  maxTagCount: number; // Highest p-tag count in any single post
+  worstEventId: string; // Event ID of the worst offender
+  lastSeen: number; // Timestamp of most recent hellthread
 }

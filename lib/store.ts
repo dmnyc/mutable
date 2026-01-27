@@ -37,6 +37,7 @@ interface AppState {
     | "listCleaner"
     | "muteOScope"
     | "domainPurge"
+    | "purgatory"
     | "decimator"
     | "noteNuke";
   showAuthModal: boolean;
@@ -70,6 +71,7 @@ interface AppState {
       | "listCleaner"
       | "muteOScope"
       | "domainPurge"
+      | "purgatory"
       | "decimator"
       | "noteNuke",
   ) => void;
@@ -385,6 +387,8 @@ export const useStore = create<AppState>()(
         muteList: state.muteList,
         hasUnsavedChanges: state.hasUnsavedChanges,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        // Persist user profile for faster display on reload
+        userProfile: state.userProfile,
       }),
     },
   ),

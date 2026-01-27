@@ -22,27 +22,22 @@ import {
 } from "@/types";
 
 // Default relay list - reliable, well-maintained relays
-// Based on what works consistently across clients and 2024-2025 recommendations
+// Based on what works consistently across clients in 2025
 // Includes Primal's cache relays for better data coverage
 export const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
+  "wss://cache0.primal.net",
   "wss://cache1.primal.net",
   "wss://cache2.primal.net",
   "wss://nos.lol",
-  "wss://relay.nostr.band",
   "wss://nostr.wine",
   "wss://relay.snort.social",
-  "wss://nostr.mom",
   "wss://purplepag.es",
-  "wss://relay.current.fyi",
-  "wss://nostr-pub.wellorder.net",
-  "wss://relay.nostriches.org",
-  "wss://nostr.bitcoiner.social",
-  "wss://relay.orangepill.dev",
-  "wss://relay.nostrati.com",
-  "wss://relay.nostrich.de",
+  "wss://relay.nostr.net",
+  "wss://nostr.mom",
   "wss://offchain.pub",
+  "wss://relay.noswhere.com",
 ];
 
 // Wider list of known relays for maximum coverage (note nuking, archival, discovery)
@@ -51,35 +46,14 @@ export const KNOWN_RELAYS = [
   "wss://nos.lol",
   "wss://relay.snort.social",
   "wss://nostr.wine",
-  "wss://relay.nostr.band",
   "wss://relay.primal.net",
   "wss://purplepag.es",
-  "wss://eden.nostr.land",
   "wss://offchain.pub",
   "wss://nostr.mom",
-  "wss://nostr.einundzwanzig.space",
-  "wss://bitcoiner.social",
-  "wss://atlas.nostr.land",
-  "wss://relay.nostr.wirednet.jp",
-  "wss://relay.dwadziesciajeden.pl",
-  "wss://nostr.bitcoinplebs.de",
-  "wss://nostr.data.haus",
-  "wss://relay.nostrview.com",
-  "wss://puravida.nostr.land",
-  "wss://relay.nostr.nu",
-  "wss://relay.nostr.com.au",
-  "wss://no.str.cr",
   "wss://relay.nostr.net",
+  "wss://relay.noswhere.com",
   "wss://relay.0xchat.com",
-  "wss://relay.nostr.bg",
-  "wss://nostr.mutinywallet.com",
-  "wss://relay.current.fyi",
-  "wss://nostr-pub.wellorder.net",
-  "wss://relay.nostriches.org",
-  "wss://nostr.bitcoiner.social",
-  "wss://relay.orangepill.dev",
-  "wss://relay.nostrati.com",
-  "wss://relay.nostrich.de",
+  "wss://cache0.primal.net",
   "wss://cache1.primal.net",
   "wss://cache2.primal.net",
 ];
@@ -1060,6 +1034,20 @@ export function hexToNpub(hex: string): string {
   }
 }
 
+// Convert hex event ID to nevent bech32 format
+export function hexToNevent(hex: string): string {
+  try {
+    return nip19.neventEncode({ id: hex });
+  } catch (error) {
+    // Fallback to note format if nevent fails
+    try {
+      return nip19.noteEncode(hex);
+    } catch {
+      throw new Error("Failed to encode event ID");
+    }
+  }
+}
+
 // Validate and convert event reference (nevent/note) to hex event ID
 export function parseEventReference(input: string): string | null {
   if (!input || !input.trim()) return null;
@@ -1106,14 +1094,15 @@ export function hexToNote(eventId: string): string {
 export async function fetchEventById(
   eventId: string,
   relays: string[] = DEFAULT_RELAYS,
-  timeoutMs: number = 5000,
+  timeoutMs: number = 8000,
 ): Promise<Event | null> {
   const pool = getPool();
-  const uniqueRelays = normalizeRelayList(relays);
+  // Use expanded relay list to maximize chances of finding the event
+  const expandedRelays = getExpandedRelayList(relays);
 
   try {
     const events = await Promise.race([
-      pool.querySync(uniqueRelays, {
+      pool.querySync(expandedRelays, {
         ids: [eventId],
         limit: 3,
       }),
@@ -2870,4 +2859,309 @@ export async function checkSpecificUserReciprocal(
     ) || false;
 
   return { followsBack, isFollowing: true };
+}
+
+// ============================================================================
+// PURGATORY - CLIENT TAG FILTERING
+// ============================================================================
+
+/**
+ * Find follows who are publishing events with a specific client tag
+ * Searches recent events from each followed user for matching client tags
+ *
+ * @param userPubkey - The user's pubkey to get follow list from
+ * @param clientString - The client string to search for (case-insensitive contains match)
+ * @param relays - Relays to query
+ * @param onProgress - Progress callback (current, total)
+ * @param abortSignal - Optional abort signal to cancel the operation
+ * @returns Array of ClientFilterResult for users with matching client tags
+ */
+export async function findFollowsUsingClient(
+  userPubkey: string,
+  clientString: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal,
+  onResult?: (result: import("@/types").ClientFilterResult) => void,
+): Promise<import("@/types").ClientFilterResult[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+  const results: import("@/types").ClientFilterResult[] = [];
+
+  // Get follow list
+  const followPubkeys = await getFollowListPubkeys(userPubkey, relays);
+  if (followPubkeys.length === 0) {
+    return [];
+  }
+
+  const total = followPubkeys.length;
+  const normalizedClientString = clientString.toLowerCase();
+  const BATCH_SIZE = 5;
+
+  // Cache for user relay lists (NIP-65)
+  const userRelayCache = new Map<string, string[]>();
+
+  // Process in batches
+  for (let i = 0; i < followPubkeys.length; i += BATCH_SIZE) {
+    if (abortSignal?.aborted) {
+      break;
+    }
+
+    const batch = followPubkeys.slice(i, i + BATCH_SIZE);
+
+    const batchPromises = batch.map(async (pubkey) => {
+      try {
+        // Try to get user's preferred relays via NIP-65
+        let userRelays = userRelayCache.get(pubkey);
+        if (!userRelays) {
+          try {
+            const relayResult = await Promise.race([
+              fetchRelayListFromNostr(pubkey),
+              new Promise<{ writeRelays: string[] }>((resolve) =>
+                setTimeout(() => resolve({ writeRelays: [] }), 3000),
+              ),
+            ]);
+            userRelays =
+              relayResult.writeRelays.length > 0
+                ? relayResult.writeRelays.slice(0, 5) // Limit to 5 relays per user
+                : [];
+            userRelayCache.set(pubkey, userRelays);
+          } catch {
+            userRelays = [];
+          }
+        }
+
+        // Combine user's relays with default expanded relays (user's first for priority)
+        const queryRelays = [
+          ...new Set([...userRelays, ...expandedRelays.slice(0, 8)]),
+        ].slice(0, 10);
+
+        // Query recent events from this user
+        const events = await Promise.race([
+          pool.querySync(queryRelays, {
+            kinds: [0, 1, 6, 7, 30023], // Profile, notes, reposts, reactions, long-form
+            authors: [pubkey],
+            limit: 50, // Check last 50 events
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Query timeout")), 8000),
+          ),
+        ]);
+
+        // Find events with matching client tag
+        const matchingEvents = events.filter((event) => {
+          const clientTag = event.tags.find((tag) => tag[0] === "client");
+          if (!clientTag || !clientTag[1]) return false;
+          return clientTag[1].toLowerCase().includes(normalizedClientString);
+        });
+
+        if (matchingEvents.length > 0) {
+          // Get the actual client tag value from the first match
+          const clientTag = matchingEvents[0].tags.find(
+            (tag) => tag[0] === "client",
+          );
+          const clientValue = clientTag ? clientTag[1] : clientString;
+
+          // Find most recent event
+          const mostRecent = matchingEvents.reduce((latest, event) =>
+            event.created_at > latest.created_at ? event : latest,
+          );
+
+          // Fetch profile for this user
+          const profile = await fetchProfile(pubkey, relays);
+
+          return {
+            pubkey,
+            profile: profile || undefined,
+            clientTag: clientValue,
+            eventCount: matchingEvents.length,
+            lastSeen: mostRecent.created_at,
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error(
+          `Failed to check client for ${pubkey.substring(0, 8)}:`,
+          error,
+        );
+        return null;
+      }
+    });
+
+    const batchResults = await Promise.allSettled(batchPromises);
+
+    for (const result of batchResults) {
+      if (result.status === "fulfilled" && result.value) {
+        results.push(result.value);
+        // Immediately notify of new result for real-time UI updates
+        onResult?.(result.value);
+      }
+    }
+
+    // Update progress
+    const processed = Math.min(i + BATCH_SIZE, total);
+    onProgress?.(processed, total);
+
+    // Small delay between batches to avoid overwhelming relays
+    if (i + BATCH_SIZE < followPubkeys.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  // Sort by most recently seen
+  results.sort((a, b) => b.lastSeen - a.lastSeen);
+
+  return results;
+}
+
+// Find follows who have posted hellthreads (top-level notes with excessive p tags)
+export async function findFollowsPostingHellthreads(
+  userPubkey: string,
+  threshold: number,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal,
+  onResult?: (result: import("@/types").HellthreadResult) => void,
+): Promise<import("@/types").HellthreadResult[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+  const results: import("@/types").HellthreadResult[] = [];
+
+  // Get follow list
+  const followPubkeys = await getFollowListPubkeys(userPubkey, relays);
+  if (followPubkeys.length === 0) {
+    return [];
+  }
+
+  const total = followPubkeys.length;
+  const BATCH_SIZE = 5;
+
+  // Cache for user relay lists (NIP-65)
+  const userRelayCache = new Map<string, string[]>();
+
+  // Process in batches
+  for (let i = 0; i < followPubkeys.length; i += BATCH_SIZE) {
+    if (abortSignal?.aborted) {
+      break;
+    }
+
+    const batch = followPubkeys.slice(i, i + BATCH_SIZE);
+
+    const batchPromises = batch.map(async (pubkey) => {
+      try {
+        // Try to get user's preferred relays via NIP-65
+        let userRelays = userRelayCache.get(pubkey);
+        if (!userRelays) {
+          try {
+            const relayResult = await Promise.race([
+              fetchRelayListFromNostr(pubkey),
+              new Promise<{ writeRelays: string[] }>((resolve) =>
+                setTimeout(() => resolve({ writeRelays: [] }), 3000),
+              ),
+            ]);
+            userRelays =
+              relayResult.writeRelays.length > 0
+                ? relayResult.writeRelays.slice(0, 5)
+                : [];
+            userRelayCache.set(pubkey, userRelays);
+          } catch {
+            userRelays = [];
+          }
+        }
+
+        // Combine user's relays with default expanded relays
+        const queryRelays = [
+          ...new Set([...userRelays, ...expandedRelays.slice(0, 8)]),
+        ].slice(0, 10);
+
+        // Query kind:1 notes only - we need to check for hellthreads
+        const events = await Promise.race([
+          pool.querySync(queryRelays, {
+            kinds: [1], // Text notes only
+            authors: [pubkey],
+            limit: 100, // Check more events for hellthread detection
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Query timeout")), 10000),
+          ),
+        ]);
+
+        // Find hellthreads: top-level posts (no 'e' tag) with p-tag count >= threshold
+        const hellthreadEvents = events.filter((event) => {
+          // Check if it's a top-level post (no 'e' tag = not a reply)
+          const hasReplyTag = event.tags.some((tag) => tag[0] === "e");
+          if (hasReplyTag) return false;
+
+          // Count unique p tags
+          const pTags = event.tags.filter((tag) => tag[0] === "p");
+          const uniquePubkeys = new Set(pTags.map((tag) => tag[1]));
+
+          return uniquePubkeys.size >= threshold;
+        });
+
+        if (hellthreadEvents.length > 0) {
+          // Find the worst offender (most p tags)
+          let worstEvent = hellthreadEvents[0];
+          let maxTagCount = 0;
+
+          for (const event of hellthreadEvents) {
+            const pTags = event.tags.filter((tag) => tag[0] === "p");
+            const uniqueCount = new Set(pTags.map((tag) => tag[1])).size;
+            if (uniqueCount > maxTagCount) {
+              maxTagCount = uniqueCount;
+              worstEvent = event;
+            }
+          }
+
+          // Find most recent hellthread
+          const mostRecent = hellthreadEvents.reduce((latest, event) =>
+            event.created_at > latest.created_at ? event : latest,
+          );
+
+          // Fetch profile for this user
+          const profile = await fetchProfile(pubkey, relays);
+
+          return {
+            pubkey,
+            profile: profile || undefined,
+            hellthreadCount: hellthreadEvents.length,
+            maxTagCount,
+            worstEventId: worstEvent.id,
+            lastSeen: mostRecent.created_at,
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error(
+          `Failed to check hellthreads for ${pubkey.substring(0, 8)}:`,
+          error,
+        );
+        return null;
+      }
+    });
+
+    const batchResults = await Promise.allSettled(batchPromises);
+
+    for (const result of batchResults) {
+      if (result.status === "fulfilled" && result.value) {
+        results.push(result.value);
+        // Immediately notify of new result for real-time UI updates
+        onResult?.(result.value);
+      }
+    }
+
+    // Update progress
+    const processed = Math.min(i + BATCH_SIZE, total);
+    onProgress?.(processed, total);
+
+    // Small delay between batches to avoid overwhelming relays
+    if (i + BATCH_SIZE < followPubkeys.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  // Sort by worst offender (most tags) descending
+  results.sort((a, b) => b.maxTagCount - a.maxTagCount);
+
+  return results;
 }
