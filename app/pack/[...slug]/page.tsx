@@ -1,16 +1,20 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { PublicMuteList } from '@/types';
-import { fetchPublicListByEventId, fetchPublicListByDTag } from '@/lib/nostr';
-import PublicListCard from '@/components/PublicListCard';
-import Footer from '@/components/Footer';
-import AuthModal from '@/components/AuthModal';
-import { RefreshCw, LogIn } from 'lucide-react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { PublicMuteList } from "@/types";
+import {
+  fetchPublicListByEventId,
+  fetchPublicListByDTag,
+  DEFAULT_RELAYS,
+} from "@/lib/nostr";
+import PublicListCard from "@/components/PublicListCard";
+import Footer from "@/components/Footer";
+import AuthModal from "@/components/AuthModal";
+import { RefreshCw, LogIn } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function PackPage() {
   const params = useParams();
@@ -35,42 +39,31 @@ export default function PackPage() {
         setLoading(true);
         setError(null);
 
-        // Use a comprehensive relay list for public viewing
-        const defaultRelays = [
-          'wss://relay.damus.io',
-          'wss://relay.primal.net',
-          'wss://nos.lol',
-          'wss://relay.nostr.band',
-          'wss://nostr.wine',
-          'wss://relay.snort.social',
-          'wss://nostr.mom',
-          'wss://purplepag.es',
-          'wss://nostr-pub.wellorder.net',
-          'wss://nostr.land',
-          'wss://relay.nostr.bg'
-        ];
-
         let fetchedPack: PublicMuteList | null = null;
 
         if (isEventIdFormat && eventId) {
-          console.log('Loading pack with event ID:', eventId);
-          fetchedPack = await fetchPublicListByEventId(eventId, defaultRelays);
+          console.log("Loading pack with event ID:", eventId);
+          fetchedPack = await fetchPublicListByEventId(eventId, DEFAULT_RELAYS);
         } else if (author && dtag) {
-          console.log('Loading pack with author:', author, 'and d-tag:', dtag);
-          fetchedPack = await fetchPublicListByDTag(author, dtag, defaultRelays);
+          console.log("Loading pack with author:", author, "and d-tag:", dtag);
+          fetchedPack = await fetchPublicListByDTag(
+            author,
+            dtag,
+            DEFAULT_RELAYS,
+          );
         }
 
-        console.log('Fetched pack:', fetchedPack);
+        console.log("Fetched pack:", fetchedPack);
 
         if (fetchedPack) {
           setPack(fetchedPack);
         } else {
-          console.log('Pack not found');
-          setError('Pack not found');
+          console.log("Pack not found");
+          setError("Pack not found");
         }
       } catch (err) {
-        console.error('Failed to load pack:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load pack');
+        console.error("Failed to load pack:", err);
+        setError(err instanceof Error ? err.message : "Failed to load pack");
       } finally {
         setLoading(false);
       }
@@ -120,7 +113,10 @@ export default function PackPage() {
         {/* Loading State */}
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <RefreshCw className="animate-spin mx-auto mb-3 text-gray-400" size={32} />
+            <RefreshCw
+              className="animate-spin mx-auto mb-3 text-gray-400"
+              size={32}
+            />
             <p className="text-gray-600 dark:text-gray-400">Loading pack...</p>
           </div>
         </main>
@@ -177,7 +173,9 @@ export default function PackPage() {
         {/* Error State */}
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <p className="text-red-600 dark:text-red-400 mb-4">{error || 'Pack not found'}</p>
+            <p className="text-red-600 dark:text-red-400 mb-4">
+              {error || "Pack not found"}
+            </p>
             <button
               onClick={() => setShowAuthModal(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
@@ -255,7 +253,8 @@ export default function PackPage() {
         {!session && (
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>To import this pack:</strong> Sign in to Mutable and click the &quot;Add to My Mute List&quot; button above.
+              <strong>To import this pack:</strong> Sign in to Mutable and click
+              the &quot;Add to My Mute List&quot; button above.
             </p>
           </div>
         )}

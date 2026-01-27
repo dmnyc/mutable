@@ -1,29 +1,22 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
-import AuthModal from '@/components/AuthModal';
-import { Lock, Unlock, Search, User, Loader2 } from 'lucide-react';
-import { searchProfiles, hexToNpub } from '@/lib/nostr';
-import { Profile } from '@/types';
-
-const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-  'wss://nostr.wine',
-  'wss://relay.snort.social'
-];
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import AuthModal from "@/components/AuthModal";
+import { Lock, Unlock, Search, User, Loader2 } from "lucide-react";
+import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
+import { Profile } from "@/types";
 
 export default function Home() {
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>(
+    [],
+  );
   const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
   const [showProfileResults, setShowProfileResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
@@ -31,7 +24,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isConnected) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   }, [isConnected, router]);
 
@@ -45,7 +38,11 @@ export default function Home() {
       }
 
       // Don't search if it's already a valid npub, nprofile, or hex pubkey
-      if (searchQuery.startsWith('npub') || searchQuery.startsWith('nprofile') || searchQuery.match(/^[0-9a-f]{64}$/i)) {
+      if (
+        searchQuery.startsWith("npub") ||
+        searchQuery.startsWith("nprofile") ||
+        searchQuery.match(/^[0-9a-f]{64}$/i)
+      ) {
         setProfileSearchResults([]);
         setShowProfileResults(false);
         return;
@@ -57,7 +54,7 @@ export default function Home() {
         const results = await searchProfiles(searchQuery, DEFAULT_RELAYS, 10);
         setProfileSearchResults(results);
       } catch (error) {
-        console.error('Profile search failed:', error);
+        console.error("Profile search failed:", error);
         setProfileSearchResults([]);
       } finally {
         setIsSearchingProfiles(false);
@@ -72,32 +69,39 @@ export default function Home() {
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target as Node)) {
+      if (
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(event.target as Node)
+      ) {
         setShowProfileResults(false);
       }
     };
 
     if (showProfileResults) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showProfileResults]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      router.push(`/mute-o-scope?npub=${encodeURIComponent(searchQuery.trim())}`);
+      router.push(
+        `/mute-o-scope?npub=${encodeURIComponent(searchQuery.trim())}`,
+      );
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSearch();
       setShowProfileResults(false);
     }
   };
 
   const handleSelectProfile = (profile: Profile) => {
-    const displayName = profile.display_name || profile.name || profile.nip05 || '';
+    const displayName =
+      profile.display_name || profile.name || profile.nip05 || "";
     setSearchQuery(displayName);
     setShowProfileResults(false);
     // Navigate immediately when profile is selected - convert hex to npub
@@ -167,7 +171,9 @@ export default function Home() {
                   height={20}
                 />
                 Mute-o-Scope
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-purple-800 rounded">NEW</span>
+                <span className="text-xs font-bold px-1.5 py-0.5 bg-purple-800 rounded">
+                  NEW
+                </span>
               </Link>
             </div>
           </div>
@@ -175,13 +181,17 @@ export default function Home() {
           {/* Mute-o-Scope Info Card */}
           <div className="max-w-md mx-auto w-full mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
             <div className="flex items-start gap-3 mb-4">
-              <Unlock className="text-green-600 dark:text-green-400 flex-shrink-0 mt-1" size={24} />
+              <Unlock
+                className="text-green-600 dark:text-green-400 flex-shrink-0 mt-1"
+                size={24}
+              />
               <div className="text-left">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
                   Try Mute-o-Scope - No Login Required
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Search any npub to see who is publicly muting them. Perfect for checking your reputation or investigating profiles.
+                  Search any npub to see who is publicly muting them. Perfect
+                  for checking your reputation or investigating profiles.
                 </p>
               </div>
             </div>
@@ -205,7 +215,10 @@ export default function Home() {
                   />
                   {isSearchingProfiles && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 size={16} className="animate-spin text-gray-400" />
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-gray-400"
+                      />
                     </div>
                   )}
                 </div>
@@ -231,20 +244,24 @@ export default function Home() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={profile.picture}
-                          alt={profile.display_name || profile.name || 'User'}
+                          alt={profile.display_name || profile.name || "User"}
                           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
                           }}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <User size={20} className="text-gray-600 dark:text-gray-300" />
+                          <User
+                            size={20}
+                            className="text-gray-600 dark:text-gray-300"
+                          />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 dark:text-white truncate">
-                          {profile.display_name || profile.name || 'Anonymous'}
+                          {profile.display_name || profile.name || "Anonymous"}
                         </p>
                         {profile.nip05 && (
                           <p className="text-xs text-green-600 dark:text-green-400 truncate">
