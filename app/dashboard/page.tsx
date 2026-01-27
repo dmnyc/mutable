@@ -427,7 +427,7 @@ function DashboardContent() {
 
               <button
                 onClick={handleDisconnect}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                className="hidden xl:flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
                 title="Disconnect"
               >
                 <LogOut size={16} />
