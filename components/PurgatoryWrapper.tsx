@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { User, LogOut, X, Menu } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import Purgatory from "./Purgatory";
 import Footer from "./Footer";
+import DashboardNav from "./DashboardNav";
 import { Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
 import GlobalUserSearch from "./GlobalUserSearch";
@@ -16,7 +17,6 @@ import AuthModal from "./AuthModal";
 export default function PurgatoryWrapper() {
   const { session, disconnect } = useAuth();
   const { userProfile } = useStore();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -139,148 +139,7 @@ export default function PurgatoryWrapper() {
           </header>
 
           {/* Tab Navigation */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              {/* Desktop Navigation */}
-              <div className="hidden lg:flex space-x-8">
-                <Link
-                  href="/dashboard?tab=myList"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  My Mutes
-                </Link>
-                <Link
-                  href="/dashboard?tab=publicLists"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Mute Packs
-                </Link>
-                <Link
-                  href="/dashboard?tab=muteuals"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Muteuals
-                </Link>
-                <Link
-                  href="/dashboard?tab=reciprocals"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Reciprocals
-                </Link>
-                <Link
-                  href="/mute-o-scope"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Mute-o-Scope
-                </Link>
-                <Link
-                  href="/note-nuke"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Note Nuke
-                </Link>
-                <div className="py-4 px-1 border-b-2 border-orange-600 text-orange-600 dark:border-orange-500 dark:text-orange-500 font-semibold text-sm">
-                  Purgatory
-                </div>
-                <Link
-                  href="/dashboard?tab=domainPurge"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Domain Purge
-                </Link>
-                <Link
-                  href="/dashboard?tab=backups"
-                  className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 font-semibold text-sm transition-colors"
-                >
-                  Backups
-                </Link>
-              </div>
-
-              {/* Mobile Navigation */}
-              <div className="lg:hidden">
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="flex items-center justify-between w-full py-4"
-                >
-                  <span className="font-semibold text-base text-gray-900 dark:text-white">
-                    Purgatory
-                  </span>
-                  {mobileMenuOpen ? (
-                    <X size={20} className="text-gray-900 dark:text-white" />
-                  ) : (
-                    <Menu size={20} className="text-gray-900 dark:text-white" />
-                  )}
-                </button>
-
-                {/* Mobile Dropdown Menu */}
-                {mobileMenuOpen && (
-                  <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-                      <Link
-                        href="/dashboard?tab=myList"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        My Mutes
-                      </Link>
-                      <Link
-                        href="/dashboard?tab=publicLists"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Mute Packs
-                      </Link>
-                      <Link
-                        href="/dashboard?tab=muteuals"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Muteuals
-                      </Link>
-                      <Link
-                        href="/dashboard?tab=reciprocals"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Reciprocals
-                      </Link>
-                      <Link
-                        href="/mute-o-scope"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Mute-o-Scope
-                      </Link>
-                      <Link
-                        href="/note-nuke"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Note Nuke
-                      </Link>
-                      <div className="block w-full text-left py-3 px-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-semibold text-sm">
-                        Purgatory
-                      </div>
-                      <Link
-                        href="/dashboard?tab=domainPurge"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Domain Purge
-                      </Link>
-                      <Link
-                        href="/dashboard?tab=backups"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-3 px-4 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm"
-                      >
-                        Backups
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <DashboardNav activePage="purgatory" />
         </>
       ) : (
         <>
