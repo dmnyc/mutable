@@ -163,7 +163,12 @@ mutable/
 │   ├── protectionService.ts  # Protected users management
 │   ├── blacklistService.ts   # Blacklist management
 │   ├── preferencesService.ts # App preferences management
-│   └── importedPacksService.ts # Imported packs tracking
+│   ├── importedPacksService.ts # Imported packs tracking
+│   └── signers/          # Signer implementations
+│       ├── types.ts      # Signer interface
+│       ├── Nip07Signer.ts # NIP-07 browser extension signer
+│       ├── Nip46Signer.ts # NIP-46 remote signer
+│       └── index.ts      # Signer exports
 ├── types/                 # TypeScript type definitions
 │   └── index.ts
 └── public/               # Static assets
@@ -238,17 +243,10 @@ Mutable implements NIP-78 (Application-specific Data) to sync your settings acro
 
 - wss://relay.damus.io
 - wss://relay.primal.net
-- wss://cache0.primal.net
-- wss://cache1.primal.net
-- wss://cache2.primal.net
 - wss://nos.lol
-- wss://nostr.wine
 - wss://relay.snort.social
 - wss://purplepag.es
 - wss://relay.nostr.net
-- wss://nostr.mom
-- wss://offchain.pub
-- wss://relay.noswhere.com
 
 ## Contributing
 
