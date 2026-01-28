@@ -168,23 +168,29 @@ export default function PublicListCard({
     const newMuteList = {
       pubkeys: [
         ...muteList.pubkeys,
-        ...(list.list.pubkeys || []).filter((item) => {
-          // Skip blacklisted pubkeys
-          if (isBlacklisted(item.value)) {
-            skippedBlacklistedCount++;
-            skippedItems.push(item.value); // Track skipped items
-            console.log(
-              `Skipping blacklisted pubkey during pack import: ${item.value.substring(0, 8)}...`,
-            );
-            return false;
-          }
+        ...(list.list.pubkeys || [])
+          .filter((item) => {
+            // Skip blacklisted pubkeys
+            if (isBlacklisted(item.value)) {
+              skippedBlacklistedCount++;
+              skippedItems.push(item.value); // Track skipped items
+              console.log(
+                `Skipping blacklisted pubkey during pack import: ${item.value.substring(0, 8)}...`,
+              );
+              return false;
+            }
 
-          const exists = muteList.pubkeys.some(
-            (existing) => existing.value === item.value,
-          );
-          if (!exists) itemsToImport.push(item.value);
-          return !exists;
-        }),
+            const exists = muteList.pubkeys.some(
+              (existing) => existing.value === item.value,
+            );
+            if (!exists) itemsToImport.push(item.value);
+            return !exists;
+          })
+          .map((item) => ({
+            ...item,
+            // If no reason provided, use pack name as the reason
+            reason: item.reason || list.name,
+          })),
       ],
       words: [
         ...muteList.words,

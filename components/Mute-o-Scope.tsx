@@ -108,7 +108,7 @@ export default function MuteOScope() {
   // Auto-populate from URL parameter and trigger search
   useEffect(() => {
     const npub = searchParams.get("npub");
-    if (npub && npub.startsWith("npub")) {
+    if (npub && (npub.startsWith("npub") || npub.startsWith("nprofile"))) {
       setSearchQuery(npub);
       // Auto-trigger search after a brief delay to allow component to mount
       setTimeout(() => {
