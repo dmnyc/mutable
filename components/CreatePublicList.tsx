@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import {
   publishPublicList,
   updatePublicList,
+  publishMuteList,
   npubToHex,
   hexToNpub,
   fetchProfile,
@@ -46,7 +47,7 @@ export default function CreatePublicList({
   editingPack,
 }: CreatePublicListProps) {
   const { session } = useAuth();
-  const { muteList } = useStore();
+  const { muteList, setMuteList, setHasUnsavedChanges } = useStore();
 
   const isEditMode = !!editingPack;
 
@@ -404,11 +405,33 @@ export default function CreatePublicList({
 
       const listToPublish = useCurrentList ? muteList : customList;
 
+      // Update personal mute list: add pack name as reason for any pubkeys in the pack that have no reason
+      const packPubkeys = new Set(listToPublish.pubkeys.map((p) => p.value));
+      const packName = listName.trim();
+      let updatedPersonalList = false;
+
+      const updatedMuteList = {
+        ...muteList,
+        pubkeys: muteList.pubkeys.map((existing) => {
+          if (packPubkeys.has(existing.value) && !existing.reason) {
+            updatedPersonalList = true;
+            return { ...existing, reason: packName };
+          }
+          return existing;
+        }),
+      };
+
+      // Publish updated personal mute list if any reasons were added
+      if (updatedPersonalList) {
+        setMuteList(updatedMuteList);
+        await publishMuteList(updatedMuteList, session.relays);
+      }
+
       if (isEditMode && editingPack) {
         // Update existing pack
         await updatePublicList(
           editingPack.dTag,
-          listName.trim(),
+          packName,
           description.trim(),
           listToPublish,
           session.relays,
@@ -417,7 +440,7 @@ export default function CreatePublicList({
       } else {
         // Create new pack
         await publishPublicList(
-          listName.trim(),
+          packName,
           description.trim(),
           listToPublish,
           session.relays,

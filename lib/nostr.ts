@@ -30,17 +30,10 @@ import { Signer } from "./signers";
 export const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
-  "wss://cache0.primal.net",
-  "wss://cache1.primal.net",
-  "wss://cache2.primal.net",
   "wss://nos.lol",
-  "wss://nostr.wine",
   "wss://relay.snort.social",
   "wss://purplepag.es",
   "wss://relay.nostr.net",
-  "wss://nostr.mom",
-  "wss://offchain.pub",
-  "wss://relay.noswhere.com",
 ];
 
 // Wider list of known relays for maximum coverage (note nuking, archival, discovery)
@@ -93,8 +86,25 @@ export function getComprehensiveRelayList(
 }
 
 // Get expanded relay list by combining user's relays with defaults
-export function getExpandedRelayList(userRelays: string[]): string[] {
-  const relaySet = new Set([...DEFAULT_RELAYS, ...userRelays]);
+export function getExpandedRelayList(
+  userRelays: string[],
+  maxRelays: number = 8,
+): string[] {
+  // Prioritize user relays, then add defaults up to the limit
+  const relaySet = new Set<string>();
+
+  // Add user relays first (they're more likely to have the user's data)
+  for (const relay of userRelays) {
+    if (relaySet.size >= maxRelays) break;
+    relaySet.add(relay);
+  }
+
+  // Fill remaining slots with default relays
+  for (const relay of DEFAULT_RELAYS) {
+    if (relaySet.size >= maxRelays) break;
+    relaySet.add(relay);
+  }
+
   return Array.from(relaySet);
 }
 
