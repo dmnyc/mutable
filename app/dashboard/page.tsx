@@ -206,8 +206,8 @@ function DashboardContent() {
     );
   }
 
-  const handleDisconnect = () => {
-    disconnect();
+  const handleDisconnect = async () => {
+    await disconnect();
     router.push("/");
   };
 
@@ -333,16 +333,18 @@ function DashboardContent() {
             <GlobalUserSearch onSelectUser={handleUserSelect} />
 
             {/* User Menu Dropdown */}
-            <div className="relative">
+            <div
+              className="relative"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setUserMenuOpen(false);
+                }
+              }}
+            >
               <button
                 onClick={() => {
                   setUserMenuOpen(!userMenuOpen);
                   setMobileMenuOpen(false);
-                }}
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) {
-                    setUserMenuOpen(false);
-                  }
                 }}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
@@ -407,6 +409,7 @@ function DashboardContent() {
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 py-1">
                   <button
+                    tabIndex={0}
                     onClick={() => {
                       changeTab("settings");
                       setUserMenuOpen(false);
@@ -420,7 +423,16 @@ function DashboardContent() {
                     <SettingsIcon size={16} />
                     Settings
                   </button>
+                  <div className="flex items-center gap-3 px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+                    <span className="w-4 text-center text-[10px]">🟢</span>
+                    <span>
+                      {session?.signerType === "nip46"
+                        ? "NIP-46 Remote Signer"
+                        : "NIP-07 Extension"}
+                    </span>
+                  </div>
                   <button
+                    tabIndex={0}
                     onClick={() => {
                       handleDisconnect();
                       setUserMenuOpen(false);

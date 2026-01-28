@@ -7,6 +7,7 @@ import {
   hexToNpub,
   fetchProfile,
   deletePublicList,
+  publishMuteList,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import {
@@ -165,26 +166,47 @@ export default function PublicListCard({
     const skippedItems: string[] = []; // Track blacklisted items to mark as "imported" so they don't show in count
     let skippedBlacklistedCount = 0;
 
+    // Track which pubkeys are in this pack (for updating existing items' reasons)
+    const packPubkeys = new Set((list.list.pubkeys || []).map((p) => p.value));
+    let updatedExistingCount = 0;
+
     const newMuteList = {
       pubkeys: [
-        ...muteList.pubkeys,
-        ...(list.list.pubkeys || []).filter((item) => {
-          // Skip blacklisted pubkeys
-          if (isBlacklisted(item.value)) {
-            skippedBlacklistedCount++;
-            skippedItems.push(item.value); // Track skipped items
+        // Update existing pubkeys: add pack name to reason if they have no reason and are in this pack
+        ...muteList.pubkeys.map((existing) => {
+          if (packPubkeys.has(existing.value) && !existing.reason) {
+            updatedExistingCount++;
             console.log(
-              `Skipping blacklisted pubkey during pack import: ${item.value.substring(0, 8)}...`,
+              `Updating reason for existing muted user ${existing.value.substring(0, 8)}... to "${list.name}"`,
             );
-            return false;
+            return { ...existing, reason: list.name };
           }
-
-          const exists = muteList.pubkeys.some(
-            (existing) => existing.value === item.value,
-          );
-          if (!exists) itemsToImport.push(item.value);
-          return !exists;
+          return existing;
         }),
+        // Add new pubkeys from the pack
+        ...(list.list.pubkeys || [])
+          .filter((item) => {
+            // Skip blacklisted pubkeys
+            if (isBlacklisted(item.value)) {
+              skippedBlacklistedCount++;
+              skippedItems.push(item.value); // Track skipped items
+              console.log(
+                `Skipping blacklisted pubkey during pack import: ${item.value.substring(0, 8)}...`,
+              );
+              return false;
+            }
+
+            const exists = muteList.pubkeys.some(
+              (existing) => existing.value === item.value,
+            );
+            if (!exists) itemsToImport.push(item.value);
+            return !exists;
+          })
+          .map((item) => ({
+            ...item,
+            // If no reason provided, use pack name as the reason
+            reason: item.reason || list.name,
+          })),
       ],
       words: [
         ...muteList.words,
@@ -219,7 +241,13 @@ export default function PublicListCard({
     };
 
     setMuteList(newMuteList);
-    setHasUnsavedChanges(true);
+
+    // Publish the updated mute list to relays
+    if (session) {
+      await publishMuteList(newMuteList, session.relays);
+    }
+
+    setHasUnsavedChanges(false);
     // Mark both imported AND skipped items so they don't appear in "new items" count
     markPackItemsAsImported(list.id, [...itemsToImport, ...skippedItems]);
     setSkippedBlacklisted(skippedBlacklistedCount);

@@ -1,74 +1,114 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useStore } from '@/lib/store';
-import { publishPublicList, updatePublicList, npubToHex, hexToNpub, fetchProfile, searchProfiles, fetchUserPublicPacks, parsePublicListEvent, PACK_CATEGORIES, PackCategory } from '@/lib/nostr';
-import { X, Plus, Trash2, AlertCircle, Tag, User, Eye, Loader2, Search } from 'lucide-react';
-import { MuteList, MutedPubkey, MutedWord, MutedTag, PublicMuteList, Profile } from '@/types';
-import UserProfileModal from './UserProfileModal';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useStore } from "@/lib/store";
+import {
+  publishPublicList,
+  updatePublicList,
+  publishMuteList,
+  npubToHex,
+  hexToNpub,
+  fetchProfile,
+  searchProfiles,
+  fetchUserPublicPacks,
+  parsePublicListEvent,
+  PACK_CATEGORIES,
+  PackCategory,
+} from "@/lib/nostr";
+import {
+  X,
+  Plus,
+  Trash2,
+  AlertCircle,
+  Tag,
+  User,
+  Eye,
+  Loader2,
+  Search,
+} from "lucide-react";
+import {
+  MuteList,
+  MutedPubkey,
+  MutedWord,
+  MutedTag,
+  PublicMuteList,
+  Profile,
+} from "@/types";
+import UserProfileModal from "./UserProfileModal";
 
 interface CreatePublicListProps {
   onClose: () => void;
   editingPack?: PublicMuteList; // Optional pack to edit
 }
 
-export default function CreatePublicList({ onClose, editingPack }: CreatePublicListProps) {
+export default function CreatePublicList({
+  onClose,
+  editingPack,
+}: CreatePublicListProps) {
   const { session } = useAuth();
-  const { muteList } = useStore();
+  const { muteList, setMuteList, setHasUnsavedChanges } = useStore();
 
   const isEditMode = !!editingPack;
 
   // Helper function to deduplicate a mute list
   const deduplicateList = (list: MuteList): MuteList => {
     const uniquePubkeys = Array.from(
-      new Map(list.pubkeys.map(item => [item.value, item])).values()
+      new Map(list.pubkeys.map((item) => [item.value, item])).values(),
     );
     const uniqueWords = Array.from(
-      new Map(list.words.map(item => [item.value, item])).values()
+      new Map(list.words.map((item) => [item.value, item])).values(),
     );
     const uniqueTags = Array.from(
-      new Map(list.tags.map(item => [item.value, item])).values()
+      new Map(list.tags.map((item) => [item.value, item])).values(),
     );
     const uniqueThreads = Array.from(
-      new Map(list.threads.map(item => [item.value, item])).values()
+      new Map(list.threads.map((item) => [item.value, item])).values(),
     );
 
     return {
       pubkeys: uniquePubkeys,
       words: uniqueWords,
       tags: uniqueTags,
-      threads: uniqueThreads
+      threads: uniqueThreads,
     };
   };
 
-  const [listName, setListName] = useState(editingPack?.name || '');
-  const [description, setDescription] = useState(editingPack?.description || '');
+  const [listName, setListName] = useState(editingPack?.name || "");
+  const [description, setDescription] = useState(
+    editingPack?.description || "",
+  );
   const [useCurrentList, setUseCurrentList] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>((editingPack?.categories as PackCategory[]) || []);
+  const [selectedCategories, setSelectedCategories] = useState<PackCategory[]>(
+    (editingPack?.categories as PackCategory[]) || [],
+  );
   const [customList, setCustomList] = useState<MuteList>(
-    editingPack?.list ? deduplicateList(editingPack.list) : {
-      pubkeys: [],
-      words: [],
-      tags: [],
-      threads: []
-    }
+    editingPack?.list
+      ? deduplicateList(editingPack.list)
+      : {
+          pubkeys: [],
+          words: [],
+          tags: [],
+          threads: [],
+        },
   );
 
   // Batch input states
-  const [batchNpubInput, setBatchNpubInput] = useState('');
-  const [batchWordInput, setBatchWordInput] = useState('');
-  const [batchTagInput, setBatchTagInput] = useState('');
+  const [batchNpubInput, setBatchNpubInput] = useState("");
+  const [batchWordInput, setBatchWordInput] = useState("");
+  const [batchTagInput, setBatchTagInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Profile search states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Profile loading states
-  const [pubkeyProfiles, setPubkeyProfiles] = useState<Map<string, Profile>>(new Map());
+  const [pubkeyProfiles, setPubkeyProfiles] = useState<Map<string, Profile>>(
+    new Map(),
+  );
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
@@ -88,9 +128,12 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
       // Load ALL profiles that don't have them yet or failed to load
       // Only skip if we have a valid profile with name or display_name
-      const pubkeysToLoad = customList.pubkeys.filter(item => {
+      const pubkeysToLoad = customList.pubkeys.filter((item) => {
         const existingProfile = profilesMap.get(item.value);
-        return !existingProfile || (!existingProfile.name && !existingProfile.display_name);
+        return (
+          !existingProfile ||
+          (!existingProfile.name && !existingProfile.display_name)
+        );
       });
 
       // Process in batches of 10 to avoid overwhelming relays
@@ -118,7 +161,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     };
 
     loadProfiles();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customList.pubkeys, session]);
 
   // Search profiles by name (with debounce)
@@ -136,7 +179,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
         const results = await searchProfiles(searchQuery, session.relays, 20);
         setSearchResults(results);
       } catch (error) {
-        console.error('Search failed:', error);
+        console.error("Search failed:", error);
         setSearchResults([]);
       } finally {
         setIsSearching(false);
@@ -151,14 +194,17 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
   // Add profile from search results
   const handleAddFromSearch = (profile: Profile) => {
     // Check if already in list
-    if (customList.pubkeys.some(p => p.value === profile.pubkey)) {
+    if (customList.pubkeys.some((p) => p.value === profile.pubkey)) {
       return; // Already added
     }
 
     // Add to list
     setCustomList({
       ...customList,
-      pubkeys: [...customList.pubkeys, { type: 'pubkey', value: profile.pubkey }]
+      pubkeys: [
+        ...customList.pubkeys,
+        { type: "pubkey", value: profile.pubkey },
+      ],
     });
 
     // Add profile to cache
@@ -167,7 +213,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
   // Add batch npubs
   const handleAddBatchNpubs = () => {
-    const lines = batchNpubInput.split('\n').filter(line => line.trim());
+    const lines = batchNpubInput.split("\n").filter((line) => line.trim());
     const errors: string[] = [];
     const validPubkeys: MutedPubkey[] = [];
 
@@ -177,21 +223,28 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
       try {
         let hex: string;
-        if (trimmed.startsWith('npub')) {
+        if (trimmed.startsWith("npub") || trimmed.startsWith("nprofile")) {
           hex = npubToHex(trimmed);
         } else if (trimmed.length === 64 && /^[0-9a-f]+$/i.test(trimmed)) {
           hex = trimmed.toLowerCase();
         } else {
-          errors.push(`Line ${index + 1}: Invalid format "${trimmed.slice(0, 20)}..."`);
+          errors.push(
+            `Line ${index + 1}: Invalid format "${trimmed.slice(0, 20)}..."`,
+          );
           return;
         }
 
         // Check for duplicates in existing list AND in the current batch
-        if (!customList.pubkeys.some(p => p.value === hex) && !validPubkeys.some(p => p.value === hex)) {
-          validPubkeys.push({ type: 'pubkey', value: hex });
+        if (
+          !customList.pubkeys.some((p) => p.value === hex) &&
+          !validPubkeys.some((p) => p.value === hex)
+        ) {
+          validPubkeys.push({ type: "pubkey", value: hex });
         }
       } catch (err) {
-        errors.push(`Line ${index + 1}: ${err instanceof Error ? err.message : 'Invalid npub'}`);
+        errors.push(
+          `Line ${index + 1}: ${err instanceof Error ? err.message : "Invalid npub"}`,
+        );
       }
     });
 
@@ -204,53 +257,53 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     if (validPubkeys.length > 0) {
       setCustomList({
         ...customList,
-        pubkeys: [...customList.pubkeys, ...validPubkeys]
+        pubkeys: [...customList.pubkeys, ...validPubkeys],
       });
-      setBatchNpubInput('');
+      setBatchNpubInput("");
     }
   };
 
   // Add batch words
   const handleAddBatchWords = () => {
     const words = batchWordInput
-      .split('\n')
-      .map(w => w.trim())
-      .filter(w => w.length > 0);
+      .split("\n")
+      .map((w) => w.trim())
+      .filter((w) => w.length > 0);
 
     // Remove duplicates within the batch and check against existing list
     const uniqueWords = Array.from(new Set(words));
     const validWords: MutedWord[] = uniqueWords
-      .filter(word => !customList.words.some(w => w.value === word))
-      .map(word => ({ type: 'word', value: word }));
+      .filter((word) => !customList.words.some((w) => w.value === word))
+      .map((word) => ({ type: "word", value: word }));
 
     if (validWords.length > 0) {
       setCustomList({
         ...customList,
-        words: [...customList.words, ...validWords]
+        words: [...customList.words, ...validWords],
       });
-      setBatchWordInput('');
+      setBatchWordInput("");
     }
   };
 
   // Add batch tags
   const handleAddBatchTags = () => {
     const tags = batchTagInput
-      .split('\n')
-      .map(t => t.trim().replace(/^#/, '')) // Remove leading # if present
-      .filter(t => t.length > 0);
+      .split("\n")
+      .map((t) => t.trim().replace(/^#/, "")) // Remove leading # if present
+      .filter((t) => t.length > 0);
 
     // Remove duplicates within the batch and check against existing list
     const uniqueTags = Array.from(new Set(tags));
     const validTags: MutedTag[] = uniqueTags
-      .filter(tag => !customList.tags.some(t => t.value === tag))
-      .map(tag => ({ type: 'tag', value: tag }));
+      .filter((tag) => !customList.tags.some((t) => t.value === tag))
+      .map((tag) => ({ type: "tag", value: tag }));
 
     if (validTags.length > 0) {
       setCustomList({
         ...customList,
-        tags: [...customList.tags, ...validTags]
+        tags: [...customList.tags, ...validTags],
       });
-      setBatchTagInput('');
+      setBatchTagInput("");
     }
   };
 
@@ -258,14 +311,14 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
   const handleRemoveItem = (category: keyof MuteList, value: string) => {
     setCustomList({
       ...customList,
-      [category]: customList[category].filter(item => item.value !== value)
+      [category]: customList[category].filter((item) => item.value !== value),
     });
   };
 
   // Toggle category selection
   const handleToggleCategory = (category: PackCategory) => {
     if (selectedCategories.includes(category)) {
-      setSelectedCategories(selectedCategories.filter(c => c !== category));
+      setSelectedCategories(selectedCategories.filter((c) => c !== category));
     } else {
       setSelectedCategories([...selectedCategories, category]);
     }
@@ -273,17 +326,19 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
   // Generate URL-safe slug from pack name (must match server-side logic)
   const generateSlug = (name: string): string => {
-    return name
-      .toLowerCase()
-      .trim()
-      // Replace spaces and underscores with hyphens
-      .replace(/[\s_]+/g, '-')
-      // Remove any characters that aren't alphanumeric, hyphens, or periods
-      .replace(/[^a-z0-9-.]/g, '')
-      // Replace multiple consecutive hyphens with single hyphen
-      .replace(/-+/g, '-')
-      // Remove leading/trailing hyphens
-      .replace(/^-+|-+$/g, '');
+    return (
+      name
+        .toLowerCase()
+        .trim()
+        // Replace spaces and underscores with hyphens
+        .replace(/[\s_]+/g, "-")
+        // Remove any characters that aren't alphanumeric, hyphens, or periods
+        .replace(/[^a-z0-9-.]/g, "")
+        // Replace multiple consecutive hyphens with single hyphen
+        .replace(/-+/g, "-")
+        // Remove leading/trailing hyphens
+        .replace(/^-+|-+$/g, "")
+    );
   };
 
   // Check if a pack with the same slug already exists
@@ -291,15 +346,20 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     if (!session) return false;
 
     try {
-      const userPacks = await fetchUserPublicPacks(session.pubkey, session.relays);
-      const parsedPacks = await Promise.all(userPacks.map(parsePublicListEvent));
+      const userPacks = await fetchUserPublicPacks(
+        session.pubkey,
+        session.relays,
+      );
+      const parsedPacks = await Promise.all(
+        userPacks.map(parsePublicListEvent),
+      );
 
       const slug = generateSlug(packName);
 
       // Check if any existing pack has the same d-tag (slug)
-      return parsedPacks.some(pack => pack.dTag === slug);
+      return parsedPacks.some((pack) => pack.dTag === slug);
     } catch (error) {
-      console.error('Failed to check for duplicate packs:', error);
+      console.error("Failed to check for duplicate packs:", error);
       return false;
     }
   };
@@ -320,13 +380,13 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
     if (!session) return;
 
     if (!listName.trim()) {
-      setError('Pack name is required');
+      setError("Pack name is required");
       return;
     }
 
     // Validate list name format - allow any characters except line breaks
-    if (listName.trim().includes('\n') || listName.trim().includes('\r')) {
-      setError('Pack name cannot contain line breaks');
+    if (listName.trim().includes("\n") || listName.trim().includes("\r")) {
+      setError("Pack name cannot contain line breaks");
       return;
     }
 
@@ -345,24 +405,46 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
 
       const listToPublish = useCurrentList ? muteList : customList;
 
+      // Update personal mute list: add pack name as reason for any pubkeys in the pack that have no reason
+      const packPubkeys = new Set(listToPublish.pubkeys.map((p) => p.value));
+      const packName = listName.trim();
+      let updatedPersonalList = false;
+
+      const updatedMuteList = {
+        ...muteList,
+        pubkeys: muteList.pubkeys.map((existing) => {
+          if (packPubkeys.has(existing.value) && !existing.reason) {
+            updatedPersonalList = true;
+            return { ...existing, reason: packName };
+          }
+          return existing;
+        }),
+      };
+
+      // Publish updated personal mute list if any reasons were added
+      if (updatedPersonalList) {
+        setMuteList(updatedMuteList);
+        await publishMuteList(updatedMuteList, session.relays);
+      }
+
       if (isEditMode && editingPack) {
         // Update existing pack
         await updatePublicList(
           editingPack.dTag,
-          listName.trim(),
+          packName,
           description.trim(),
           listToPublish,
           session.relays,
-          selectedCategories
+          selectedCategories,
         );
       } else {
         // Create new pack
         await publishPublicList(
-          listName.trim(),
+          packName,
           description.trim(),
           listToPublish,
           session.relays,
-          selectedCategories
+          selectedCategories,
         );
       }
 
@@ -371,7 +453,11 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
         onClose();
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'publish'} list`);
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Failed to ${isEditMode ? "update" : "publish"} list`,
+      );
     } finally {
       setPublishing(false);
     }
@@ -396,7 +482,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {isEditMode ? 'Edit Community Pack' : 'Create Community Pack'}
+              {isEditMode ? "Edit Community Pack" : "Create Community Pack"}
             </h2>
             <button
               onClick={onClose}
@@ -411,7 +497,8 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           {/* Success Message */}
           {success && (
             <div className="p-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded text-green-700 dark:text-green-200">
-              Community pack {isEditMode ? 'updated' : 'published'} successfully!
+              Community pack {isEditMode ? "updated" : "published"}{" "}
+              successfully!
             </div>
           )}
 
@@ -427,7 +514,10 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           {validationErrors.length > 0 && (
             <div className="p-4 bg-amber-100 dark:bg-amber-900/30 border border-amber-400 dark:border-amber-700 rounded">
               <div className="flex items-start gap-2 mb-2">
-                <AlertCircle size={20} className="flex-shrink-0 mt-0.5 text-amber-700 dark:text-amber-400" />
+                <AlertCircle
+                  size={20}
+                  className="flex-shrink-0 mt-0.5 text-amber-700 dark:text-amber-400"
+                />
                 <p className="font-semibold text-amber-900 dark:text-amber-200">
                   Some entries could not be added:
                 </p>
@@ -437,7 +527,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                   <li key={i}>• {err}</li>
                 ))}
                 {validationErrors.length > 5 && (
-                  <li className="italic">...and {validationErrors.length - 5} more</li>
+                  <li className="italic">
+                    ...and {validationErrors.length - 5} more
+                  </li>
                 )}
               </ul>
               <button
@@ -503,8 +595,8 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                     onClick={() => handleToggleCategory(category)}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-all capitalize flex items-center gap-1.5 ${
                       selectedCategories.includes(category)
-                        ? 'bg-purple-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        ? "bg-purple-600 text-white shadow-md"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                     }`}
                   >
                     <Tag size={14} />
@@ -514,7 +606,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
               </div>
               {selectedCategories.length > 0 && (
                 <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                  Selected: {selectedCategories.join(', ')}
+                  Selected: {selectedCategories.join(", ")}
                 </div>
               )}
             </div>
@@ -528,11 +620,13 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
               </label>
 
               <div className="space-y-2">
-                <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  useCurrentList
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}>
+                <label
+                  className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    useCurrentList
+                      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                      : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}
+                >
                   <input
                     type="radio"
                     checked={useCurrentList}
@@ -544,20 +638,23 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                       Use My Current Mute List
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      Publish your current mute list with {muteList.pubkeys.length +
+                      Publish your current mute list with{" "}
+                      {muteList.pubkeys.length +
                         muteList.words.length +
                         muteList.tags.length +
-                        muteList.threads.length}{' '}
+                        muteList.threads.length}{" "}
                       items
                     </div>
                   </div>
                 </label>
 
-                <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  !useCurrentList
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}>
+                <label
+                  className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    !useCurrentList
+                      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                      : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}
+                >
                   <input
                     type="radio"
                     checked={!useCurrentList}
@@ -601,7 +698,10 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                     />
                     {isSearching && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <Loader2 size={16} className="animate-spin text-gray-400" />
+                        <Loader2
+                          size={16}
+                          className="animate-spin text-gray-400"
+                        />
                       </div>
                     )}
                   </div>
@@ -611,7 +711,10 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                     <div className="mt-2 max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
                       {isSearching ? (
                         <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-                          <Loader2 size={20} className="animate-spin mx-auto mb-2" />
+                          <Loader2
+                            size={20}
+                            className="animate-spin mx-auto mb-2"
+                          />
                           Searching...
                         </div>
                       ) : searchResults.length === 0 ? (
@@ -621,7 +724,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                       ) : (
                         <div className="divide-y divide-gray-200 dark:divide-gray-700">
                           {searchResults.map((profile) => {
-                            const isAlreadyAdded = customList.pubkeys.some(p => p.value === profile.pubkey);
+                            const isAlreadyAdded = customList.pubkeys.some(
+                              (p) => p.value === profile.pubkey,
+                            );
                             return (
                               <div
                                 key={profile.pubkey}
@@ -632,20 +737,31 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
                                       src={profile.picture}
-                                      alt={profile.display_name || profile.name || 'User'}
+                                      alt={
+                                        profile.display_name ||
+                                        profile.name ||
+                                        "User"
+                                      }
                                       className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                                       onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (
+                                          e.target as HTMLImageElement
+                                        ).style.display = "none";
                                       }}
                                     />
                                   ) : (
                                     <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                      <User size={20} className="text-gray-600 dark:text-gray-300" />
+                                      <User
+                                        size={20}
+                                        className="text-gray-600 dark:text-gray-300"
+                                      />
                                     </div>
                                   )}
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                      {profile.display_name || profile.name || 'Anonymous'}
+                                      {profile.display_name ||
+                                        profile.name ||
+                                        "Anonymous"}
                                     </p>
                                     {profile.nip05 && (
                                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -659,11 +775,11 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                                   disabled={isAlreadyAdded}
                                   className={`px-3 py-1 rounded text-sm font-medium transition-colors flex-shrink-0 ${
                                     isAlreadyAdded
-                                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                      : 'bg-red-600 text-white hover:bg-red-700'
+                                      ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                      : "bg-red-600 text-white hover:bg-red-700"
                                   }`}
                                 >
-                                  {isAlreadyAdded ? 'Added' : 'Add'}
+                                  {isAlreadyAdded ? "Added" : "Add"}
                                 </button>
                               </div>
                             );
@@ -682,7 +798,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                   <textarea
                     value={batchNpubInput}
                     onChange={(e) => setBatchNpubInput(e.target.value)}
-                    placeholder="Paste one npub or hex pubkey per line&#10;npub1abc...&#10;npub1def...&#10;0123456789abcdef..."
+                    placeholder="Paste one npub, nprofile, or hex pubkey per line&#10;npub1abc...&#10;nprofile1...&#10;0123456789abcdef..."
                     rows={4}
                     className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white font-mono text-sm"
                   />
@@ -713,7 +829,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                     <div className="space-y-2 max-h-96 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
                       {customList.pubkeys.map((item, index) => {
                         const profile = pubkeyProfiles.get(item.value);
-                        const displayName = profile?.display_name || profile?.name ||
+                        const displayName =
+                          profile?.display_name ||
+                          profile?.name ||
                           `${hexToNpub(item.value).slice(0, 12)}...${hexToNpub(item.value).slice(-8)}`;
 
                         return (
@@ -723,7 +841,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                           >
                             <div
                               className="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer"
-                              onClick={() => profile && setSelectedProfile(profile)}
+                              onClick={() =>
+                                profile && setSelectedProfile(profile)
+                              }
                               title={profile ? "View profile" : ""}
                             >
                               {profile?.picture ? (
@@ -733,12 +853,17 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                                   alt={displayName}
                                   className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (
+                                      e.target as HTMLImageElement
+                                    ).style.display = "none";
                                   }}
                                 />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                  <User size={16} className="text-gray-600 dark:text-gray-300" />
+                                  <User
+                                    size={16}
+                                    className="text-gray-600 dark:text-gray-300"
+                                  />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
@@ -754,7 +879,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
-                                onClick={() => handleRemoveItem('pubkeys', item.value)}
+                                onClick={() =>
+                                  handleRemoveItem("pubkeys", item.value)
+                                }
                                 className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                 title="Remove"
                               >
@@ -802,9 +929,13 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                           key={`${item.value}-${index}`}
                           className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full text-xs"
                         >
-                          <span className="text-blue-700 dark:text-blue-300">{item.value}</span>
+                          <span className="text-blue-700 dark:text-blue-300">
+                            {item.value}
+                          </span>
                           <button
-                            onClick={() => handleRemoveItem('words', item.value)}
+                            onClick={() =>
+                              handleRemoveItem("words", item.value)
+                            }
                             className="text-red-600 dark:text-red-400 hover:text-red-800"
                           >
                             <X size={14} />
@@ -849,9 +980,11 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
                           key={`${item.value}-${index}`}
                           className="inline-flex items-center gap-2 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 rounded-full text-xs"
                         >
-                          <span className="text-purple-700 dark:text-purple-300">#{item.value}</span>
+                          <span className="text-purple-700 dark:text-purple-300">
+                            #{item.value}
+                          </span>
                           <button
-                            onClick={() => handleRemoveItem('tags', item.value)}
+                            onClick={() => handleRemoveItem("tags", item.value)}
                             className="text-red-600 dark:text-red-400 hover:text-red-800"
                           >
                             <X size={14} />
@@ -872,32 +1005,46 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Pubkeys:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Pubkeys:
+                </span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {useCurrentList ? muteList.pubkeys.length : customList.pubkeys.length}
+                  {useCurrentList
+                    ? muteList.pubkeys.length
+                    : customList.pubkeys.length}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Words:</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {useCurrentList ? muteList.words.length : customList.words.length}
+                  {useCurrentList
+                    ? muteList.words.length
+                    : customList.words.length}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Tags:</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {useCurrentList ? muteList.tags.length : customList.tags.length}
+                  {useCurrentList
+                    ? muteList.tags.length
+                    : customList.tags.length}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Threads:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Threads:
+                </span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {useCurrentList ? muteList.threads.length : customList.threads.length}
+                  {useCurrentList
+                    ? muteList.threads.length
+                    : customList.threads.length}
                 </span>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600 flex justify-between items-center">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Total items:</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Total items:
+              </span>
               <span className="text-lg font-bold text-red-600 dark:text-red-400">
                 {totalItems}
               </span>
@@ -907,9 +1054,9 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
           {/* Notice */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <p className="text-sm text-blue-900 dark:text-blue-200">
-              <strong>Note:</strong> Community packs are visible to everyone on Nostr. They can be
-              discovered and imported by other users. Make sure you&apos;re comfortable sharing this
-              information publicly.
+              <strong>Note:</strong> Community packs are visible to everyone on
+              Nostr. They can be discovered and imported by other users. Make
+              sure you&apos;re comfortable sharing this information publicly.
             </p>
           </div>
         </div>
@@ -930,7 +1077,7 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
               ) : (
                 <>
                   <Plus size={20} />
-                  {isEditMode ? 'Update Pack' : 'Publish Pack'}
+                  {isEditMode ? "Update Pack" : "Publish Pack"}
                 </>
               )}
             </button>
@@ -958,16 +1105,22 @@ export default function CreatePublicList({ onClose, editingPack }: CreatePublicL
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-start gap-3 mb-4">
-              <AlertCircle className="text-amber-500 flex-shrink-0 mt-0.5" size={24} />
+              <AlertCircle
+                className="text-amber-500 flex-shrink-0 mt-0.5"
+                size={24}
+              />
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                   Pack Already Exists
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  You already have a pack named <strong>&quot;{listName.trim()}&quot;</strong>.
+                  You already have a pack named{" "}
+                  <strong>&quot;{listName.trim()}&quot;</strong>.
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  Creating a new pack with the same name will <strong>replace</strong> the existing pack and all its content will be lost.
+                  Creating a new pack with the same name will{" "}
+                  <strong>replace</strong> the existing pack and all its content
+                  will be lost.
                 </p>
               </div>
             </div>

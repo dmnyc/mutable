@@ -50,10 +50,17 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Manual Sync**: Trigger manual sync from Settings page
 - **Sync Status**: View real-time sync status and last sync time
 
+### Purgatory 🔥 NEW
+Find follows using specific Nostr clients or posting in hellthreads:
+- **Client Search**: Find follows using specific apps (Damus, Primal, Amethyst, etc.)
+- **Hellthread Detection**: Discover follows posting in conversation threads over a configurable size threshold
+- **NIP-65 Relay Discovery**: Intelligent per-user relay lookup for comprehensive results
+- **Bulk Actions**: Mute or unfollow multiple users at once
+
 ### Authentication
-- **NIP-07**: Connect using browser extensions (Alby, nos2x)
-- **NIP-46**: Remote signer support (coming soon)
-- **Session Persistence**: Automatic reconnection using localStorage
+- **NIP-07**: Connect using browser extensions (Alby, nos2x, Nossern)
+- **NIP-46**: Connect with remote signers like Amber for enhanced key security
+- **Session Persistence**: Automatic reconnection with signer restoration
 
 ## Tech Stack
 

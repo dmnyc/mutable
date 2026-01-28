@@ -88,8 +88,11 @@ export default function MuteListCategory({
       let finalValue = newValue.trim();
       let finalEventRef: string | undefined;
 
-      // Convert npub to hex for pubkeys
-      if (category === "pubkeys" && finalValue.startsWith("npub")) {
+      // Convert npub/nprofile to hex for pubkeys
+      if (
+        category === "pubkeys" &&
+        (finalValue.startsWith("npub") || finalValue.startsWith("nprofile"))
+      ) {
         finalValue = npubToHex(finalValue);
       }
 

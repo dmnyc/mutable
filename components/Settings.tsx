@@ -1,16 +1,21 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { useRelaySync } from '@/hooks/useRelaySync';
-import { useStore } from '@/lib/store';
-import { protectionService } from '@/lib/protectionService';
-import { blacklistService } from '@/lib/blacklistService';
-import { fetchProfile, hexToNpub, npubToHex } from '@/lib/nostr';
-import { publishAppData, D_TAGS, ProtectedUsersData, BlacklistData } from '@/lib/relayStorage';
-import { Profile } from '@/types';
-import packageJson from '../package.json';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { useRelaySync } from "@/hooks/useRelaySync";
+import { useStore } from "@/lib/store";
+import { protectionService } from "@/lib/protectionService";
+import { blacklistService } from "@/lib/blacklistService";
+import { fetchProfile, hexToNpub, npubToHex } from "@/lib/nostr";
+import {
+  publishAppData,
+  D_TAGS,
+  ProtectedUsersData,
+  BlacklistData,
+} from "@/lib/relayStorage";
+import { Profile } from "@/types";
+import packageJson from "../package.json";
 import {
   Settings as SettingsIcon,
   Trash2,
@@ -30,8 +35,8 @@ import {
   CloudOff,
   Download,
   Upload,
-  User
-} from 'lucide-react';
+  User,
+} from "lucide-react";
 
 export default function Settings() {
   const router = useRouter();
@@ -50,8 +55,8 @@ export default function Settings() {
   const [showProtectedManager, setShowProtectedManager] = useState(false);
   const [showBlacklistManager, setShowBlacklistManager] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, Profile | null>>({});
-  const [manualProtectedInput, setManualProtectedInput] = useState('');
-  const [manualBlacklistInput, setManualBlacklistInput] = useState('');
+  const [manualProtectedInput, setManualProtectedInput] = useState("");
+  const [manualBlacklistInput, setManualBlacklistInput] = useState("");
 
   // Relay state
   const [userRelayList, setUserRelayList] = useState<{
@@ -64,17 +69,17 @@ export default function Settings() {
 
   // Theme preference (could be expanded with actual theme switching)
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark");
     }
     return false;
   });
 
   const handleToggleDarkMode = () => {
-    if (typeof window !== 'undefined') {
-      document.documentElement.classList.toggle('dark');
+    if (typeof window !== "undefined") {
+      document.documentElement.classList.toggle("dark");
       setDarkMode(!darkMode);
-      localStorage.setItem('theme', !darkMode ? 'dark' : 'light');
+      localStorage.setItem("theme", !darkMode ? "dark" : "light");
     }
   };
 
@@ -82,21 +87,26 @@ export default function Settings() {
   useEffect(() => {
     if (!session) return;
 
-    console.log('📋 Checking session for cached relay list metadata');
+    console.log("📋 Checking session for cached relay list metadata");
 
     if (session.relayListMetadata) {
-      console.log('✅ Using cached relay list metadata from session:', session.relayListMetadata);
+      console.log(
+        "✅ Using cached relay list metadata from session:",
+        session.relayListMetadata,
+      );
       setUserRelayList(session.relayListMetadata);
       setLoadingRelays(false);
     } else {
-      console.log('ℹ️ No cached relay list metadata available');
+      console.log("ℹ️ No cached relay list metadata available");
       setLoadingRelays(false);
     }
   }, [session]);
 
   const handleResetOnboarding = () => {
     setHasCompletedOnboarding(false);
-    setSuccessMessage('Onboarding reset! Refresh the page to see the onboarding flow again.');
+    setSuccessMessage(
+      "Onboarding reset! Refresh the page to see the onboarding flow again.",
+    );
     setTimeout(() => setSuccessMessage(null), 5000);
   };
 
@@ -112,9 +122,9 @@ export default function Settings() {
     // Clear all localStorage
     localStorage.clear();
 
-    setSuccessMessage('App reset complete! Redirecting to home...');
+    setSuccessMessage("App reset complete! Redirecting to home...");
     setTimeout(() => {
-      window.location.href = '/';
+      window.location.href = "/";
     }, 2000);
   };
 
@@ -128,13 +138,13 @@ export default function Settings() {
       }
       return (total / 1024).toFixed(2); // KB
     } catch {
-      return '0';
+      return "0";
     }
   };
 
   const getBackupCount = () => {
     try {
-      const backups = localStorage.getItem('mutable-backups');
+      const backups = localStorage.getItem("mutable-backups");
       if (backups) {
         return JSON.parse(backups).length;
       }
@@ -151,9 +161,11 @@ export default function Settings() {
       setSyncStatusData(result || getSyncStatus());
 
       if (result && result.errors.length === 0) {
-        setSuccessMessage('All app data synced successfully with relays!');
+        setSuccessMessage("All app data synced successfully with relays!");
       } else if (result && result.errors.length > 0) {
-        setErrorMessage(`Sync completed with ${result.errors.length} error(s). Check console for details.`);
+        setErrorMessage(
+          `Sync completed with ${result.errors.length} error(s). Check console for details.`,
+        );
       }
 
       setTimeout(() => {
@@ -161,7 +173,7 @@ export default function Settings() {
         setErrorMessage(null);
       }, 5000);
     } catch (error) {
-      setErrorMessage('Failed to sync with relays. Please try again.');
+      setErrorMessage("Failed to sync with relays. Please try again.");
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsSyncing(false);
@@ -176,9 +188,9 @@ export default function Settings() {
       // Publish to ALL relays including mobile relays
       const allRelays = [
         ...session.relays,
-        'wss://nostrelay.yeghro.com',
-        'wss://nostr.land',
-        'wss://offchain.pub',
+        "wss://nostrelay.yeghro.com",
+        "wss://nostr.land",
+        "wss://offchain.pub",
       ];
 
       // 1. Republish Protected Users
@@ -186,15 +198,27 @@ export default function Settings() {
       const protectedData: ProtectedUsersData = {
         version: 1,
         timestamp: Date.now(),
-        users: protectedRecords.map(r => ({
+        users: protectedRecords.map((r) => ({
           pubkey: r.pubkey,
           addedAt: r.addedAt,
           reason: r.note,
         })),
       };
 
-      console.log('[Settings] Republishing', protectedRecords.length, 'protected users to', allRelays.length, 'relays');
-      await publishAppData(D_TAGS.PROTECTED_USERS, protectedData, session.pubkey, allRelays, true);
+      console.log(
+        "[Settings] Republishing",
+        protectedRecords.length,
+        "protected users to",
+        allRelays.length,
+        "relays",
+      );
+      await publishAppData(
+        D_TAGS.PROTECTED_USERS,
+        protectedData,
+        session.pubkey,
+        allRelays,
+        true,
+      );
 
       // 2. Republish Blacklist
       const blacklistPubkeys = blacklistService.getBlacklistedPubkeys();
@@ -204,14 +228,31 @@ export default function Settings() {
         pubkeys: blacklistPubkeys,
       };
 
-      console.log('[Settings] Republishing', blacklistPubkeys.length, 'blacklisted users to', allRelays.length, 'relays');
-      await publishAppData(D_TAGS.BLACKLIST, blacklistData, session.pubkey, allRelays, true);
+      console.log(
+        "[Settings] Republishing",
+        blacklistPubkeys.length,
+        "blacklisted users to",
+        allRelays.length,
+        "relays",
+      );
+      await publishAppData(
+        D_TAGS.BLACKLIST,
+        blacklistData,
+        session.pubkey,
+        allRelays,
+        true,
+      );
 
-      setSuccessMessage(`✅ Republished ${protectedRecords.length} protected users and ${blacklistPubkeys.length} blacklisted users to ${allRelays.length} relays!`);
+      setSuccessMessage(
+        `✅ Republished ${protectedRecords.length} protected users and ${blacklistPubkeys.length} blacklisted users to ${allRelays.length} relays!`,
+      );
       setTimeout(() => setSuccessMessage(null), 10000);
     } catch (error) {
-      console.error('[Settings] Force republish error:', error);
-      setErrorMessage('❌ Republish failed: ' + (error instanceof Error ? error.message : 'Unknown'));
+      console.error("[Settings] Force republish error:", error);
+      setErrorMessage(
+        "❌ Republish failed: " +
+          (error instanceof Error ? error.message : "Unknown"),
+      );
       setTimeout(() => setErrorMessage(null), 10000);
     } finally {
       setIsSyncing(false);
@@ -249,22 +290,24 @@ export default function Settings() {
       }
 
       // Filter out already fetched profiles
-      const uniquePubkeys = [...new Set(pubkeysToFetch)].filter(pk => profiles[pk] === undefined);
+      const uniquePubkeys = [...new Set(pubkeysToFetch)].filter(
+        (pk) => profiles[pk] === undefined,
+      );
 
       if (uniquePubkeys.length === 0) return;
 
-      console.log('Fetching profiles for', uniquePubkeys.length, 'pubkeys');
+      console.log("Fetching profiles for", uniquePubkeys.length, "pubkeys");
 
       // Fetch profiles
       for (const pubkey of uniquePubkeys) {
         fetchProfile(pubkey, session.relays)
-          .then(profile => {
-            console.log('Fetched profile for', pubkey, profile);
-            setProfiles(prev => ({ ...prev, [pubkey]: profile }));
+          .then((profile) => {
+            console.log("Fetched profile for", pubkey, profile);
+            setProfiles((prev) => ({ ...prev, [pubkey]: profile }));
           })
           .catch((err) => {
-            console.error('Failed to fetch profile for', pubkey, err);
-            setProfiles(prev => ({ ...prev, [pubkey]: null }));
+            console.error("Failed to fetch profile for", pubkey, err);
+            setProfiles((prev) => ({ ...prev, [pubkey]: null }));
           });
       }
     };
@@ -276,7 +319,7 @@ export default function Settings() {
     const records = protectionService.loadProtectionRecords();
 
     if (records.length === 0) {
-      alert('No protected users to export.');
+      alert("No protected users to export.");
       return;
     }
 
@@ -284,12 +327,14 @@ export default function Settings() {
       version: 1,
       exportedAt: new Date().toISOString(),
       count: records.length,
-      protectedUsers: records
+      protectedUsers: records,
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `mutable-protected-users-${Date.now()}.json`;
     document.body.appendChild(a);
@@ -297,11 +342,15 @@ export default function Settings() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    setSuccessMessage(`Exported ${records.length} protected user${records.length === 1 ? '' : 's'}`);
+    setSuccessMessage(
+      `Exported ${records.length} protected user${records.length === 1 ? "" : "s"}`,
+    );
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
-  const handleImportProtectedUsers = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportProtectedUsers = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -312,52 +361,63 @@ export default function Settings() {
         const importData = JSON.parse(content);
 
         // Validate format
-        if (!importData.protectedUsers || !Array.isArray(importData.protectedUsers)) {
-          throw new Error('Invalid protected users file format');
+        if (
+          !importData.protectedUsers ||
+          !Array.isArray(importData.protectedUsers)
+        ) {
+          throw new Error("Invalid protected users file format");
         }
 
         let addedCount = 0;
         let skippedCount = 0;
 
         // Import as append-only (don't overwrite existing)
-        importData.protectedUsers.forEach((user: { pubkey: string; note?: string }) => {
-          if (user.pubkey && !protectionService.isProtected(user.pubkey)) {
-            protectionService.addProtection(user.pubkey, user.note);
-            addedCount++;
-          } else {
-            skippedCount++;
-          }
-        });
+        importData.protectedUsers.forEach(
+          (user: { pubkey: string; note?: string }) => {
+            if (user.pubkey && !protectionService.isProtected(user.pubkey)) {
+              protectionService.addProtection(user.pubkey, user.note);
+              addedCount++;
+            } else {
+              skippedCount++;
+            }
+          },
+        );
 
         // Update counts
         setProtectedCount(protectionService.getProtectedCount());
 
         // Publish to relay if user is online
         if (session) {
-          protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+          protectionService
+            .publishToRelay(session.pubkey, session.relays)
+            .catch(console.error);
         }
 
         setSuccessMessage(
-          `Import complete!\nAdded: ${addedCount} user${addedCount === 1 ? '' : 's'}\n` +
-          (skippedCount > 0 ? `Skipped ${skippedCount} already protected` : '')
+          `Import complete!\nAdded: ${addedCount} user${addedCount === 1 ? "" : "s"}\n` +
+            (skippedCount > 0
+              ? `Skipped ${skippedCount} already protected`
+              : ""),
         );
         setTimeout(() => setSuccessMessage(null), 5000);
       } catch (error) {
-        setErrorMessage(`Failed to import: ${error instanceof Error ? error.message : 'Invalid file'}`);
+        setErrorMessage(
+          `Failed to import: ${error instanceof Error ? error.message : "Invalid file"}`,
+        );
         setTimeout(() => setErrorMessage(null), 5000);
       }
     };
     reader.readAsText(file);
 
     // Reset input so same file can be selected again
-    event.target.value = '';
+    event.target.value = "";
   };
 
   const handleExportBlacklist = () => {
     const pubkeys = blacklistService.getBlacklistedPubkeys();
 
     if (pubkeys.length === 0) {
-      alert('No blacklisted users to export.');
+      alert("No blacklisted users to export.");
       return;
     }
 
@@ -365,12 +425,14 @@ export default function Settings() {
       version: 1,
       exportedAt: new Date().toISOString(),
       count: pubkeys.length,
-      blacklistedPubkeys: pubkeys
+      blacklistedPubkeys: pubkeys,
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `mutable-blacklist-${Date.now()}.json`;
     document.body.appendChild(a);
@@ -378,11 +440,15 @@ export default function Settings() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    setSuccessMessage(`Exported ${pubkeys.length} blacklisted user${pubkeys.length === 1 ? '' : 's'}`);
+    setSuccessMessage(
+      `Exported ${pubkeys.length} blacklisted user${pubkeys.length === 1 ? "" : "s"}`,
+    );
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
-  const handleImportBlacklist = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportBlacklist = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -393,8 +459,11 @@ export default function Settings() {
         const importData = JSON.parse(content);
 
         // Validate format
-        if (!importData.blacklistedPubkeys || !Array.isArray(importData.blacklistedPubkeys)) {
-          throw new Error('Invalid blacklist file format');
+        if (
+          !importData.blacklistedPubkeys ||
+          !Array.isArray(importData.blacklistedPubkeys)
+        ) {
+          throw new Error("Invalid blacklist file format");
         }
 
         let addedCount = 0;
@@ -415,30 +484,38 @@ export default function Settings() {
 
         // Publish to relay if user is online
         if (session) {
-          blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+          blacklistService
+            .publishToRelay(session.pubkey, session.relays)
+            .catch(console.error);
         }
 
         setSuccessMessage(
-          `Import complete!\nAdded: ${addedCount} user${addedCount === 1 ? '' : 's'}\n` +
-          (skippedCount > 0 ? `Skipped ${skippedCount} already blacklisted` : '')
+          `Import complete!\nAdded: ${addedCount} user${addedCount === 1 ? "" : "s"}\n` +
+            (skippedCount > 0
+              ? `Skipped ${skippedCount} already blacklisted`
+              : ""),
         );
         setTimeout(() => setSuccessMessage(null), 5000);
       } catch (error) {
-        setErrorMessage(`Failed to import: ${error instanceof Error ? error.message : 'Invalid file'}`);
+        setErrorMessage(
+          `Failed to import: ${error instanceof Error ? error.message : "Invalid file"}`,
+        );
         setTimeout(() => setErrorMessage(null), 5000);
       }
     };
     reader.readAsText(file);
 
     // Reset input so same file can be selected again
-    event.target.value = '';
+    event.target.value = "";
   };
 
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Settings
+        </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
           Manage your application preferences and data
         </p>
@@ -447,8 +524,13 @@ export default function Settings() {
       {/* Success/Error Messages */}
       {successMessage && (
         <div className="p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg flex items-center gap-2">
-          <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
-          <span className="text-green-800 dark:text-green-200">{successMessage}</span>
+          <CheckCircle
+            size={20}
+            className="text-green-600 dark:text-green-400"
+          />
+          <span className="text-green-800 dark:text-green-200">
+            {successMessage}
+          </span>
         </div>
       )}
 
@@ -497,17 +579,26 @@ export default function Settings() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-3 mb-4">
             <Radio size={24} className="text-gray-900 dark:text-white" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nostr Network</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Nostr Network
+            </h2>
           </div>
 
           <div className="space-y-4">
             {/* Info about relay source */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <div className="flex items-start gap-3">
-                <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <Info
+                  size={20}
+                  className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+                />
                 <div className="text-sm text-blue-900 dark:text-blue-200">
                   <p className="font-semibold mb-1">Your Relay Configuration</p>
-                  <p>Mutable uses your relay list from Nostr (NIP-65). These are the relays you&apos;ve announced to the network and are used by all Nostr clients.</p>
+                  <p>
+                    Mutable uses your relay list from Nostr (NIP-65). These are
+                    the relays you&apos;ve announced to the network and are used
+                    by all Nostr clients.
+                  </p>
                 </div>
               </div>
             </div>
@@ -522,7 +613,10 @@ export default function Settings() {
               </p>
               <div className="space-y-1">
                 {session.relays.map((relay, i) => (
-                  <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                  <div
+                    key={i}
+                    className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                  >
                     {relay}
                   </div>
                 ))}
@@ -532,8 +626,13 @@ export default function Settings() {
             {/* User's announced relay list from Nostr */}
             {loadingRelays ? (
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <RefreshCw className="animate-spin mx-auto mb-2 text-gray-400" size={24} />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Loading relay preferences from Nostr...</p>
+                <RefreshCw
+                  className="animate-spin mx-auto mb-2 text-gray-400"
+                  size={24}
+                />
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Loading relay preferences from Nostr...
+                </p>
               </div>
             ) : userRelayList ? (
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
@@ -542,7 +641,8 @@ export default function Settings() {
                 </h3>
                 {userRelayList.timestamp && (
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                    Last updated: {new Date(userRelayList.timestamp * 1000).toLocaleString()}
+                    Last updated:{" "}
+                    {new Date(userRelayList.timestamp * 1000).toLocaleString()}
                   </p>
                 )}
 
@@ -554,7 +654,10 @@ export default function Settings() {
                     </p>
                     <div className="space-y-1">
                       {userRelayList.both.map((relay, i) => (
-                        <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                        <div
+                          key={i}
+                          className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                        >
                           {relay}
                         </div>
                       ))}
@@ -570,7 +673,10 @@ export default function Settings() {
                     </p>
                     <div className="space-y-1">
                       {userRelayList.write.map((relay, i) => (
-                        <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                        <div
+                          key={i}
+                          className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                        >
                           {relay}
                         </div>
                       ))}
@@ -586,7 +692,10 @@ export default function Settings() {
                     </p>
                     <div className="space-y-1">
                       {userRelayList.read.map((relay, i) => (
-                        <div key={i} className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                        <div
+                          key={i}
+                          className="text-xs font-mono bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
+                        >
                           {relay}
                         </div>
                       ))}
@@ -595,16 +704,24 @@ export default function Settings() {
                 )}
 
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">
-                  💡 To update your relay list, use a Nostr client that supports NIP-65 (like Jumble, Amethyst, or Damus).
+                  💡 To update your relay list, use a Nostr client that supports
+                  NIP-65 (like Jumble, Amethyst, or Damus).
                 </p>
               </div>
             ) : (
               <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle
+                    size={20}
+                    className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+                  />
                   <div className="text-sm text-amber-900 dark:text-amber-200">
                     <p className="font-semibold mb-1">No Relay List Found</p>
-                    <p>You haven&apos;t published a NIP-65 relay list yet. Mutable is using relays from your NIP-07 extension or defaults.</p>
+                    <p>
+                      You haven&apos;t published a NIP-65 relay list yet.
+                      Mutable is using relays from your NIP-07 extension or
+                      defaults.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -618,19 +735,31 @@ export default function Settings() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-3 mb-4">
             <Cloud size={24} className="text-gray-900 dark:text-white" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Relay Storage Sync</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Relay Storage Sync
+            </h2>
           </div>
 
           <div className="space-y-4">
             {/* Info about relay storage */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <div className="flex items-start gap-3">
-                <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <Info
+                  size={20}
+                  className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+                />
                 <div className="text-sm text-blue-900 dark:text-blue-200">
                   <p className="font-semibold mb-1">Multi-Device Sync</p>
-                  <p className="mb-2">Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays. This allows you to seamlessly access your data across all devices.</p>
+                  <p className="mb-2">
+                    Your protected users, blacklist, preferences, and imported
+                    packs are automatically synced to your Nostr relays. This
+                    allows you to seamlessly access your data across all
+                    devices.
+                  </p>
                   <p className="text-xs">
-                    <strong>Tip:</strong> Use the export/import buttons to share your lists or create local backups. Imports are append-only and won&apos;t overwrite existing data.
+                    <strong>Tip:</strong> Use the export/import buttons to share
+                    your lists or create local backups. Imports are append-only
+                    and won&apos;t overwrite existing data.
                   </p>
                 </div>
               </div>
@@ -641,11 +770,16 @@ export default function Settings() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {isOnline ? (
-                    <Cloud size={20} className="text-green-600 dark:text-green-400" />
+                    <Cloud
+                      size={20}
+                      className="text-green-600 dark:text-green-400"
+                    />
                   ) : (
                     <CloudOff size={20} className="text-gray-400" />
                   )}
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Sync Status</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Sync Status
+                  </h3>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -653,8 +787,11 @@ export default function Settings() {
                     disabled={isSyncing || !isOnline}
                     className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
                   >
-                    <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                    {isSyncing ? 'Syncing...' : 'Sync Now'}
+                    <RefreshCw
+                      size={16}
+                      className={isSyncing ? "animate-spin" : ""}
+                    />
+                    {isSyncing ? "Syncing..." : "Sync Now"}
                   </button>
                   <button
                     onClick={handleForceRepublish}
@@ -670,7 +807,8 @@ export default function Settings() {
 
               {syncStatusData.lastSyncTime && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  Last synced: {new Date(syncStatusData.lastSyncTime).toLocaleString()}
+                  Last synced:{" "}
+                  {new Date(syncStatusData.lastSyncTime).toLocaleString()}
                 </div>
               )}
 
@@ -678,7 +816,9 @@ export default function Settings() {
               <div className="space-y-4 mt-3">
                 <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 dark:text-gray-400">Protected Users:</span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Protected Users:
+                    </span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowProtectedManager(true)}
@@ -697,7 +837,10 @@ export default function Settings() {
                         <Download size={14} />
                         <span>Export</span>
                       </button>
-                      <label className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer font-medium" title="Import protected users list">
+                      <label
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer font-medium"
+                        title="Import protected users list"
+                      >
                         <Upload size={14} />
                         <span>Import</span>
                         <input
@@ -709,11 +852,15 @@ export default function Settings() {
                       </label>
                     </div>
                   </div>
-                  <p className="font-semibold text-gray-900 dark:text-white">{protectedCount}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {protectedCount}
+                  </p>
                 </div>
                 <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 dark:text-gray-400">Blacklisted:</span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Blacklisted:
+                    </span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowBlacklistManager(true)}
@@ -732,7 +879,10 @@ export default function Settings() {
                         <Download size={14} />
                         <span>Export</span>
                       </button>
-                      <label className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer font-medium" title="Import blacklist">
+                      <label
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer font-medium"
+                        title="Import blacklist"
+                      >
                         <Upload size={14} />
                         <span>Import</span>
                         <input
@@ -744,7 +894,9 @@ export default function Settings() {
                       </label>
                     </div>
                   </div>
-                  <p className="font-semibold text-gray-900 dark:text-white">{blacklistCount}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {blacklistCount}
+                  </p>
                 </div>
               </div>
 
@@ -793,33 +945,55 @@ export default function Settings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <Shield size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Privacy & Data</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Privacy & Data
+          </h2>
         </div>
 
         <div className="space-y-4">
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-3">
-              <Info size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <Info
+                size={20}
+                className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+              />
               <div className="text-sm text-blue-900 dark:text-blue-200">
                 <p className="font-semibold mb-1">About Your Data</p>
-                <p>Mutable stores data locally in your browser. Your Nostr data on relays remains separate and is not affected by local data operations.</p>
+                <p>
+                  Mutable stores data locally in your browser. Your Nostr data
+                  on relays remains separate and is not affected by local data
+                  operations.
+                </p>
               </div>
             </div>
           </div>
 
           <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex items-center gap-3 mb-3">
-              <Database size={20} className="text-gray-600 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-white">Storage Information</h3>
+              <Database
+                size={20}
+                className="text-gray-600 dark:text-gray-400"
+              />
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Storage Information
+              </h3>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600 dark:text-gray-400">Total Storage Used:</span>
-                <p className="font-semibold text-gray-900 dark:text-white">{getStorageSize()} KB</p>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Total Storage Used:
+                </span>
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {getStorageSize()} KB
+                </p>
               </div>
               <div>
-                <span className="text-gray-600 dark:text-gray-400">Backups Stored:</span>
-                <p className="font-semibold text-gray-900 dark:text-white">{getBackupCount()}</p>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Backups Stored:
+                </span>
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {getBackupCount()}
+                </p>
               </div>
             </div>
           </div>
@@ -830,13 +1004,17 @@ export default function Settings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <Eye size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Show Onboarding</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Show Onboarding
+          </h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-white">Welcome Tutorial</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Welcome Tutorial
+              </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 View the welcome tutorial again
               </p>
@@ -856,7 +1034,9 @@ export default function Settings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-red-300 dark:border-red-800 p-6">
         <div className="flex items-center gap-3 mb-4">
           <AlertTriangle size={24} className="text-red-600 dark:text-red-400" />
-          <h2 className="text-xl font-bold text-red-900 dark:text-red-100">Danger Zone</h2>
+          <h2 className="text-xl font-bold text-red-900 dark:text-red-100">
+            Danger Zone
+          </h2>
         </div>
 
         <div className="space-y-4">
@@ -865,7 +1045,8 @@ export default function Settings() {
               Reset All Application Data
             </h3>
             <p className="text-sm text-red-800 dark:text-red-200 mb-3">
-              This will permanently delete all local data and reset the application to its initial state.
+              This will permanently delete all local data and reset the
+              application to its initial state.
             </p>
 
             <div className="bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded p-3 mb-4">
@@ -882,7 +1063,9 @@ export default function Settings() {
 
             <div className="bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 rounded p-3 mb-4">
               <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">
-                ℹ️ Your Nostr data is safe: This only clears local browser data. Your mute lists, follows, and posts on Nostr relays will NOT be affected.
+                ℹ️ Your Nostr data is safe: This only clears local browser data.
+                Your mute lists, follows, and posts on Nostr relays will NOT be
+                affected.
               </p>
             </div>
 
@@ -924,29 +1107,115 @@ export default function Settings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <Info size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">About Mutable</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            About Mutable
+          </h2>
         </div>
 
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong className="text-gray-900 dark:text-white">Version:</strong> {packageJson.version}
+            <strong className="text-gray-900 dark:text-white">Version:</strong>{" "}
+            {packageJson.version}
           </p>
           <p>
-            <strong className="text-gray-900 dark:text-white">Build:</strong> {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'local'}
+            <strong className="text-gray-900 dark:text-white">Build:</strong>{" "}
+            {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) ||
+              "local"}
           </p>
           <p>
-            <strong className="text-gray-900 dark:text-white">Description:</strong> Mutable is a comprehensive Nostr social graph management tool that helps you curate your follow lists and maintain a healthy social feed through intelligent muting, community-driven filtering, and advanced list management features.
+            <strong className="text-gray-900 dark:text-white">
+              Description:
+            </strong>{" "}
+            Mutable is a comprehensive Nostr social graph management tool that
+            helps you curate your follow lists and maintain a healthy social
+            feed through intelligent muting, community-driven filtering, and
+            advanced list management features.
           </p>
           <div>
-            <strong className="text-gray-900 dark:text-white block mb-2">Features:</strong>
+            <strong className="text-gray-900 dark:text-white block mb-2">
+              Features:
+            </strong>
             <ul className="list-disc list-inside space-y-1 ml-4 text-gray-600 dark:text-gray-400">
-              <li><strong className="text-gray-700 dark:text-gray-300">Mute-o-Scope:</strong> Analyze your social graph and discover users to mute based on engagement patterns and follower overlap</li>
-              <li><strong className="text-gray-700 dark:text-gray-300">Public Packs:</strong> Discover and import curated mute lists from the Nostr community (e.g., scammers, spam bots, low-quality accounts)</li>
-              <li><strong className="text-gray-700 dark:text-gray-300">Muteuals:</strong> Find users you follow who have muted you, helping you understand your social dynamics</li>
-              <li><strong className="text-gray-700 dark:text-gray-300">Reciprocals:</strong> Discover who you follow that doesn&apos;t follow you back, with intelligent relay discovery using NIP-65</li>
-              <li><strong className="text-gray-700 dark:text-gray-300">Decimator:</strong> Randomly reduce your follow list by a percentage to keep it manageable, with user protection capabilities</li>
-              <li><strong className="text-gray-700 dark:text-gray-300">Backups:</strong> Automatically backup your follow lists before making changes, with easy restore functionality</li>
-              <li><strong className="text-gray-700 dark:text-gray-300">NIP-51 Support:</strong> Full support for Nostr&apos;s mute list standard with public and private list management</li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Mute-o-Scope:
+                </strong>{" "}
+                Analyze your social graph and discover users to mute based on
+                engagement patterns and follower overlap
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Public Packs:
+                </strong>{" "}
+                Discover and import curated mute lists from the Nostr community
+                (e.g., scammers, spam bots, low-quality accounts)
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Muteuals:
+                </strong>{" "}
+                Find users you follow who have muted you, helping you understand
+                your social dynamics
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Reciprocals:
+                </strong>{" "}
+                Discover who you follow that doesn&apos;t follow you back, with
+                intelligent relay discovery using NIP-65
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Purgatory:
+                </strong>{" "}
+                Find follows using specific Nostr clients or posting in
+                hellthreads, with NIP-65 relay discovery
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Note Nuke:
+                </strong>{" "}
+                Mute entire conversation threads directly from note URLs
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Domain Purge:
+                </strong>{" "}
+                Find and manage follows from specific NIP-05 domains
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Decimator:
+                </strong>{" "}
+                Randomly reduce your follow list by a percentage to keep it
+                manageable, with user protection capabilities
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  List Cleaner:
+                </strong>{" "}
+                Detect and remove inactive accounts from your follow list
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  Backups:
+                </strong>{" "}
+                Automatically backup your follow lists before making changes,
+                with easy restore functionality
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  NIP-51 Support:
+                </strong>{" "}
+                Full support for Nostr&apos;s mute list standard with public and
+                private list management
+              </li>
+              <li>
+                <strong className="text-gray-700 dark:text-gray-300">
+                  NIP-46 Support:
+                </strong>{" "}
+                Connect with remote signers like Amber for enhanced key security
+              </li>
             </ul>
           </div>
         </div>
@@ -957,17 +1226,25 @@ export default function Settings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="text-red-600 dark:text-red-400" size={32} />
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Confirm Reset</h3>
+              <AlertTriangle
+                className="text-red-600 dark:text-red-400"
+                size={32}
+              />
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Confirm Reset
+              </h3>
             </div>
 
             <p className="text-gray-700 dark:text-gray-300 mb-4">
-              Are you sure you want to reset the application? This will delete all local data and log you out.
+              Are you sure you want to reset the application? This will delete
+              all local data and log you out.
             </p>
 
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 mb-6">
               <p className="text-sm text-red-800 dark:text-red-200">
-                <strong>Important:</strong> Make sure you&apos;ve exported any important backups before proceeding. Your Nostr relay data will remain safe.
+                <strong>Important:</strong> Make sure you&apos;ve exported any
+                important backups before proceeding. Your Nostr relay data will
+                remain safe.
               </p>
             </div>
 
@@ -997,8 +1274,12 @@ export default function Settings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Manage Protected Users ({protectedCount})</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">These users are protected from mass operations</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Manage Protected Users ({protectedCount})
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                These users are protected from mass operations
+              </p>
 
               {/* Manual Entry Field */}
               <div className="mt-4 flex gap-2">
@@ -1018,16 +1299,18 @@ export default function Settings() {
                       const hexPubkey = npubToHex(trimmed);
                       protectionService.addProtection(hexPubkey);
                       setProtectedCount(protectionService.getProtectedCount());
-                      setManualProtectedInput('');
+                      setManualProtectedInput("");
 
                       if (session) {
-                        protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                        protectionService
+                          .publishToRelay(session.pubkey, session.relays)
+                          .catch(console.error);
                       }
 
-                      setSuccessMessage('User added to protection list');
+                      setSuccessMessage("User added to protection list");
                       setTimeout(() => setSuccessMessage(null), 3000);
                     } catch (error) {
-                      setErrorMessage('Invalid npub/nprofile format');
+                      setErrorMessage("Invalid npub/nprofile format");
                       setTimeout(() => setErrorMessage(null), 3000);
                     }
                   }}
@@ -1042,36 +1325,61 @@ export default function Settings() {
               <div className="space-y-2">
                 {protectionService.loadProtectionRecords().map((record) => {
                   const profile = profiles[record.pubkey];
-                  const displayName = profile?.display_name || profile?.name || record.pubkey.slice(0, 16) + '...';
+                  const displayName =
+                    profile?.display_name ||
+                    profile?.name ||
+                    record.pubkey.slice(0, 16) + "...";
                   const npub = hexToNpub(record.pubkey);
                   const truncatedNpub = `${npub.slice(0, 12)}...${npub.slice(-6)}`;
 
                   return (
-                    <div key={record.pubkey} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div
+                      key={record.pubkey}
+                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded"
+                    >
                       {profile?.picture ? (
                         <img
                           src={profile.picture}
                           alt={displayName}
                           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <User size={20} className="text-gray-600 dark:text-gray-400" />
+                          <User
+                            size={20}
+                            className="text-gray-600 dark:text-gray-400"
+                          />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm text-gray-900 dark:text-white">{displayName}</div>
-                        <div className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">{truncatedNpub}</div>
-                        {record.note && <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">{record.note}</div>}
+                        <div className="font-semibold text-sm text-gray-900 dark:text-white">
+                          {displayName}
+                        </div>
+                        <div className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {truncatedNpub}
+                        </div>
+                        {record.note && (
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">
+                            {record.note}
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => {
-                          if (confirm(`Remove protection for ${displayName}?`)) {
+                          if (
+                            confirm(`Remove protection for ${displayName}?`)
+                          ) {
                             protectionService.removeProtection(record.pubkey);
-                            setProtectedCount(protectionService.getProtectedCount());
+                            setProtectedCount(
+                              protectionService.getProtectedCount(),
+                            );
                             if (session) {
-                              protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                              protectionService
+                                .publishToRelay(session.pubkey, session.relays)
+                                .catch(console.error);
                             }
                           }
                         }}
@@ -1088,14 +1396,20 @@ export default function Settings() {
             <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
               <button
                 onClick={() => {
-                  if (confirm(`Remove ALL ${protectedCount} protected users? This cannot be undone!`)) {
+                  if (
+                    confirm(
+                      `Remove ALL ${protectedCount} protected users? This cannot be undone!`,
+                    )
+                  ) {
                     protectionService.clearAllProtection();
                     setProtectedCount(0);
                     setShowProtectedManager(false);
                     if (session) {
-                      protectionService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                      protectionService
+                        .publishToRelay(session.pubkey, session.relays)
+                        .catch(console.error);
                     }
-                    setSuccessMessage('All protected users removed');
+                    setSuccessMessage("All protected users removed");
                     setTimeout(() => setSuccessMessage(null), 3000);
                   }
                 }}
@@ -1119,8 +1433,12 @@ export default function Settings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Manage Blacklist ({blacklistCount})</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Blacklisted users won&apos;t be re-imported</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Manage Blacklist ({blacklistCount})
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Blacklisted users won&apos;t be re-imported
+              </p>
 
               {/* Manual Entry Field */}
               <div className="mt-4 flex gap-2">
@@ -1139,17 +1457,21 @@ export default function Settings() {
 
                       const hexPubkey = npubToHex(trimmed);
                       blacklistService.addToBlacklist(hexPubkey);
-                      setBlacklistCount(blacklistService.getBlacklistedPubkeys().length);
-                      setManualBlacklistInput('');
+                      setBlacklistCount(
+                        blacklistService.getBlacklistedPubkeys().length,
+                      );
+                      setManualBlacklistInput("");
 
                       if (session) {
-                        blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                        blacklistService
+                          .publishToRelay(session.pubkey, session.relays)
+                          .catch(console.error);
                       }
 
-                      setSuccessMessage('User added to blacklist');
+                      setSuccessMessage("User added to blacklist");
                       setTimeout(() => setSuccessMessage(null), 3000);
                     } catch (error) {
-                      setErrorMessage('Invalid npub/nprofile format');
+                      setErrorMessage("Invalid npub/nprofile format");
                       setTimeout(() => setErrorMessage(null), 3000);
                     }
                   }}
@@ -1164,35 +1486,56 @@ export default function Settings() {
               <div className="space-y-2">
                 {blacklistService.getBlacklistedPubkeys().map((pubkey) => {
                   const profile = profiles[pubkey];
-                  const displayName = profile?.display_name || profile?.name || pubkey.slice(0, 16) + '...';
+                  const displayName =
+                    profile?.display_name ||
+                    profile?.name ||
+                    pubkey.slice(0, 16) + "...";
                   const npub = hexToNpub(pubkey);
                   const truncatedNpub = `${npub.slice(0, 12)}...${npub.slice(-6)}`;
 
                   return (
-                    <div key={pubkey} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div
+                      key={pubkey}
+                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded"
+                    >
                       {profile?.picture ? (
                         <img
                           src={profile.picture}
                           alt={displayName}
                           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <User size={20} className="text-gray-600 dark:text-gray-400" />
+                          <User
+                            size={20}
+                            className="text-gray-600 dark:text-gray-400"
+                          />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm text-gray-900 dark:text-white">{displayName}</div>
-                        <div className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">{truncatedNpub}</div>
+                        <div className="font-semibold text-sm text-gray-900 dark:text-white">
+                          {displayName}
+                        </div>
+                        <div className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {truncatedNpub}
+                        </div>
                       </div>
                       <button
                         onClick={() => {
-                          if (confirm(`Remove ${displayName} from blacklist?`)) {
+                          if (
+                            confirm(`Remove ${displayName} from blacklist?`)
+                          ) {
                             blacklistService.removeFromBlacklist(pubkey);
-                            setBlacklistCount(blacklistService.getBlacklistCount());
+                            setBlacklistCount(
+                              blacklistService.getBlacklistCount(),
+                            );
                             if (session) {
-                              blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                              blacklistService
+                                .publishToRelay(session.pubkey, session.relays)
+                                .catch(console.error);
                             }
                           }
                         }}
@@ -1209,14 +1552,20 @@ export default function Settings() {
             <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
               <button
                 onClick={() => {
-                  if (confirm(`Remove ALL ${blacklistCount} blacklisted users? This cannot be undone!`)) {
+                  if (
+                    confirm(
+                      `Remove ALL ${blacklistCount} blacklisted users? This cannot be undone!`,
+                    )
+                  ) {
                     blacklistService.clearBlacklist();
                     setBlacklistCount(0);
                     setShowBlacklistManager(false);
                     if (session) {
-                      blacklistService.publishToRelay(session.pubkey, session.relays).catch(console.error);
+                      blacklistService
+                        .publishToRelay(session.pubkey, session.relays)
+                        .catch(console.error);
                     }
-                    setSuccessMessage('All blacklisted users removed');
+                    setSuccessMessage("All blacklisted users removed");
                     setTimeout(() => setSuccessMessage(null), 3000);
                   }
                 }}

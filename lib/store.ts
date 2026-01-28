@@ -7,12 +7,23 @@ import {
   PublicMuteList,
   Profile,
 } from "@/types";
+import { Signer, BunkerPointer } from "./signers";
+
+// NIP-46 session data for restoration (persisted)
+export interface Nip46SessionData {
+  bunkerPointer: BunkerPointer;
+  clientSecretKey: string; // hex-encoded
+}
 
 interface AppState {
   // Auth state
   authState: AuthState;
   session: UserSession | null;
   userProfile: Profile | null; // Cached user profile for faster loading
+
+  // Signer state (not persisted - must be restored on load)
+  signer: Signer | null;
+  nip46Session: Nip46SessionData | null; // Persisted for session restoration
 
   // Mute list state
   muteList: MuteList;
@@ -50,6 +61,8 @@ interface AppState {
   setAuthState: (state: AuthState) => void;
   setSession: (session: UserSession | null) => void;
   setUserProfile: (profile: Profile | null) => void;
+  setSigner: (signer: Signer | null) => void;
+  setNip46Session: (session: Nip46SessionData | null) => void;
   setMuteList: (list: MuteList) => void;
   setMuteListLoading: (loading: boolean) => void;
   setMuteListError: (error: string | null) => void;
@@ -136,6 +149,8 @@ export const useStore = create<AppState>()(
       authState: "disconnected",
       session: null,
       userProfile: null,
+      signer: null,
+      nip46Session: null,
       muteList: initialMuteList,
       muteListLoading: false,
       muteListError: null,
@@ -159,6 +174,10 @@ export const useStore = create<AppState>()(
         }),
 
       setUserProfile: (profile) => set({ userProfile: profile }),
+
+      setSigner: (signer) => set({ signer }),
+
+      setNip46Session: (nip46Session) => set({ nip46Session }),
 
       // Mute list actions
       setMuteList: (list) =>
@@ -364,6 +383,8 @@ export const useStore = create<AppState>()(
           session: null,
           authState: "disconnected",
           userProfile: null,
+          signer: null,
+          nip46Session: null,
           muteList: initialMuteList,
           muteListLastFetched: null,
           hasUnsavedChanges: false,
@@ -389,6 +410,8 @@ export const useStore = create<AppState>()(
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         // Persist user profile for faster display on reload
         userProfile: state.userProfile,
+        // Persist NIP-46 session data for restoration (signer itself is not persisted)
+        nip46Session: state.nip46Session,
       }),
     },
   ),

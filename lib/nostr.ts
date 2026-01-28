@@ -2,6 +2,7 @@ import {
   SimplePool,
   Event,
   EventTemplate,
+  VerifiedEvent,
   getPublicKey,
   nip19,
   nip04,
@@ -20,6 +21,8 @@ import {
   DomainPurgeResult,
   ReciprocalResult,
 } from "@/types";
+import { useStore } from "./store";
+import { Signer } from "./signers";
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients in 2025
@@ -27,17 +30,10 @@ import {
 export const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
-  "wss://cache0.primal.net",
-  "wss://cache1.primal.net",
-  "wss://cache2.primal.net",
   "wss://nos.lol",
-  "wss://nostr.wine",
   "wss://relay.snort.social",
   "wss://purplepag.es",
   "wss://relay.nostr.net",
-  "wss://nostr.mom",
-  "wss://offchain.pub",
-  "wss://relay.noswhere.com",
 ];
 
 // Wider list of known relays for maximum coverage (note nuking, archival, discovery)
@@ -90,8 +86,25 @@ export function getComprehensiveRelayList(
 }
 
 // Get expanded relay list by combining user's relays with defaults
-export function getExpandedRelayList(userRelays: string[]): string[] {
-  const relaySet = new Set([...DEFAULT_RELAYS, ...userRelays]);
+export function getExpandedRelayList(
+  userRelays: string[],
+  maxRelays: number = 8,
+): string[] {
+  // Prioritize user relays, then add defaults up to the limit
+  const relaySet = new Set<string>();
+
+  // Add user relays first (they're more likely to have the user's data)
+  for (const relay of userRelays) {
+    if (relaySet.size >= maxRelays) break;
+    relaySet.add(relay);
+  }
+
+  // Fill remaining slots with default relays
+  for (const relay of DEFAULT_RELAYS) {
+    if (relaySet.size >= maxRelays) break;
+    relaySet.add(relay);
+  }
+
   return Array.from(relaySet);
 }
 
@@ -175,6 +188,27 @@ export async function getNip07Relays(): Promise<string[]> {
   } catch {
     return DEFAULT_RELAYS;
   }
+}
+
+// Get the active signer from the store
+export function getSigner(): Signer {
+  const signer = useStore.getState().signer;
+  if (!signer) {
+    throw new Error("No signer connected. Please log in first.");
+  }
+  return signer;
+}
+
+// Sign an event using the active signer
+export async function signEvent(event: EventTemplate): Promise<VerifiedEvent> {
+  const signer = getSigner();
+  return await signer.signEvent(event);
+}
+
+// Get the user's public key from the active signer
+export async function getSignerPubkey(): Promise<string> {
+  const signer = getSigner();
+  return await signer.getPublicKey();
 }
 
 // Fetch user's relay list from Nostr (NIP-65 kind:10002)
@@ -290,7 +324,7 @@ export async function fetchMuteList(
   return events[0];
 }
 
-// Decrypt private mutes from content field using NIP-07 extension
+// Decrypt private mutes from content field using the active signer
 async function decryptPrivateMutes(
   encryptedContent: string,
   authorPubkey: string,
@@ -307,21 +341,15 @@ async function decryptPrivateMutes(
   }
 
   try {
-    // Use NIP-07 extension for decryption
-    if (!hasNip07() || !window.nostr) {
-      console.warn("NIP-07 extension not available for decryption");
+    // Get the active signer for decryption
+    const signer = useStore.getState().signer;
+    if (!signer) {
+      console.warn("No signer available for decryption");
       return privateMutes;
     }
 
-    // NIP-04 decryption via NIP-07
-    const decrypted = await window.nostr.nip04?.decrypt(
-      authorPubkey,
-      encryptedContent,
-    );
-    if (!decrypted) {
-      console.warn("No nip04.decrypt method available in NIP-07 extension");
-      return privateMutes;
-    }
+    // NIP-04 decryption via signer
+    const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
 
     const privateTags = JSON.parse(decrypted) as string[][];
 
@@ -551,7 +579,7 @@ export function muteListToTags(muteList: MuteList): string[][] {
   return tags;
 }
 
-// Encrypt private mutes for content field using NIP-07 extension
+// Encrypt private mutes for content field using the active signer
 async function encryptPrivateMutes(
   privateList: MuteList,
   recipientPubkey: string,
@@ -563,13 +591,11 @@ async function encryptPrivateMutes(
   }
 
   try {
-    // Use NIP-07 extension for encryption
-    if (!hasNip07() || !window.nostr?.nip04) {
-      throw new Error("NIP-07 extension or nip04 methods not available");
-    }
+    // Get the active signer for encryption
+    const signer = getSigner();
 
-    // NIP-04 encryption via NIP-07 (encrypt to yourself)
-    const encrypted = await window.nostr.nip04.encrypt(
+    // NIP-04 encryption via signer (encrypt to yourself)
+    const encrypted = await signer.nip04Encrypt(
       recipientPubkey,
       JSON.stringify(privateTags),
     );
@@ -589,7 +615,7 @@ export async function publishMuteList(
   relays: string[] = DEFAULT_RELAYS,
 ): Promise<Event> {
   // Get current user's pubkey for encryption
-  const userPubkey = await getNip07Pubkey();
+  const userPubkey = await getSignerPubkey();
 
   // Separate public and private items
   const { publicList, privateList } = separateMuteList(muteList);
@@ -607,7 +633,7 @@ export async function publishMuteList(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -631,7 +657,7 @@ export async function publishFollowList(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -810,7 +836,7 @@ export async function publishPublicList(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -852,7 +878,7 @@ export async function updatePublicList(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -874,7 +900,7 @@ export async function publishTextNote(
       created_at: Math.floor(Date.now() / 1000),
     };
 
-    const signedEvent = await signWithNip07(eventTemplate);
+    const signedEvent = await signEvent(eventTemplate);
     const pool = getPool();
 
     await Promise.any(pool.publish(relays, signedEvent));
@@ -903,7 +929,7 @@ export async function deletePublicList(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -1422,10 +1448,10 @@ export async function searchProfiles(
   relays: string[] = DEFAULT_RELAYS,
   limit: number = 20,
 ): Promise<Profile[]> {
-  // First, check if query is a pubkey or npub
+  // First, check if query is a pubkey, npub, or nprofile
   let searchPubkey: string | null = null;
   try {
-    if (query.startsWith("npub")) {
+    if (query.startsWith("npub") || query.startsWith("nprofile")) {
       searchPubkey = npubToHex(query);
     } else if (query.match(/^[0-9a-f]{64}$/i)) {
       searchPubkey = query.toLowerCase();
@@ -1595,7 +1621,7 @@ export async function unfollowUser(
 ): Promise<Event> {
   // Fetch current follow list
   const currentFollowList = await fetchFollowList(
-    await getNip07Pubkey(),
+    await getSignerPubkey(),
     relays,
   );
 
@@ -1613,7 +1639,7 @@ export async function unfollowUser(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -1628,7 +1654,7 @@ export async function unfollowMultipleUsers(
 ): Promise<Event> {
   // Fetch current follow list
   const currentFollowList = await fetchFollowList(
-    await getNip07Pubkey(),
+    await getSignerPubkey(),
     relays,
   );
 
@@ -1649,7 +1675,7 @@ export async function unfollowMultipleUsers(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, signedEvent));
@@ -2596,7 +2622,7 @@ export async function massMuteAndUnfollowDomain(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const followEvent = await signWithNip07(followEventTemplate);
+  const followEvent = await signEvent(followEventTemplate);
   const pool = getPool();
 
   await Promise.any(pool.publish(relays, followEvent));
