@@ -1,18 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Profile } from '@/types';
-import { searchProfiles } from '@/lib/nostr';
-import { useAuth } from '@/hooks/useAuth';
-import { Search, Loader2, X } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
+import { Profile } from "@/types";
+import { searchProfiles, npubToHex } from "@/lib/nostr";
+import { useAuth } from "@/hooks/useAuth";
+import { Search, Loader2, X } from "lucide-react";
 
 interface GlobalUserSearchProps {
   onSelectUser: (profile: Profile) => void;
 }
 
-export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps) {
+export default function GlobalUserSearch({
+  onSelectUser,
+}: GlobalUserSearchProps) {
   const { session } = useAuth();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -40,13 +42,13 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
         const profiles = await searchProfiles(
           query.trim(),
           session?.relays,
-          20
+          20,
         );
         setResults(profiles);
         setShowDropdown(profiles.length > 0);
         setSelectedIndex(0);
       } catch (error) {
-        console.error('Search error:', error);
+        console.error("Search error:", error);
         setResults([]);
       } finally {
         setLoading(false);
@@ -72,41 +74,49 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showDropdown || results.length === 0) {
-      if (e.key === 'Escape') {
-        setQuery('');
-        setShowDropdown(false);
-        inputRef.current?.blur();
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setQuery("");
+      setShowDropdown(false);
+      inputRef.current?.blur();
+      return;
+    }
+
+    // If no results but valid npub/hex entered, allow Enter to open profile
+    if ((!showDropdown || results.length === 0) && e.key === "Enter") {
+      if (isValidPubkeyFormat(query)) {
+        e.preventDefault();
+        handleOpenWithoutProfile();
       }
       return;
     }
 
+    if (!showDropdown || results.length === 0) {
+      return;
+    }
+
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         setSelectedIndex((prev) => (prev + 1) % results.length);
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + results.length) % results.length);
+        setSelectedIndex(
+          (prev) => (prev - 1 + results.length) % results.length,
+        );
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         if (results[selectedIndex]) {
           handleSelect(results[selectedIndex]);
         }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowDropdown(false);
-        setQuery('');
-        inputRef.current?.blur();
         break;
     }
   };
@@ -115,31 +125,82 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
   useEffect(() => {
     if (showDropdown && dropdownRef.current) {
       const selectedElement = dropdownRef.current.querySelector(
-        `[data-index="${selectedIndex}"]`
+        `[data-index="${selectedIndex}"]`,
       );
       if (selectedElement) {
-        selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        selectedElement.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
       }
     }
   }, [selectedIndex, showDropdown]);
 
   const handleSelect = (profile: Profile) => {
     onSelectUser(profile);
-    setQuery('');
+    setQuery("");
     setResults([]);
     setShowDropdown(false);
     inputRef.current?.blur();
   };
 
+  // Check if query is a valid npub/nprofile/hex pubkey
+  const isValidPubkeyFormat = (value: string): boolean => {
+    const trimmed = value.trim();
+    if (trimmed.startsWith("npub1") || trimmed.startsWith("nprofile1")) {
+      try {
+        npubToHex(trimmed);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    // Check if it's a valid hex pubkey (64 hex chars)
+    if (/^[a-f0-9]{64}$/i.test(trimmed)) {
+      return true;
+    }
+    return false;
+  };
+
+  // Open profile modal for valid npub/hex even without profile data
+  const handleOpenWithoutProfile = () => {
+    const trimmed = query.trim();
+    let pubkey: string;
+
+    try {
+      if (trimmed.startsWith("npub1") || trimmed.startsWith("nprofile1")) {
+        pubkey = npubToHex(trimmed);
+      } else if (/^[a-f0-9]{64}$/i.test(trimmed)) {
+        pubkey = trimmed;
+      } else {
+        return;
+      }
+
+      // Create minimal profile with just the pubkey
+      const minimalProfile: Profile = {
+        pubkey,
+        name: undefined,
+        display_name: undefined,
+        about: undefined,
+        picture: undefined,
+        nip05: undefined,
+      };
+
+      handleSelect(minimalProfile);
+    } catch {
+      // Invalid format, do nothing
+    }
+  };
+
   const handleClear = () => {
-    setQuery('');
+    setQuery("");
     setResults([]);
     setShowDropdown(false);
     inputRef.current?.focus();
   };
 
   const getDisplayName = (profile: Profile) => {
-    return profile.display_name || profile.name || 'Anonymous';
+    return profile.display_name || profile.name || "Anonymous";
   };
 
   const getTruncatedPubkey = (pubkey: string) => {
@@ -162,11 +223,11 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
         />
         <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center">
           <Search
-            className={`text-gray-400 transition-opacity absolute ${loading ? 'opacity-0' : 'opacity-100'}`}
+            className={`text-gray-400 transition-opacity absolute ${loading ? "opacity-0" : "opacity-100"}`}
             size={16}
           />
           <Loader2
-            className={`text-gray-400 animate-spin transition-opacity absolute ${loading ? 'opacity-100' : 'opacity-0'}`}
+            className={`text-gray-400 animate-spin transition-opacity absolute ${loading ? "opacity-100" : "opacity-0"}`}
             size={16}
           />
         </div>
@@ -192,11 +253,9 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
               data-index={index}
               onClick={() => handleSelect(profile)}
               className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                index === selectedIndex
-                  ? 'bg-gray-100 dark:bg-gray-700'
-                  : ''
-              } ${index === 0 ? 'rounded-t-lg' : ''} ${
-                index === results.length - 1 ? 'rounded-b-lg' : ''
+                index === selectedIndex ? "bg-gray-100 dark:bg-gray-700" : ""
+              } ${index === 0 ? "rounded-t-lg" : ""} ${
+                index === results.length - 1 ? "rounded-b-lg" : ""
               }`}
             >
               {profile.picture ? (
@@ -206,7 +265,8 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
                   alt={getDisplayName(profile)}
                   className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                    (e.target as HTMLImageElement).src =
+                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                   }}
                 />
               ) : (
@@ -236,13 +296,33 @@ export default function GlobalUserSearch({ onSelectUser }: GlobalUserSearchProps
       )}
 
       {/* No results message */}
-      {showDropdown && query.trim().length >= 3 && results.length === 0 && !loading && (
-        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl p-4 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            No users found. Try a different search term.
-          </p>
-        </div>
-      )}
+      {showDropdown &&
+        query.trim().length >= 3 &&
+        results.length === 0 &&
+        !loading && (
+          <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl p-4 text-center">
+            {isValidPubkeyFormat(query) ? (
+              <>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                  No profile found for this pubkey.
+                </p>
+                <button
+                  onClick={handleOpenWithoutProfile}
+                  className="px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 font-medium"
+                >
+                  View Profile
+                </button>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                  Or press Enter
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No users found. Try a different search term.
+              </p>
+            )}
+          </div>
+        )}
     </div>
   );
 }
