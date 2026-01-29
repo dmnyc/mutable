@@ -1074,12 +1074,81 @@ export function hexToNevent(hex: string): string {
   }
 }
 
+const EVENT_REFERENCE_REGEX =
+  /(?:nostr:)?(note1[0-9a-z]+|nevent1[0-9a-z]+|naddr1[0-9a-z]+|[0-9a-f]{64})/i;
+
+function extractEventReference(input: string): string | null {
+  if (!input || !input.trim()) return null;
+  const match = input.trim().match(EVENT_REFERENCE_REGEX);
+  if (!match) return null;
+  return match[1];
+}
+
+export type EventAddress = {
+  kind: number;
+  pubkey: string;
+  identifier: string;
+};
+
+export function parseEventAddress(address: string): EventAddress | null {
+  if (!address) return null;
+  const firstColon = address.indexOf(":");
+  if (firstColon === -1) return null;
+  const secondColon = address.indexOf(":", firstColon + 1);
+  if (secondColon === -1) return null;
+  const kindRaw = address.slice(0, firstColon);
+  const pubkey = address.slice(firstColon + 1, secondColon);
+  const identifier = address.slice(secondColon + 1);
+  const kind = Number(kindRaw);
+  if (!Number.isFinite(kind) || kind <= 0) return null;
+  if (!/^[0-9a-f]{64}$/i.test(pubkey)) return null;
+  return { kind, pubkey: pubkey.toLowerCase(), identifier };
+}
+
+export type ParsedEventTarget = {
+  eventId: string | null;
+  address: string | null;
+  reference: string | null;
+};
+
+export function parseEventTarget(input: string): ParsedEventTarget {
+  const reference = extractEventReference(input);
+  if (!reference) {
+    return { eventId: null, address: null, reference: null };
+  }
+
+  if (reference.match(/^[0-9a-f]{64}$/i)) {
+    return {
+      eventId: reference.toLowerCase(),
+      address: null,
+      reference: reference.toLowerCase(),
+    };
+  }
+
+  try {
+    const decoded = nip19.decode(reference.toLowerCase());
+    if (decoded.type === "nevent") {
+      return { eventId: decoded.data.id, address: null, reference };
+    }
+    if (decoded.type === "note") {
+      return { eventId: decoded.data, address: null, reference };
+    }
+    if (decoded.type === "naddr") {
+      const identifier = decoded.data.identifier ?? "";
+      const address = `${decoded.data.kind}:${decoded.data.pubkey}:${identifier}`;
+      return { eventId: null, address, reference };
+    }
+  } catch (error) {
+    console.error("Failed to parse event target:", error);
+  }
+
+  return { eventId: null, address: null, reference };
+}
+
 // Validate and convert event reference (nevent/note) to hex event ID
 export function parseEventReference(input: string): string | null {
-  if (!input || !input.trim()) return null;
-
-  // Remove nostr: URI scheme if present
-  const cleaned = input.trim().replace(/^nostr:/, "");
+  const cleaned = extractEventReference(input);
+  if (!cleaned) return null;
 
   // If already hex, validate and return
   if (cleaned.match(/^[0-9a-f]{64}$/i)) {
@@ -1088,7 +1157,7 @@ export function parseEventReference(input: string): string | null {
 
   try {
     // Decode using nip19
-    const decoded = nip19.decode(cleaned);
+    const decoded = nip19.decode(cleaned.toLowerCase());
 
     // Handle nevent (contains event ID + optional relays)
     if (decoded.type === "nevent") {
@@ -1103,6 +1172,38 @@ export function parseEventReference(input: string): string | null {
     return null;
   } catch (error) {
     console.error("Failed to parse event reference:", error);
+    return null;
+  }
+}
+
+export async function fetchEventByAddress(
+  address: string,
+  relays: string[] = DEFAULT_RELAYS,
+  timeoutMs: number = 8000,
+): Promise<Event | null> {
+  const parsed = parseEventAddress(address);
+  if (!parsed) return null;
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  try {
+    const events = await Promise.race([
+      pool.querySync(expandedRelays, {
+        kinds: [parsed.kind],
+        authors: [parsed.pubkey],
+        "#d": [parsed.identifier],
+        limit: 3,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Event fetch timeout")), timeoutMs),
+      ),
+    ]);
+
+    if (events.length === 0) return null;
+    events.sort((a, b) => b.created_at - a.created_at);
+    return events[0];
+  } catch (error) {
+    console.error("Failed to fetch event by address:", error);
     return null;
   }
 }

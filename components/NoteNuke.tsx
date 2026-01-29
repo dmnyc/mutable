@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_RELAYS,
   KNOWN_RELAYS,
+  fetchEventByAddress,
   fetchEventById,
   getNip07Relays,
   hasNip07,
   hexToNote,
   hexToNpub,
   normalizeRelayUrl,
-  parseEventReference,
+  parseEventTarget,
   publishEventToRelay,
   signWithNip07,
 } from "@/lib/nostr";
@@ -72,11 +73,14 @@ const sourceLabels: Record<string, string> = {
   known: "known",
 };
 
-function extractRelayHints(input: string): string[] {
-  const cleaned = input.trim().replace(/^nostr:/, "");
+function extractRelayHints(reference: string | null): string[] {
+  if (!reference) return [];
   try {
-    const decoded = nip19.decode(cleaned);
-    if (decoded.type === "nevent" && Array.isArray(decoded.data.relays)) {
+    const decoded = nip19.decode(reference.toLowerCase());
+    if (
+      (decoded.type === "nevent" || decoded.type === "naddr") &&
+      Array.isArray(decoded.data.relays)
+    ) {
       return decoded.data.relays;
     }
   } catch (error) {
@@ -145,6 +149,7 @@ export default function NoteNuke() {
   const { session } = useAuth();
   const [noteInput, setNoteInput] = useState("");
   const [eventId, setEventId] = useState<string | null>(null);
+  const [eventAddress, setEventAddress] = useState<string | null>(null);
   const [relayHints, setRelayHints] = useState<string[]>([]);
   const [nip07Relays, setNip07Relays] = useState<string[]>([]);
   const [relayTargets, setRelayTargets] = useState<RelayTarget[]>([]);
@@ -219,6 +224,7 @@ export default function NoteNuke() {
   useEffect(() => {
     if (!noteInput.trim()) {
       setEventId(null);
+      setEventAddress(null);
       setRelayHints([]);
       setInputError(null);
       setPreviewEvent(null);
@@ -226,12 +232,15 @@ export default function NoteNuke() {
       return;
     }
 
-    const parsedId = parseEventReference(noteInput);
-    setEventId(parsedId);
-    setRelayHints(extractRelayHints(noteInput));
+    const parsedTarget = parseEventTarget(noteInput);
+    setEventId(parsedTarget.eventId);
+    setEventAddress(parsedTarget.address);
+    setRelayHints(extractRelayHints(parsedTarget.reference));
 
-    if (!parsedId) {
-      setInputError("Enter a valid note/nevent or 64-char event id.");
+    if (!parsedTarget.eventId && !parsedTarget.address) {
+      setInputError(
+        "Enter a valid event reference (note/nevent/naddr, 64-char id, or event URL).",
+      );
       setPreviewEvent(null);
       setPreviewStatus("");
       return;
@@ -241,7 +250,7 @@ export default function NoteNuke() {
   }, [noteInput]);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId && !eventAddress) return;
     if (relayUrls.length === 0) return;
 
     if (previewRequestRef.current) {
@@ -253,7 +262,9 @@ export default function NoteNuke() {
 
     previewRequestRef.current = window.setTimeout(async () => {
       try {
-        const event = await fetchEventById(eventId, relayUrls, 8000);
+        const event = eventId
+          ? await fetchEventById(eventId, relayUrls, 8000)
+          : await fetchEventByAddress(eventAddress!, relayUrls, 8000);
         if (event) {
           setPreviewEvent(event);
           setPreviewStatus(`Event found (kind ${event.kind})`);
@@ -273,7 +284,7 @@ export default function NoteNuke() {
         window.clearTimeout(previewRequestRef.current);
       }
     };
-  }, [eventId, relayUrls]);
+  }, [eventId, eventAddress, relayUrls]);
 
   const visibleRelays = useMemo(() => {
     const lowerFilter = filterText.trim().toLowerCase();
@@ -352,14 +363,18 @@ export default function NoteNuke() {
   };
 
   const publishDeletion = async (targets: RelayTarget[]) => {
-    if (!eventId) return;
+    if (!eventId && !eventAddress) return;
 
     setIsPublishing(true);
     setLastPublishSummary(null);
 
+    const tags: string[][] = [];
+    if (eventId) tags.push(["e", eventId]);
+    if (eventAddress) tags.push(["a", eventAddress]);
+
     const eventTemplate: EventTemplate = {
       kind: 5,
-      tags: [["e", eventId]],
+      tags,
       content: reason.trim(),
       created_at: Math.floor(Date.now() / 1000),
     };
@@ -415,7 +430,7 @@ export default function NoteNuke() {
   };
 
   const handleNuke = async () => {
-    if (!eventId) return;
+    if (!eventId && !eventAddress) return;
     if (!hasNip07()) {
       alert("NIP-07 signer not available.");
       return;
@@ -439,7 +454,7 @@ export default function NoteNuke() {
     const confirmMessage =
       `NOTE NUKE\n\n` +
       `This will publish a deletion event to ${selectedRelays.length} relays.\n` +
-      `Event: ${eventId}\n\n` +
+      `Event: ${eventId || eventAddress}\n\n` +
       `Proceed?`;
     if (!confirm(confirmMessage)) return;
 
@@ -496,7 +511,7 @@ export default function NoteNuke() {
               type="text"
               value={noteInput}
               onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="note1... / nevent1... / 64-char event id"
+              placeholder="note1... / nevent1... / naddr1... / event URL / 64-char id"
               className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100"
             />
             <button
@@ -514,8 +529,14 @@ export default function NoteNuke() {
             </div>
           )}
           {eventId && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="text-xs text-gray-500 dark:text-gray-400 break-all">
               Parsed event id: <span className="font-mono">{eventId}</span>
+            </div>
+          )}
+          {eventAddress && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 break-all">
+              Parsed event address:{" "}
+              <span className="font-mono">{eventAddress}</span>
             </div>
           )}
         </div>
@@ -643,7 +664,7 @@ export default function NoteNuke() {
             {visibleRelays.map((relay) => (
               <div
                 key={relay.url}
-                className="flex items-center gap-3 text-xs text-gray-700 dark:text-gray-200"
+                className="flex items-start gap-3 text-xs text-gray-700 dark:text-gray-200"
               >
                 <input
                   type="checkbox"
@@ -656,23 +677,25 @@ export default function NoteNuke() {
                   }
                   className="h-4 w-4"
                 />
-                <div className="flex-1 break-all font-mono">{relay.url}</div>
-                <div className="flex gap-1">
-                  {relay.sources.map((source) => (
+                <div className="flex-1 sm:flex sm:items-center sm:gap-3">
+                  <div className="flex-1 break-all font-mono">{relay.url}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-0 sm:justify-end">
+                    {relay.sources.map((source) => (
+                      <span
+                        key={`${relay.url}-${source}`}
+                        className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] uppercase"
+                      >
+                        {sourceLabels[source] || source}
+                      </span>
+                    ))}
                     <span
-                      key={`${relay.url}-${source}`}
-                      className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] uppercase"
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusStyles[relay.status]}`}
+                      title={relay.message || relay.status}
                     >
-                      {sourceLabels[source] || source}
+                      {relay.status}
                     </span>
-                  ))}
+                  </div>
                 </div>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusStyles[relay.status]}`}
-                  title={relay.message || relay.status}
-                >
-                  {relay.status}
-                </span>
               </div>
             ))}
           </div>
@@ -682,7 +705,12 @@ export default function NoteNuke() {
           <button
             type="button"
             onClick={handleNuke}
-            disabled={!eventId || isPublishing || mismatchAuthor || !hasNip07()}
+            disabled={
+              (!eventId && !eventAddress) ||
+              isPublishing ||
+              mismatchAuthor ||
+              !hasNip07()
+            }
             className="px-5 py-3 rounded-lg bg-red-600 text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPublishing ? (

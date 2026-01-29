@@ -104,7 +104,7 @@ export default function MuteListCategory({
         const parsedEventId = parseEventReference(finalValue);
         if (!parsedEventId) {
           setError(
-            "Invalid event ID format. Use nevent1..., note1..., or hex event ID",
+            "Invalid event ID format. Use nevent1..., note1..., naddr1..., event URL, or hex event ID",
           );
           return;
         }
@@ -116,7 +116,7 @@ export default function MuteListCategory({
         const parsedEventRef = parseEventReference(newEventRef.trim());
         if (!parsedEventRef) {
           setEventRefError(
-            "Invalid event reference format. Use nevent1... or note1...",
+            "Invalid event reference format. Use nevent1..., note1..., naddr1..., or event URL",
           );
           return;
         }
@@ -158,7 +158,7 @@ export default function MuteListCategory({
       const parsedEventRef = parseEventReference(newEventRef.trim());
       if (!parsedEventRef) {
         setEventRefError(
-          "Invalid event reference format. Use nevent1... or note1...",
+          "Invalid event reference format. Use nevent1..., note1..., naddr1..., or event URL",
         );
         return;
       }
@@ -202,7 +202,7 @@ export default function MuteListCategory({
         const parsedEventRef = parseEventReference(editEventRef.trim());
         if (!parsedEventRef) {
           setEventRefError(
-            "Invalid event reference format. Use nevent1... or note1...",
+            "Invalid event reference format. Use nevent1..., note1..., naddr1..., or event URL",
           );
           return;
         }
