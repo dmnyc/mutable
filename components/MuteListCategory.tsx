@@ -273,7 +273,7 @@ export default function MuteListCategory({
   const generateEventLink = (eventId: string): string => {
     try {
       const note = hexToNote(eventId);
-      return `https://njump.me/${note}`;
+      return `https://jumble.social/notes/${note}`;
     } catch {
       return "#";
     }

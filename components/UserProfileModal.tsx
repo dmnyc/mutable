@@ -345,7 +345,7 @@ export default function UserProfileModal({
   const generateEventLink = (eventRef: string): string => {
     try {
       const note = hexToNote(eventRef);
-      return `https://njump.me/${note}`;
+      return `https://jumble.social/notes/${note}`;
     } catch {
       return "#";
     }
