@@ -6,6 +6,10 @@ import {
   fetchMuteList,
   parseMuteListEvent,
   hexToNpub,
+  hexToNote,
+  parseEventReference,
+  parseEventTarget,
+  fetchEventByAddress,
   isFollowing,
   unfollowUser,
   fetchProfile,
@@ -76,11 +80,22 @@ export default function UserProfileModal({
   const [isProtected, setIsProtected] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [muteReason, setMuteReason] = useState("");
+  const [muteEventRef, setMuteEventRef] = useState("");
+  const [muteEventRefError, setMuteEventRefError] = useState<string | null>(
+    null,
+  );
   const [editingReason, setEditingReason] = useState(false);
   const [editedReason, setEditedReason] = useState("");
+  const [editedEventRef, setEditedEventRef] = useState("");
+  const [editEventRefError, setEditEventRefError] = useState<string | null>(
+    null,
+  );
 
   // Check if this user is currently muted
   const isMuted = muteList.pubkeys.some(
+    (item) => item.value === profile.pubkey,
+  );
+  const mutedItem = muteList.pubkeys.find(
     (item) => item.value === profile.pubkey,
   );
 
@@ -170,27 +185,61 @@ export default function UserProfileModal({
     loadUserData();
   }, [profile.pubkey, session]);
 
-  const handleMute = (reason?: string) => {
+  const handleMute = async (reason?: string) => {
+    let eventRef: string | undefined;
+    if (muteEventRef.trim()) {
+      const resolved = await resolveEventRef(muteEventRef);
+      if (!resolved) {
+        setMuteEventRefError(
+          "Invalid event reference. Use note/nevent/naddr, an event URL, or hex id.",
+        );
+        return;
+      }
+      eventRef = resolved;
+    }
+
     addMutedItem(
-      { type: "pubkey", value: profile.pubkey, reason: reason || undefined },
+      {
+        type: "pubkey",
+        value: profile.pubkey,
+        reason: reason || undefined,
+        eventRef,
+      },
       "pubkeys",
     );
     setShowReasonInput(false);
     setMuteReason("");
+    setMuteEventRef("");
+    setMuteEventRefError(null);
   };
 
   const handleUnmute = () => {
     removeMutedItem(profile.pubkey, "pubkeys");
   };
 
-  const handleUpdateReason = () => {
+  const handleUpdateReason = async () => {
+    let eventRef: string | undefined;
+    if (editedEventRef.trim()) {
+      const resolved = await resolveEventRef(editedEventRef);
+      if (!resolved) {
+        setEditEventRefError(
+          "Invalid event reference. Use note/nevent/naddr, an event URL, or hex id.",
+        );
+        return;
+      }
+      eventRef = resolved;
+    }
+
     updateMutedItem(
       profile.pubkey,
       profile.pubkey,
       "pubkeys",
       editedReason || undefined,
+      eventRef,
     );
     setEditingReason(false);
+    setEditedEventRef("");
+    setEditEventRefError(null);
   };
 
   const handleUnfollow = async () => {
@@ -283,6 +332,41 @@ export default function UserProfileModal({
   const getTruncatedNpub = (pubkey: string) => {
     const npub = hexToNpub(pubkey);
     return `${npub.slice(0, 16)}...${npub.slice(-16)}`;
+  };
+
+  const getEventDisplay = (eventRef: string) => {
+    try {
+      return hexToNote(eventRef);
+    } catch {
+      return eventRef;
+    }
+  };
+
+  const generateEventLink = (eventRef: string): string => {
+    try {
+      const note = hexToNote(eventRef);
+      return `https://njump.me/${note}`;
+    } catch {
+      return "#";
+    }
+  };
+
+  const resolveEventRef = async (input: string): Promise<string | null> => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    const direct = parseEventReference(trimmed);
+    if (direct) return direct;
+
+    const target = parseEventTarget(trimmed);
+    if (!target || !target.address) return null;
+
+    const relays =
+      session?.relays && session.relays.length > 0
+        ? session.relays
+        : DEFAULT_RELAYS;
+    const event = await fetchEventByAddress(target.address, relays, 8000);
+    return event?.id ?? null;
   };
 
   const getTotalMutedItems = () => {
@@ -430,11 +514,11 @@ export default function UserProfileModal({
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white break-words [overflow-wrap:anywhere]">
                 {getDisplayName()}
               </h2>
               {enrichedProfile.nip05 && (
-                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1 break-words [overflow-wrap:anywhere]">
                   ✓ {enrichedProfile.nip05}
                 </p>
               )}
@@ -517,6 +601,18 @@ export default function UserProfileModal({
                   placeholder="Reason for muting (optional)"
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                 />
+                <input
+                  type="text"
+                  value={muteEventRef}
+                  onChange={(e) => setMuteEventRef(e.target.value)}
+                  placeholder="Related event (optional): note/nevent/naddr/URL/hex"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                />
+                {muteEventRefError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {muteEventRefError}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleMute(muteReason)}
@@ -529,6 +625,8 @@ export default function UserProfileModal({
                     onClick={() => {
                       setShowReasonInput(false);
                       setMuteReason("");
+                      setMuteEventRef("");
+                      setMuteEventRefError(null);
                     }}
                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
                   >
@@ -594,10 +692,11 @@ export default function UserProfileModal({
                 {!editingReason && (
                   <button
                     onClick={() => {
-                      setEditedReason(
-                        muteList.pubkeys.find(
-                          (item) => item.value === profile.pubkey,
-                        )?.reason || "",
+                      setEditedReason(mutedItem?.reason || "");
+                      setEditedEventRef(
+                        mutedItem?.eventRef
+                          ? getEventDisplay(mutedItem.eventRef)
+                          : "",
                       );
                       setEditingReason(true);
                     }}
@@ -616,6 +715,18 @@ export default function UserProfileModal({
                     placeholder="Reason for muting (optional)"
                     className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                   />
+                  <input
+                    type="text"
+                    value={editedEventRef}
+                    onChange={(e) => setEditedEventRef(e.target.value)}
+                    placeholder="Related event (optional): note/nevent/naddr/URL/hex"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                  />
+                  {editEventRefError && (
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      {editEventRefError}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={handleUpdateReason}
@@ -624,7 +735,11 @@ export default function UserProfileModal({
                       <span>Save</span>
                     </button>
                     <button
-                      onClick={() => setEditingReason(false)}
+                      onClick={() => {
+                        setEditingReason(false);
+                        setEditedEventRef("");
+                        setEditEventRefError(null);
+                      }}
                       className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
                     >
                       <span>Cancel</span>
@@ -632,12 +747,41 @@ export default function UserProfileModal({
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Reason:{" "}
-                  {muteList.pubkeys.find(
-                    (item) => item.value === profile.pubkey,
-                  )?.reason || "No reason provided."}
-                </p>
+                <>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 break-words [overflow-wrap:anywhere]">
+                    Reason: {mutedItem?.reason || "No reason provided."}
+                  </p>
+                  {mutedItem?.eventRef && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <a
+                        href={generateEventLink(mutedItem.eventRef)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline break-all"
+                        title="View related event"
+                      >
+                        <ExternalLink size={12} />
+                        {getEventDisplay(mutedItem.eventRef).slice(0, 20)}...
+                      </a>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(
+                            getEventDisplay(mutedItem.eventRef),
+                            "event-ref",
+                          )
+                        }
+                        className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                        title="Copy event reference"
+                      >
+                        {copySuccess === "event-ref" ? (
+                          <UserCheck size={14} />
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
