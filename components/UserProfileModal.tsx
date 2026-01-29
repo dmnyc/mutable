@@ -764,12 +764,13 @@ export default function UserProfileModal({
                         {getEventDisplay(mutedItem.eventRef).slice(0, 20)}...
                       </a>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          if (!mutedItem?.eventRef) return;
                           copyToClipboard(
                             getEventDisplay(mutedItem.eventRef),
                             "event-ref",
-                          )
-                        }
+                          );
+                        }}
                         className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                         title="Copy event reference"
                       >
