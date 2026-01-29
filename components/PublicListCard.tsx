@@ -387,7 +387,6 @@ export default function PublicListCard({
                         <span className="hidden sm:inline">
                           All in Your List
                         </span>
-                        <span className="sm:hidden">✓</span>
                       </>
                     ) : (
                       <>
@@ -477,7 +476,6 @@ export default function PublicListCard({
                           <span className="hidden sm:inline">
                             All in Your List
                           </span>
-                          <span className="sm:hidden">✓</span>
                         </>
                       ) : (
                         <>
