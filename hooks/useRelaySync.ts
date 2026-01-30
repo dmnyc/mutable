@@ -5,13 +5,16 @@
  * that automatically publish changes to relays.
  */
 
-import { useCallback } from 'react';
-import { useStore } from '@/lib/store';
-import { protectionService } from '@/lib/protectionService';
-import { blacklistService } from '@/lib/blacklistService';
-import { preferencesService } from '@/lib/preferencesService';
-import { importedPacksService } from '@/lib/importedPacksService';
-import { syncManager } from '@/lib/syncManager';
+import { useCallback } from "react";
+import { useStore } from "@/lib/store";
+import { protectionService } from "@/lib/protectionService";
+import { blacklistService } from "@/lib/blacklistService";
+import { preferencesService } from "@/lib/preferencesService";
+import { importedPacksService } from "@/lib/importedPacksService";
+import { syncManager } from "@/lib/syncManager";
+import { backupService } from "@/lib/backupService";
+import { MuteBackupData } from "@/lib/relayStorage";
+import { MuteList } from "@/types";
 
 export function useRelaySync() {
   const { session } = useStore();
@@ -26,13 +29,15 @@ export function useRelaySync() {
       if (success && session) {
         // Fire-and-forget publish
         syncManager
-          .publishService('protected-users', session.pubkey, session.relays)
-          .catch((error) => console.error('Failed to publish protection:', error));
+          .publishService("protected-users", session.pubkey, session.relays)
+          .catch((error) =>
+            console.error("Failed to publish protection:", error),
+          );
       }
 
       return success;
     },
-    [session]
+    [session],
   );
 
   /**
@@ -45,13 +50,15 @@ export function useRelaySync() {
       if (success && session) {
         // Fire-and-forget publish
         syncManager
-          .publishService('protected-users', session.pubkey, session.relays)
-          .catch((error) => console.error('Failed to publish protection:', error));
+          .publishService("protected-users", session.pubkey, session.relays)
+          .catch((error) =>
+            console.error("Failed to publish protection:", error),
+          );
       }
 
       return success;
     },
-    [session]
+    [session],
   );
 
   /**
@@ -64,13 +71,15 @@ export function useRelaySync() {
       if (success && session) {
         // Fire-and-forget publish
         syncManager
-          .publishService('blacklist', session.pubkey, session.relays)
-          .catch((error) => console.error('Failed to publish blacklist:', error));
+          .publishService("blacklist", session.pubkey, session.relays)
+          .catch((error) =>
+            console.error("Failed to publish blacklist:", error),
+          );
       }
 
       return success;
     },
-    [session]
+    [session],
   );
 
   /**
@@ -83,13 +92,15 @@ export function useRelaySync() {
       if (success && session) {
         // Fire-and-forget publish
         syncManager
-          .publishService('blacklist', session.pubkey, session.relays)
-          .catch((error) => console.error('Failed to publish blacklist:', error));
+          .publishService("blacklist", session.pubkey, session.relays)
+          .catch((error) =>
+            console.error("Failed to publish blacklist:", error),
+          );
       }
 
       return success;
     },
-    [session]
+    [session],
   );
 
   /**
@@ -102,13 +113,15 @@ export function useRelaySync() {
       if (success && session) {
         // Fire-and-forget publish
         syncManager
-          .publishService('preferences', session.pubkey, session.relays)
-          .catch((error) => console.error('Failed to publish preferences:', error));
+          .publishService("preferences", session.pubkey, session.relays)
+          .catch((error) =>
+            console.error("Failed to publish preferences:", error),
+          );
       }
 
       return success;
     },
-    [session]
+    [session],
   );
 
   /**
@@ -116,18 +129,23 @@ export function useRelaySync() {
    */
   const markPackItemsAsImported = useCallback(
     async (packId: string, items: string[]): Promise<boolean> => {
-      const success = importedPacksService.markPackItemsAsImported(packId, items);
+      const success = importedPacksService.markPackItemsAsImported(
+        packId,
+        items,
+      );
 
       if (success && session) {
         // Fire-and-forget publish
         syncManager
-          .publishService('imported-packs', session.pubkey, session.relays)
-          .catch((error) => console.error('Failed to publish imported packs:', error));
+          .publishService("imported-packs", session.pubkey, session.relays)
+          .catch((error) =>
+            console.error("Failed to publish imported packs:", error),
+          );
       }
 
       return success;
     },
-    [session]
+    [session],
   );
 
   /**
@@ -135,7 +153,7 @@ export function useRelaySync() {
    */
   const triggerSync = useCallback(async () => {
     if (!session) {
-      console.warn('Cannot sync: no active session');
+      console.warn("Cannot sync: no active session");
       return null;
     }
 
@@ -149,6 +167,67 @@ export function useRelaySync() {
     return syncManager.getStatus();
   }, []);
 
+  /**
+   * Save mute list and follow list backup to relays (NIP-78)
+   */
+  const saveBackupToRelay = useCallback(
+    async (
+      muteList: MuteList,
+      notes?: string,
+      followList?: string[],
+    ): Promise<{ success: boolean; error?: string }> => {
+      if (!session) {
+        return { success: false, error: "No active session" };
+      }
+
+      return await backupService.saveBackupToRelay(
+        muteList,
+        session.pubkey,
+        session.relays,
+        notes,
+        followList,
+      );
+    },
+    [session],
+  );
+
+  /**
+   * Fetch backup from relays (NIP-78)
+   */
+  const fetchBackupFromRelay = useCallback(async (): Promise<{
+    success: boolean;
+    backup?: MuteBackupData;
+    foundOnRelays?: string[];
+    queriedRelays?: string[];
+    error?: string;
+  }> => {
+    if (!session) {
+      return { success: false, error: "No active session" };
+    }
+
+    return await backupService.fetchBackupFromRelay(
+      session.pubkey,
+      session.relays,
+    );
+  }, [session]);
+
+  /**
+   * Delete mute list backup from relay (NIP-78)
+   */
+  const deleteMuteBackupFromRelay = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    if (!session) {
+      return { success: false, error: "No active session" };
+    }
+
+    return await backupService.deleteBackupFromRelay(
+      session.pubkey,
+      session.relays,
+    );
+  }, [session]);
+
   return {
     addProtection,
     removeProtection,
@@ -158,6 +237,9 @@ export function useRelaySync() {
     markPackItemsAsImported,
     triggerSync,
     getSyncStatus,
+    saveBackupToRelay,
+    fetchBackupFromRelay,
+    deleteMuteBackupFromRelay,
     isOnline: !!session,
   };
 }
