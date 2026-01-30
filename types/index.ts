@@ -186,3 +186,36 @@ export interface HellthreadResult {
   worstEventId: string; // Event ID of the worst offender
   lastSeen: number; // Timestamp of most recent hellthread
 }
+
+// DM contact analysis result (Snoopable feature)
+export interface DMContact {
+  pubkey: string;
+  profile?: Profile;
+  sentCount: number; // DMs sent TO this person
+  receivedCount: number; // DMs received FROM this person
+  totalCount: number; // Total exchanges
+  firstExchange: number; // Unix timestamp
+  lastExchange: number; // Unix timestamp
+  title?: string; // Fun title (BFF, Ghost, etc.)
+}
+
+// Heatmap data point for DM activity
+export interface DMActivityDay {
+  date: string; // YYYY-MM-DD
+  count: number;
+  sentCount: number;
+  receivedCount: number;
+}
+
+// Overall DM analysis result
+export interface DMAnalysis {
+  targetPubkey: string;
+  targetProfile?: Profile;
+  contacts: DMContact[];
+  totalSent: number;
+  totalReceived: number;
+  heatmapData: DMActivityDay[];
+  scanTimestamp: number;
+  oldestDM?: number;
+  newestDM?: number;
+}
