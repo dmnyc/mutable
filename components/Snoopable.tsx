@@ -369,7 +369,7 @@ export default function Snoopable() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <button
             onClick={() => handleAnalyze()}
             disabled={analyzing || !searchInput.trim()}
@@ -396,7 +396,7 @@ export default function Snoopable() {
             <button
               onClick={handleAnalyzeMe}
               disabled={analyzing}
-              className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap flex items-center gap-2"
+              className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <User size={18} />
               <span>Go Snoop Yourself</span>
