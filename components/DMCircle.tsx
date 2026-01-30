@@ -287,30 +287,56 @@ export default function DMCircle({
       });
 
       const normalizedCanvas = (() => {
-        const inset = 1;
-        if (canvas.width <= inset * 2 || canvas.height <= inset * 2) {
-          return canvas;
-        }
-
-        const trimmed = document.createElement("canvas");
-        trimmed.width = canvas.width;
-        trimmed.height = canvas.height;
-        const ctx = trimmed.getContext("2d");
+        const ctx = canvas.getContext("2d");
         if (!ctx) return canvas;
 
-        ctx.drawImage(
+        const { width, height } = canvas;
+        if (width < 4 || height < 4) return canvas;
+
+        const data = ctx.getImageData(0, 0, width, height).data;
+        const step = 2;
+        let edgeCount = 0;
+        let whiteEdgeCount = 0;
+
+        const isWhite = (r: number, g: number, b: number, a: number) =>
+          a > 0 && r > 245 && g > 245 && b > 245;
+
+        const sample = (x: number, y: number) => {
+          const idx = (y * width + x) * 4;
+          edgeCount++;
+          if (isWhite(data[idx], data[idx + 1], data[idx + 2], data[idx + 3])) {
+            whiteEdgeCount++;
+          }
+        };
+
+        for (let x = 0; x < width; x += step) {
+          sample(x, 0);
+          sample(x, height - 1);
+        }
+        for (let y = 0; y < height; y += step) {
+          sample(0, y);
+          sample(width - 1, y);
+        }
+
+        const hasWhiteEdge = edgeCount > 0 && whiteEdgeCount / edgeCount > 0.02;
+        if (!hasWhiteEdge) return canvas;
+
+        const bleed = 2;
+        const expanded = document.createElement("canvas");
+        expanded.width = width;
+        expanded.height = height;
+        const expandedCtx = expanded.getContext("2d");
+        if (!expandedCtx) return canvas;
+
+        expandedCtx.drawImage(
           canvas,
-          inset,
-          inset,
-          canvas.width - inset * 2,
-          canvas.height - inset * 2,
-          0,
-          0,
-          trimmed.width,
-          trimmed.height,
+          -bleed,
+          -bleed,
+          width + bleed * 2,
+          height + bleed * 2,
         );
 
-        return trimmed;
+        return expanded;
       })();
 
       // Restore rounded corners
