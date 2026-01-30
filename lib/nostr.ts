@@ -3292,3 +3292,339 @@ export async function findFollowsPostingHellthreads(
 
   return results;
 }
+
+// ============================================================================
+// SNOOPABLE - DM METADATA ANALYSIS (NIP-04)
+// ============================================================================
+
+// DM event kind (NIP-04 encrypted direct messages)
+const DM_KIND = 4;
+
+/**
+ * Assign a fun title based on DM exchange patterns
+ */
+function assignDMTitle(data: {
+  sentCount: number;
+  receivedCount: number;
+  firstExchange: number;
+  lastExchange: number;
+}): string {
+  const total = data.sentCount + data.receivedCount;
+  const ratio =
+    data.receivedCount > 0
+      ? data.sentCount / data.receivedCount
+      : data.sentCount > 0
+        ? Infinity
+        : 1;
+
+  // Check recency first
+  const daysSinceLastDM = (Date.now() / 1000 - data.lastExchange) / 86400;
+
+  // Ghost detection - no activity in 180+ days with significant history
+  if (daysSinceLastDM > 180 && total >= 5) return "Ghost";
+
+  // Hot connection - recent activity
+  if (daysSinceLastDM < 7 && total >= 3) return "Hot";
+
+  // Volume-based titles
+  if (total >= 100) return "BFF";
+  if (total >= 50) return "Inner Circle";
+  if (total >= 20) return "Frequent Flyer";
+
+  // Ratio-based titles - one-sided conversations
+  if (ratio > 5 && data.sentCount >= 10) return "Left on Read";
+  if (ratio < 0.2 && data.receivedCount >= 10) return "Popular";
+
+  // Small exchanges
+  if (total === 1) return "One-Timer";
+  if (total <= 3) return "Acquaintance";
+
+  return "Regular";
+}
+
+/**
+ * Generate heatmap data from DM events
+ */
+function generateDMHeatmapData(
+  sentEvents: Event[],
+  receivedEvents: Event[],
+): import("@/types").DMActivityDay[] {
+  const dayMap = new Map<string, { sent: number; received: number }>();
+
+  // Process sent DMs
+  for (const event of sentEvents) {
+    const date = new Date(event.created_at * 1000).toISOString().split("T")[0];
+    const existing = dayMap.get(date) || { sent: 0, received: 0 };
+    existing.sent++;
+    dayMap.set(date, existing);
+  }
+
+  // Process received DMs
+  for (const event of receivedEvents) {
+    const date = new Date(event.created_at * 1000).toISOString().split("T")[0];
+    const existing = dayMap.get(date) || { sent: 0, received: 0 };
+    existing.received++;
+    dayMap.set(date, existing);
+  }
+
+  // Convert to array and sort by date
+  return Array.from(dayMap.entries())
+    .map(([date, data]) => ({
+      date,
+      count: data.sent + data.received,
+      sentCount: data.sent,
+      receivedCount: data.received,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Fetch DM metadata for a pubkey (envelope data only - no decryption)
+ * Queries kind:4 events by author (sent) and #p tag (received)
+ *
+ * @param targetPubkey - The pubkey to analyze
+ * @param relays - Relays to query
+ * @param onProgress - Progress callback with phase and count
+ * @param abortSignal - Optional abort signal
+ * @param limit - Max events to fetch per direction (default 500)
+ * @returns Object with sent and received DM events
+ */
+export async function fetchDMMetadata(
+  targetPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (phase: string, count: number) => void,
+  abortSignal?: AbortSignal,
+  limit: number = 500,
+): Promise<{ sent: Event[]; received: Event[] }> {
+  const pool = getPool();
+  // Filter out known-bad relays and expand the list
+  const filteredRelays = relays.filter(
+    (r) => !r.includes("garden.zap.cooking"),
+  );
+  const expandedRelays = getExpandedRelayList(filteredRelays);
+
+  onProgress?.("Intercepting transmissions...", 0);
+
+  // Helper to deduplicate events by ID
+  const dedupeEvents = (events: Event[]): Event[] => {
+    const seen = new Set<string>();
+    return events.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+  };
+
+  // Query with a small delay between to avoid overwhelming relays
+  // Run query twice and merge results for more consistent data
+  const sentDMs1 = await pool.querySync(expandedRelays, {
+    kinds: [DM_KIND],
+    authors: [targetPubkey],
+    limit,
+  });
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  // Small delay before second query
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const sentDMs2 = await pool.querySync(expandedRelays, {
+    kinds: [DM_KIND],
+    authors: [targetPubkey],
+    limit,
+  });
+
+  const sentDMs = dedupeEvents([...sentDMs1, ...sentDMs2]);
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  onProgress?.("Surveilling the targets...", sentDMs.length);
+
+  // Query DMs received BY the target (they are in #p tag)
+  const receivedDMs1 = await pool.querySync(expandedRelays, {
+    kinds: [DM_KIND],
+    "#p": [targetPubkey],
+    limit,
+  });
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const receivedDMs2 = await pool.querySync(expandedRelays, {
+    kinds: [DM_KIND],
+    "#p": [targetPubkey],
+    limit,
+  });
+
+  const receivedDMs = dedupeEvents([...receivedDMs1, ...receivedDMs2]);
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  // Update progress with total
+  onProgress?.(
+    "Dusting for fingerprints...",
+    sentDMs.length + receivedDMs.length,
+  );
+
+  return { sent: sentDMs, received: receivedDMs };
+}
+
+/**
+ * Analyze DM metadata and generate statistics
+ * This only reads PUBLIC envelope data - no decryption of message content
+ *
+ * @param targetPubkey - The pubkey to analyze
+ * @param relays - Relays to query
+ * @param onProgress - Progress callback (phase, current, total)
+ * @param abortSignal - Optional abort signal
+ * @returns DMAnalysis object with contacts, stats, and heatmap data
+ */
+export async function analyzeDMMetadata(
+  targetPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (phase: string, current: number, total?: number) => void,
+  abortSignal?: AbortSignal,
+): Promise<import("@/types").DMAnalysis> {
+  // 1. Fetch raw DM events
+  const { sent, received } = await fetchDMMetadata(
+    targetPubkey,
+    relays,
+    (phase, count) => onProgress?.(phase, count),
+    abortSignal,
+  );
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  onProgress?.("Casing the joint...", sent.length + received.length);
+
+  // 2. Aggregate by counterparty
+  const contactMap = new Map<
+    string,
+    {
+      sentCount: number;
+      receivedCount: number;
+      timestamps: number[];
+    }
+  >();
+
+  // Process sent DMs - extract recipient from p-tag
+  for (const event of sent) {
+    const recipientTag = event.tags.find((t) => t[0] === "p");
+    if (!recipientTag?.[1]) continue;
+    const recipientPubkey = recipientTag[1];
+
+    const existing = contactMap.get(recipientPubkey) || {
+      sentCount: 0,
+      receivedCount: 0,
+      timestamps: [],
+    };
+    existing.sentCount++;
+    existing.timestamps.push(event.created_at);
+    contactMap.set(recipientPubkey, existing);
+  }
+
+  // Process received DMs - sender is event.pubkey
+  for (const event of received) {
+    const senderPubkey = event.pubkey;
+
+    const existing = contactMap.get(senderPubkey) || {
+      sentCount: 0,
+      receivedCount: 0,
+      timestamps: [],
+    };
+    existing.receivedCount++;
+    existing.timestamps.push(event.created_at);
+    contactMap.set(senderPubkey, existing);
+  }
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  onProgress?.("Dusting for fingerprints...", contactMap.size);
+
+  // 3. Build contacts array with titles
+  const contacts: import("@/types").DMContact[] = [];
+  for (const [pubkey, data] of contactMap) {
+    const timestamps = data.timestamps.sort((a, b) => a - b);
+    const firstExchange = timestamps[0];
+    const lastExchange = timestamps[timestamps.length - 1];
+
+    contacts.push({
+      pubkey,
+      sentCount: data.sentCount,
+      receivedCount: data.receivedCount,
+      totalCount: data.sentCount + data.receivedCount,
+      firstExchange,
+      lastExchange,
+      title: assignDMTitle({
+        sentCount: data.sentCount,
+        receivedCount: data.receivedCount,
+        firstExchange,
+        lastExchange,
+      }),
+    });
+  }
+
+  // Sort by total exchanges descending
+  contacts.sort((a, b) => b.totalCount - a.totalCount);
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  // 4. Generate heatmap data
+  const heatmapData = generateDMHeatmapData(sent, received);
+
+  // 5. Fetch profiles for top contacts (limit to avoid overwhelming relays)
+  onProgress?.("Ranking the suspects...", 0, Math.min(contacts.length, 50));
+
+  const topContacts = contacts.slice(0, 50);
+  const PROFILE_BATCH_SIZE = 5;
+
+  for (let i = 0; i < topContacts.length; i += PROFILE_BATCH_SIZE) {
+    if (abortSignal?.aborted) throw new Error("Aborted");
+
+    const batch = topContacts.slice(i, i + PROFILE_BATCH_SIZE);
+    const profilePromises = batch.map((contact) =>
+      fetchProfile(contact.pubkey, relays).catch(() => null),
+    );
+
+    const profiles = await Promise.all(profilePromises);
+
+    for (let j = 0; j < batch.length; j++) {
+      if (profiles[j]) {
+        batch[j].profile = profiles[j] || undefined;
+      }
+    }
+
+    onProgress?.(
+      "Ranking the suspects...",
+      Math.min(i + PROFILE_BATCH_SIZE, topContacts.length),
+      Math.min(contacts.length, 50),
+    );
+  }
+
+  // 6. Fetch target's profile
+  const targetProfile = await fetchProfile(targetPubkey, relays).catch(
+    () => null,
+  );
+
+  // Calculate overall stats
+  const allTimestamps = [...sent, ...received].map((e) => e.created_at);
+  const oldestDM =
+    allTimestamps.length > 0 ? Math.min(...allTimestamps) : undefined;
+  const newestDM =
+    allTimestamps.length > 0 ? Math.max(...allTimestamps) : undefined;
+
+  onProgress?.("Snooping intensifies...", contacts.length, contacts.length);
+
+  return {
+    targetPubkey,
+    targetProfile: targetProfile || undefined,
+    contacts,
+    totalSent: sent.length,
+    totalReceived: received.length,
+    heatmapData,
+    scanTimestamp: Date.now(),
+    oldestDM,
+    newestDM,
+  };
+}

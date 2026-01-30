@@ -28,6 +28,7 @@ import ListCleaner from "@/components/ListCleaner";
 import DomainPurge from "@/components/DomainPurge";
 import Purgatory from "@/components/Purgatory";
 import NoteNuke from "@/components/NoteNuke";
+import Snoopable from "@/components/Snoopable";
 import GlobalUserSearch from "@/components/GlobalUserSearch";
 import UserProfileModal from "@/components/UserProfileModal";
 import OnboardingModal from "@/components/OnboardingModal";
@@ -71,6 +72,7 @@ function DashboardContent() {
     "purgatory",
     "decimator",
     "listCleaner",
+    "snoopable",
   ] as const;
   const isToolTabActive = toolTabs.includes(activeTab as any);
 
@@ -98,6 +100,7 @@ function DashboardContent() {
       "domainPurge",
       "purgatory",
       "noteNuke",
+      "snoopable",
     ] as const;
 
     if (tabParam && validTabs.includes(tabParam as any)) {
@@ -542,7 +545,7 @@ function DashboardContent() {
                       changeTab("noteNuke");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "noteNuke"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -555,7 +558,7 @@ function DashboardContent() {
                       changeTab("domainPurge");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "domainPurge"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -568,7 +571,7 @@ function DashboardContent() {
                       changeTab("purgatory");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "purgatory"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -581,7 +584,7 @@ function DashboardContent() {
                       changeTab("decimator");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "decimator"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -594,7 +597,7 @@ function DashboardContent() {
                       changeTab("listCleaner");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "listCleaner"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -602,6 +605,7 @@ function DashboardContent() {
                   >
                     List Cleaner
                   </button>
+                  {/* Snoopable hidden temporarily for quiet testing */}
                 </div>
               )}
             </div>
@@ -645,6 +649,7 @@ function DashboardContent() {
                 {activeTab === "muteOScope" && "Mute-o-Scope"}
                 {activeTab === "noteNuke" && "Note Nuke"}
                 {activeTab === "listCleaner" && "List Cleaner"}
+                {activeTab === "snoopable" && "Snoopable"}
                 {activeTab === "backups" && "Backups"}
                 {activeTab === "settings" && "Settings"}
               </span>
@@ -817,6 +822,7 @@ function DashboardContent() {
                         >
                           List Cleaner
                         </button>
+                        {/* Snoopable hidden temporarily for quiet testing */}
                       </div>
                     )}
                   </div>
@@ -840,6 +846,7 @@ function DashboardContent() {
         {activeTab === "domainPurge" && <DomainPurge />}
         {activeTab === "purgatory" && <Purgatory />}
         {activeTab === "listCleaner" && <ListCleaner />}
+        {activeTab === "snoopable" && <Snoopable />}
         {activeTab === "backups" && <Backups />}
         {activeTab === "settings" && <Settings />}
       </main>

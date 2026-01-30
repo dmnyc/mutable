@@ -50,7 +50,8 @@ interface AppState {
     | "domainPurge"
     | "purgatory"
     | "decimator"
-    | "noteNuke";
+    | "noteNuke"
+    | "snoopable";
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
@@ -86,7 +87,8 @@ interface AppState {
       | "domainPurge"
       | "purgatory"
       | "decimator"
-      | "noteNuke",
+      | "noteNuke"
+      | "snoopable",
   ) => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;

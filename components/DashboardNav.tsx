@@ -16,6 +16,7 @@ type ActivePage =
   | "purgatory"
   | "decimator"
   | "listCleaner"
+  | "snoopable"
   | "settings";
 
 interface DashboardNavProps {
@@ -29,6 +30,7 @@ const toolPages: ActivePage[] = [
   "purgatory",
   "decimator",
   "listCleaner",
+  // "snoopable", // Hidden temporarily for quiet testing
 ];
 
 // Map page IDs to display names
@@ -44,6 +46,7 @@ const pageNames: Record<ActivePage, string> = {
   purgatory: "Purgatory",
   decimator: "Decimator",
   listCleaner: "List Cleaner",
+  snoopable: "Snoopable",
   settings: "Settings",
 };
 
@@ -60,6 +63,7 @@ const pageUrls: Record<ActivePage, string> = {
   purgatory: "/purgatory",
   decimator: "/dashboard?tab=decimator",
   listCleaner: "/dashboard?tab=listCleaner",
+  snoopable: "/snoopable",
   settings: "/dashboard?tab=settings",
 };
 
@@ -124,7 +128,7 @@ export default function DashboardNav({ activePage }: DashboardNavProps) {
                     key={page}
                     href={pageUrls[page]}
                     onClick={() => setToolsDropdownOpen(false)}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activePage === page
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
