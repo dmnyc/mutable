@@ -293,50 +293,37 @@ export default function DMCircle({
         const { width, height } = canvas;
         if (width < 4 || height < 4) return canvas;
 
-        const data = ctx.getImageData(0, 0, width, height).data;
-        const step = 2;
-        let edgeCount = 0;
-        let whiteEdgeCount = 0;
+        const bleed = 2;
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
 
-        const isWhite = (r: number, g: number, b: number, a: number) =>
-          a > 0 && r > 245 && g > 245 && b > 245;
-
-        const sample = (x: number, y: number) => {
-          const idx = (y * width + x) * 4;
-          edgeCount++;
-          if (isWhite(data[idx], data[idx + 1], data[idx + 2], data[idx + 3])) {
-            whiteEdgeCount++;
-          }
+        const copyPixel = (sx: number, sy: number, dx: number, dy: number) => {
+          const s = (sy * width + sx) * 4;
+          const d = (dy * width + dx) * 4;
+          data[d] = data[s];
+          data[d + 1] = data[s + 1];
+          data[d + 2] = data[s + 2];
+          data[d + 3] = data[s + 3];
         };
 
-        for (let x = 0; x < width; x += step) {
-          sample(x, 0);
-          sample(x, height - 1);
+        // Top and bottom edges
+        for (let x = 0; x < width; x++) {
+          for (let y = 0; y < bleed; y++) {
+            copyPixel(x, bleed, x, y);
+            copyPixel(x, height - bleed - 1, x, height - 1 - y);
+          }
         }
-        for (let y = 0; y < height; y += step) {
-          sample(0, y);
-          sample(width - 1, y);
+
+        // Left and right edges
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < bleed; x++) {
+            copyPixel(bleed, y, x, y);
+            copyPixel(width - bleed - 1, y, width - 1 - x, y);
+          }
         }
 
-        const hasWhiteEdge = edgeCount > 0 && whiteEdgeCount / edgeCount > 0.02;
-        if (!hasWhiteEdge) return canvas;
-
-        const bleed = 2;
-        const expanded = document.createElement("canvas");
-        expanded.width = width;
-        expanded.height = height;
-        const expandedCtx = expanded.getContext("2d");
-        if (!expandedCtx) return canvas;
-
-        expandedCtx.drawImage(
-          canvas,
-          -bleed,
-          -bleed,
-          width + bleed * 2,
-          height + bleed * 2,
-        );
-
-        return expanded;
+        ctx.putImageData(imageData, 0, 0);
+        return canvas;
       })();
 
       // Restore rounded corners
