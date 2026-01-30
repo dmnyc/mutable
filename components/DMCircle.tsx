@@ -630,7 +630,7 @@ export default function DMCircle({
 
       {/* Info */}
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-        Showing top {displayContacts.length} contacts by message volume
+        Showing top {displayContacts.length} contacts by recent activity
         {contacts.length > 36 && ` (${contacts.length} total)`}
       </p>
 

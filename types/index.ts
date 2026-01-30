@@ -196,6 +196,7 @@ export interface DMContact {
   totalCount: number; // Total exchanges
   firstExchange: number; // Unix timestamp
   lastExchange: number; // Unix timestamp
+  recencyScore?: number; // Time-decay weighted score for ranking
   title?: string; // Fun title (BFF, Ghost, etc.)
 }
 
