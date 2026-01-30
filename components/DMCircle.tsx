@@ -187,17 +187,19 @@ export default function DMCircle({
   };
 
   // Calculate positions for contacts in concentric rings
+  // All values are percentages of the 500px base size for responsive scaling
   const layout = useMemo(() => {
-    const centerX = 250;
-    const centerY = 250;
-    const centerRadius = 50; // Larger center avatar
+    const baseSize = 500;
+    const centerX = 50; // percentage
+    const centerY = 50; // percentage
+    const centerRadius = 10; // percentage (50px / 500px * 100)
 
-    // Ring configuration: [count, radius, avatarSize]
+    // Ring configuration: [count, radiusPercent, avatarSizePercent]
     // Twitter Circle style - large inner avatars, gradual decrease
     const ringConfigs: [number, number, number][] = [
-      [8, 105, 44], // Ring 1: 8 BFFs, large avatars
-      [12, 160, 36], // Ring 2: 12 close contacts
-      [16, 210, 30], // Ring 3: 16 frequent contacts
+      [8, 21, 8.8], // Ring 1: 8 BFFs (105/500*100, 44/500*100)
+      [12, 32, 7.2], // Ring 2: 12 close contacts (160/500*100, 36/500*100)
+      [16, 42, 6], // Ring 3: 16 frequent contacts (210/500*100, 30/500*100)
     ];
 
     const rings: {
@@ -224,7 +226,7 @@ export default function DMCircle({
       }
     }
 
-    // Calculate positions
+    // Calculate positions (all in percentages)
     const positions: {
       contact: DMContact;
       x: number;
@@ -449,8 +451,8 @@ export default function DMCircle({
       {/* Loading State */}
       {isLoadingImages && (
         <div
-          className="relative mx-auto bg-gradient-to-br from-gray-900 to-purple-900/50 rounded-xl overflow-hidden flex items-center justify-center"
-          style={{ width: "500px", height: "500px", maxWidth: "100%" }}
+          className="relative mx-auto bg-gradient-to-br from-gray-900 to-purple-900/50 rounded-xl overflow-hidden flex items-center justify-center aspect-square"
+          style={{ width: "100%", maxWidth: "500px" }}
         >
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin mx-auto mb-3" />
@@ -466,11 +468,10 @@ export default function DMCircle({
       {/* Circle Visualization */}
       <div
         ref={circleRef}
-        className={`relative mx-auto overflow-hidden ${isLoadingImages ? "hidden" : ""}`}
+        className={`relative mx-auto overflow-hidden aspect-square ${isLoadingImages ? "hidden" : ""}`}
         style={{
-          width: "500px",
-          height: "500px",
-          maxWidth: "100%",
+          width: "100%",
+          maxWidth: "500px",
           background: "linear-gradient(to top, #111827 0%, #581c87 100%)",
           borderRadius: "0.75rem",
         }}
@@ -479,10 +480,10 @@ export default function DMCircle({
         <div
           className="absolute transform -translate-x-1/2 -translate-y-1/2"
           style={{
-            left: `${(layout.centerX / 500) * 100}%`,
-            top: `${(layout.centerY / 500) * 100}%`,
-            width: layout.centerRadius * 2,
-            height: layout.centerRadius * 2,
+            left: `${layout.centerX}%`,
+            top: `${layout.centerY}%`,
+            width: `${layout.centerRadius * 2}%`,
+            height: `${layout.centerRadius * 2}%`,
           }}
         >
           {hasValidImage(targetProfile?.picture) ? (
@@ -494,7 +495,7 @@ export default function DMCircle({
             />
           ) : (
             <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center border-2 border-white/50">
-              <User className="text-white" size={50} />
+              <User className="text-white w-1/2 h-1/2" />
             </div>
           )}
         </div>
@@ -505,10 +506,10 @@ export default function DMCircle({
             key={pos.contact.pubkey}
             className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-110"
             style={{
-              left: `${(pos.x / 500) * 100}%`,
-              top: `${(pos.y / 500) * 100}%`,
-              width: pos.size,
-              height: pos.size,
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              width: `${pos.size}%`,
+              height: `${pos.size}%`,
             }}
             onMouseEnter={() => setHoveredContact(pos.contact)}
             onMouseLeave={() => setHoveredContact(null)}
@@ -522,7 +523,7 @@ export default function DMCircle({
               />
             ) : (
               <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center border border-white/30">
-                <User className="text-white" size={pos.size * 0.5} />
+                <User className="text-white w-1/2 h-1/2" />
               </div>
             )}
           </div>
