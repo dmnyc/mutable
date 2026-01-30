@@ -16,6 +16,15 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Session-Aware**: Uses your configured relays when signed in
 - **Profile Enrichment**: View detailed profiles of who is muting whom
 
+### Snoopable 👀 NEW
+
+Analyze public NIP-04 DM metadata to see who someone talks to most (without decrypting message content).
+
+- **DM Circle**: Visualize top contacts in a shareable image
+- **Leaderboard + Heatmap**: Rank frequent contacts and view activity timing
+- **Shareable Notes**: Copy a ready-to-post note or publish directly to Nostr
+- **No Login Required**: Analyze any npub using public relay data
+
 ### Personal Mute List Management (kind:10000)
 - **View & Edit**: Fetch and display your current mute list with items organized into four categories:
   - Muted Pubkeys

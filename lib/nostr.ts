@@ -3507,6 +3507,26 @@ export async function fetchDMMetadata(
 }
 
 /**
+ * Calculate a recency-weighted score for contact ranking
+ * Uses exponential decay so recent messages count more than old ones
+ * @param timestamps - Array of unix timestamps for all exchanges
+ * @param decayFactor - Decay rate per day (default 0.99 = 1% decay per day)
+ * @returns Weighted score where recent messages contribute more
+ */
+function calculateRecencyScore(
+  timestamps: number[],
+  decayFactor = 0.99,
+): number {
+  const now = Math.floor(Date.now() / 1000);
+  const secondsPerDay = 86400;
+
+  return timestamps.reduce((score, ts) => {
+    const daysAgo = Math.max(0, (now - ts) / secondsPerDay);
+    return score + Math.pow(decayFactor, daysAgo);
+  }, 0);
+}
+
+/**
  * Analyze DM metadata and generate statistics
  * This only reads PUBLIC envelope data - no decryption of message content
  *
@@ -3592,6 +3612,7 @@ export async function analyzeDMMetadata(
       totalCount: data.sentCount + data.receivedCount,
       firstExchange,
       lastExchange,
+      recencyScore: calculateRecencyScore(data.timestamps),
       title: assignDMTitle({
         sentCount: data.sentCount,
         receivedCount: data.receivedCount,
@@ -3601,8 +3622,11 @@ export async function analyzeDMMetadata(
     });
   }
 
-  // Sort by total exchanges descending
-  contacts.sort((a, b) => b.totalCount - a.totalCount);
+  // Filter out contacts the user never responded to (likely spam/bots)
+  const engagedContacts = contacts.filter((c) => c.sentCount > 0);
+
+  // Sort by recency-weighted score (recent activity ranks higher)
+  engagedContacts.sort((a, b) => (b.recencyScore || 0) - (a.recencyScore || 0));
 
   if (abortSignal?.aborted) throw new Error("Aborted");
 
@@ -3610,9 +3634,13 @@ export async function analyzeDMMetadata(
   const heatmapData = generateDMHeatmapData(sent, received);
 
   // 5. Fetch profiles for top contacts (limit to avoid overwhelming relays)
-  onProgress?.("Ranking the suspects...", 0, Math.min(contacts.length, 50));
+  onProgress?.(
+    "Ranking the suspects...",
+    0,
+    Math.min(engagedContacts.length, 50),
+  );
 
-  const topContacts = contacts.slice(0, 50);
+  const topContacts = engagedContacts.slice(0, 50);
   const PROFILE_BATCH_SIZE = 5;
 
   for (let i = 0; i < topContacts.length; i += PROFILE_BATCH_SIZE) {
@@ -3634,7 +3662,7 @@ export async function analyzeDMMetadata(
     onProgress?.(
       "Ranking the suspects...",
       Math.min(i + PROFILE_BATCH_SIZE, topContacts.length),
-      Math.min(contacts.length, 50),
+      Math.min(engagedContacts.length, 50),
     );
   }
 
@@ -3650,12 +3678,16 @@ export async function analyzeDMMetadata(
   const newestDM =
     allTimestamps.length > 0 ? Math.max(...allTimestamps) : undefined;
 
-  onProgress?.("Snooping intensifies...", contacts.length, contacts.length);
+  onProgress?.(
+    "Snooping intensifies...",
+    engagedContacts.length,
+    engagedContacts.length,
+  );
 
   return {
     targetPubkey,
     targetProfile: targetProfile || undefined,
-    contacts,
+    contacts: engagedContacts,
     totalSent: sent.length,
     totalReceived: received.length,
     heatmapData,

@@ -48,6 +48,14 @@ export default function DMCircle({
   const [shareText, setShareText] = useState("");
   const [shareTargetNpub, setShareTargetNpub] = useState<string | null>(null);
   const [shareTargetName, setShareTargetName] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [copiedImageLink, setCopiedImageLink] = useState(false);
+  const [copiedShareableNote, setCopiedShareableNote] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [showShareableNoteModal, setShowShareableNoteModal] = useState(false);
+  const [shareableNoteIsSelf, setShareableNoteIsSelf] = useState(false);
+  const [shareableNoteText, setShareableNoteText] = useState("");
+  const shareableNoteRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { signer, session } = useStore();
   const isSignedIn = !!session?.pubkey && !!signer;
@@ -298,6 +306,42 @@ export default function DMCircle({
     }
   };
 
+  const getShortShareText = (isSelf: boolean, useDisplayName: boolean) => {
+    const npub = hexToNpub(targetPubkey);
+    const name =
+      targetProfile?.display_name ||
+      targetProfile?.name ||
+      npub.slice(0, 12) + "...";
+
+    if (isSelf) {
+      return "I just sn👀ped myself on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself...or anyone else.\nhttps://mutable.top/snoopable";
+    }
+
+    return `I just sn👀ped ${useDisplayName ? `@${name}` : `nostr:${npub}`} on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself...or anyone else.\nhttps://mutable.top/snoopable`;
+  };
+
+  const uploadShareImage = async (): Promise<string> => {
+    if (uploadedImageUrl) return uploadedImageUrl;
+
+    const blob = await captureImage();
+    const uploadResult = await uploadImageToBlossom({
+      blob,
+      filename: `dm-circle-${hexToNpub(targetPubkey).slice(0, 12)}.png`,
+    });
+
+    setUploadedImageUrl(uploadResult.url);
+    return uploadResult.url;
+  };
+
+  const updateShareableNoteText = (
+    isSelf: boolean,
+    imageUrl?: string | null,
+  ) => {
+    const url = imageUrl || uploadedImageUrl;
+    const baseText = getShortShareText(isSelf, true);
+    setShareableNoteText(url ? `${baseText}\n${url}` : baseText);
+  };
+
   const handleDownload = async () => {
     setIsGenerating(true);
     setPublishStatus("Loading images...");
@@ -346,14 +390,10 @@ export default function DMCircle({
       setShareTargetName(isSelf ? null : name);
 
       if (isSelf) {
-        setShareText(
-          `I just sn👀ped myself on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself or anyone else.\nhttps://mutable.top/snoopable`,
-        );
+        setShareText(getShortShareText(true, true));
       } else {
         // Show readable name in editor, will be replaced with nostr: link on publish
-        setShareText(
-          `I just sn👀ped @${name} on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself or anyone else.\nhttps://mutable.top/snoopable`,
-        );
+        setShareText(getShortShareText(false, true));
       }
 
       setShowPublishConfirm(true);
@@ -435,6 +475,90 @@ export default function DMCircle({
       );
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  // Upload image anonymously (using throwaway keypair) and copy URL
+  const handleCopyImageLink = async () => {
+    // If we already uploaded, just copy the existing URL
+    if (uploadedImageUrl) {
+      try {
+        await navigator.clipboard.writeText(uploadedImageUrl);
+        setCopiedImageLink(true);
+        setTimeout(() => setCopiedImageLink(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy:", err);
+      }
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setPublishError(null);
+
+    try {
+      const url = await uploadShareImage();
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(url);
+      setCopiedImageLink(true);
+      setTimeout(() => setCopiedImageLink(false), 2000);
+    } catch (err) {
+      console.error("Failed to upload image:", err);
+      setPublishError(
+        err instanceof Error ? err.message : "Failed to upload image",
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleOpenShareableNote = async () => {
+    setIsUploadingImage(true);
+    setPublishError(null);
+    setCopiedShareableNote(false);
+
+    try {
+      const url = await uploadShareImage();
+      updateShareableNoteText(false, url);
+      setShareableNoteIsSelf(false);
+      setShowShareableNoteModal(true);
+    } catch (err) {
+      console.error("Failed to prepare shareable note:", err);
+      setPublishError(
+        err instanceof Error ? err.message : "Failed to prepare shareable note",
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleCopyShareableNote = async () => {
+    try {
+      const url = uploadedImageUrl;
+      const noteText = url
+        ? `${getShortShareText(shareableNoteIsSelf, false)}\n${url}`
+        : getShortShareText(shareableNoteIsSelf, false);
+      if (!noteText) {
+        throw new Error("Shareable note is not ready yet");
+      }
+
+      if (document.hasFocus() && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(noteText);
+      } else if (shareableNoteRef.current) {
+        shareableNoteRef.current.focus();
+        shareableNoteRef.current.select();
+        document.execCommand("copy");
+      } else {
+        throw new Error("Clipboard is unavailable");
+      }
+
+      setCopiedShareableNote(true);
+      setTimeout(() => setCopiedShareableNote(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy shareable note:", err);
+      setPublishError(
+        err instanceof Error ? err.message : "Failed to copy shareable note",
+      );
     }
   };
 
@@ -554,10 +678,10 @@ export default function DMCircle({
 
       {/* Action Buttons */}
       <div className="flex flex-col items-center gap-3">
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-3 flex-wrap">
           <button
             onClick={handleDownload}
-            disabled={isGenerating || isPublishing}
+            disabled={isGenerating || isPublishing || isUploadingImage}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
           >
             {isGenerating ? (
@@ -573,10 +697,46 @@ export default function DMCircle({
             )}
           </button>
 
+          <button
+            onClick={handleCopyImageLink}
+            disabled={isGenerating || isPublishing || isUploadingImage}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            {isUploadingImage ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Uploading...</span>
+              </>
+            ) : copiedImageLink ? (
+              <>
+                <Check size={18} />
+                <span>Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy size={18} />
+                <span>Copy Image Link</span>
+              </>
+            )}
+          </button>
+
+          {!isSignedIn && (
+            <button
+              onClick={handleOpenShareableNote}
+              disabled={isGenerating || isPublishing || isUploadingImage}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50"
+            >
+              <Copy size={18} />
+              <span>
+                {isUploadingImage ? "Preparing..." : "Copy Shareable Note"}
+              </span>
+            </button>
+          )}
+
           {isSignedIn && (
             <button
               onClick={handlePublishClick}
-              disabled={isGenerating || isPublishing}
+              disabled={isGenerating || isPublishing || isUploadingImage}
               className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50"
             >
               {isPublishing ? (
@@ -630,7 +790,7 @@ export default function DMCircle({
 
       {/* Info */}
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-        Showing top {displayContacts.length} contacts by message volume
+        Showing top {displayContacts.length} contacts by recent activity
         {contacts.length > 36 && ` (${contacts.length} total)`}
       </p>
 
@@ -668,6 +828,53 @@ export default function DMCircle({
                 className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
               >
                 Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShareableNoteModal && !isSignedIn && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Copy Shareable Note
+            </h3>
+
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={shareableNoteIsSelf}
+                onChange={(e) => {
+                  const isSelf = e.target.checked;
+                  setShareableNoteIsSelf(isSelf);
+                  updateShareableNoteText(isSelf, uploadedImageUrl);
+                }}
+                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              This is me!
+            </label>
+
+            <textarea
+              ref={shareableNoteRef}
+              readOnly
+              value={shareableNoteText}
+              className="w-full h-36 bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-sm font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-all border border-transparent"
+            />
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowShareableNoteModal(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCopyShareableNote}
+                disabled={isUploadingImage || !shareableNoteText}
+                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50"
+              >
+                {copiedShareableNote ? "Copied!" : "Copy Note"}
               </button>
             </div>
           </div>
