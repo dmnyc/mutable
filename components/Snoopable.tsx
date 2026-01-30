@@ -283,7 +283,7 @@ export default function Snoopable() {
         </div>
 
         {/* Privacy Warning */}
-        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
           <div className="flex items-start gap-2">
             <AlertTriangle
               className="text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5"
@@ -295,6 +295,12 @@ export default function Snoopable() {
             </p>
           </div>
         </div>
+
+        {/* Results Disclaimer */}
+        <p className="mb-6 text-xs text-gray-500 dark:text-gray-400">
+          Results may vary based on relay availability and connection quality.
+          We query the target user's NIP-65 relays when available.
+        </p>
 
         {/* Search Input */}
         <div className="relative mb-4">
