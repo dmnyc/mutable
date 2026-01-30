@@ -545,7 +545,7 @@ function DashboardContent() {
                       changeTab("noteNuke");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "noteNuke"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -558,7 +558,7 @@ function DashboardContent() {
                       changeTab("domainPurge");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "domainPurge"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -571,7 +571,7 @@ function DashboardContent() {
                       changeTab("purgatory");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "purgatory"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -584,7 +584,7 @@ function DashboardContent() {
                       changeTab("decimator");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "decimator"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -597,7 +597,7 @@ function DashboardContent() {
                       changeTab("listCleaner");
                       setToolsDropdownOpen(false);
                     }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "listCleaner"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -605,19 +605,7 @@ function DashboardContent() {
                   >
                     List Cleaner
                   </button>
-                  <button
-                    onClick={() => {
-                      changeTab("snoopable");
-                      setToolsDropdownOpen(false);
-                    }}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
-                      activeTab === "snoopable"
-                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    Snoopable
-                  </button>
+                  {/* Snoopable hidden temporarily for quiet testing */}
                 </div>
               )}
             </div>
@@ -834,19 +822,7 @@ function DashboardContent() {
                         >
                           List Cleaner
                         </button>
-                        <button
-                          onClick={() => {
-                            changeTab("snoopable");
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "snoopable"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Snoopable
-                        </button>
+                        {/* Snoopable hidden temporarily for quiet testing */}
                       </div>
                     )}
                   </div>

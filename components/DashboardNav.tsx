@@ -30,7 +30,7 @@ const toolPages: ActivePage[] = [
   "purgatory",
   "decimator",
   "listCleaner",
-  "snoopable",
+  // "snoopable", // Hidden temporarily for quiet testing
 ];
 
 // Map page IDs to display names
@@ -128,7 +128,7 @@ export default function DashboardNav({ activePage }: DashboardNavProps) {
                     key={page}
                     href={pageUrls[page]}
                     onClick={() => setToolsDropdownOpen(false)}
-                    className={`block w-full text-left px-4 py-2.5 text-base transition-colors ${
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activePage === page
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
