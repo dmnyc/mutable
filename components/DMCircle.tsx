@@ -286,11 +286,38 @@ export default function DMCircle({
         logging: false,
       });
 
+      const normalizedCanvas = (() => {
+        const inset = 1;
+        if (canvas.width <= inset * 2 || canvas.height <= inset * 2) {
+          return canvas;
+        }
+
+        const trimmed = document.createElement("canvas");
+        trimmed.width = canvas.width;
+        trimmed.height = canvas.height;
+        const ctx = trimmed.getContext("2d");
+        if (!ctx) return canvas;
+
+        ctx.drawImage(
+          canvas,
+          inset,
+          inset,
+          canvas.width - inset * 2,
+          canvas.height - inset * 2,
+          0,
+          0,
+          trimmed.width,
+          trimmed.height,
+        );
+
+        return trimmed;
+      })();
+
       // Restore rounded corners
       circleRef.current.style.borderRadius = originalBorderRadius;
 
       return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
+        normalizedCanvas.toBlob((blob) => {
           if (blob) {
             resolve(blob);
           } else {
@@ -327,6 +354,8 @@ export default function DMCircle({
     const uploadResult = await uploadImageToBlossom({
       blob,
       filename: `dm-circle-${hexToNpub(targetPubkey).slice(0, 12)}.png`,
+      signer: isSignedIn ? signer! : undefined,
+      server: isSignedIn ? "https://blossom.band" : undefined,
     });
 
     setUploadedImageUrl(uploadResult.url);
@@ -418,11 +447,12 @@ export default function DMCircle({
       const blob = await captureImage();
 
       // Upload to Blossom
-      setPublishStatus("Uploading to nostr.build...");
+      setPublishStatus("Uploading to blossom.band...");
       const uploadResult = await uploadImageToBlossom({
         blob,
         filename: `dm-circle-${hexToNpub(targetPubkey).slice(0, 12)}.png`,
         signer: signer!,
+        server: "https://blossom.band",
       });
 
       // Build the note content - replace @name with nostr: link, add image URL

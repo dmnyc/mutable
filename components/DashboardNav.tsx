@@ -30,7 +30,6 @@ const toolPages: ActivePage[] = [
   "purgatory",
   "decimator",
   "listCleaner",
-  "snoopable",
 ];
 
 // Map page IDs to display names
@@ -81,6 +80,7 @@ export default function DashboardNav({ activePage }: DashboardNavProps) {
     "muteuals",
     "reciprocals",
     "muteOScope",
+    "snoopable",
     "backups",
   ];
 

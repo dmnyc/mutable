@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
-import { Lock, Unlock, Search, User, Loader2 } from "lucide-react";
+import { Lock, Unlock, User, Loader2 } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -14,12 +14,18 @@ export default function Home() {
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [snoopQuery, setSnoopQuery] = useState("");
   const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>(
     [],
   );
   const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
   const [showProfileResults, setShowProfileResults] = useState(false);
+  const [snoopSearchResults, setSnoopSearchResults] = useState<Profile[]>([]);
+  const [isSearchingSnoopProfiles, setIsSearchingSnoopProfiles] =
+    useState(false);
+  const [showSnoopProfileResults, setShowSnoopProfileResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
+  const snoopSearchDropdownRef = useRef<HTMLDivElement>(null);
   const { isConnected } = useAuth();
 
   useEffect(() => {
@@ -66,6 +72,42 @@ export default function Home() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
+  // Real-time profile search for Snoopable
+  useEffect(() => {
+    const searchSnoopProfiles = async () => {
+      if (!snoopQuery.trim()) {
+        setSnoopSearchResults([]);
+        setShowSnoopProfileResults(false);
+        return;
+      }
+
+      if (
+        snoopQuery.startsWith("npub") ||
+        snoopQuery.startsWith("nprofile") ||
+        snoopQuery.match(/^[0-9a-f]{64}$/i)
+      ) {
+        setSnoopSearchResults([]);
+        setShowSnoopProfileResults(false);
+        return;
+      }
+
+      setIsSearchingSnoopProfiles(true);
+      setShowSnoopProfileResults(true);
+      try {
+        const results = await searchProfiles(snoopQuery, DEFAULT_RELAYS, 10);
+        setSnoopSearchResults(results);
+      } catch (error) {
+        console.error("Snoopable profile search failed:", error);
+        setSnoopSearchResults([]);
+      } finally {
+        setIsSearchingSnoopProfiles(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchSnoopProfiles, 300);
+    return () => clearTimeout(timeoutId);
+  }, [snoopQuery]);
+
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -84,11 +126,35 @@ export default function Home() {
     }
   }, [showProfileResults]);
 
+  // Handle click outside to close snoop dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        snoopSearchDropdownRef.current &&
+        !snoopSearchDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowSnoopProfileResults(false);
+      }
+    };
+
+    if (showSnoopProfileResults) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showSnoopProfileResults]);
+
   const handleSearch = () => {
     if (searchQuery.trim()) {
       router.push(
         `/mute-o-scope?npub=${encodeURIComponent(searchQuery.trim())}`,
       );
+    }
+  };
+
+  const handleSnoopSearch = () => {
+    if (snoopQuery.trim()) {
+      router.push(`/snoopable?npub=${encodeURIComponent(snoopQuery.trim())}`);
     }
   };
 
@@ -107,6 +173,15 @@ export default function Home() {
     // Navigate immediately when profile is selected - convert hex to npub
     const npub = hexToNpub(profile.pubkey);
     router.push(`/mute-o-scope?npub=${encodeURIComponent(npub)}`);
+  };
+
+  const handleSelectSnoopProfile = (profile: Profile) => {
+    const displayName =
+      profile.display_name || profile.name || profile.nip05 || "";
+    setSnoopQuery(displayName);
+    setShowSnoopProfileResults(false);
+    const npub = hexToNpub(profile.pubkey);
+    router.push(`/snoopable?npub=${encodeURIComponent(npub)}`);
   };
 
   if (isConnected) {
@@ -171,7 +246,27 @@ export default function Home() {
                   height={20}
                 />
                 Mute-o-Scope
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-purple-800 rounded">
+              </Link>
+              <Link
+                href="/snoopable"
+                className="w-full px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                <svg
+                  width="20"
+                  height="16"
+                  viewBox="0 0 459 374"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-white"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Snoopable
+                <span className="text-xs font-bold px-1.5 py-0.5 bg-gray-700 rounded">
                   NEW
                 </span>
               </Link>
@@ -181,9 +276,12 @@ export default function Home() {
           {/* Mute-o-Scope Info Card */}
           <div className="max-w-md mx-auto w-full mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
             <div className="flex items-start gap-3 mb-4">
-              <Unlock
-                className="text-green-600 dark:text-green-400 flex-shrink-0 mt-1"
-                size={24}
+              <Image
+                src="/mute_o_scope_icon_white.svg"
+                alt="Mute-o-Scope"
+                width={24}
+                height={24}
+                className="flex-shrink-0 mt-1"
               />
               <div className="text-left">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
@@ -227,7 +325,12 @@ export default function Home() {
                   disabled={!searchQuery.trim()}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  <Search size={16} />
+                  <Image
+                    src="/mute_o_scope_icon_white.svg"
+                    alt="Mute-o-Scope"
+                    width={16}
+                    height={16}
+                  />
                 </button>
               </div>
 
@@ -267,6 +370,130 @@ export default function Home() {
                           <p className="text-xs text-green-600 dark:text-green-400 truncate">
                             ✓ {profile.nip05}
                           </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Snoopable Info Card */}
+          <div className="max-w-md mx-auto w-full mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-3 mb-4">
+              <svg
+                width="24"
+                height="19"
+                viewBox="0 0 459 374"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-purple-600 dark:text-purple-400 flex-shrink-0 mt-1"
+                aria-hidden="true"
+              >
+                <path
+                  d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  Try Snoopable - No Login Required{" "}
+                  <span className="inline-flex items-center text-xs font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200 rounded">
+                    NEW
+                  </span>
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  See how public your DM metadata really is. Analyze any npub to
+                  view activity, top contacts, and heatmap insights.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative" ref={snoopSearchDropdownRef}>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={snoopQuery}
+                    onChange={(e) => setSnoopQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSnoopSearch();
+                        setShowSnoopProfileResults(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (snoopSearchResults.length > 0) {
+                        setShowSnoopProfileResults(true);
+                      }
+                    }}
+                    placeholder="Enter npub or username..."
+                    className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+                  />
+                  {isSearchingSnoopProfiles && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleSnoopSearch}
+                  disabled={!snoopQuery.trim()}
+                  className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg
+                    width="16"
+                    height="13"
+                    viewBox="0 0 459 374"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-white"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {showSnoopProfileResults && snoopSearchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                  {snoopSearchResults.map((profile) => (
+                    <button
+                      key={profile.pubkey}
+                      onClick={() => handleSelectSnoopProfile(profile)}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                    >
+                      {profile.picture ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profile.picture}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.pubkey}`;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                          <User className="text-white" size={16} />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 dark:text-white truncate">
+                          {profile.display_name || profile.name || "Anonymous"}
+                        </div>
+                        {profile.nip05 && (
+                          <div className="text-xs text-green-600 dark:text-green-400 truncate">
+                            ✓ {profile.nip05}
+                          </div>
                         )}
                       </div>
                     </button>
