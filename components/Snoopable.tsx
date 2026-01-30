@@ -52,6 +52,7 @@ export default function Snoopable() {
 
   // UI state
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedNote, setCopiedNote] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState<
     "circle" | "leaderboard" | "heatmap"
@@ -196,6 +197,44 @@ export default function Snoopable() {
       setTimeout(() => setCopiedLink(false), 2000);
     } catch (err) {
       console.error("Failed to copy link:", err);
+    }
+  };
+
+  const generateNoteText = () => {
+    if (!analysis) return "";
+
+    const npub = hexToNpub(analysis.targetPubkey);
+    let content = `🔍 Sn👀pable Report for nostr:${npub}\n\n`;
+    content += `📊 DM Activity:\n`;
+    content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
+    content += `• ${analysis.contacts.length} unique contacts\n`;
+
+    if (analysis.oldestDM) {
+      const oldestDate = new Date(analysis.oldestDM * 1000);
+      content += `• Active since ${oldestDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}\n`;
+    }
+
+    content += `\n🏆 Top Contacts:\n`;
+    const topContacts = analysis.contacts.slice(0, 3);
+    topContacts.forEach((contact, i) => {
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
+      content += `${medal} ${contact.title} (${contact.totalCount} exchanges)\n`;
+    });
+
+    content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
+
+    return content;
+  };
+
+  const handleCopyNote = async () => {
+    if (!analysis) return;
+    try {
+      const noteText = generateNoteText();
+      await navigator.clipboard.writeText(noteText);
+      setCopiedNote(true);
+      setTimeout(() => setCopiedNote(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy note:", err);
     }
   };
 
@@ -499,7 +538,7 @@ export default function Snoopable() {
             </div>
 
             {/* Share Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleCopyLink}
                 className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -516,6 +555,24 @@ export default function Snoopable() {
                   </>
                 )}
               </button>
+              {!session && (
+                <button
+                  onClick={handleCopyNote}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 rounded-lg transition-colors"
+                >
+                  {copiedNote ? (
+                    <>
+                      <Check size={16} className="text-green-600" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} />
+                      <span>Copy Note</span>
+                    </>
+                  )}
+                </button>
+              )}
               {session && (
                 <button
                   onClick={() => setShowShareModal(true)}
