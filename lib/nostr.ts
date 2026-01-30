@@ -3397,11 +3397,47 @@ export async function fetchDMMetadata(
   limit: number = 500,
 ): Promise<{ sent: Event[]; received: Event[] }> {
   const pool = getPool();
+
+  onProgress?.("Discovering target's relays...", 0);
+
+  // Fetch target user's NIP-65 relay list for better coverage
+  let targetRelays: string[] = [];
+  try {
+    const { writeRelays, metadata } =
+      await fetchRelayListFromNostr(targetPubkey);
+    if (writeRelays.length > 0) {
+      targetRelays = writeRelays;
+      console.log(
+        `📡 Found ${writeRelays.length} relays for target user (NIP-65)`,
+      );
+    }
+    // Also include read relays - DMs could be on either
+    if (metadata?.read) {
+      targetRelays = [...new Set([...targetRelays, ...metadata.read])];
+    }
+    if (metadata?.both) {
+      targetRelays = [...new Set([...targetRelays, ...metadata.both])];
+    }
+  } catch (err) {
+    console.log("Could not fetch target's relay list, using defaults");
+  }
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  // Combine: target's relays + provided relays + defaults for maximum coverage
+  const allRelays = [
+    ...new Set([...targetRelays, ...relays, ...DEFAULT_RELAYS]),
+  ];
+
   // Filter out known-bad relays and expand the list
-  const filteredRelays = relays.filter(
+  const filteredRelays = allRelays.filter(
     (r) => !r.includes("garden.zap.cooking"),
   );
   const expandedRelays = getExpandedRelayList(filteredRelays);
+
+  console.log(
+    `📡 Snoopable: Querying ${expandedRelays.length} relays (${targetRelays.length} from target's NIP-65)`,
+  );
 
   onProgress?.("Intercepting transmissions...", 0);
 
