@@ -41,7 +41,13 @@ export default function DMCircle({
   const [loadedImages, setLoadedImages] = useState<Map<string, string>>(
     new Map(),
   );
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [isLoadingImages, setIsLoadingImages] = useState(true);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [shareText, setShareText] = useState("");
+  const [shareTargetNpub, setShareTargetNpub] = useState<string | null>(null);
+  const [shareTargetName, setShareTargetName] = useState<string | null>(null);
 
   const { signer, session } = useStore();
   const isSignedIn = !!session?.pubkey && !!signer;
@@ -50,15 +56,20 @@ export default function DMCircle({
   const displayContacts = useMemo(() => contacts.slice(0, 36), [contacts]);
 
   // Load a single image as base64 with retry through multiple proxies
-  const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+  const loadImageAsBase64 = async (
+    url: string,
+    skipCache = false,
+  ): Promise<string | null> => {
     // Check cache first
-    if (imageCache.has(url)) {
+    if (!skipCache && imageCache.has(url)) {
       return imageCache.get(url)!;
     }
 
     const proxies = [
       `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=100&h=100&fit=cover&a=attention`,
       `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=100&h=100`,
+      `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=200&h=200`, // Try larger size
+      `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=200&h=200`,
     ];
 
     for (const proxyUrl of proxies) {
@@ -90,8 +101,9 @@ export default function DMCircle({
     const loadAllImages = async () => {
       setIsLoadingImages(true);
       const newLoadedImages = new Map<string, string>();
+      const newFailedImages = new Set<string>();
 
-      // Collect all image URLs
+      // Collect all image URLs - target profile first (priority)
       const urls: string[] = [];
       if (targetProfile?.picture) urls.push(targetProfile.picture);
       displayContacts.forEach((c) => {
@@ -112,15 +124,47 @@ export default function DMCircle({
         results.forEach(({ url, base64 }) => {
           if (base64) {
             newLoadedImages.set(url, base64);
+          } else {
+            newFailedImages.add(url);
           }
         });
 
         // Update state after each batch so images appear progressively
         setLoadedImages(new Map(newLoadedImages));
+        setFailedImages(new Set(newFailedImages));
 
         // Small delay between batches to avoid rate limiting
         if (i + batchSize < urls.length) {
           await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      // Second pass: retry failed images (especially important for target profile)
+      if (newFailedImages.size > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500)); // Wait before retry
+
+        const failedUrls = Array.from(newFailedImages);
+        // Prioritize target profile
+        if (
+          targetProfile?.picture &&
+          newFailedImages.has(targetProfile.picture)
+        ) {
+          const idx = failedUrls.indexOf(targetProfile.picture);
+          if (idx > 0) {
+            failedUrls.splice(idx, 1);
+            failedUrls.unshift(targetProfile.picture);
+          }
+        }
+
+        for (const url of failedUrls) {
+          const base64 = await loadImageAsBase64(url, true); // Skip cache, force retry
+          if (base64) {
+            newLoadedImages.set(url, base64);
+            newFailedImages.delete(url);
+            setLoadedImages(new Map(newLoadedImages));
+            setFailedImages(new Set(newFailedImages));
+          }
+          await new Promise((resolve) => setTimeout(resolve, 200)); // Delay between retries
         }
       }
 
@@ -130,10 +174,16 @@ export default function DMCircle({
     loadAllImages();
   }, [targetProfile?.picture, displayContacts]);
 
-  // Get image URL - use cached base64 if available, otherwise original
+  // Check if image loaded successfully
+  const hasValidImage = (url: string | undefined): boolean => {
+    if (!url) return false;
+    return loadedImages.has(url) && !failedImages.has(url);
+  };
+
+  // Get image URL - use cached base64 if available
   const getImageUrl = (url: string | undefined): string | undefined => {
     if (!url) return undefined;
-    return loadedImages.get(url) || url;
+    return loadedImages.get(url);
   };
 
   // Calculate positions for contacts in concentric rings
@@ -213,6 +263,10 @@ export default function DMCircle({
     // Just wait a moment for any final renders
     await new Promise((resolve) => setTimeout(resolve, 100));
 
+    // Temporarily remove rounded corners for capture
+    const originalBorderRadius = circleRef.current.style.borderRadius;
+    circleRef.current.style.borderRadius = "0";
+
     try {
       const canvas = await html2canvas(circleRef.current, {
         useCORS: true,
@@ -221,6 +275,9 @@ export default function DMCircle({
         backgroundColor: null,
         logging: false,
       });
+
+      // Restore rounded corners
+      circleRef.current.style.borderRadius = originalBorderRadius;
 
       return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
@@ -232,6 +289,8 @@ export default function DMCircle({
         }, "image/png");
       });
     } catch (err) {
+      // Restore rounded corners on error
+      circleRef.current.style.borderRadius = originalBorderRadius;
       console.error("html2canvas error:", err);
       throw new Error("Failed to capture image");
     }
@@ -259,19 +318,60 @@ export default function DMCircle({
     }
   };
 
-  // Publish to Nostr
-  const handlePublish = async () => {
+  // Show publish confirmation with preview
+  const handlePublishClick = async () => {
     if (!isSignedIn) {
       setPublishError("You must be signed in to publish to Nostr");
       return;
     }
 
+    try {
+      // Generate preview image
+      const blob = await captureImage();
+      const url = URL.createObjectURL(blob);
+      setPreviewImageUrl(url);
+
+      // Set default share text - different if snooping yourself vs others
+      const isSelf = session?.pubkey === targetPubkey;
+      const npub = hexToNpub(targetPubkey);
+      const name =
+        targetProfile?.display_name ||
+        targetProfile?.name ||
+        npub.slice(0, 12) + "...";
+
+      // Store for later substitution when publishing
+      setShareTargetNpub(isSelf ? null : npub);
+      setShareTargetName(isSelf ? null : name);
+
+      if (isSelf) {
+        setShareText(
+          `I just sn👀ped myself on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself or anyone else.\nhttps://mutable.top/snoopable`,
+        );
+      } else {
+        // Show readable name in editor, will be replaced with nostr: link on publish
+        setShareText(
+          `I just sn👀ped @${name} on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself or anyone else.\nhttps://mutable.top/snoopable`,
+        );
+      }
+
+      setShowPublishConfirm(true);
+    } catch (err) {
+      console.error("Failed to generate preview:", err);
+      setPublishError("Failed to generate preview");
+    }
+  };
+
+  // Actually publish to Nostr after confirmation
+  const handleConfirmPublish = async () => {
+    if (!isSignedIn || !previewImageUrl) return;
+
+    setShowPublishConfirm(false);
     setIsPublishing(true);
     setPublishError(null);
     setPublishedNoteId(null);
 
     try {
-      // Generate the image
+      // Generate the image again for upload
       setPublishStatus("Generating image...");
       const blob = await captureImage();
 
@@ -283,18 +383,15 @@ export default function DMCircle({
         signer: signer!,
       });
 
-      // Build the note content
-      const targetName =
-        targetProfile?.display_name ||
-        targetProfile?.name ||
-        hexToNpub(targetPubkey).slice(0, 16) + "...";
-
-      const noteContent = `My DM Circle for ${targetName}
-
-${uploadResult.url}
-
-Your DMs aren't as private as you think!
-https://mutable.nostr.com/snoopable`;
+      // Build the note content - replace @name with nostr: link, add image URL
+      let finalText = shareText;
+      if (shareTargetNpub && shareTargetName) {
+        finalText = finalText.replace(
+          `@${shareTargetName}`,
+          `nostr:${shareTargetNpub}`,
+        );
+      }
+      const noteContent = `${finalText}\n${uploadResult.url}`;
 
       // Publish the note
       setPublishStatus("Publishing note...");
@@ -313,12 +410,27 @@ https://mutable.nostr.com/snoopable`;
       setPublishStatus("");
     } finally {
       setIsPublishing(false);
+      // Clean up preview URL
+      if (previewImageUrl) {
+        URL.revokeObjectURL(previewImageUrl);
+        setPreviewImageUrl(null);
+      }
+    }
+  };
+
+  const handleCancelPublish = () => {
+    setShowPublishConfirm(false);
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+      setPreviewImageUrl(null);
     }
   };
 
   const copyNoteLink = () => {
     if (publishedNoteId) {
-      navigator.clipboard.writeText(`https://njump.me/${publishedNoteId}`);
+      navigator.clipboard.writeText(
+        `https://jumble.social/notes/${publishedNoteId}`,
+      );
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     }
@@ -354,8 +466,14 @@ https://mutable.nostr.com/snoopable`;
       {/* Circle Visualization */}
       <div
         ref={circleRef}
-        className={`relative mx-auto bg-gradient-to-br from-gray-900 to-purple-900/50 rounded-xl overflow-hidden ${isLoadingImages ? "hidden" : ""}`}
-        style={{ width: "500px", height: "500px", maxWidth: "100%" }}
+        className={`relative mx-auto overflow-hidden ${isLoadingImages ? "hidden" : ""}`}
+        style={{
+          width: "500px",
+          height: "500px",
+          maxWidth: "100%",
+          background: "linear-gradient(to top, #111827 0%, #581c87 100%)",
+          borderRadius: "0.75rem",
+        }}
       >
         {/* Center Profile */}
         <div
@@ -367,17 +485,12 @@ https://mutable.nostr.com/snoopable`;
             height: layout.centerRadius * 2,
           }}
         >
-          {targetProfile?.picture ? (
+          {hasValidImage(targetProfile?.picture) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={getImageUrl(targetProfile.picture)}
+              src={getImageUrl(targetProfile?.picture)}
               alt=""
-              crossOrigin="anonymous"
               className="w-full h-full rounded-full object-cover border-2 border-white/50"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  `https://api.dicebear.com/7.x/bottts/svg?seed=${targetPubkey}`;
-              }}
             />
           ) : (
             <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center border-2 border-white/50">
@@ -400,17 +513,12 @@ https://mutable.nostr.com/snoopable`;
             onMouseEnter={() => setHoveredContact(pos.contact)}
             onMouseLeave={() => setHoveredContact(null)}
           >
-            {pos.contact.profile?.picture ? (
+            {hasValidImage(pos.contact.profile?.picture) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={getImageUrl(pos.contact.profile.picture)}
+                src={getImageUrl(pos.contact.profile?.picture)}
                 alt=""
-                crossOrigin="anonymous"
                 className="w-full h-full rounded-full object-cover border border-white/30"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    `https://api.dicebear.com/7.x/bottts/svg?seed=${pos.contact.pubkey}`;
-                }}
               />
             ) : (
               <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center border border-white/30">
@@ -466,7 +574,7 @@ https://mutable.nostr.com/snoopable`;
 
           {isSignedIn && (
             <button
-              onClick={handlePublish}
+              onClick={handlePublishClick}
               disabled={isGenerating || isPublishing}
               className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50"
             >
@@ -499,7 +607,7 @@ https://mutable.nostr.com/snoopable`;
             </div>
             <div className="flex items-center gap-2">
               <a
-                href={`https://njump.me/${publishedNoteId}`}
+                href={`https://jumble.social/notes/${publishedNoteId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
@@ -524,6 +632,46 @@ https://mutable.nostr.com/snoopable`;
         Showing top {displayContacts.length} contacts by message volume
         {contacts.length > 36 && ` (${contacts.length} total)`}
       </p>
+
+      {/* Publish Confirmation Modal */}
+      {showPublishConfirm && previewImageUrl && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Share to Nostr
+            </h3>
+
+            {/* Editable share text */}
+            <textarea
+              value={shareText}
+              onChange={(e) => setShareText(e.target.value)}
+              className="w-full h-28 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Write your note..."
+            />
+
+            {/* Preview */}
+            <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewImageUrl} alt="Preview" className="w-full" />
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelPublish}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPublish}
+                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+              >
+                Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

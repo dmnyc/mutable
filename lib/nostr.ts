@@ -3397,12 +3397,27 @@ export async function fetchDMMetadata(
   limit: number = 500,
 ): Promise<{ sent: Event[]; received: Event[] }> {
   const pool = getPool();
-  const expandedRelays = getExpandedRelayList(relays);
+  // Filter out known-bad relays and expand the list
+  const filteredRelays = relays.filter(
+    (r) => !r.includes("garden.zap.cooking"),
+  );
+  const expandedRelays = getExpandedRelayList(filteredRelays);
 
   onProgress?.("Intercepting transmissions...", 0);
 
-  // Query DMs sent BY the target
-  const sentDMs = await pool.querySync(expandedRelays, {
+  // Helper to deduplicate events by ID
+  const dedupeEvents = (events: Event[]): Event[] => {
+    const seen = new Set<string>();
+    return events.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+  };
+
+  // Query with a small delay between to avoid overwhelming relays
+  // Run query twice and merge results for more consistent data
+  const sentDMs1 = await pool.querySync(expandedRelays, {
     kinds: [DM_KIND],
     authors: [targetPubkey],
     limit,
@@ -3410,16 +3425,47 @@ export async function fetchDMMetadata(
 
   if (abortSignal?.aborted) throw new Error("Aborted");
 
+  // Small delay before second query
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const sentDMs2 = await pool.querySync(expandedRelays, {
+    kinds: [DM_KIND],
+    authors: [targetPubkey],
+    limit,
+  });
+
+  const sentDMs = dedupeEvents([...sentDMs1, ...sentDMs2]);
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
   onProgress?.("Surveilling the targets...", sentDMs.length);
 
   // Query DMs received BY the target (they are in #p tag)
-  const receivedDMs = await pool.querySync(expandedRelays, {
+  const receivedDMs1 = await pool.querySync(expandedRelays, {
     kinds: [DM_KIND],
     "#p": [targetPubkey],
     limit,
   });
 
   if (abortSignal?.aborted) throw new Error("Aborted");
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const receivedDMs2 = await pool.querySync(expandedRelays, {
+    kinds: [DM_KIND],
+    "#p": [targetPubkey],
+    limit,
+  });
+
+  const receivedDMs = dedupeEvents([...receivedDMs1, ...receivedDMs2]);
+
+  if (abortSignal?.aborted) throw new Error("Aborted");
+
+  // Update progress with total
+  onProgress?.(
+    "Dusting for fingerprints...",
+    sentDMs.length + receivedDMs.length,
+  );
 
   return { sent: sentDMs, received: receivedDMs };
 }

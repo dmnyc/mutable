@@ -54,8 +54,8 @@ export default function Snoopable() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "leaderboard" | "heatmap" | "circle"
-  >("leaderboard");
+    "circle" | "leaderboard" | "heatmap"
+  >("circle");
   const [showShareModal, setShowShareModal] = useState(false);
   const [includeNames, setIncludeNames] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -207,10 +207,10 @@ export default function Snoopable() {
       const npub = hexToNpub(analysis.targetPubkey);
       const isOwnAnalysis = analysis.targetPubkey === session.pubkey;
 
-      // Build the note content
+      // Build the note content - use nostr: link for the target
       let content = isOwnAnalysis
-        ? `🔍 My Snoopable Report\n\n`
-        : `🔍 Snoopable Report for ${analysis.targetProfile?.display_name || analysis.targetProfile?.name || npub.slice(0, 12) + "..."}\n\n`;
+        ? `🔍 Sn👀pable Report for myself\n\n`
+        : `🔍 Sn👀pable Report for nostr:${npub}\n\n`;
 
       content += `📊 DM Activity:\n`;
       content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
@@ -236,7 +236,7 @@ export default function Snoopable() {
         }
       });
 
-      content += `\nYour DMs aren't as private as you think!\nhttps://mutable.nostr.com/snoopable`;
+      content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
 
       const result = await publishTextNote(content, [], session.relays);
 
@@ -413,33 +413,31 @@ export default function Snoopable() {
           )}
         </div>
 
-        {/* Progress Display - fixed height container to prevent layout shift */}
-        <div className="mt-4 min-h-[72px]">
-          {analyzing && progressPhase ? (
-            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
-              <div className="flex items-center gap-3">
-                <RefreshCw
-                  className="animate-spin text-purple-600 dark:text-purple-400"
-                  size={20}
-                />
-                <div>
-                  <div className="font-medium text-purple-900 dark:text-purple-100">
-                    {progressPhase}
-                  </div>
-                  {progressTotal ? (
-                    <div className="text-sm text-purple-700 dark:text-purple-300">
-                      {progressCount} of {progressTotal}
-                    </div>
-                  ) : progressCount > 0 ? (
-                    <div className="text-sm text-purple-700 dark:text-purple-300">
-                      {progressCount} found
-                    </div>
-                  ) : null}
+        {/* Progress Display */}
+        {analyzing && progressPhase && (
+          <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+            <div className="flex items-center gap-3">
+              <RefreshCw
+                className="animate-spin text-purple-600 dark:text-purple-400"
+                size={20}
+              />
+              <div>
+                <div className="font-medium text-purple-900 dark:text-purple-100">
+                  {progressPhase}
                 </div>
+                {progressTotal ? (
+                  <div className="text-sm text-purple-700 dark:text-purple-300">
+                    {progressCount} of {progressTotal}
+                  </div>
+                ) : progressCount > 0 ? (
+                  <div className="text-sm text-purple-700 dark:text-purple-300">
+                    {progressCount} found
+                  </div>
+                ) : null}
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && !analyzing && (
@@ -559,6 +557,16 @@ export default function Snoopable() {
           {/* View Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
             <button
+              onClick={() => setActiveTab("circle")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "circle"
+                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              DM Circle
+            </button>
+            <button
               onClick={() => setActiveTab("leaderboard")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "leaderboard"
@@ -576,24 +584,14 @@ export default function Snoopable() {
                   : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
             >
-              Activity Heatmap
-            </button>
-            <button
-              onClick={() => setActiveTab("circle")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "circle"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              DM Circle
+              Heatmap
             </button>
           </div>
 
           {/* Tab Content */}
           {activeTab === "leaderboard" && (
             <DMLeaderboard
-              contacts={analysis.contacts}
+              contacts={analysis.contacts.filter((c) => c && c.pubkey)}
               onSelectContact={(contact) =>
                 setSelectedProfile(
                   contact.profile || { pubkey: contact.pubkey },
@@ -637,7 +635,7 @@ export default function Snoopable() {
             </div>
 
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-              {`🔍 ${analysis.targetPubkey === session?.pubkey ? "My" : ""} Snoopable Report
+              {`🔍 Sn👀pable Report for ${analysis.targetPubkey === session?.pubkey ? "myself" : `@${analysis.targetProfile?.display_name || analysis.targetProfile?.name || hexToNpub(analysis.targetPubkey).slice(0, 16) + "..."}`}
 
 📊 DM Activity:
 • ${analysis.totalSent} sent / ${analysis.totalReceived} received
@@ -657,7 +655,7 @@ ${analysis.contacts
   .join("\n")}
 
 Your DMs aren't as private as you think!
-https://mutable.nostr.com/snoopable`}
+https://mutable.top/snoopable`}
             </div>
 
             <div className="flex gap-3">

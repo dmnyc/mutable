@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { User, ExternalLink, Copy, Check, Trophy, Ghost, Flame, Clock, MessageCircle } from "lucide-react";
+import {
+  User,
+  ExternalLink,
+  Copy,
+  Check,
+  Trophy,
+  Ghost,
+  Flame,
+  Clock,
+  MessageCircle,
+} from "lucide-react";
 import { DMContact } from "@/types";
 import { hexToNpub } from "@/lib/nostr";
 
@@ -11,20 +21,59 @@ interface DMLeaderboardProps {
 }
 
 // Title badge colors and icons
-const titleConfig: Record<string, { color: string; bgColor: string; icon?: React.ReactNode }> = {
-  "BFF": { color: "text-pink-700 dark:text-pink-300", bgColor: "bg-pink-100 dark:bg-pink-900/30", icon: <Trophy size={12} /> },
-  "Inner Circle": { color: "text-purple-700 dark:text-purple-300", bgColor: "bg-purple-100 dark:bg-purple-900/30" },
-  "Frequent Flyer": { color: "text-blue-700 dark:text-blue-300", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
-  "Hot": { color: "text-orange-700 dark:text-orange-300", bgColor: "bg-orange-100 dark:bg-orange-900/30", icon: <Flame size={12} /> },
-  "Ghost": { color: "text-gray-600 dark:text-gray-400", bgColor: "bg-gray-100 dark:bg-gray-800", icon: <Ghost size={12} /> },
-  "Left on Read": { color: "text-red-700 dark:text-red-300", bgColor: "bg-red-100 dark:bg-red-900/30" },
-  "Popular": { color: "text-green-700 dark:text-green-300", bgColor: "bg-green-100 dark:bg-green-900/30" },
-  "One-Timer": { color: "text-gray-600 dark:text-gray-400", bgColor: "bg-gray-100 dark:bg-gray-700" },
-  "Acquaintance": { color: "text-gray-600 dark:text-gray-400", bgColor: "bg-gray-100 dark:bg-gray-700" },
-  "Regular": { color: "text-gray-600 dark:text-gray-400", bgColor: "bg-gray-100 dark:bg-gray-700" },
+const titleConfig: Record<
+  string,
+  { color: string; bgColor: string; icon?: React.ReactNode }
+> = {
+  BFF: {
+    color: "text-pink-700 dark:text-pink-300",
+    bgColor: "bg-pink-100 dark:bg-pink-900/30",
+    icon: <Trophy size={12} />,
+  },
+  "Inner Circle": {
+    color: "text-purple-700 dark:text-purple-300",
+    bgColor: "bg-purple-100 dark:bg-purple-900/30",
+  },
+  "Frequent Flyer": {
+    color: "text-blue-700 dark:text-blue-300",
+    bgColor: "bg-blue-100 dark:bg-blue-900/30",
+  },
+  Hot: {
+    color: "text-orange-700 dark:text-orange-300",
+    bgColor: "bg-orange-100 dark:bg-orange-900/30",
+    icon: <Flame size={12} />,
+  },
+  Ghost: {
+    color: "text-gray-600 dark:text-gray-400",
+    bgColor: "bg-gray-100 dark:bg-gray-800",
+    icon: <Ghost size={12} />,
+  },
+  "Left on Read": {
+    color: "text-red-700 dark:text-red-300",
+    bgColor: "bg-red-100 dark:bg-red-900/30",
+  },
+  Popular: {
+    color: "text-green-700 dark:text-green-300",
+    bgColor: "bg-green-100 dark:bg-green-900/30",
+  },
+  "One-Timer": {
+    color: "text-gray-600 dark:text-gray-400",
+    bgColor: "bg-gray-100 dark:bg-gray-700",
+  },
+  Acquaintance: {
+    color: "text-gray-600 dark:text-gray-400",
+    bgColor: "bg-gray-100 dark:bg-gray-700",
+  },
+  Regular: {
+    color: "text-gray-600 dark:text-gray-400",
+    bgColor: "bg-gray-100 dark:bg-gray-700",
+  },
 };
 
-export default function DMLeaderboard({ contacts, onSelectContact }: DMLeaderboardProps) {
+export default function DMLeaderboard({
+  contacts,
+  onSelectContact,
+}: DMLeaderboardProps) {
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
@@ -44,7 +93,9 @@ export default function DMLeaderboard({ contacts, onSelectContact }: DMLeaderboa
   const formatLastSeen = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
@@ -103,7 +154,8 @@ export default function DMLeaderboard({ contacts, onSelectContact }: DMLeaderboa
                   alt=""
                   className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/bottts/svg?seed=${contact.pubkey}`;
+                    (e.target as HTMLImageElement).src =
+                      `https://api.dicebear.com/7.x/bottts/svg?seed=${contact.pubkey}`;
                   }}
                 />
               ) : (
@@ -119,12 +171,16 @@ export default function DMLeaderboard({ contacts, onSelectContact }: DMLeaderboa
                     onClick={() => onSelectContact(contact)}
                     className="font-semibold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate"
                   >
-                    {contact.profile?.display_name || contact.profile?.name || npub.slice(0, 16) + "..."}
+                    {contact.profile?.display_name ||
+                      contact.profile?.name ||
+                      npub.slice(0, 16) + "..."}
                   </button>
 
                   {/* Title Badge */}
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config.bgColor} ${config.color}`}>
-                    {config.icon}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config?.bgColor || ""} ${config?.color || ""}`}
+                  >
+                    {config?.icon || null}
                     {title}
                   </span>
                 </div>
@@ -140,12 +196,8 @@ export default function DMLeaderboard({ contacts, onSelectContact }: DMLeaderboa
                   <span className="font-medium text-gray-700 dark:text-gray-300">
                     {contact.totalCount} exchanges
                   </span>
-                  <span>
-                    ↑ {contact.sentCount} sent
-                  </span>
-                  <span>
-                    ↓ {contact.receivedCount} received
-                  </span>
+                  <span>↑ {contact.sentCount} sent</span>
+                  <span>↓ {contact.receivedCount} received</span>
                   <span className="flex items-center gap-1">
                     <Clock size={12} />
                     Last: {formatLastSeen(contact.lastExchange)}
@@ -161,7 +213,10 @@ export default function DMLeaderboard({ contacts, onSelectContact }: DMLeaderboa
                   title="Copy npub"
                 >
                   {copiedNpub === npub ? (
-                    <Check className="text-green-600 dark:text-green-400" size={18} />
+                    <Check
+                      className="text-green-600 dark:text-green-400"
+                      size={18}
+                    />
                   ) : (
                     <Copy size={18} />
                   )}
