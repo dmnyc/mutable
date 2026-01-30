@@ -30,7 +30,7 @@ const toolPages: ActivePage[] = [
   "purgatory",
   "decimator",
   "listCleaner",
-  // "snoopable", // Hidden temporarily for quiet testing
+  "snoopable",
 ];
 
 // Map page IDs to display names
