@@ -293,7 +293,7 @@ export default function DMCircle({
         const { width, height } = canvas;
         if (width < 4 || height < 4) return canvas;
 
-        const bleed = 2;
+        const bleed = 4;
         const imageData = ctx.getImageData(0, 0, width, height);
         const data = imageData.data;
 
