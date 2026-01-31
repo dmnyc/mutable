@@ -3,6 +3,7 @@ import {
   Event,
   EventTemplate,
   VerifiedEvent,
+  Filter,
   getPublicKey,
   nip19,
   nip04,
@@ -3395,6 +3396,11 @@ export async function fetchDMMetadata(
   onProgress?: (phase: string, count: number) => void,
   abortSignal?: AbortSignal,
   limit: number = 500,
+  options?: {
+    relayBatchSize?: number;
+    maxRelays?: number;
+    batchDelayMs?: number;
+  },
 ): Promise<{ sent: Event[]; received: Event[] }> {
   const pool = getPool();
 
@@ -3433,7 +3439,10 @@ export async function fetchDMMetadata(
   const filteredRelays = allRelays.filter(
     (r) => !r.includes("garden.zap.cooking"),
   );
-  const expandedRelays = getExpandedRelayList(filteredRelays);
+  const expandedRelays = getExpandedRelayList(
+    filteredRelays,
+    options?.maxRelays ?? 8,
+  );
 
   console.log(
     `📡 Snoopable: Querying ${expandedRelays.length} relays (${targetRelays.length} from target's NIP-65)`,
@@ -3451,9 +3460,34 @@ export async function fetchDMMetadata(
     });
   };
 
+  const relayBatchSize =
+    options?.relayBatchSize && options.relayBatchSize > 0
+      ? options.relayBatchSize
+      : expandedRelays.length;
+  const relayBatchDelay = options?.batchDelayMs ?? 150;
+  const relayBatches: string[][] = [];
+
+  for (let i = 0; i < expandedRelays.length; i += relayBatchSize) {
+    relayBatches.push(expandedRelays.slice(i, i + relayBatchSize));
+  }
+
+  const queryRelays = async (filter: Filter): Promise<Event[]> => {
+    const results: Event[] = [];
+    for (let i = 0; i < relayBatches.length; i++) {
+      if (abortSignal?.aborted) throw new Error("Aborted");
+      const batch = relayBatches[i];
+      const batchResults = await pool.querySync(batch, filter);
+      results.push(...batchResults);
+      if (i < relayBatches.length - 1 && relayBatchDelay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, relayBatchDelay));
+      }
+    }
+    return results;
+  };
+
   // Query with a small delay between to avoid overwhelming relays
   // Run query twice and merge results for more consistent data
-  const sentDMs1 = await pool.querySync(expandedRelays, {
+  const sentDMs1 = await queryRelays({
     kinds: [DM_KIND],
     authors: [targetPubkey],
     limit,
@@ -3464,7 +3498,7 @@ export async function fetchDMMetadata(
   // Small delay before second query
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const sentDMs2 = await pool.querySync(expandedRelays, {
+  const sentDMs2 = await queryRelays({
     kinds: [DM_KIND],
     authors: [targetPubkey],
     limit,
@@ -3477,7 +3511,7 @@ export async function fetchDMMetadata(
   onProgress?.("Surveilling the targets...", sentDMs.length);
 
   // Query DMs received BY the target (they are in #p tag)
-  const receivedDMs1 = await pool.querySync(expandedRelays, {
+  const receivedDMs1 = await queryRelays({
     kinds: [DM_KIND],
     "#p": [targetPubkey],
     limit,
@@ -3487,7 +3521,7 @@ export async function fetchDMMetadata(
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const receivedDMs2 = await pool.querySync(expandedRelays, {
+  const receivedDMs2 = await queryRelays({
     kinds: [DM_KIND],
     "#p": [targetPubkey],
     limit,
@@ -3541,14 +3575,50 @@ export async function analyzeDMMetadata(
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (phase: string, current: number, total?: number) => void,
   abortSignal?: AbortSignal,
+  options?: {
+    relayBatchSize?: number;
+    maxRelays?: number;
+    batchDelayMs?: number;
+    retryOnZero?: boolean;
+    retryBatchSize?: number;
+    retryMaxRelays?: number;
+  },
 ): Promise<import("@/types").DMAnalysis> {
   // 1. Fetch raw DM events
-  const { sent, received } = await fetchDMMetadata(
+  let { sent, received } = await fetchDMMetadata(
     targetPubkey,
     relays,
     (phase, count) => onProgress?.(phase, count),
     abortSignal,
+    500,
+    {
+      relayBatchSize: options?.relayBatchSize,
+      maxRelays: options?.maxRelays,
+      batchDelayMs: options?.batchDelayMs,
+    },
   );
+
+  if (
+    options?.retryOnZero &&
+    sent.length + received.length === 0 &&
+    !abortSignal?.aborted
+  ) {
+    onProgress?.("Retrying in mobile-safe mode...", 0);
+    const retry = await fetchDMMetadata(
+      targetPubkey,
+      relays,
+      (phase, count) => onProgress?.(phase, count),
+      abortSignal,
+      500,
+      {
+        relayBatchSize: options?.retryBatchSize ?? 1,
+        maxRelays: options?.retryMaxRelays ?? options?.maxRelays ?? 6,
+        batchDelayMs: options?.batchDelayMs ?? 200,
+      },
+    );
+    sent = retry.sent;
+    received = retry.received;
+  }
 
   if (abortSignal?.aborted) throw new Error("Aborted");
 

@@ -147,6 +147,11 @@ export default function Snoopable() {
       setAnalysis(null);
       setShowDropdown(false);
 
+      const isMobile =
+        typeof window !== "undefined" &&
+        (window.matchMedia("(max-width: 768px)").matches ||
+          /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+
       const result = await analyzeDMMetadata(
         targetPubkey,
         session?.relays,
@@ -156,6 +161,15 @@ export default function Snoopable() {
           setProgressTotal(total);
         },
         abortControllerRef.current.signal,
+        isMobile
+          ? {
+              relayBatchSize: 2,
+              maxRelays: 6,
+              retryOnZero: true,
+              retryBatchSize: 1,
+              retryMaxRelays: 6,
+            }
+          : undefined,
       );
 
       setAnalysis(result);
