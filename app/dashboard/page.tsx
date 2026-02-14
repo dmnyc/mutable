@@ -14,6 +14,7 @@ import {
   Loader2,
   Settings as SettingsIcon,
   ChevronDown,
+  Pencil,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ import OnboardingModal from "@/components/OnboardingModal";
 import UnsavedChangesBanner from "@/components/UnsavedChangesBanner";
 import PublishSuccessModal from "@/components/PublishSuccessModal";
 import ConfirmOnExitDialog from "@/components/ConfirmOnExitDialog";
+import ProfileEditorModal from "@/components/ProfileEditorModal";
 import Footer from "@/components/Footer";
 import { Profile } from "@/types";
 import { fetchProfile, getFollowListPubkeys } from "@/lib/nostr";
@@ -64,6 +66,7 @@ function DashboardContent() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   // Tools that go in the "Other Stuff" dropdown
   const toolTabs = [
@@ -411,6 +414,17 @@ function DashboardContent() {
               {/* Dropdown Menu */}
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 py-1">
+                  <button
+                    tabIndex={0}
+                    onClick={() => {
+                      setShowProfileEditor(true);
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Pencil size={16} />
+                    Edit Profile
+                  </button>
                   <button
                     tabIndex={0}
                     onClick={() => {
@@ -915,6 +929,16 @@ function DashboardContent() {
         onDiscard={handleDiscardLeave}
         onCancel={() => setShowConfirmOnExit(false)}
       />
+
+      {/* Profile Editor Modal */}
+      {showProfileEditor && (
+        <ProfileEditorModal
+          onClose={() => setShowProfileEditor(false)}
+          onProfileUpdated={(updatedProfile) => {
+            setUserProfile(updatedProfile);
+          }}
+        />
+      )}
     </div>
   );
 }

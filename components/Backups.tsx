@@ -5,11 +5,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import { useRelaySync } from "@/hooks/useRelaySync";
 import { backupService, Backup } from "@/lib/backupService";
-import { MuteBackupData } from "@/lib/relayStorage";
+import { MuteBackupData, ProfileBackupData } from "@/lib/relayStorage";
+import { profileBackupService } from "@/lib/profileBackupService";
 import {
   getFollowListPubkeys,
   publishMuteList,
   publishFollowList,
+  publishProfile,
+  fetchRawProfileContent,
 } from "@/lib/nostr";
 import {
   Archive,
@@ -29,6 +32,8 @@ import {
   Lock,
   ChevronDown,
   ChevronUp,
+  User,
+  RotateCcw,
 } from "lucide-react";
 
 export default function Backups() {
@@ -52,6 +57,14 @@ export default function Backups() {
   const [includeFollowList, setIncludeFollowList] = useState(true);
   const [foundOnRelays, setFoundOnRelays] = useState<string[]>([]);
   const [queriedRelays, setQueriedRelays] = useState<string[]>([]);
+
+  // Profile backup state
+  const [profileBackups, setProfileBackups] = useState<
+    Array<{ slot: number; data: ProfileBackupData }>
+  >([]);
+  const [profileBackupsLoading, setProfileBackupsLoading] = useState(false);
+  const [showProfileBackups, setShowProfileBackups] = useState(false);
+  const [profileRestoring, setProfileRestoring] = useState<number | null>(null);
 
   // Load backups
   useEffect(() => {
@@ -87,6 +100,101 @@ export default function Backups() {
       console.error("Failed to fetch relay backup:", error);
     } finally {
       setRelayBackupLoading(false);
+    }
+  };
+
+  const loadProfileBackups = async () => {
+    if (!session) return;
+    setProfileBackupsLoading(true);
+    try {
+      const all = await profileBackupService.fetchAllBackups(
+        session.pubkey,
+        session.relays,
+      );
+      const valid = all.filter(
+        (r): r is { slot: number; data: ProfileBackupData } =>
+          r.data !== null && typeof r.data.timestamp === "number",
+      );
+      valid.sort((a, b) => b.data.timestamp - a.data.timestamp);
+      setProfileBackups(valid);
+    } catch (error) {
+      console.error("Failed to load profile backups:", error);
+    } finally {
+      setProfileBackupsLoading(false);
+    }
+  };
+
+  const handleToggleProfileBackups = () => {
+    if (!showProfileBackups) {
+      setShowProfileBackups(true);
+      loadProfileBackups();
+    } else {
+      setShowProfileBackups(false);
+    }
+  };
+
+  const handleRestoreProfileBackup = async (
+    backup: ProfileBackupData,
+    slot: number,
+  ) => {
+    if (!session) return;
+
+    const profileName =
+      (backup.profile.display_name as string) ||
+      (backup.profile.name as string) ||
+      "unnamed profile";
+
+    if (
+      !confirm(
+        `Restore profile "${profileName}" from ${new Date(backup.timestamp).toLocaleString()}? This will publish it as your current profile.`,
+      )
+    ) {
+      return;
+    }
+
+    setProfileRestoring(slot);
+    try {
+      // Fetch current raw content to preserve unknown fields
+      const existingContent = await fetchRawProfileContent(
+        session.pubkey,
+        session.relays,
+      );
+
+      const profileData = {
+        name: (backup.profile.name as string) || "",
+        display_name: (backup.profile.display_name as string) || "",
+        about: (backup.profile.about as string) || "",
+        picture: (backup.profile.picture as string) || "",
+        banner: (backup.profile.banner as string) || "",
+        nip05: (backup.profile.nip05 as string) || "",
+        website: (backup.profile.website as string) || "",
+        lud16: (backup.profile.lud16 as string) || "",
+      };
+
+      await publishProfile(
+        profileData,
+        existingContent || undefined,
+        session.relays,
+      );
+
+      // Update store
+      const { setUserProfile } = useStore.getState();
+      setUserProfile({
+        pubkey: session.pubkey,
+        ...profileData,
+      });
+
+      setSuccessMessage("Profile restored and published successfully!");
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to restore profile backup",
+      );
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setProfileRestoring(null);
     }
   };
 
@@ -774,6 +882,108 @@ export default function Backups() {
                 )}
               </div>
             )}
+
+            {/* Profile Backups subsection */}
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <User
+                    className="text-orange-600 dark:text-orange-400"
+                    size={18}
+                  />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Profile Backups
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Encrypted snapshots of your profile, created automatically
+                    when you edit your profile. Up to 3 rotating backups.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleToggleProfileBackups}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+              >
+                {showProfileBackups ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+                <span>
+                  {showProfileBackups ? "Hide" : "Show"} profile backups
+                </span>
+              </button>
+
+              {showProfileBackups && (
+                <div className="mt-3 space-y-2">
+                  {profileBackupsLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Loading profile backups...</span>
+                    </div>
+                  ) : profileBackups.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No profile backups found. Backups are created
+                      automatically when you save changes in the profile editor.
+                    </p>
+                  ) : (
+                    profileBackups.map((backup) => (
+                      <div
+                        key={backup.slot}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            {typeof backup.data.profile.picture === "string" &&
+                              backup.data.profile.picture && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={backup.data.profile.picture}
+                                  alt=""
+                                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                  onError={(e) => {
+                                    (
+                                      e.target as HTMLImageElement
+                                    ).style.display = "none";
+                                  }}
+                                />
+                              )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {(backup.data.profile.display_name as string) ||
+                                  (backup.data.profile.name as string) ||
+                                  "Unnamed"}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDate(backup.data.timestamp)} &middot;
+                                Slot {backup.slot}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() =>
+                            handleRestoreProfileBackup(backup.data, backup.slot)
+                          }
+                          disabled={profileRestoring !== null}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors disabled:opacity-50 flex-shrink-0 ml-3"
+                        >
+                          {profileRestoring === backup.slot ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <RotateCcw size={14} />
+                          )}
+                          Restore
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

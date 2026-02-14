@@ -14,28 +14,8 @@
  */
 
 import { Event, EventTemplate, Filter } from "nostr-tools";
-import {
-  getPool,
-  getExpandedRelayList,
-  hasNip07,
-  signWithNip07,
-} from "./nostr";
+import { getPool, getExpandedRelayList, getSigner, signEvent } from "./nostr";
 import { MuteList } from "@/types";
-
-// NIP-07 interface (browser extension)
-interface WindowWithNostr extends Window {
-  nostr?: {
-    getPublicKey(): Promise<string>;
-    signEvent(event: EventTemplate): Promise<Event>;
-    getRelays?(): Promise<{ [url: string]: { read: boolean; write: boolean } }>;
-    nip04?: {
-      encrypt(pubkey: string, plaintext: string): Promise<string>;
-      decrypt(pubkey: string, ciphertext: string): Promise<string>;
-    };
-  };
-}
-
-declare const window: WindowWithNostr;
 
 // NIP-78 event kind for application-specific data
 export const APP_DATA_KIND = 30078;
@@ -47,6 +27,9 @@ export const D_TAGS = {
   PREFERENCES: "mutable:preferences",
   IMPORTED_PACKS: "mutable:imported-packs",
   MUTE_BACKUP: "mutable:mute-backup",
+  PROFILE_BACKUP_0: "mutable:profile-backup:0",
+  PROFILE_BACKUP_1: "mutable:profile-backup:1",
+  PROFILE_BACKUP_2: "mutable:profile-backup:2",
 } as const;
 
 export type DTagType = (typeof D_TAGS)[keyof typeof D_TAGS];
@@ -95,48 +78,42 @@ export interface MuteBackupData {
   notes?: string;
 }
 
+export interface ProfileBackupData {
+  version: number;
+  timestamp: number;
+  profile: Record<string, unknown>; // full kind:0 content JSON
+}
+
 // Union type for all data types
 export type StorageData =
   | ProtectedUsersData
   | BlacklistData
   | PreferencesData
   | ImportedPacksData
-  | MuteBackupData;
+  | MuteBackupData
+  | ProfileBackupData;
 
 /**
- * Encrypt data using NIP-04 (encrypt to own pubkey)
+ * Encrypt data using NIP-04 via signer (encrypt to own pubkey)
  */
 async function encryptData(
   data: StorageData,
   userPubkey: string,
 ): Promise<string> {
-  if (!hasNip07() || !window.nostr?.nip04?.encrypt) {
-    throw new Error(
-      "NIP-07 extension with nip04 support required for encryption",
-    );
-  }
-
+  const signer = getSigner();
   const jsonString = JSON.stringify(data);
-  return await window.nostr.nip04.encrypt(userPubkey, jsonString);
+  return await signer.nip04Encrypt(userPubkey, jsonString);
 }
 
 /**
- * Decrypt data using NIP-04
+ * Decrypt data using NIP-04 via signer
  */
 async function decryptData(
   encryptedContent: string,
   authorPubkey: string,
 ): Promise<StorageData> {
-  if (!hasNip07() || !window.nostr?.nip04?.decrypt) {
-    throw new Error(
-      "NIP-07 extension with nip04 support required for decryption",
-    );
-  }
-
-  const decrypted = await window.nostr.nip04.decrypt(
-    authorPubkey,
-    encryptedContent,
-  );
+  const signer = getSigner();
+  const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
   return JSON.parse(decrypted) as StorageData;
 }
 
@@ -170,7 +147,7 @@ export async function publishAppData(
   };
 
   // Sign event
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
 
   // Publish to relays
   console.log(
@@ -328,7 +305,7 @@ export async function deleteAppData(
   };
 
   // Sign and publish
-  const signedEvent = await signWithNip07(eventTemplate);
+  const signedEvent = await signEvent(eventTemplate);
 
   await Promise.allSettled(pool.publish(expandedRelays, signedEvent));
 
