@@ -916,6 +916,84 @@ export async function publishTextNote(
   }
 }
 
+// Publish user profile metadata (kind:0)
+// Merges edited fields on top of existingContent to preserve fields Mutable doesn't manage
+export async function publishProfile(
+  profileData: {
+    name?: string;
+    display_name?: string;
+    about?: string;
+    picture?: string;
+    banner?: string;
+    nip05?: string;
+    lud16?: string;
+    website?: string;
+  },
+  existingContent?: Record<string, unknown>,
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<Event> {
+  const merged = {
+    ...(existingContent || {}),
+    ...profileData,
+  };
+
+  // Remove empty/null/undefined values (Nostr convention: omit empty fields)
+  const cleanContent: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(merged)) {
+    if (value !== "" && value !== undefined && value !== null) {
+      cleanContent[key] = value;
+    }
+  }
+
+  const eventTemplate: EventTemplate = {
+    kind: PROFILE_KIND,
+    tags: [],
+    content: JSON.stringify(cleanContent),
+    created_at: Math.floor(Date.now() / 1000),
+  };
+
+  const signedEvent = await signEvent(eventTemplate);
+  const pool = getPool();
+
+  await Promise.any(pool.publish(relays, signedEvent));
+
+  return signedEvent;
+}
+
+// Fetch the raw kind:0 event content for a pubkey (preserves all fields)
+export async function fetchRawProfileContent(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  timeoutMs: number = 5000,
+): Promise<Record<string, unknown> | null> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  try {
+    const events = await Promise.race([
+      pool.querySync(expandedRelays, {
+        kinds: [PROFILE_KIND],
+        authors: [pubkey],
+        limit: 5,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Profile fetch timeout")), timeoutMs),
+      ),
+    ]);
+
+    if (events.length === 0) return null;
+    events.sort((a, b) => b.created_at - a.created_at);
+
+    const sanitizedContent = events[0].content.replace(
+      /[\u0000-\u001F\u007F-\u009F]/g,
+      "",
+    );
+    return JSON.parse(sanitizedContent);
+  } catch {
+    return null;
+  }
+}
+
 // Delete a public pack (publish kind 5 deletion event)
 export async function deletePublicList(
   packEventId: string,
