@@ -1,11 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useStore } from '@/lib/store';
-import { RefreshCw, Users, User, Volume2, VolumeX, ExternalLink, UserMinus, AlertCircle, X, List, Copy } from 'lucide-react';
-import { MutealResult, Profile } from '@/types';
-import UserProfileModal from './UserProfileModal';
+import { useState, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useStore } from "@/lib/store";
+import {
+  RefreshCw,
+  Users,
+  User,
+  Volume2,
+  VolumeX,
+  ExternalLink,
+  UserMinus,
+  AlertCircle,
+  X,
+  List,
+  Copy,
+} from "lucide-react";
+import { MutealResult, Profile } from "@/types";
+import UserProfileModal from "./UserProfileModal";
 import {
   searchMutealsFromFollows,
   searchMutealsNetworkWide,
@@ -15,11 +27,13 @@ import {
   getExpandedRelayList,
   fetchMuteList,
   parseMuteListEvent,
-  getFollowListPubkeys
-} from '@/lib/nostr';
-import { backupService } from '@/lib/backupService';
+  getFollowListPubkeys,
+} from "@/lib/nostr";
+import { backupService } from "@/lib/backupService";
+import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 
-type DiscoveryMethod = 'follows' | 'network';
+type DiscoveryMethod = "follows" | "network";
 
 interface ScanStats {
   totalChecked: number;
@@ -30,11 +44,12 @@ interface ScanStats {
 export default function Muteuals() {
   const { session } = useAuth();
   const { muteList, addMutedItem, removeMutedItem } = useStore();
-  const [discoveryMethod, setDiscoveryMethod] = useState<DiscoveryMethod>('follows');
+  const [discoveryMethod, setDiscoveryMethod] =
+    useState<DiscoveryMethod>("follows");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<MutealResult[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string>('');
+  const [progress, setProgress] = useState<string>("");
   const [scanStats, setScanStats] = useState<ScanStats | null>(null);
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -54,17 +69,17 @@ export default function Muteuals() {
       setError(null);
       setResults([]);
       setScanStats(null);
-      setProgress('Starting search...');
+      setProgress("Starting search...");
 
       let muteuals: MutealResult[] = [];
       const stats: ScanStats = {
         totalChecked: 0,
         withPublicLists: 0,
-        listsAnalyzed: 0
+        listsAnalyzed: 0,
       };
 
-      if (discoveryMethod === 'follows') {
-        setProgress('Searching through your follows...');
+      if (discoveryMethod === "follows") {
+        setProgress("Searching through your follows...");
 
         // Use the proper function which has the stale event fix
         muteuals = await searchMutealsFromFollows(
@@ -74,10 +89,10 @@ export default function Muteuals() {
             stats.totalChecked = total;
             setProgress(`Checking follow ${current} of ${total}...`);
           },
-          abortControllerRef.current?.signal
+          abortControllerRef.current?.signal,
         );
       } else {
-        setProgress('Searching network-wide...');
+        setProgress("Searching network-wide...");
 
         // Use expanded relay list for network-wide search
         const expandedRelays = getExpandedRelayList(session.relays);
@@ -87,24 +102,29 @@ export default function Muteuals() {
           session.pubkey,
           expandedRelays,
           (count) => {
-            setProgress(`Found ${count} Muteual${count === 1 ? '' : 's'}...`);
+            setProgress(`Found ${count} Muteual${count === 1 ? "" : "s"}...`);
           },
           abortControllerRef.current?.signal,
           async (result) => {
             // Add result immediately (shows as "Loading profile...")
-            setResults(prev => [...prev, result]);
+            setResults((prev) => [...prev, result]);
 
             // Enrich this specific result with profile data
             try {
-              const enriched = await enrichMutealsWithProfiles([result], session.relays);
+              const enriched = await enrichMutealsWithProfiles(
+                [result],
+                session.relays,
+              );
               // Update just this result in the list
-              setResults(prev => prev.map(r =>
-                r.mutedBy === result.mutedBy ? enriched[0] : r
-              ));
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.mutedBy === result.mutedBy ? enriched[0] : r,
+                ),
+              );
             } catch (err) {
-              console.error('Failed to enrich profile:', err);
+              console.error("Failed to enrich profile:", err);
             }
-          }
+          },
         );
 
         // For network-wide, we don't have detailed stats but we can show what we found
@@ -114,18 +134,18 @@ export default function Muteuals() {
       }
 
       setScanStats(stats);
-      setProgress('');
+      setProgress("");
     } catch (err) {
-      console.error('Search error:', err);
-      if (err instanceof Error && err.name === 'AbortError') {
+      console.error("Search error:", err);
+      if (err instanceof Error && err.name === "AbortError") {
         // Don't clear error if we have partial results
         if (results.length === 0) {
-          setError('Search was cancelled');
+          setError("Search was cancelled");
         }
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to search for Muteuals');
+        setError(getErrorMessage(err, "Failed to search for Muteuals"));
       }
-      setProgress('');
+      setProgress("");
     } finally {
       setSearching(false);
       abortControllerRef.current = null;
@@ -135,41 +155,53 @@ export default function Muteuals() {
   const handleStopScan = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setProgress('Stopping...');
+      setProgress("Stopping...");
     }
   };
 
   const handleMuteToggle = (pubkey: string) => {
-    const isAlreadyMuted = muteList.pubkeys.some(m => m.value === pubkey);
+    const isAlreadyMuted = muteList.pubkeys.some((m) => m.value === pubkey);
 
     if (isAlreadyMuted) {
-      removeMutedItem(pubkey, 'pubkeys');
+      removeMutedItem(pubkey, "pubkeys");
     } else {
-      addMutedItem({ type: 'pubkey', value: pubkey, reason: 'Muted via Muteuals' }, 'pubkeys');
+      addMutedItem(
+        { type: "pubkey", value: pubkey, reason: "Muted via Muteuals" },
+        "pubkeys",
+      );
     }
   };
 
   const handleUnfollow = async (pubkey: string) => {
     if (!session) return;
 
-    if (confirm('Are you sure you want to unfollow this user?\n\nNote: A backup of your current follow list will be created automatically before unfollowing.')) {
+    if (
+      confirm(
+        "Are you sure you want to unfollow this user?\n\nNote: A backup of your current follow list will be created automatically before unfollowing.",
+      )
+    ) {
       try {
         // Create backup before unfollowing
-        const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+        const currentFollows = await getFollowListPubkeys(
+          session.pubkey,
+          session.relays,
+        );
         const backup = backupService.createFollowListBackup(
           session.pubkey,
           currentFollows,
-          'Auto-backup before unfollowing via Muteuals'
+          "Auto-backup before unfollowing via Muteuals",
         );
         backupService.saveBackup(backup);
 
         await unfollowUser(pubkey, session.relays);
         // Update the result to reflect they're no longer followed
-        setResults(results.map(r =>
-          r.mutedBy === pubkey ? { ...r, isFollowing: false } : r
-        ));
+        setResults(
+          results.map((r) =>
+            r.mutedBy === pubkey ? { ...r, isFollowing: false } : r,
+          ),
+        );
       } catch (error) {
-        console.error('Failed to unfollow user:', error);
+        console.error("Failed to unfollow user:", error);
       }
     }
   };
@@ -178,48 +210,60 @@ export default function Muteuals() {
     if (!session) return;
 
     console.log(`\n========== VERIFYING MUTE FOR ${npub} ==========`);
-    console.log('Fetching their current mute list from relays...');
+    console.log("Fetching their current mute list from relays...");
 
     try {
-      const muteListEvent = await fetchMuteList(pubkey, getExpandedRelayList(session.relays));
+      const muteListEvent = await fetchMuteList(
+        pubkey,
+        getExpandedRelayList(session.relays),
+      );
 
       if (!muteListEvent) {
-        console.log('❌ No mute list found for this user');
-        alert('No mute list found for this user on the relays.');
+        console.log("❌ No mute list found for this user");
+        alert("No mute list found for this user on the relays.");
         return;
       }
 
-      console.log('Mute list event found:', {
+      console.log("Mute list event found:", {
         id: muteListEvent.id,
         created_at: new Date(muteListEvent.created_at * 1000).toISOString(),
-        tags: muteListEvent.tags
+        tags: muteListEvent.tags,
       });
 
       const parsedList = await parseMuteListEvent(muteListEvent);
-      const mutedPubkeys = parsedList.pubkeys.map(p => p.value);
+      const mutedPubkeys = parsedList.pubkeys.map((p) => p.value);
 
-      console.log(`Found ${mutedPubkeys.length} muted pubkeys in their current list`);
-      console.log('Your pubkey:', session.pubkey);
-      console.log('Are you on their list?', mutedPubkeys.includes(session.pubkey));
+      console.log(
+        `Found ${mutedPubkeys.length} muted pubkeys in their current list`,
+      );
+      console.log("Your pubkey:", session.pubkey);
+      console.log(
+        "Are you on their list?",
+        mutedPubkeys.includes(session.pubkey),
+      );
 
       if (mutedPubkeys.includes(session.pubkey)) {
-        alert(`✅ CONFIRMED: You ARE on their current mute list.\n\nThey have ${mutedPubkeys.length} pubkeys muted.\nEvent ID: ${muteListEvent.id}`);
+        alert(
+          `✅ CONFIRMED: You ARE on their current mute list.\n\nThey have ${mutedPubkeys.length} pubkeys muted.\nEvent ID: ${muteListEvent.id}`,
+        );
       } else {
-        alert(`❌ NOT FOUND: You are NOT on their current mute list.\n\nThis might be a stale event or they removed you.\nTheir current list has ${mutedPubkeys.length} pubkeys.\nEvent ID: ${muteListEvent.id}\n\nCheck console for details.`);
+        alert(
+          `❌ NOT FOUND: You are NOT on their current mute list.\n\nThis might be a stale event or they removed you.\nTheir current list has ${mutedPubkeys.length} pubkeys.\nEvent ID: ${muteListEvent.id}\n\nCheck console for details.`,
+        );
       }
     } catch (error) {
-      console.error('Failed to verify:', error);
-      alert(`Error fetching their mute list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Failed to verify:", error);
+      alert(
+        `Error fetching their mute list: ${getErrorMessage(error, "Unknown error")}`,
+      );
     }
   };
 
   const handleCopyNpub = async (npub: string) => {
-    try {
-      await navigator.clipboard.writeText(npub);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy npub:', error);
     }
   };
 
@@ -228,43 +272,65 @@ export default function Muteuals() {
   };
 
   const handleMuteAll = () => {
-    if (!confirm(`Mute all ${results.length} muteuals?\n\nThis will add them to your mute list. Remember to click "Publish Changes" on the My Mute List tab to save to relays.`)) {
+    if (
+      !confirm(
+        `Mute all ${results.length} muteuals?\n\nThis will add them to your mute list. Remember to click "Publish Changes" on the My Mute List tab to save to relays.`,
+      )
+    ) {
       return;
     }
 
     let addedCount = 0;
     results.forEach((muteal) => {
-      const isAlreadyMuted = muteList.pubkeys.some(m => m.value === muteal.mutedBy);
+      const isAlreadyMuted = muteList.pubkeys.some(
+        (m) => m.value === muteal.mutedBy,
+      );
       if (!isAlreadyMuted) {
-        addMutedItem({ type: 'pubkey', value: muteal.mutedBy, reason: 'Muted via Muteuals' }, 'pubkeys');
+        addMutedItem(
+          {
+            type: "pubkey",
+            value: muteal.mutedBy,
+            reason: "Muted via Muteuals",
+          },
+          "pubkeys",
+        );
         addedCount++;
       }
     });
 
-    alert(`Added ${addedCount} muteuals to your mute list.\n\nGo to "My Mute List" and click "Publish Changes" to save to relays.`);
+    alert(
+      `Added ${addedCount} muteuals to your mute list.\n\nGo to "My Mute List" and click "Publish Changes" to save to relays.`,
+    );
   };
 
   const handleUnfollowAll = async () => {
     if (!session) return;
 
-    const followingMuteuals = results.filter(r => r.isFollowing);
+    const followingMuteuals = results.filter((r) => r.isFollowing);
     if (followingMuteuals.length === 0) {
-      alert('None of the muteuals are in your follow list.');
+      alert("None of the muteuals are in your follow list.");
       return;
     }
 
-    if (!confirm(`Unfollow all ${followingMuteuals.length} muteuals that you're currently following?\n\nNote: This will:\n1. Create an automatic backup of your current follow list\n2. Immediately publish your updated follow list to relays`)) {
+    if (
+      !confirm(
+        `Unfollow all ${followingMuteuals.length} muteuals that you're currently following?\n\nNote: This will:\n1. Create an automatic backup of your current follow list\n2. Immediately publish your updated follow list to relays`,
+      )
+    ) {
       return;
     }
 
     try {
       // Step 1: Create backup of current follow list
-      console.log('Creating backup of follow list before unfollowing...');
-      const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      console.log("Creating backup of follow list before unfollowing...");
+      const currentFollows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
       const backup = backupService.createFollowListBackup(
         session.pubkey,
         currentFollows,
-        `Auto-backup before unfollowing ${followingMuteuals.length} muteuals`
+        `Auto-backup before unfollowing ${followingMuteuals.length} muteuals`,
       );
       backupService.saveBackup(backup);
       console.log(`Backup created with ${currentFollows.length} follows`);
@@ -275,14 +341,18 @@ export default function Muteuals() {
       }
 
       // Update all results to reflect they're no longer followed
-      setResults(results.map(r =>
-        r.isFollowing ? { ...r, isFollowing: false } : r
-      ));
+      setResults(
+        results.map((r) => (r.isFollowing ? { ...r, isFollowing: false } : r)),
+      );
 
-      alert(`✅ Success!\n\n• Backup created with ${currentFollows.length} follows\n• Unfollowed ${followingMuteuals.length} muteuals\n• Changes published to relays\n\nYou can restore from the Backups tab if needed.`);
+      alert(
+        `✅ Success!\n\n• Backup created with ${currentFollows.length} follows\n• Unfollowed ${followingMuteuals.length} muteuals\n• Changes published to relays\n\nYou can restore from the Backups tab if needed.`,
+      );
     } catch (error) {
-      console.error('Failed to unfollow all:', error);
-      alert(`Error unfollowing users: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Failed to unfollow all:", error);
+      alert(
+        `Error unfollowing users: ${getErrorMessage(error, "Unknown error")}`,
+      );
     }
   };
 
@@ -305,8 +375,9 @@ export default function Muteuals() {
         {/* Info Box */}
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Note:</strong> This feature only searches public mute lists. Private mutes are encrypted and cannot be analyzed.
-            Many users use clients that keep their mutes private.
+            <strong>Note:</strong> This feature only searches public mute lists.
+            Private mutes are encrypted and cannot be analyzed. Many users use
+            clients that keep their mutes private.
           </p>
         </div>
 
@@ -316,17 +387,21 @@ export default function Muteuals() {
             Discovery Method
           </label>
           <div className="space-y-3">
-            <label className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-              discoveryMethod === 'follows'
-                ? 'border-red-600 bg-red-50 dark:bg-red-900/20'
-                : 'border-gray-200 dark:border-gray-700'
-            }`}>
+            <label
+              className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                discoveryMethod === "follows"
+                  ? "border-red-600 bg-red-50 dark:bg-red-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+              }`}
+            >
               <input
                 type="radio"
                 name="discoveryMethod"
                 value="follows"
-                checked={discoveryMethod === 'follows'}
-                onChange={(e) => setDiscoveryMethod(e.target.value as DiscoveryMethod)}
+                checked={discoveryMethod === "follows"}
+                onChange={(e) =>
+                  setDiscoveryMethod(e.target.value as DiscoveryMethod)
+                }
                 className="mt-1 text-red-600 focus:ring-red-500"
               />
               <div className="ml-3 flex-1">
@@ -334,22 +409,27 @@ export default function Muteuals() {
                   Search Within My Follows
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Check if any users you follow have publicly muted you. More relevant but limited scope.
+                  Check if any users you follow have publicly muted you. More
+                  relevant but limited scope.
                 </div>
               </div>
             </label>
 
-            <label className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-              discoveryMethod === 'network'
-                ? 'border-red-600 bg-red-50 dark:bg-red-900/20'
-                : 'border-gray-200 dark:border-gray-700'
-            }`}>
+            <label
+              className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                discoveryMethod === "network"
+                  ? "border-red-600 bg-red-50 dark:bg-red-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+              }`}
+            >
               <input
                 type="radio"
                 name="discoveryMethod"
                 value="network"
-                checked={discoveryMethod === 'network'}
-                onChange={(e) => setDiscoveryMethod(e.target.value as DiscoveryMethod)}
+                checked={discoveryMethod === "network"}
+                onChange={(e) =>
+                  setDiscoveryMethod(e.target.value as DiscoveryMethod)
+                }
                 className="mt-1 text-red-600 focus:ring-red-500"
               />
               <div className="ml-3 flex-1">
@@ -357,7 +437,11 @@ export default function Muteuals() {
                   Network-Wide Search
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Search all public mute lists across {session ? getExpandedRelayList(session.relays).length : '14+'} relays. Most comprehensive coverage.
+                  Search all public mute lists across{" "}
+                  {session
+                    ? getExpandedRelayList(session.relays).length
+                    : "14+"}{" "}
+                  relays. Most comprehensive coverage.
                 </div>
               </div>
             </label>
@@ -371,8 +455,8 @@ export default function Muteuals() {
             disabled={searching}
             className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-medium transition-colors ${
               searching
-                ? 'bg-gray-400 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
-                : 'bg-red-600 text-white hover:bg-red-700'
+                ? "bg-gray-400 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+                : "bg-red-600 text-white hover:bg-red-700"
             }`}
           >
             {searching ? (
@@ -403,7 +487,10 @@ export default function Muteuals() {
         {searching && progress && (
           <div className="mt-4 p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
             <div className="flex items-center justify-center space-x-4">
-              <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={24} />
+              <RefreshCw
+                className="animate-spin text-blue-600 dark:text-blue-400"
+                size={24}
+              />
               <div>
                 <div className="text-xl font-bold text-blue-900 dark:text-blue-100">
                   {progress}
@@ -435,7 +522,7 @@ export default function Muteuals() {
           </div>
 
           {/* Scan Statistics */}
-          {discoveryMethod === 'follows' && (
+          {discoveryMethod === "follows" && (
             <>
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
@@ -443,16 +530,28 @@ export default function Muteuals() {
                 </h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Total follows checked:</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{scanStats.totalChecked}</span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Total follows checked:
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {scanStats.totalChecked}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Users with public mute lists:</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{scanStats.withPublicLists}</span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Users with public mute lists:
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {scanStats.withPublicLists}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Public lists analyzed:</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{scanStats.listsAnalyzed}</span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Public lists analyzed:
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {scanStats.listsAnalyzed}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -460,19 +559,37 @@ export default function Muteuals() {
               {/* Explanation */}
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>What this means:</strong> Out of {scanStats.totalChecked} follows, only {scanStats.withPublicLists} ({scanStats.totalChecked > 0 ? Math.round((scanStats.withPublicLists / scanStats.totalChecked) * 100) : 0}%) have public mute lists.
-                  {scanStats.withPublicLists === 0 && " Most users keep their mute lists private (encrypted), which cannot be scanned."}
-                  {scanStats.withPublicLists > 0 && scanStats.listsAnalyzed > 0 && " We checked all their public lists and you're not on any of them!"}
+                  <strong>What this means:</strong> Out of{" "}
+                  {scanStats.totalChecked} follows, only{" "}
+                  {scanStats.withPublicLists} (
+                  {scanStats.totalChecked > 0
+                    ? Math.round(
+                        (scanStats.withPublicLists / scanStats.totalChecked) *
+                          100,
+                      )
+                    : 0}
+                  %) have public mute lists.
+                  {scanStats.withPublicLists === 0 &&
+                    " Most users keep their mute lists private (encrypted), which cannot be scanned."}
+                  {scanStats.withPublicLists > 0 &&
+                    scanStats.listsAnalyzed > 0 &&
+                    " We checked all their public lists and you're not on any of them!"}
                 </p>
               </div>
             </>
           )}
 
           {/* Network-wide explanation */}
-          {discoveryMethod === 'network' && (
+          {discoveryMethod === "network" && (
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-xs text-blue-800 dark:text-blue-200">
-                <strong>What this means:</strong> We queried {session ? getExpandedRelayList(session.relays).length : '14+'} relays (including major public relays like Damus, Primal, and Nostr Band) for mute lists (kind 10000) with your pubkey in the public tags. No matches found - no one has publicly muted you on these relays! Note: People may have you in their encrypted/private mutes which we cannot see.
+                <strong>What this means:</strong> We queried{" "}
+                {session ? getExpandedRelayList(session.relays).length : "14+"}{" "}
+                relays (including major public relays like Damus, Primal, and
+                Nostr Band) for mute lists (kind 10000) with your pubkey in the
+                public tags. No matches found - no one has publicly muted you on
+                these relays! Note: People may have you in their
+                encrypted/private mutes which we cannot see.
               </p>
             </div>
           )}
@@ -482,13 +599,16 @@ export default function Muteuals() {
           {/* Info Banner */}
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-xs text-blue-800 dark:text-blue-200">
-              <strong>Quick Actions:</strong> &ldquo;Mute All&rdquo; adds to your local mute list (publish later). &ldquo;Unfollow All&rdquo; publishes immediately to relays.
+              <strong>Quick Actions:</strong> &ldquo;Mute All&rdquo; adds to
+              your local mute list (publish later). &ldquo;Unfollow All&rdquo;
+              publishes immediately to relays.
             </p>
           </div>
 
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Found {results.length} {results.length === 1 ? 'Muteual' : 'Muteuals'}
+              Found {results.length}{" "}
+              {results.length === 1 ? "Muteual" : "Muteuals"}
             </h3>
 
             <div className="flex gap-2">
@@ -514,35 +634,37 @@ export default function Muteuals() {
 
           <div className="space-y-3">
             {results.map((muteal) => {
-              const isAlreadyMuted = muteList.pubkeys.some(m => m.value === muteal.mutedBy);
+              const isAlreadyMuted = muteList.pubkeys.some(
+                (m) => m.value === muteal.mutedBy,
+              );
               const profile = muteal.profile;
-              const displayName = profile?.display_name || profile?.name || 'Anonymous';
+              const displayName = getDisplayName(profile);
               const npub = hexToNpub(muteal.mutedBy);
 
               // Format mute date for display
               const formatMuteDate = (timestamp?: number): string => {
-                if (!timestamp) return '';
+                if (!timestamp) return "";
 
                 const muteDate = new Date(timestamp * 1000);
                 const now = new Date();
                 const diffTime = Math.abs(now.getTime() - muteDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                if (diffDays === 0) return 'today';
-                if (diffDays === 1) return 'yesterday';
+                if (diffDays === 0) return "today";
+                if (diffDays === 1) return "yesterday";
                 if (diffDays < 7) {
-                  return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+                  return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`;
                 }
                 if (diffDays < 30) {
                   const weeks = Math.floor(diffDays / 7);
-                  return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+                  return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
                 }
                 if (diffDays < 365) {
                   const months = Math.floor(diffDays / 30);
-                  return months === 1 ? '1 month ago' : `${months} months ago`;
+                  return months === 1 ? "1 month ago" : `${months} months ago`;
                 }
                 const years = Math.floor(diffDays / 365);
-                return years === 1 ? '1 year ago' : `${years} years ago`;
+                return years === 1 ? "1 year ago" : `${years} years ago`;
               };
 
               return (
@@ -562,12 +684,16 @@ export default function Muteuals() {
                         alt={displayName}
                         className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
                         }}
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                        <User size={20} className="text-gray-600 dark:text-gray-300" />
+                        <User
+                          size={20}
+                          className="text-gray-600 dark:text-gray-300"
+                        />
                       </div>
                     )}
 
@@ -610,10 +736,10 @@ export default function Muteuals() {
                       onClick={() => handleCopyNpub(npub)}
                       className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                         copiedNpub === npub
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-gray-600 dark:text-gray-400'
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-gray-600 dark:text-gray-400"
                       }`}
-                      title={copiedNpub === npub ? 'Copied!' : 'Copy npub'}
+                      title={copiedNpub === npub ? "Copied!" : "Copy npub"}
                     >
                       <Copy size={16} />
                     </button>
@@ -623,12 +749,20 @@ export default function Muteuals() {
                       onClick={() => handleMuteToggle(muteal.mutedBy)}
                       className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                         isAlreadyMuted
-                          ? 'text-red-600 dark:text-red-500'
-                          : 'text-gray-600 dark:text-gray-400'
+                          ? "text-red-600 dark:text-red-500"
+                          : "text-gray-600 dark:text-gray-400"
                       }`}
-                      title={isAlreadyMuted ? 'Unmute this user' : 'Mute this user back'}
+                      title={
+                        isAlreadyMuted
+                          ? "Unmute this user"
+                          : "Mute this user back"
+                      }
                     >
-                      {isAlreadyMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                      {isAlreadyMuted ? (
+                        <VolumeX size={16} />
+                      ) : (
+                        <Volume2 size={16} />
+                      )}
                     </button>
 
                     {/* Unfollow Button */}

@@ -16,7 +16,6 @@ import {
   Share2,
   Link,
   MessageCircle,
-  AlertTriangle,
 } from "lucide-react";
 import { DMAnalysis, DMContact, Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
@@ -31,6 +30,12 @@ import {
   fetchProfile,
   publishTextNote,
 } from "@/lib/nostr";
+import {
+  getDisplayName,
+  truncateNpub,
+  getErrorMessage,
+} from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 
 export default function Snoopable() {
   const { session } = useAuth();
@@ -178,9 +183,7 @@ export default function Snoopable() {
         // User cancelled
       } else {
         console.error("Analysis error:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to analyze DM metadata",
-        );
+        setError(getErrorMessage(err, "Failed to analyze DM metadata"));
       }
     } finally {
       setAnalyzing(false);
@@ -205,12 +208,10 @@ export default function Snoopable() {
     if (!analysis) return;
     const npub = hexToNpub(analysis.targetPubkey);
     const url = `${window.location.origin}/snoopable?npub=${npub}`;
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy link:", err);
     }
   };
 
@@ -242,13 +243,11 @@ export default function Snoopable() {
 
   const handleCopyNote = async () => {
     if (!analysis) return;
-    try {
-      const noteText = generateNoteText();
-      await navigator.clipboard.writeText(noteText);
+    const noteText = generateNoteText();
+    const success = await copyToClipboard(noteText);
+    if (success) {
       setCopiedNote(true);
       setTimeout(() => setCopiedNote(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy note:", err);
     }
   };
 
@@ -279,10 +278,10 @@ export default function Snoopable() {
       topContacts.forEach((contact, i) => {
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
         if (includeNames && contact.profile) {
-          const name =
-            contact.profile.display_name ||
-            contact.profile.name ||
-            hexToNpub(contact.pubkey).slice(0, 12);
+          const name = getDisplayName(
+            contact.profile,
+            hexToNpub(contact.pubkey).slice(0, 12),
+          );
           content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchanges)\n`;
         } else {
           content += `${medal} ${contact.title} (${contact.totalCount} exchanges)\n`;
@@ -338,20 +337,6 @@ export default function Snoopable() {
               Snoopable
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              See how public your DM metadata really is. NIP-04 encrypts message
-              content, but the envelope data is visible to anyone.
-            </p>
-          </div>
-        </div>
-
-        {/* Privacy Warning */}
-        <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertTriangle
-              className="text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5"
-              size={18}
-            />
-            <p className="text-sm text-amber-800 dark:text-amber-200">
               NIP-04 encrypts message content, but metadata (who, when, how
               often) is public. Use <strong>NIP-17</strong> for true privacy.
             </p>
@@ -422,7 +407,7 @@ export default function Snoopable() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-gray-900 dark:text-white truncate">
-                      {profile.display_name || profile.name || "Anonymous"}
+                      {getDisplayName(profile)}
                     </div>
                     {profile.nip05 && (
                       <div className="text-sm text-green-600 dark:text-green-400 truncate">
@@ -539,9 +524,10 @@ export default function Snoopable() {
               )}
               <div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {analysis.targetProfile?.display_name ||
-                    analysis.targetProfile?.name ||
-                    hexToNpub(analysis.targetPubkey).slice(0, 16) + "..."}
+                  {getDisplayName(
+                    analysis.targetProfile,
+                    truncateNpub(analysis.targetPubkey),
+                  )}
                 </h3>
                 {analysis.targetProfile?.nip05 && (
                   <div className="text-sm text-green-600 dark:text-green-400">
@@ -721,7 +707,7 @@ export default function Snoopable() {
             </div>
 
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-              {`🔍 Sn👀pable Report for ${analysis.targetPubkey === session?.pubkey ? "myself" : `@${analysis.targetProfile?.display_name || analysis.targetProfile?.name || hexToNpub(analysis.targetPubkey).slice(0, 16) + "..."}`}
+              {`🔍 Sn👀pable Report for ${analysis.targetPubkey === session?.pubkey ? "myself" : `@${getDisplayName(analysis.targetProfile, truncateNpub(analysis.targetPubkey))}`}
 
 📊 DM Activity:
 • ${analysis.totalSent} sent / ${analysis.totalReceived} received
@@ -733,9 +719,7 @@ ${analysis.contacts
   .map((c, i) => {
     const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
     const name =
-      includeNames && c.profile
-        ? c.profile.display_name || c.profile.name || "Anonymous"
-        : c.title;
+      includeNames && c.profile ? getDisplayName(c.profile) : c.title;
     return `${medal} ${name} (${c.totalCount} exchanges)`;
   })
   .join("\n")}

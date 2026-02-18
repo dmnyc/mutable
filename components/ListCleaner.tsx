@@ -1,10 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useStore } from '@/lib/store';
-import { batchCheckAccountActivity } from '@/lib/nostr';
-import { hexToNpub, fetchProfile } from '@/lib/nostr';
-import { AccountActivityStatus, Profile } from '@/types';
+import { useState, useEffect, useRef } from "react";
+import { useStore } from "@/lib/store";
+import { batchCheckAccountActivity } from "@/lib/nostr";
+import { hexToNpub, fetchProfile } from "@/lib/nostr";
+import { AccountActivityStatus, Profile } from "@/types";
+import { getDisplayName, truncateNpub } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import {
   Trash2,
   AlertTriangle,
@@ -20,13 +22,21 @@ import {
   ExternalLink,
   Copy,
   Sparkles,
-  Shield
-} from 'lucide-react';
-import UserProfileModal from './UserProfileModal';
-import { protectionService } from '@/lib/protectionService';
+  Shield,
+} from "lucide-react";
+import UserProfileModal from "./UserProfileModal";
+import { protectionService } from "@/lib/protectionService";
 
 export default function ListCleaner() {
-  const { muteList, session, removeMutedItem, addToBlacklist, removeFromBlacklist, blacklistedPubkeys, isBlacklisted } = useStore();
+  const {
+    muteList,
+    session,
+    removeMutedItem,
+    addToBlacklist,
+    removeFromBlacklist,
+    blacklistedPubkeys,
+    isBlacklisted,
+  } = useStore();
 
   // Scan state
   const [isScanning, setIsScanning] = useState(false);
@@ -38,9 +48,15 @@ export default function ListCleaner() {
   const [showInactive, setShowInactive] = useState(true);
   const [showActive, setShowActive] = useState(false);
   const [showBlacklist, setShowBlacklist] = useState(false);
-  const [profilesMap, setProfilesMap] = useState<Map<string, Profile>>(new Map());
-  const [loadingProfiles, setLoadingProfiles] = useState<Set<string>>(new Set());
-  const [blacklistProfilesMap, setBlacklistProfilesMap] = useState<Map<string, Profile>>(new Map());
+  const [profilesMap, setProfilesMap] = useState<Map<string, Profile>>(
+    new Map(),
+  );
+  const [loadingProfiles, setLoadingProfiles] = useState<Set<string>>(
+    new Set(),
+  );
+  const [blacklistProfilesMap, setBlacklistProfilesMap] = useState<
+    Map<string, Profile>
+  >(new Map());
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
   // Abort controller for cancelling scan
@@ -52,7 +68,7 @@ export default function ListCleaner() {
 
     const loadBlacklistProfiles = async () => {
       const pubkeysToLoad = Array.from(blacklistedPubkeys)
-        .filter(pk => !blacklistProfilesMap.has(pk))
+        .filter((pk) => !blacklistProfilesMap.has(pk))
         .slice(0, 20); // Load 20 at a time
 
       if (pubkeysToLoad.length === 0) return;
@@ -68,10 +84,10 @@ export default function ListCleaner() {
 
       const results = await Promise.allSettled(profilePromises);
 
-      setBlacklistProfilesMap(prev => {
+      setBlacklistProfilesMap((prev) => {
         const next = new Map(prev);
-        results.forEach(result => {
-          if (result.status === 'fulfilled' && result.value.profile) {
+        results.forEach((result) => {
+          if (result.status === "fulfilled" && result.value.profile) {
             next.set(result.value.pubkey, result.value.profile);
           }
         });
@@ -88,16 +104,16 @@ export default function ListCleaner() {
 
     const loadProfiles = async () => {
       const pubkeysToLoad = scanResults
-        .map(r => r.pubkey)
-        .filter(pk => !profilesMap.has(pk) && !loadingProfiles.has(pk))
+        .map((r) => r.pubkey)
+        .filter((pk) => !profilesMap.has(pk) && !loadingProfiles.has(pk))
         .slice(0, 20); // Load 20 at a time
 
       if (pubkeysToLoad.length === 0) return;
 
       // Mark as loading
-      setLoadingProfiles(prev => {
+      setLoadingProfiles((prev) => {
         const next = new Set(prev);
-        pubkeysToLoad.forEach(pk => next.add(pk));
+        pubkeysToLoad.forEach((pk) => next.add(pk));
         return next;
       });
 
@@ -114,10 +130,10 @@ export default function ListCleaner() {
       const results = await Promise.allSettled(profilePromises);
 
       // Update profiles map
-      setProfilesMap(prev => {
+      setProfilesMap((prev) => {
         const next = new Map(prev);
-        results.forEach(result => {
-          if (result.status === 'fulfilled' && result.value.profile) {
+        results.forEach((result) => {
+          if (result.status === "fulfilled" && result.value.profile) {
             next.set(result.value.pubkey, result.value.profile);
           }
         });
@@ -125,9 +141,9 @@ export default function ListCleaner() {
       });
 
       // Remove from loading
-      setLoadingProfiles(prev => {
+      setLoadingProfiles((prev) => {
         const next = new Set(prev);
-        pubkeysToLoad.forEach(pk => next.delete(pk));
+        pubkeysToLoad.forEach((pk) => next.delete(pk));
         return next;
       });
     };
@@ -146,7 +162,7 @@ export default function ListCleaner() {
     setScanProgress({ current: 0, total: muteList.pubkeys.length });
 
     try {
-      const pubkeys = muteList.pubkeys.map(p => p.value);
+      const pubkeys = muteList.pubkeys.map((p) => p.value);
 
       const results = await batchCheckAccountActivity(
         pubkeys,
@@ -155,12 +171,12 @@ export default function ListCleaner() {
         (current, total) => {
           setScanProgress({ current, total });
         },
-        abortControllerRef.current.signal
+        abortControllerRef.current.signal,
       );
 
       setScanResults(results);
     } catch (error) {
-      console.error('Scan failed:', error);
+      console.error("Scan failed:", error);
     } finally {
       setIsScanning(false);
       abortControllerRef.current = null;
@@ -176,32 +192,38 @@ export default function ListCleaner() {
 
   const handleRemoveAccount = (pubkey: string) => {
     if (protectionService.isProtected(pubkey)) {
-      alert('⚠️ This user is protected and cannot be removed.\n\nYou can manage protected users in the Decimator tab.');
+      alert(
+        "⚠️ This user is protected and cannot be removed.\n\nYou can manage protected users in the Decimator tab.",
+      );
       return;
     }
 
-    removeMutedItem(pubkey, 'pubkeys');
+    removeMutedItem(pubkey, "pubkeys");
     addToBlacklist(pubkey);
 
     // Remove from scan results
-    setScanResults(prev => prev.filter(r => r.pubkey !== pubkey));
+    setScanResults((prev) => prev.filter((r) => r.pubkey !== pubkey));
   };
 
   const handleBulkRemove = () => {
-    const inactiveAccounts = scanResults.filter(r => r.isLikelyAbandoned);
+    const inactiveAccounts = scanResults.filter((r) => r.isLikelyAbandoned);
     const protectedPubkeys = protectionService.loadProtectedUsers();
-    const unprotectedAccounts = inactiveAccounts.filter(a => !protectedPubkeys.has(a.pubkey));
+    const unprotectedAccounts = inactiveAccounts.filter(
+      (a) => !protectedPubkeys.has(a.pubkey),
+    );
     const protectedCount = inactiveAccounts.length - unprotectedAccounts.length;
 
     if (unprotectedAccounts.length === 0) {
-      alert('⚠️ All inactive accounts are protected.\n\nYou can manage protected users in the Decimator tab.');
+      alert(
+        "⚠️ All inactive accounts are protected.\n\nYou can manage protected users in the Decimator tab.",
+      );
       return;
     }
 
-    let confirmMsg = `Remove ${unprotectedAccounts.length} inactive ${unprotectedAccounts.length === 1 ? 'account' : 'accounts'}?\n\n`;
+    let confirmMsg = `Remove ${unprotectedAccounts.length} inactive ${unprotectedAccounts.length === 1 ? "account" : "accounts"}?\n\n`;
 
     if (protectedCount > 0) {
-      confirmMsg += `⚠️ ${protectedCount} ${protectedCount === 1 ? 'account is' : 'accounts are'} protected and will be skipped.\n\n`;
+      confirmMsg += `⚠️ ${protectedCount} ${protectedCount === 1 ? "account is" : "accounts are"} protected and will be skipped.\n\n`;
     }
 
     confirmMsg += `This will remove them from your mute list and add them to the blacklist to prevent re-import.`;
@@ -210,12 +232,16 @@ export default function ListCleaner() {
       return;
     }
 
-    unprotectedAccounts.forEach(account => {
-      removeMutedItem(account.pubkey, 'pubkeys');
+    unprotectedAccounts.forEach((account) => {
+      removeMutedItem(account.pubkey, "pubkeys");
       addToBlacklist(account.pubkey);
     });
 
-    setScanResults(prev => prev.filter(r => !unprotectedAccounts.some(a => a.pubkey === r.pubkey)));
+    setScanResults((prev) =>
+      prev.filter(
+        (r) => !unprotectedAccounts.some((a) => a.pubkey === r.pubkey),
+      ),
+    );
   };
 
   const handleRemoveFromBlacklist = (pubkey: string) => {
@@ -224,8 +250,7 @@ export default function ListCleaner() {
 
   const handleCopyNpub = (pubkey: string) => {
     const npub = hexToNpub(pubkey);
-    navigator.clipboard.writeText(npub);
-    // Could add a toast notification here
+    copyToClipboard(npub);
   };
 
   const handleViewProfile = (pubkey: string, profile: Profile | undefined) => {
@@ -233,26 +258,26 @@ export default function ListCleaner() {
   };
 
   const formatDate = (timestamp: number | null) => {
-    if (!timestamp) return 'Unknown';
+    if (!timestamp) return "Unknown";
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  const getDisplayName = (pubkey: string, profile: Profile | undefined) => {
-    if (profile) {
-      return profile.display_name || profile.name || hexToNpub(pubkey).slice(0, 12) + '...';
-    }
-    return hexToNpub(pubkey).slice(0, 12) + '...';
+  const getDisplayNameWithFallback = (
+    pubkey: string,
+    profile: Profile | undefined,
+  ) => {
+    return getDisplayName(profile, truncateNpub(pubkey, 12, 4));
   };
 
   // Filter results based on view toggle
-  const filteredResults = scanResults.filter(result => {
+  const filteredResults = scanResults.filter((result) => {
     if (showInactive && result.isLikelyAbandoned) return true;
     if (showActive && !result.isLikelyAbandoned) return true;
     return false;
   });
 
-  const inactiveCount = scanResults.filter(r => r.isLikelyAbandoned).length;
-  const activeCount = scanResults.filter(r => !r.isLikelyAbandoned).length;
+  const inactiveCount = scanResults.filter((r) => r.isLikelyAbandoned).length;
+  const activeCount = scanResults.filter((r) => !r.isLikelyAbandoned).length;
 
   if (!session) {
     return (
@@ -275,18 +300,24 @@ export default function ListCleaner() {
           List Cleaner
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-3">
-          Scan your mute list for inactive or abandoned profiles. Removed profiles are added to a blacklist to prevent re-importing.
+          Scan your mute list for inactive or abandoned profiles. Removed
+          profiles are added to a blacklist to prevent re-importing.
         </p>
 
         {/* Accuracy Disclaimer */}
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex gap-3">
-          <AlertTriangle size={20} className="text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+          <AlertTriangle
+            size={20}
+            className="text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5"
+          />
           <div className="text-sm text-yellow-800 dark:text-yellow-200">
             <p className="font-semibold mb-1">Data Accuracy Notice</p>
             <p>
-              This scan queries multiple popular relays to find user activity, but cannot check every relay where a user might post.
-              Some active users may be incorrectly flagged as inactive if their content is not available on the queried relays.
-              You can always verify by clicking &quot;View Profile&quot; before removing a profile.
+              This scan queries multiple popular relays to find user activity,
+              but cannot check every relay where a user might post. Some active
+              users may be incorrectly flagged as inactive if their content is
+              not available on the queried relays. You can always verify by
+              clicking &quot;View Profile&quot; before removing a profile.
             </p>
           </div>
         </div>
@@ -297,7 +328,9 @@ export default function ListCleaner() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold mb-1">Inactivity Threshold</h2>
+              <h2 className="text-lg font-semibold mb-1">
+                Inactivity Threshold
+              </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Profiles with no activity for this many days will be flagged
               </p>
@@ -323,7 +356,9 @@ export default function ListCleaner() {
           <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
             <div>
               <p className="text-gray-600 dark:text-gray-400">
-                <span className="text-3xl font-bold text-gray-900 dark:text-white">{muteList.pubkeys.length}</span>
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {muteList.pubkeys.length}
+                </span>
                 <span className="ml-2 text-sm">muted profiles</span>
               </p>
             </div>
@@ -356,14 +391,17 @@ export default function ListCleaner() {
                   Scanning... {scanProgress.current} / {scanProgress.total}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">
-                  {Math.round((scanProgress.current / scanProgress.total) * 100)}%
+                  {Math.round(
+                    (scanProgress.current / scanProgress.total) * 100,
+                  )}
+                  %
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{
-                    width: `${(scanProgress.current / scanProgress.total) * 100}%`
+                    width: `${(scanProgress.current / scanProgress.total) * 100}%`,
                   }}
                 />
               </div>
@@ -387,8 +425,8 @@ export default function ListCleaner() {
                   onClick={() => setShowInactive(!showInactive)}
                   className={`px-3 py-1 rounded-lg text-sm flex items-center gap-2 ${
                     showInactive
-                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                   }`}
                 >
                   {showInactive ? <Eye size={16} /> : <EyeOff size={16} />}
@@ -398,8 +436,8 @@ export default function ListCleaner() {
                   onClick={() => setShowActive(!showActive)}
                   className={`px-3 py-1 rounded-lg text-sm flex items-center gap-2 ${
                     showActive
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                   }`}
                 >
                   {showActive ? <Eye size={16} /> : <EyeOff size={16} />}
@@ -423,7 +461,10 @@ export default function ListCleaner() {
           <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
             {filteredResults.map((result) => {
               const profile = profilesMap.get(result.pubkey);
-              const displayName = getDisplayName(result.pubkey, profile);
+              const displayName = getDisplayNameWithFallback(
+                result.pubkey,
+                profile,
+              );
               const npub = hexToNpub(result.pubkey);
 
               return (
@@ -431,10 +472,10 @@ export default function ListCleaner() {
                   key={result.pubkey}
                   className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                     protectionService.isProtected(result.pubkey)
-                      ? 'bg-green-50 dark:bg-green-900/10 border-l-4 border-green-500'
+                      ? "bg-green-50 dark:bg-green-900/10 border-l-4 border-green-500"
                       : result.isLikelyAbandoned
-                      ? 'bg-red-50 dark:bg-red-900/10'
-                      : ''
+                        ? "bg-red-50 dark:bg-red-900/10"
+                        : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -477,22 +518,29 @@ export default function ListCleaner() {
                         </div>
 
                         <div className="flex items-center gap-4 mt-1 text-xs text-gray-600 dark:text-gray-400 flex-wrap">
-                          {result.lastActivityTimestamp !== null && result.daysInactive !== null ? (
+                          {result.lastActivityTimestamp !== null &&
+                          result.daysInactive !== null ? (
                             <>
                               <span className="flex items-center gap-1 whitespace-nowrap">
                                 <Calendar size={12} />
                                 Last: {formatDate(result.lastActivityTimestamp)}
                               </span>
-                              <span className={`font-semibold whitespace-nowrap ${
-                                result.daysInactive > 180 ? 'text-red-600 dark:text-red-400' :
-                                result.daysInactive > 90 ? 'text-orange-600 dark:text-orange-400' :
-                                'text-green-600 dark:text-green-400'
-                              }`}>
+                              <span
+                                className={`font-semibold whitespace-nowrap ${
+                                  result.daysInactive > 180
+                                    ? "text-red-600 dark:text-red-400"
+                                    : result.daysInactive > 90
+                                      ? "text-orange-600 dark:text-orange-400"
+                                      : "text-green-600 dark:text-green-400"
+                                }`}
+                              >
                                 {result.daysInactive} days inactive
                               </span>
                               {result.lastActivityType && (
                                 <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded whitespace-nowrap">
-                                  {result.lastActivityType.replace(/_/g, ' ').toLowerCase()}
+                                  {result.lastActivityType
+                                    .replace(/_/g, " ")
+                                    .toLowerCase()}
                                 </span>
                               )}
                             </>
@@ -509,7 +557,10 @@ export default function ListCleaner() {
                         </div>
 
                         {/* Profile Links */}
-                        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          className="flex items-center gap-2 mt-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() => handleCopyNpub(result.pubkey)}
                             className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
@@ -522,15 +573,16 @@ export default function ListCleaner() {
                       </div>
                     </div>
 
-                    {result.isLikelyAbandoned && !protectionService.isProtected(result.pubkey) && (
-                      <button
-                        onClick={() => handleRemoveAccount(result.pubkey)}
-                        className="ml-4 px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm flex-shrink-0"
-                      >
-                        <Trash2 size={14} />
-                        Remove
-                      </button>
-                    )}
+                    {result.isLikelyAbandoned &&
+                      !protectionService.isProtected(result.pubkey) && (
+                        <button
+                          onClick={() => handleRemoveAccount(result.pubkey)}
+                          className="ml-4 px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm flex-shrink-0"
+                        >
+                          <Trash2 size={14} />
+                          Remove
+                        </button>
+                      )}
                   </div>
                 </div>
               );
@@ -554,16 +606,14 @@ export default function ListCleaner() {
               </p>
             </div>
           </div>
-          <span className="text-gray-400">
-            {showBlacklist ? '▼' : '▶'}
-          </span>
+          <span className="text-gray-400">{showBlacklist ? "▼" : "▶"}</span>
         </button>
 
         {showBlacklist && blacklistedPubkeys.size > 0 && (
           <div className="border-t border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
             {Array.from(blacklistedPubkeys).map((pubkey) => {
               const profile = blacklistProfilesMap.get(pubkey);
-              const displayName = getDisplayName(pubkey, profile);
+              const displayName = getDisplayNameWithFallback(pubkey, profile);
               const npub = hexToNpub(pubkey);
 
               return (
@@ -599,7 +649,10 @@ export default function ListCleaner() {
                         </div>
 
                         {/* Profile Links */}
-                        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                        <div
+                          className="flex items-center gap-2 mt-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() => handleCopyNpub(pubkey)}
                             className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"

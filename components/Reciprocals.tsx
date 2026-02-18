@@ -1,11 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useStore } from '@/lib/store';
-import { RefreshCw, Users, User, VolumeX, ExternalLink, UserMinus, AlertCircle, X, Copy, Loader2, Search, Repeat } from 'lucide-react';
-import { ReciprocalResult, Profile } from '@/types';
-import UserProfileModal from './UserProfileModal';
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useStore } from "@/lib/store";
+import {
+  RefreshCw,
+  Users,
+  User,
+  VolumeX,
+  ExternalLink,
+  UserMinus,
+  AlertCircle,
+  X,
+  Copy,
+  Loader2,
+  Search,
+  Repeat,
+} from "lucide-react";
+import { ReciprocalResult, Profile } from "@/types";
+import UserProfileModal from "./UserProfileModal";
 import {
   checkReciprocalFollows,
   checkSpecificUserReciprocal,
@@ -16,27 +29,36 @@ import {
   unfollowMultipleUsers,
   searchProfiles,
   fetchProfile,
-  getFollowListPubkeys
-} from '@/lib/nostr';
-import { backupService } from '@/lib/backupService';
+  getFollowListPubkeys,
+} from "@/lib/nostr";
+import { backupService } from "@/lib/backupService";
+import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { getProfileLink } from "@/lib/utils/links";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 
 export default function Reciprocals() {
   const { session } = useAuth();
   const { muteList, addMutedItem } = useStore();
   const [checking, setChecking] = useState(false);
   const [allResults, setAllResults] = useState<ReciprocalResult[]>([]);
-  const [displayedResults, setDisplayedResults] = useState<ReciprocalResult[]>([]);
+  const [displayedResults, setDisplayedResults] = useState<ReciprocalResult[]>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string>('');
+  const [progress, setProgress] = useState<string>("");
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Search specific user states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResult, setSearchResult] = useState<ReciprocalResult | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResult, setSearchResult] = useState<ReciprocalResult | null>(
+    null,
+  );
   const [searchingUser, setSearchingUser] = useState(false);
-  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>([]);
+  const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>(
+    [],
+  );
   const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
   const [showProfileResults, setShowProfileResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
@@ -54,7 +76,7 @@ export default function Reciprocals() {
       setAllResults([]);
       setDisplayedResults([]);
       setSearchResult(null);
-      setProgress('Fetching your follow list...');
+      setProgress("Fetching your follow list...");
 
       // Get list of non-reciprocal follows (pubkeys only)
       const nonReciprocalPubkeys = await checkReciprocalFollows(
@@ -64,17 +86,21 @@ export default function Reciprocals() {
           const percent = Math.round((current / total) * 100);
           // If current is much smaller than total at this point, we're in second pass
           if (total < 100 && current < total) {
-            setProgress(`Second pass: Checking user relay preferences... ${current}/${total}`);
+            setProgress(
+              `Second pass: Checking user relay preferences... ${current}/${total}`,
+            );
           } else {
-            setProgress(`Checking ${current} of ${total} follows... (${percent}%)`);
+            setProgress(
+              `Checking ${current} of ${total} follows... (${percent}%)`,
+            );
           }
         },
-        abortControllerRef.current?.signal
+        abortControllerRef.current?.signal,
       );
 
       // Check for abort
       if (abortControllerRef.current?.signal.aborted) {
-        setProgress('');
+        setProgress("");
         setChecking(false);
         return;
       }
@@ -82,22 +108,26 @@ export default function Reciprocals() {
       if (nonReciprocalPubkeys.length === 0) {
         setAllResults([]);
         setDisplayedResults([]);
-        setProgress('');
+        setProgress("");
         setChecking(false);
         return;
       }
 
       // Convert to ReciprocalResult format
-      const results: ReciprocalResult[] = nonReciprocalPubkeys.map(pubkey => ({
-        pubkey,
-        followsBack: false,
-        checkedAt: Date.now()
-      }));
+      const results: ReciprocalResult[] = nonReciprocalPubkeys.map(
+        (pubkey) => ({
+          pubkey,
+          followsBack: false,
+          checkedAt: Date.now(),
+        }),
+      );
 
       setAllResults(results);
 
       // Enrich with profiles (in batches of 5)
-      setProgress(`Loading profiles for ${results.length} non-reciprocal follows...`);
+      setProgress(
+        `Loading profiles for ${results.length} non-reciprocal follows...`,
+      );
 
       const enrichedResults: ReciprocalResult[] = [];
       const batchSize = 5;
@@ -117,23 +147,25 @@ export default function Reciprocals() {
             } catch (err) {
               return result; // Return without profile if fetch fails
             }
-          })
+          }),
         );
 
         enrichedResults.push(...profiles);
         setDisplayedResults([...enrichedResults]);
 
-        setProgress(`Loading profiles... ${enrichedResults.length}/${results.length}`);
+        setProgress(
+          `Loading profiles... ${enrichedResults.length}/${results.length}`,
+        );
 
         // Small delay to avoid overwhelming relays
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
-      setProgress('');
+      setProgress("");
     } catch (err) {
-      console.error('Check error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to check reciprocal follows');
-      setProgress('');
+      console.error("Check error:", err);
+      setError(getErrorMessage(err, "Failed to check reciprocal follows"));
+      setProgress("");
     } finally {
       setChecking(false);
     }
@@ -149,67 +181,70 @@ export default function Reciprocals() {
       setSearchingUser(true);
       setError(null);
       setSearchResult(null);
-      setProgress('Looking up user...');
+      setProgress("Looking up user...");
 
       let targetPubkey = searchQuery.trim();
 
       // Convert npub to hex if needed
-      if (targetPubkey.startsWith('npub') || targetPubkey.startsWith('nprofile')) {
+      if (
+        targetPubkey.startsWith("npub") ||
+        targetPubkey.startsWith("nprofile")
+      ) {
         try {
           targetPubkey = npubToHex(targetPubkey);
         } catch (err) {
-          setError('Invalid npub format');
+          setError("Invalid npub format");
           setSearchingUser(false);
-          setProgress('');
+          setProgress("");
           return;
         }
       }
       // Search by username if not a pubkey
       else if (!targetPubkey.match(/^[0-9a-f]{64}$/i)) {
-        setProgress('Searching for user...');
+        setProgress("Searching for user...");
         const profiles = await searchProfiles(targetPubkey, session.relays, 10);
         if (profiles.length === 0) {
           setError(`No user found with username: "${targetPubkey}"`);
           setSearchingUser(false);
-          setProgress('');
+          setProgress("");
           return;
         }
         targetPubkey = profiles[0].pubkey;
       }
 
-      setProgress('Checking reciprocity...');
+      setProgress("Checking reciprocity...");
 
       // Check if this user follows back
       const { followsBack, isFollowing } = await checkSpecificUserReciprocal(
         session.pubkey,
         targetPubkey,
-        session.relays
+        session.relays,
       );
 
       if (!isFollowing) {
         setError("You don't follow this user, so reciprocity doesn't apply.");
         setSearchingUser(false);
-        setProgress('');
+        setProgress("");
         return;
       }
 
       // Fetch profile
-      setProgress('Loading profile...');
+      setProgress("Loading profile...");
       const profile = await fetchProfile(targetPubkey, session.relays);
 
       const result: ReciprocalResult = {
         pubkey: targetPubkey,
         profile: profile || undefined,
         followsBack,
-        checkedAt: Date.now()
+        checkedAt: Date.now(),
       };
 
       setSearchResult(result);
-      setProgress('');
+      setProgress("");
     } catch (err) {
-      console.error('Search error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to check user');
-      setProgress('');
+      console.error("Search error:", err);
+      setError(getErrorMessage(err, "Failed to check user"));
+      setProgress("");
     } finally {
       setSearchingUser(false);
     }
@@ -218,7 +253,7 @@ export default function Reciprocals() {
   const handleAbort = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setProgress('Stopping...');
+      setProgress("Stopping...");
     }
   };
 
@@ -226,46 +261,53 @@ export default function Reciprocals() {
     if (!session || allResults.length === 0) return;
 
     const confirmed = confirm(
-      `Unfollow all ${allResults.length} non-reciprocal follow${allResults.length === 1 ? '' : 's'}?\n\n` +
-      `This will:\n` +
-      `• Create a backup of your follow list first\n` +
-      `• Remove ${allResults.length} user${allResults.length === 1 ? '' : 's'} from your follow list\n` +
-      `• Publish the updated list to your relays (one time)\n\n` +
-      `This action cannot be undone (except by restoring from backup).`
+      `Unfollow all ${allResults.length} non-reciprocal follow${allResults.length === 1 ? "" : "s"}?\n\n` +
+        `This will:\n` +
+        `• Create a backup of your follow list first\n` +
+        `• Remove ${allResults.length} user${allResults.length === 1 ? "" : "s"} from your follow list\n` +
+        `• Publish the updated list to your relays (one time)\n\n` +
+        `This action cannot be undone (except by restoring from backup).`,
     );
 
     if (!confirmed) return;
 
     try {
       setChecking(true);
-      setProgress('Creating backup...');
+      setProgress("Creating backup...");
 
       // Get current follows
-      const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const currentFollows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
 
       // Create backup first
       const backup = backupService.createFollowListBackup(
         session.pubkey,
         currentFollows,
-        `Auto-backup before unfollowing ${allResults.length} non-reciprocal follows`
+        `Auto-backup before unfollowing ${allResults.length} non-reciprocal follows`,
       );
       backupService.saveBackup(backup);
 
-      setProgress(`Publishing updated follow list (removing ${allResults.length} user${allResults.length === 1 ? '' : 's'})...`);
+      setProgress(
+        `Publishing updated follow list (removing ${allResults.length} user${allResults.length === 1 ? "" : "s"})...`,
+      );
 
       // Unfollow all users at once (optimized - publishes once)
-      const pubkeysToUnfollow = allResults.map(r => r.pubkey);
+      const pubkeysToUnfollow = allResults.map((r) => r.pubkey);
       await unfollowMultipleUsers(pubkeysToUnfollow, session.relays);
 
-      setProgress('');
-      alert(`Successfully unfollowed ${allResults.length} user${allResults.length === 1 ? '' : 's'}!`);
+      setProgress("");
+      alert(
+        `Successfully unfollowed ${allResults.length} user${allResults.length === 1 ? "" : "s"}!`,
+      );
 
       // Clear results
       setAllResults([]);
       setDisplayedResults([]);
     } catch (err) {
-      console.error('Unfollow error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to unfollow users');
+      console.error("Unfollow error:", err);
+      setError(getErrorMessage(err, "Failed to unfollow users"));
     } finally {
       setChecking(false);
     }
@@ -275,52 +317,61 @@ export default function Reciprocals() {
     if (allResults.length === 0) return;
 
     const confirmed = confirm(
-      `Mute all ${allResults.length} non-reciprocal follow${allResults.length === 1 ? '' : 's'}?\n\n` +
-      `This will add ${allResults.length} user${allResults.length === 1 ? '' : 's'} to your local mute list.\n` +
-      `Remember to click "Publish Changes" in the My Mute List tab to save to relays.`
+      `Mute all ${allResults.length} non-reciprocal follow${allResults.length === 1 ? "" : "s"}?\n\n` +
+        `This will add ${allResults.length} user${allResults.length === 1 ? "" : "s"} to your local mute list.\n` +
+        `Remember to click "Publish Changes" in the My Mute List tab to save to relays.`,
     );
 
     if (!confirmed) return;
 
     let addedCount = 0;
 
-    allResults.forEach(result => {
+    allResults.forEach((result) => {
       // Only add if not already muted
-      const alreadyMuted = muteList.pubkeys.some(p => p.value === result.pubkey);
+      const alreadyMuted = muteList.pubkeys.some(
+        (p) => p.value === result.pubkey,
+      );
       if (!alreadyMuted) {
         addMutedItem(
           {
-            type: 'pubkey',
+            type: "pubkey",
             value: result.pubkey,
-            reason: 'Non-reciprocal follow',
-            private: false
+            reason: "Non-reciprocal follow",
+            private: false,
           },
-          'pubkeys'
+          "pubkeys",
         );
         addedCount++;
       }
     });
 
     if (addedCount > 0) {
-      alert(`Added ${addedCount} user${addedCount === 1 ? '' : 's'} to your mute list.`);
+      alert(
+        `Added ${addedCount} user${addedCount === 1 ? "" : "s"} to your mute list.`,
+      );
     } else {
-      alert('All users were already in your mute list.');
+      alert("All users were already in your mute list.");
     }
   };
 
   const handleUnfollowSingle = async (pubkey: string) => {
     if (!session) return;
 
-    const confirmed = confirm('Unfollow this user?\n\nA backup will be created before unfollowing.\nThis will publish the change to your relays immediately.');
+    const confirmed = confirm(
+      "Unfollow this user?\n\nA backup will be created before unfollowing.\nThis will publish the change to your relays immediately.",
+    );
     if (!confirmed) return;
 
     try {
       // Get current follows and create backup first
-      const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const currentFollows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
       const backup = backupService.createFollowListBackup(
         session.pubkey,
         currentFollows,
-        'Auto-backup before unfollowing user from Reciprocals'
+        "Auto-backup before unfollowing user from Reciprocals",
       );
       backupService.saveBackup(backup);
 
@@ -328,48 +379,46 @@ export default function Reciprocals() {
       await unfollowUser(pubkey, session.relays);
 
       // Remove from results
-      setAllResults(prev => prev.filter(r => r.pubkey !== pubkey));
-      setDisplayedResults(prev => prev.filter(r => r.pubkey !== pubkey));
+      setAllResults((prev) => prev.filter((r) => r.pubkey !== pubkey));
+      setDisplayedResults((prev) => prev.filter((r) => r.pubkey !== pubkey));
 
       if (searchResult?.pubkey === pubkey) {
         setSearchResult(null);
       }
 
-      alert('Successfully unfollowed! (Backup saved)');
+      alert("Successfully unfollowed! (Backup saved)");
     } catch (err) {
-      console.error('Unfollow error:', err);
-      alert('Failed to unfollow user');
+      console.error("Unfollow error:", err);
+      alert("Failed to unfollow user");
     }
   };
 
   const handleMuteSingle = (pubkey: string) => {
-    const alreadyMuted = muteList.pubkeys.some(p => p.value === pubkey);
+    const alreadyMuted = muteList.pubkeys.some((p) => p.value === pubkey);
 
     if (alreadyMuted) {
-      alert('This user is already in your mute list.');
+      alert("This user is already in your mute list.");
       return;
     }
 
     addMutedItem(
       {
-        type: 'pubkey',
+        type: "pubkey",
         value: pubkey,
-        reason: 'Non-reciprocal follow',
-        private: false
+        reason: "Non-reciprocal follow",
+        private: false,
       },
-      'pubkeys'
+      "pubkeys",
     );
 
-    alert('Added to mute list. Remember to publish changes.');
+    alert("Added to mute list. Remember to publish changes.");
   };
 
   const handleCopyNpub = async (npub: string) => {
-    try {
-      await navigator.clipboard.writeText(npub);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy npub:', error);
     }
   };
 
@@ -387,7 +436,11 @@ export default function Reciprocals() {
       }
 
       // Don't search if it's already a valid npub, nprofile, or hex pubkey
-      if (searchQuery.startsWith('npub') || searchQuery.startsWith('nprofile') || searchQuery.match(/^[0-9a-f]{64}$/i)) {
+      if (
+        searchQuery.startsWith("npub") ||
+        searchQuery.startsWith("nprofile") ||
+        searchQuery.match(/^[0-9a-f]{64}$/i)
+      ) {
         setProfileSearchResults([]);
         setShowProfileResults(false);
         return;
@@ -399,7 +452,7 @@ export default function Reciprocals() {
         const results = await searchProfiles(searchQuery, session.relays, 10);
         setProfileSearchResults(results);
       } catch (error) {
-        console.error('Profile search failed:', error);
+        console.error("Profile search failed:", error);
         setProfileSearchResults([]);
       } finally {
         setIsSearchingProfiles(false);
@@ -412,13 +465,15 @@ export default function Reciprocals() {
   }, [searchQuery, session]);
 
   const handleSelectProfile = (profile: Profile) => {
-    setSearchQuery(profile.display_name || profile.name || profile.nip05 || '');
+    setSearchQuery(profile.display_name || profile.name || profile.nip05 || "");
     setShowProfileResults(false);
   };
 
   const renderUserRow = (result: ReciprocalResult) => {
     const profile = result.profile;
-    const displayName = profile?.display_name || profile?.name || (profile ? 'Anonymous' : 'Loading profile...');
+    const displayName = profile
+      ? getDisplayName(profile)
+      : "Loading profile...";
     const npub = hexToNpub(result.pubkey);
     const isLoading = !profile;
 
@@ -434,7 +489,10 @@ export default function Reciprocals() {
         >
           {isLoading ? (
             <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-              <Loader2 size={20} className="text-gray-600 dark:text-gray-300 animate-spin" />
+              <Loader2
+                size={20}
+                className="text-gray-600 dark:text-gray-300 animate-spin"
+              />
             </div>
           ) : profile?.picture ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -443,7 +501,8 @@ export default function Reciprocals() {
               alt={displayName}
               className="w-10 h-10 rounded-full object-cover flex-shrink-0"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                (e.target as HTMLImageElement).src =
+                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
               }}
             />
           ) : (
@@ -454,11 +513,13 @@ export default function Reciprocals() {
 
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`font-medium truncate ${isLoading ? 'text-gray-500 dark:text-gray-400 italic' : 'text-gray-900 dark:text-white'}`}>
+              <span
+                className={`font-medium truncate ${isLoading ? "text-gray-500 dark:text-gray-400 italic" : "text-gray-900 dark:text-white"}`}
+              >
                 {displayName}
               </span>
-              {!isLoading && (
-                result.followsBack ? (
+              {!isLoading &&
+                (result.followsBack ? (
                   <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded font-medium">
                     ✓ Follows back
                   </span>
@@ -466,8 +527,7 @@ export default function Reciprocals() {
                   <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded font-medium">
                     ✗ Doesn&apos;t follow back
                   </span>
-                )
-              )}
+                ))}
             </div>
             {profile?.nip05 && (
               <div className="text-xs text-green-600 dark:text-green-400 truncate">
@@ -483,10 +543,10 @@ export default function Reciprocals() {
             onClick={() => handleCopyNpub(npub)}
             className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
               copiedNpub === npub
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-gray-600 dark:text-gray-400'
+                ? "text-green-600 dark:text-green-400"
+                : "text-gray-600 dark:text-gray-400"
             }`}
-            title={copiedNpub === npub ? 'Copied!' : 'Copy npub'}
+            title={copiedNpub === npub ? "Copied!" : "Copy npub"}
           >
             <Copy size={16} />
           </button>
@@ -511,7 +571,7 @@ export default function Reciprocals() {
 
           {/* View on external site */}
           <a
-            href={`https://npub.world/${npub}`}
+            href={getProfileLink(result.pubkey)}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
@@ -528,7 +588,10 @@ export default function Reciprocals() {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <Users className="mx-auto mb-4 text-gray-400 dark:text-gray-500" size={48} />
+          <Users
+            className="mx-auto mb-4 text-gray-400 dark:text-gray-500"
+            size={48}
+          />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Sign In Required
           </h3>
@@ -551,7 +614,8 @@ export default function Reciprocals() {
               Reciprocals - Check Who Follows Back
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Find users you follow who don&apos;t follow you back. Check your entire follow list or search for a specific user.
+              Find users you follow who don&apos;t follow you back. Check your
+              entire follow list or search for a specific user.
             </p>
           </div>
         </div>
@@ -559,7 +623,9 @@ export default function Reciprocals() {
         {/* Info Box */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Note:</strong> For users with many follows, this may take a while. The check includes a second pass that queries each user&apos;s preferred relays (NIP-65) to minimize false positives.
+            <strong>Note:</strong> For users with many follows, this may take a
+            while. The check includes a second pass that queries each
+            user&apos;s preferred relays (NIP-65) to minimize false positives.
           </p>
         </div>
       </div>
@@ -578,7 +644,7 @@ export default function Reciprocals() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     handleSearchUser();
                     setShowProfileResults(false);
                   }
@@ -611,20 +677,24 @@ export default function Reciprocals() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={profile.picture}
-                          alt={profile.display_name || profile.name || 'User'}
+                          alt={getDisplayName(profile, "User")}
                           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
                           }}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <User size={20} className="text-gray-600 dark:text-gray-300" />
+                          <User
+                            size={20}
+                            className="text-gray-600 dark:text-gray-300"
+                          />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 dark:text-white truncate">
-                          {profile.display_name || profile.name || 'Anonymous'}
+                          {getDisplayName(profile)}
                         </p>
                         {profile.nip05 && (
                           <p className="text-xs text-green-600 dark:text-green-400 truncate">
@@ -709,7 +779,10 @@ export default function Reciprocals() {
         {checking && progress && (
           <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
             <div className="flex items-center space-x-3">
-              <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
+              <RefreshCw
+                className="animate-spin text-blue-600 dark:text-blue-400"
+                size={20}
+              />
               <div className="text-blue-900 dark:text-blue-100 font-medium">
                 {progress}
               </div>
@@ -732,7 +805,8 @@ export default function Reciprocals() {
           <div className="mb-4">
             <div className="flex items-start justify-between gap-4 mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {allResults.length} Non-Reciprocal Follow{allResults.length === 1 ? '' : 's'}
+                {allResults.length} Non-Reciprocal Follow
+                {allResults.length === 1 ? "" : "s"}
               </h3>
               <div className="flex gap-2 flex-shrink-0">
                 <button
@@ -754,28 +828,31 @@ export default function Reciprocals() {
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              These users don&apos;t follow you back (or have private follow lists).
+              These users don&apos;t follow you back (or have private follow
+              lists).
             </p>
           </div>
 
-          <div className="space-y-3">
-            {displayedResults.map(renderUserRow)}
-          </div>
+          <div className="space-y-3">{displayedResults.map(renderUserRow)}</div>
         </div>
       )}
 
       {/* Empty State */}
-      {!checking && !searchResult && allResults.length === 0 && (displayedResults.length > 0 || !error) && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <Users className="mx-auto mb-3 text-green-500" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            All Clear!
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Everyone you follow follows you back, or you haven&apos;t run a check yet.
-          </p>
-        </div>
-      )}
+      {!checking &&
+        !searchResult &&
+        allResults.length === 0 &&
+        (displayedResults.length > 0 || !error) && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <Users className="mx-auto mb-3 text-green-500" size={48} />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              All Clear!
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Everyone you follow follows you back, or you haven&apos;t run a
+              check yet.
+            </p>
+          </div>
+        )}
 
       {/* User Profile Modal */}
       {selectedProfile && (

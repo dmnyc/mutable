@@ -24,6 +24,7 @@ import {
 } from "@/types";
 import { useStore } from "./store";
 import { Signer } from "./signers";
+import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients in 2025
@@ -352,16 +353,22 @@ async function decryptPrivateMutes(
     // NIP-04 decryption via signer
     const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
 
-    const privateTags = JSON.parse(decrypted) as string[][];
+    if (!decrypted || !decrypted.trim()) {
+      return privateMutes;
+    }
+
+    let privateTags: string[][];
+    try {
+      privateTags = JSON.parse(decrypted) as string[][];
+    } catch {
+      console.warn("Failed to parse decrypted private mutes");
+      return privateMutes;
+    }
 
     for (const tag of privateTags) {
       const [tagType, value, ...rest] = tag;
-      // Extract reason (filter out relay URLs and event IDs)
-      const reason = rest.find(
-        (item) => !item.startsWith("wss://") && !isEventId(item),
-      );
-      // Extract event reference if present
-      const eventRef = rest.find((item) => isEventId(item));
+      const reason = extractTagReason(rest);
+      const eventRef = extractTagEventRef(rest);
 
       switch (tagType) {
         case "p":
@@ -425,12 +432,8 @@ export async function parseMuteListEvent(
   // Parse public mutes from tags
   for (const tag of event.tags) {
     const [tagType, value, ...rest] = tag;
-    // Extract reason (filter out relay URLs and event IDs)
-    const reason = rest.find(
-      (item) => !item.startsWith("wss://") && !isEventId(item),
-    );
-    // Extract event reference if present
-    const eventRef = rest.find((item) => isEventId(item));
+    const reason = extractTagReason(rest);
+    const eventRef = extractTagEventRef(rest);
 
     switch (tagType) {
       case "p":

@@ -41,6 +41,8 @@ function PitchforkIcon({
   );
 }
 import { ClientFilterResult, HellthreadResult, Profile } from "@/types";
+import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import UserProfileModal from "./UserProfileModal";
 import {
   findFollowsUsingClient,
@@ -169,7 +171,7 @@ export default function Purgatory() {
       if (err instanceof Error && err.name === "AbortError") {
         setProgress(null);
       } else {
-        setError(err instanceof Error ? err.message : "Failed to search");
+        setError(getErrorMessage(err, "Failed to search"));
         setProgress(null);
       }
     } finally {
@@ -210,12 +212,10 @@ export default function Purgatory() {
   };
 
   const handleCopyNpub = async (npub: string) => {
-    try {
-      await navigator.clipboard.writeText(npub);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy npub:", error);
     }
   };
 
@@ -738,7 +738,7 @@ function ClientResultCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={result.profile.picture}
-              alt={result.profile.name || "User"}
+              alt={getDisplayName(result.profile, "User")}
               className="w-12 h-12 rounded-full flex-shrink-0 object-cover"
               onError={(e) => {
                 (e.target as HTMLImageElement).src =
@@ -757,9 +757,7 @@ function ClientResultCard({
                 onClick={onViewProfile}
                 className="font-semibold text-gray-900 dark:text-white hover:text-orange-600 dark:hover:text-orange-400 transition-colors truncate"
               >
-                {result.profile?.display_name ||
-                  result.profile?.name ||
-                  "Anonymous"}
+                {getDisplayName(result.profile)}
               </button>
               {isProtected && (
                 <span
@@ -902,7 +900,7 @@ function HellthreadResultCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={result.profile.picture}
-              alt={result.profile.name || "User"}
+              alt={getDisplayName(result.profile, "User")}
               className="w-12 h-12 rounded-full flex-shrink-0 object-cover"
               onError={(e) => {
                 (e.target as HTMLImageElement).src =
@@ -921,9 +919,7 @@ function HellthreadResultCard({
                 onClick={onViewProfile}
                 className="font-semibold text-gray-900 dark:text-white hover:text-orange-600 dark:hover:text-orange-400 transition-colors truncate"
               >
-                {result.profile?.display_name ||
-                  result.profile?.name ||
-                  "Anonymous"}
+                {getDisplayName(result.profile)}
               </button>
               {isProtected && (
                 <span

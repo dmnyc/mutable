@@ -1,10 +1,15 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Profile } from '@/types';
-import { publishTextNote, hexToNpub } from '@/lib/nostr';
-import { useAuth } from '@/hooks/useAuth';
-import { X, Copy, Check, Send, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { Profile } from "@/types";
+import { publishTextNote, hexToNpub } from "@/lib/nostr";
+import {
+  getDisplayName as getDisplayNameUtil,
+  getErrorMessage,
+} from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
+import { useAuth } from "@/hooks/useAuth";
+import { X, Copy, Check, Send, Loader2 } from "lucide-react";
 
 interface ShareResultsModalProps {
   targetProfile: Profile;
@@ -12,7 +17,11 @@ interface ShareResultsModalProps {
   onClose: () => void;
 }
 
-export default function ShareResultsModal({ targetProfile, resultCount, onClose }: ShareResultsModalProps) {
+export default function ShareResultsModal({
+  targetProfile,
+  resultCount,
+  onClose,
+}: ShareResultsModalProps) {
   const { session } = useAuth();
   const [isMe, setIsMe] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -22,36 +31,34 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
 
   // Get display name or fallback to npub
   const getDisplayName = () => {
-    if (targetProfile.display_name) return targetProfile.display_name;
-    if (targetProfile.name) return targetProfile.name;
     const npub = hexToNpub(targetProfile.pubkey);
-    return `@${npub.substring(0, 16)}...`;
+    return getDisplayNameUtil(targetProfile, `@${npub.substring(0, 16)}...`);
   };
 
   // Get Mute Score based on mute count
   const getMuteScore = (count: number): { emoji: string; label: string } => {
-    if (count === 0) return { emoji: '⬜', label: 'Pristine' };
-    if (count <= 25) return { emoji: '🟦', label: 'Low' };
-    if (count <= 50) return { emoji: '🟩', label: 'Average' };
-    if (count <= 75) return { emoji: '🟨', label: 'Moderate' };
-    if (count <= 100) return { emoji: '🟧', label: 'High' };
-    if (count <= 200) return { emoji: '🟥', label: 'Severe' };
-    if (count <= 300) return { emoji: '🟪', label: 'Legendary' };
-    if (count <= 400) return { emoji: '🟫', label: 'Shitlisted' };
-    return { emoji: '⬛', label: 'Blacklisted' };
+    if (count === 0) return { emoji: "⬜", label: "Pristine" };
+    if (count <= 25) return { emoji: "🟦", label: "Low" };
+    if (count <= 50) return { emoji: "🟩", label: "Average" };
+    if (count <= 75) return { emoji: "🟨", label: "Moderate" };
+    if (count <= 100) return { emoji: "🟧", label: "High" };
+    if (count <= 200) return { emoji: "🟥", label: "Severe" };
+    if (count <= 300) return { emoji: "🟪", label: "Legendary" };
+    if (count <= 400) return { emoji: "🟫", label: "Shitlisted" };
+    return { emoji: "⬛", label: "Blacklisted" };
   };
 
   // Generate the actual share message (with nostr:npub for posting)
   const getActualShareMessage = (isMeValue: boolean = isMe) => {
     const npub = hexToNpub(targetProfile.pubkey);
-    const baseUrl = 'https://mutable.top/mute-o-scope';
+    const baseUrl = "https://mutable.top/mute-o-scope";
     const muteScore = getMuteScore(resultCount);
 
     if (isMeValue) {
-      return `I just found myself on ${resultCount} public mute list${resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
+      return `I just found myself on ${resultCount} public mute list${resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
     } else {
       // Include nostr: mention so clients will parse it and create a clickable link
-      return `Hey nostr:${npub}, I just found you on ${resultCount} public mute list${resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
+      return `Hey nostr:${npub}, I just found you on ${resultCount} public mute list${resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
     }
   };
 
@@ -63,24 +70,24 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
   // Copy to clipboard
   const handleCopy = async () => {
     const messageToShare = getActualShareMessage(isMe);
-    try {
-      await navigator.clipboard.writeText(messageToShare);
+    const success = await copyToClipboard(messageToShare);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-    } catch (err) {
+    } else {
       // Fallback for older browsers
-      const textArea = document.createElement('textarea');
+      const textArea = document.createElement("textarea");
       textArea.value = messageToShare;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
       document.body.appendChild(textArea);
       textArea.select();
       try {
-        document.execCommand('copy');
+        document.execCommand("copy");
         setCopied(true);
         setTimeout(() => setCopied(false), 3000);
       } catch (e) {
-        setError('Failed to copy to clipboard');
+        setError("Failed to copy to clipboard");
       }
       document.body.removeChild(textArea);
     }
@@ -89,7 +96,7 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
   // Post to Nostr
   const handlePost = async () => {
     if (!session) {
-      setError('You must be signed in to post');
+      setError("You must be signed in to post");
       return;
     }
 
@@ -99,14 +106,18 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
     try {
       // Build tags
       const tags: string[][] = [
-        ['p', targetProfile.pubkey], // Tag the target user
-        ['t', 'MuteOScope'],
-        ['t', 'Mutable'],
-        ['client', 'Mutable'] // Client tag to show "Posted from Mutable"
+        ["p", targetProfile.pubkey], // Tag the target user
+        ["t", "MuteOScope"],
+        ["t", "Mutable"],
+        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
       ];
 
       const messageToShare = getActualShareMessage(isMe);
-      const result = await publishTextNote(messageToShare, tags, session.relays);
+      const result = await publishTextNote(
+        messageToShare,
+        tags,
+        session.relays,
+      );
 
       if (result.success) {
         setPosted(true);
@@ -114,17 +125,20 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
           onClose();
         }, 2000);
       } else {
-        setError(result.error || 'Failed to publish note');
+        setError(result.error || "Failed to publish note");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to publish note');
+      setError(getErrorMessage(err, "Failed to publish note"));
     } finally {
       setPosting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      onClick={onClose}
+    >
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full"
         onClick={(e) => e.stopPropagation()}
@@ -162,7 +176,10 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
                 />
               </div>
               <div className="flex-1">
-                <label htmlFor="isMe" className="text-sm font-bold text-yellow-900 dark:text-yellow-100 cursor-pointer block mb-1">
+                <label
+                  htmlFor="isMe"
+                  className="text-sm font-bold text-yellow-900 dark:text-yellow-100 cursor-pointer block mb-1"
+                >
                   This is me!
                 </label>
                 <p className="text-xs text-yellow-800 dark:text-yellow-200">
@@ -179,18 +196,34 @@ export default function ShareResultsModal({ targetProfile, resultCount, onClose 
             </label>
             {!isMe ? (
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <div>Hey <span className="text-blue-600 dark:text-blue-400 font-medium">{getDisplayName()}</span>, I just found you on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</div>
+                <div>
+                  Hey{" "}
+                  <span className="text-blue-600 dark:text-blue-400 font-medium">
+                    {getDisplayName()}
+                  </span>
+                  , I just found you on {resultCount} public mute list
+                  {resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!
+                </div>
                 <br />
-                <div>{getMuteScore(resultCount).emoji} Mute Score: {getMuteScore(resultCount).label}</div>
+                <div>
+                  {getMuteScore(resultCount).emoji} Mute Score:{" "}
+                  {getMuteScore(resultCount).label}
+                </div>
                 <br />
                 <div>Scope your mutes here: 🔍</div>
                 <div>https://mutable.top/mute-o-scope</div>
               </div>
             ) : (
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <div>I just found myself on {resultCount} public mute list{resultCount === 1 ? '' : 's'} using Mute-o-Scope by #Mutable!</div>
+                <div>
+                  I just found myself on {resultCount} public mute list
+                  {resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!
+                </div>
                 <br />
-                <div>{getMuteScore(resultCount).emoji} Mute Score: {getMuteScore(resultCount).label}</div>
+                <div>
+                  {getMuteScore(resultCount).emoji} Mute Score:{" "}
+                  {getMuteScore(resultCount).label}
+                </div>
                 <br />
                 <div>Scope your mutes here: 🔍</div>
                 <div>https://mutable.top/mute-o-scope</div>

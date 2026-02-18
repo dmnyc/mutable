@@ -1,20 +1,35 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useRelaySync } from '@/hooks/useRelaySync';
-import { RefreshCw, Skull, AlertCircle, Copy, ExternalLink, UserMinus, Share2, Shield, ShieldCheck, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import { Profile } from '@/types';
-import UserProfileModal from './UserProfileModal';
-import DecimatorShareModal from './DecimatorShareModal';
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useRelaySync } from "@/hooks/useRelaySync";
+import {
+  RefreshCw,
+  Skull,
+  AlertCircle,
+  Copy,
+  ExternalLink,
+  UserMinus,
+  Share2,
+  Shield,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+} from "lucide-react";
+import { Profile } from "@/types";
+import UserProfileModal from "./UserProfileModal";
+import DecimatorShareModal from "./DecimatorShareModal";
 import {
   getFollowListPubkeys,
   unfollowMultipleUsers,
   fetchProfile,
-  hexToNpub
-} from '@/lib/nostr';
-import { backupService } from '@/lib/backupService';
-import { protectionService } from '@/lib/protectionService';
+  hexToNpub,
+} from "@/lib/nostr";
+import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
+import { backupService } from "@/lib/backupService";
+import { protectionService } from "@/lib/protectionService";
 
 interface DecimatorResult {
   pubkey: string;
@@ -23,24 +38,32 @@ interface DecimatorResult {
 
 export default function Decimator() {
   const { session } = useAuth();
-  const { addProtection: addProtectionToRelay, removeProtection: removeProtectionFromRelay } = useRelaySync();
+  const {
+    addProtection: addProtectionToRelay,
+    removeProtection: removeProtectionFromRelay,
+  } = useRelaySync();
   const [processing, setProcessing] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<DecimatorResult[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string>('');
+  const [progress, setProgress] = useState<string>("");
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-  const [inputMode, setInputMode] = useState<'percentage' | 'target'>('percentage');
+  const [inputMode, setInputMode] = useState<"percentage" | "target">(
+    "percentage",
+  );
   const [percentageValue, setPercentageValue] = useState(10);
   const [targetValue, setTargetValue] = useState<number | null>(null);
   const [totalFollows, setTotalFollows] = useState<number | null>(null);
   const [followsLoaded, setFollowsLoaded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [decimatedCount, setDecimatedCount] = useState<number>(0);
-  const [protectedPubkeys, setProtectedPubkeys] = useState<Set<string>>(new Set());
+  const [protectedPubkeys, setProtectedPubkeys] = useState<Set<string>>(
+    new Set(),
+  );
   const [protectedUsers, setProtectedUsers] = useState<DecimatorResult[]>([]);
   const [showProtectedList, setShowProtectedList] = useState(false);
-  const [loadingProtectedProfiles, setLoadingProtectedProfiles] = useState(false);
+  const [loadingProtectedProfiles, setLoadingProtectedProfiles] =
+    useState(false);
   const [protectedPage, setProtectedPage] = useState(1);
   const [protectedPageSize, setProtectedPageSize] = useState(10);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -79,12 +102,15 @@ export default function Decimator() {
     if (!session || followsLoaded) return;
 
     try {
-      const followList = await getFollowListPubkeys(session.pubkey, session.relays);
+      const followList = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
       setTotalFollows(followList.length);
       setTargetValue(followList.length);
       setFollowsLoaded(true);
     } catch (err) {
-      console.error('Error loading follow count:', err);
+      console.error("Error loading follow count:", err);
     }
   };
 
@@ -99,57 +125,71 @@ export default function Decimator() {
       setError(null);
       setSelectedUsers([]);
       setDecimatedCount(0); // Reset decimated count for new selection
-      setProgress('Fetching your follow list...');
+      setProgress("Fetching your follow list...");
 
       // Get current follow list
-      const allFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const allFollows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
 
       if (allFollows.length === 0) {
         setError("You don&apos;t follow anyone yet!");
-        setProgress('');
+        setProgress("");
         setProcessing(false);
         return;
       }
 
       // Filter out protected users from selection pool
-      const followList = allFollows.filter(pubkey => !protectedPubkeys.has(pubkey));
+      const followList = allFollows.filter(
+        (pubkey) => !protectedPubkeys.has(pubkey),
+      );
       const protectedCount = allFollows.length - followList.length;
 
       if (followList.length === 0) {
-        setError('All of your follows are protected! Remove protection from some users to proceed.');
-        setProgress('');
+        setError(
+          "All of your follows are protected! Remove protection from some users to proceed.",
+        );
+        setProgress("");
         setProcessing(false);
         return;
       }
 
       if (protectedCount > 0) {
-        console.log(`${protectedCount} protected user${protectedCount === 1 ? '' : 's'} excluded from selection`);
+        console.log(
+          `${protectedCount} protected user${protectedCount === 1 ? "" : "s"} excluded from selection`,
+        );
       }
 
       // Calculate how many to remove
       let numberToRemove: number;
-      if (inputMode === 'percentage') {
+      if (inputMode === "percentage") {
         numberToRemove = Math.ceil((followList.length * percentageValue) / 100);
       } else {
         // Target mode: calculate how many to remove to reach target
-        numberToRemove = Math.max(0, followList.length - (targetValue || followList.length));
+        numberToRemove = Math.max(
+          0,
+          followList.length - (targetValue || followList.length),
+        );
       }
 
       if (numberToRemove === 0) {
-        setError('No users to remove with current settings.');
-        setProgress('');
+        setError("No users to remove with current settings.");
+        setProgress("");
         setProcessing(false);
         return;
       }
 
       if (numberToRemove >= followList.length) {
         setError(`Cannot remove all follows. Please adjust your settings.`);
-        setProgress('');
+        setProgress("");
         setProcessing(false);
         return;
       }
 
-      setProgress(`Selecting ${numberToRemove} users randomly (${protectedCount} protected)...`);
+      setProgress(
+        `Selecting ${numberToRemove} users randomly (${protectedCount} protected)...`,
+      );
 
       // Shuffle the follow list using Fisher-Yates algorithm
       const shuffled = [...followList];
@@ -162,8 +202,8 @@ export default function Decimator() {
       const usersToRemove = shuffled.slice(0, numberToRemove);
 
       // Convert to DecimatorResult format
-      const results: DecimatorResult[] = usersToRemove.map(pubkey => ({
-        pubkey
+      const results: DecimatorResult[] = usersToRemove.map((pubkey) => ({
+        pubkey,
       }));
 
       setSelectedUsers(results);
@@ -188,26 +228,30 @@ export default function Decimator() {
             } catch (err) {
               return result;
             }
-          })
+          }),
         );
 
         enrichedResults.push(...profiles);
         // Filter out any users that were protected during loading
-        setSelectedUsers(prev => {
+        setSelectedUsers((prev) => {
           const currentProtected = protectionService.loadProtectedUsers();
-          return enrichedResults.filter(user => !currentProtected.has(user.pubkey));
+          return enrichedResults.filter(
+            (user) => !currentProtected.has(user.pubkey),
+          );
         });
 
-        setProgress(`Loading profiles... ${enrichedResults.length}/${results.length}`);
+        setProgress(
+          `Loading profiles... ${enrichedResults.length}/${results.length}`,
+        );
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
-      setProgress('');
+      setProgress("");
     } catch (err) {
-      console.error('Selection error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to select users');
-      setProgress('');
+      console.error("Selection error:", err);
+      setError(getErrorMessage(err, "Failed to select users"));
+      setProgress("");
     } finally {
       setProcessing(false);
     }
@@ -216,7 +260,7 @@ export default function Decimator() {
   const handleAbort = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      setProgress('Stopping...');
+      setProgress("Stopping...");
     }
   };
 
@@ -228,38 +272,43 @@ export default function Decimator() {
     if (!session || selectedUsers.length === 0) return;
 
     const confirmed = confirm(
-      `Unfollow ${selectedUsers.length} randomly selected user${selectedUsers.length === 1 ? '' : 's'}?\n\n` +
-      `This will:\n` +
-      `• Create a backup of your follow list first\n` +
-      `• Remove ${selectedUsers.length} user${selectedUsers.length === 1 ? '' : 's'} from your follow list\n` +
-      `• Publish the updated list to your relays (one time)\n\n` +
-      `This action cannot be undone (except by restoring from backup).`
+      `Unfollow ${selectedUsers.length} randomly selected user${selectedUsers.length === 1 ? "" : "s"}?\n\n` +
+        `This will:\n` +
+        `• Create a backup of your follow list first\n` +
+        `• Remove ${selectedUsers.length} user${selectedUsers.length === 1 ? "" : "s"} from your follow list\n` +
+        `• Publish the updated list to your relays (one time)\n\n` +
+        `This action cannot be undone (except by restoring from backup).`,
     );
 
     if (!confirmed) return;
 
     try {
       setProcessing(true);
-      setProgress('Creating backup...');
+      setProgress("Creating backup...");
 
       // Get current follows
-      const currentFollows = await getFollowListPubkeys(session.pubkey, session.relays);
+      const currentFollows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
 
       // Create backup first
       const backup = backupService.createFollowListBackup(
         session.pubkey,
         currentFollows,
-        `Auto-backup before decimating ${selectedUsers.length} follows`
+        `Auto-backup before decimating ${selectedUsers.length} follows`,
       );
       backupService.saveBackup(backup);
 
-      setProgress(`Publishing updated follow list (removing ${selectedUsers.length} user${selectedUsers.length === 1 ? '' : 's'})...`);
+      setProgress(
+        `Publishing updated follow list (removing ${selectedUsers.length} user${selectedUsers.length === 1 ? "" : "s"})...`,
+      );
 
       // Unfollow all selected users at once
-      const pubkeysToUnfollow = selectedUsers.map(r => r.pubkey);
+      const pubkeysToUnfollow = selectedUsers.map((r) => r.pubkey);
       await unfollowMultipleUsers(pubkeysToUnfollow, session.relays);
 
-      setProgress('');
+      setProgress("");
 
       // Save count for sharing
       setDecimatedCount(selectedUsers.length);
@@ -269,21 +318,19 @@ export default function Decimator() {
 
       // Don't clear results yet - show share option first
     } catch (err) {
-      console.error('Decimate error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to unfollow users');
+      console.error("Decimate error:", err);
+      setError(getErrorMessage(err, "Failed to unfollow users"));
     } finally {
       setProcessing(false);
     }
   };
 
   const handleCopyNpub = async (pubkey: string) => {
-    try {
-      const npub = hexToNpub(pubkey);
-      await navigator.clipboard.writeText(npub);
+    const npub = hexToNpub(pubkey);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(pubkey);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy npub:', err);
     }
   };
 
@@ -297,28 +344,33 @@ export default function Decimator() {
     if (isProtected) {
       // Remove from protected list and sync to relay
       await removeProtectionFromRelay(pubkey);
-      setProtectedPubkeys(prev => {
+      setProtectedPubkeys((prev) => {
         const newSet = new Set(prev);
         newSet.delete(pubkey);
         return newSet;
       });
       // Remove from protected users list
-      setProtectedUsers(prev => prev.filter(user => user.pubkey !== pubkey));
+      setProtectedUsers((prev) =>
+        prev.filter((user) => user.pubkey !== pubkey),
+      );
     } else {
       // Add to protected list and sync to relay
       await addProtectionToRelay(pubkey);
-      setProtectedPubkeys(prev => new Set(prev).add(pubkey));
+      setProtectedPubkeys((prev) => new Set(prev).add(pubkey));
 
       // Remove from current selection list if protecting
-      setSelectedUsers(prev => prev.filter(user => user.pubkey !== pubkey));
+      setSelectedUsers((prev) => prev.filter((user) => user.pubkey !== pubkey));
 
       // Add to protected users list with profile
       if (session) {
         try {
           const profile = await fetchProfile(pubkey, session.relays);
-          setProtectedUsers(prev => [...prev, { pubkey, profile: profile || undefined }]);
+          setProtectedUsers((prev) => [
+            ...prev,
+            { pubkey, profile: profile || undefined },
+          ]);
         } catch (err) {
-          setProtectedUsers(prev => [...prev, { pubkey }]);
+          setProtectedUsers((prev) => [...prev, { pubkey }]);
         }
       }
     }
@@ -326,8 +378,8 @@ export default function Decimator() {
 
   const handleClearAllProtection = () => {
     const confirmed = confirm(
-      `Remove protection from all ${protectedPubkeys.size} user${protectedPubkeys.size === 1 ? '' : 's'}?\n\n` +
-      `This will make them eligible for decimation again.`
+      `Remove protection from all ${protectedPubkeys.size} user${protectedPubkeys.size === 1 ? "" : "s"}?\n\n` +
+        `This will make them eligible for decimation again.`,
     );
 
     if (!confirmed) return;
@@ -339,10 +391,15 @@ export default function Decimator() {
   };
 
   // Pagination calculations for protected users
-  const protectedTotalPages = Math.ceil(protectedUsers.length / protectedPageSize);
+  const protectedTotalPages = Math.ceil(
+    protectedUsers.length / protectedPageSize,
+  );
   const protectedStartIndex = (protectedPage - 1) * protectedPageSize;
   const protectedEndIndex = protectedStartIndex + protectedPageSize;
-  const protectedCurrentItems = protectedUsers.slice(protectedStartIndex, protectedEndIndex);
+  const protectedCurrentItems = protectedUsers.slice(
+    protectedStartIndex,
+    protectedEndIndex,
+  );
 
   const handleProtectedPageChange = (page: number) => {
     setProtectedPage(page);
@@ -370,10 +427,13 @@ export default function Decimator() {
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Skull className="w-8 h-8 text-red-500" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Decimator</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Decimator
+          </h1>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          Randomly remove a percentage of your follows to cull your list down to a manageable size.
+          Randomly remove a percentage of your follows to cull your list down to
+          a manageable size.
         </p>
       </div>
 
@@ -384,8 +444,9 @@ export default function Decimator() {
           <div className="text-sm text-blue-900 dark:text-blue-100">
             <p className="font-semibold mb-1">Safe to use with backups</p>
             <p>
-              Your follow list will be automatically backed up before any changes are made.
-              You can restore from backups in the Backups tab at any time.
+              Your follow list will be automatically backed up before any
+              changes are made. You can restore from backups in the Backups tab
+              at any time.
             </p>
           </div>
         </div>
@@ -427,79 +488,96 @@ export default function Decimator() {
               {loadingProtectedProfiles ? (
                 <div className="flex items-center justify-center py-8">
                   <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
-                  <span className="ml-2 text-gray-600 dark:text-gray-400">Loading profiles...</span>
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">
+                    Loading profiles...
+                  </span>
                 </div>
               ) : (
                 <>
                   <div className="space-y-2">
                     {protectedCurrentItems.map((user) => (
-                    <div
-                      key={user.pubkey}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
                       <div
-                        className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
-                        onClick={() => user.profile && handleViewProfile(user.profile)}
-                        title={user.profile ? "View profile" : undefined}
+                        key={user.pubkey}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
-                        <div className="relative">
-                          {user.profile?.picture ? (
-                            <img
-                              src={user.profile.picture}
-                              alt=""
-                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                                const placeholder = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
-                                if (placeholder) placeholder.style.display = 'flex';
+                        <div
+                          className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                          onClick={() =>
+                            user.profile && handleViewProfile(user.profile)
+                          }
+                          title={user.profile ? "View profile" : undefined}
+                        >
+                          <div className="relative">
+                            {user.profile?.picture ? (
+                              <img
+                                src={user.profile.picture}
+                                alt=""
+                                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display =
+                                    "none";
+                                  const placeholder = (
+                                    e.target as HTMLImageElement
+                                  ).nextElementSibling as HTMLElement;
+                                  if (placeholder)
+                                    placeholder.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex-shrink-0"
+                              style={{
+                                display: user.profile?.picture
+                                  ? "none"
+                                  : "flex",
                               }}
                             />
-                          ) : null}
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex-shrink-0" style={{ display: user.profile?.picture ? 'none' : 'flex' }} />
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-600 dark:bg-green-700 flex items-center justify-center">
-                            <ShieldCheck className="w-3 h-3 text-white" />
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-600 dark:bg-green-700 flex items-center justify-center">
+                              <ShieldCheck className="w-3 h-3 text-white" />
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {user.profile ? (
+                              <>
+                                <div className="font-medium text-gray-900 dark:text-white truncate">
+                                  {getDisplayName(user.profile)}
+                                </div>
+                                {user.profile.nip05 && (
+                                  <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                    {user.profile.nip05}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-gray-500 dark:text-gray-400 text-sm truncate font-mono">
+                                {user.pubkey.slice(0, 16)}...
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          {user.profile ? (
-                            <>
-                              <div className="font-medium text-gray-900 dark:text-white truncate">
-                                {user.profile.name || user.profile.display_name || 'Anonymous'}
-                              </div>
-                              {user.profile.nip05 && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                  {user.profile.nip05}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-gray-500 dark:text-gray-400 text-sm truncate font-mono">
-                              {user.pubkey.slice(0, 16)}...
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handleToggleProtection(user.pubkey)}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium transition-colors"
+                            title="Remove protection"
+                          >
+                            Revoke
+                          </button>
+                          <button
+                            onClick={() => handleCopyNpub(user.pubkey)}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            title="Copy npub"
+                          >
+                            {copiedNpub === user.pubkey ? (
+                              <span className="text-green-600 dark:text-green-400 text-xs">
+                                ✓
+                              </span>
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => handleToggleProtection(user.pubkey)}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-medium transition-colors"
-                          title="Remove protection"
-                        >
-                          Revoke
-                        </button>
-                        <button
-                          onClick={() => handleCopyNpub(user.pubkey)}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                          title="Copy npub"
-                        >
-                          {copiedNpub === user.pubkey ? (
-                            <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
                     ))}
                   </div>
 
@@ -507,45 +585,64 @@ export default function Decimator() {
                   {protectedUsers.length > 0 && protectedTotalPages > 1 && (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
                       <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        Showing {protectedStartIndex + 1}-{Math.min(protectedEndIndex, protectedUsers.length)} of {protectedUsers.length}
+                        Showing {protectedStartIndex + 1}-
+                        {Math.min(protectedEndIndex, protectedUsers.length)} of{" "}
+                        {protectedUsers.length}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
-                          onClick={() => handleProtectedPageChange(protectedPage - 1)}
+                          onClick={() =>
+                            handleProtectedPageChange(protectedPage - 1)
+                          }
                           disabled={protectedPage === 1}
                           className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                         >
                           Previous
                         </button>
                         <div className="flex items-center gap-1">
-                          {Array.from({ length: protectedTotalPages }, (_, i) => i + 1).map((page) => {
+                          {Array.from(
+                            { length: protectedTotalPages },
+                            (_, i) => i + 1,
+                          ).map((page) => {
                             // Show first page, last page, current page, and adjacent pages
                             if (
                               page === 1 ||
                               page === protectedTotalPages ||
-                              (page >= protectedPage - 1 && page <= protectedPage + 1)
+                              (page >= protectedPage - 1 &&
+                                page <= protectedPage + 1)
                             ) {
                               return (
                                 <button
                                   key={page}
-                                  onClick={() => handleProtectedPageChange(page)}
+                                  onClick={() =>
+                                    handleProtectedPageChange(page)
+                                  }
                                   className={`px-3 py-1 text-sm rounded ${
                                     protectedPage === page
-                                      ? 'bg-green-600 text-white'
-                                      : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                      ? "bg-green-600 text-white"
+                                      : "border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                                   }`}
                                 >
                                   {page}
                                 </button>
                               );
-                            } else if (page === protectedPage - 2 || page === protectedPage + 2) {
-                              return <span key={page} className="px-1 text-gray-500">...</span>;
+                            } else if (
+                              page === protectedPage - 2 ||
+                              page === protectedPage + 2
+                            ) {
+                              return (
+                                <span key={page} className="px-1 text-gray-500">
+                                  ...
+                                </span>
+                              );
                             }
                             return null;
                           })}
                         </div>
                         <button
-                          onClick={() => handleProtectedPageChange(protectedPage + 1)}
+                          onClick={() =>
+                            handleProtectedPageChange(protectedPage + 1)
+                          }
                           disabled={protectedPage === protectedTotalPages}
                           className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                         >
@@ -570,24 +667,24 @@ export default function Decimator() {
         {/* Mode Selector */}
         <div className="flex gap-4 mb-4">
           <button
-            onClick={() => setInputMode('percentage')}
+            onClick={() => setInputMode("percentage")}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-              inputMode === 'percentage'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              inputMode === "percentage"
+                ? "bg-red-600 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
             }`}
           >
             By Percentage
           </button>
           <button
             onClick={() => {
-              setInputMode('target');
+              setInputMode("target");
               loadFollowCount();
             }}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-              inputMode === 'target'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              inputMode === "target"
+                ? "bg-red-600 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
             }`}
           >
             Target Number
@@ -595,7 +692,7 @@ export default function Decimator() {
         </div>
 
         {/* Percentage Input */}
-        {inputMode === 'percentage' && (
+        {inputMode === "percentage" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Percentage to remove: {percentageValue}%
@@ -615,21 +712,24 @@ export default function Decimator() {
             </div>
             {totalFollows && (
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                This will remove approximately {Math.ceil((totalFollows * percentageValue) / 100)} users
+                This will remove approximately{" "}
+                {Math.ceil((totalFollows * percentageValue) / 100)} users
               </p>
             )}
           </div>
         )}
 
         {/* Target Input */}
-        {inputMode === 'target' && (
+        {inputMode === "target" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Target number to keep (remaining follows)
             </label>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setTargetValue(prev => Math.max(1, (prev || 1) - 10))}
+                onClick={() =>
+                  setTargetValue((prev) => Math.max(1, (prev || 1) - 10))
+                }
                 disabled={processing || (targetValue || 0) <= 1}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
               >
@@ -639,7 +739,7 @@ export default function Decimator() {
                 type="number"
                 min="1"
                 max={totalFollows || 10000}
-                value={targetValue ?? ''}
+                value={targetValue ?? ""}
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   if (totalFollows && val > totalFollows) {
@@ -652,8 +752,15 @@ export default function Decimator() {
                 disabled={processing}
               />
               <button
-                onClick={() => setTargetValue(prev => Math.min(totalFollows || 10000, (prev || 0) + 10))}
-                disabled={processing || Boolean(totalFollows && (targetValue || 0) >= totalFollows)}
+                onClick={() =>
+                  setTargetValue((prev) =>
+                    Math.min(totalFollows || 10000, (prev || 0) + 10),
+                  )
+                }
+                disabled={
+                  processing ||
+                  Boolean(totalFollows && (targetValue || 0) >= totalFollows)
+                }
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
               >
                 +
@@ -662,9 +769,15 @@ export default function Decimator() {
             {totalFollows && targetValue && (
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                 {totalFollows > targetValue ? (
-                  <>This will remove {totalFollows - targetValue} users (currently following {totalFollows})</>
+                  <>
+                    This will remove {totalFollows - targetValue} users
+                    (currently following {totalFollows})
+                  </>
                 ) : (
-                  <>You&apos;re already at or below your target (currently following {totalFollows})</>
+                  <>
+                    You&apos;re already at or below your target (currently
+                    following {totalFollows})
+                  </>
                 )}
               </p>
             )}
@@ -680,7 +793,7 @@ export default function Decimator() {
           {processing ? (
             <>
               <RefreshCw className="w-5 h-5 animate-spin" />
-              {progress || 'Processing...'}
+              {progress || "Processing..."}
             </>
           ) : (
             <>
@@ -722,7 +835,8 @@ export default function Decimator() {
                 Successfully decimated! 💀
               </h3>
               <p className="text-green-800 dark:text-green-200">
-                You unfollowed {decimatedCount} user{decimatedCount === 1 ? '' : 's'}.
+                You unfollowed {decimatedCount} user
+                {decimatedCount === 1 ? "" : "s"}.
               </p>
             </div>
 
@@ -775,7 +889,9 @@ export default function Decimator() {
               >
                 <div
                   className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
-                  onClick={() => user.profile && handleViewProfile(user.profile)}
+                  onClick={() =>
+                    user.profile && handleViewProfile(user.profile)
+                  }
                   title={user.profile ? "View profile" : undefined}
                 >
                   <div className="relative w-10 h-10 flex-shrink-0">
@@ -785,19 +901,25 @@ export default function Decimator() {
                         alt=""
                         className="w-10 h-10 rounded-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          const placeholder = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
-                          if (placeholder) placeholder.style.display = 'flex';
+                          (e.target as HTMLImageElement).style.display = "none";
+                          const placeholder = (e.target as HTMLImageElement)
+                            .nextElementSibling as HTMLElement;
+                          if (placeholder) placeholder.style.display = "flex";
                         }}
                       />
                     ) : null}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600" style={{ display: user.profile?.picture ? 'none' : 'flex' }} />
+                    <div
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600"
+                      style={{
+                        display: user.profile?.picture ? "none" : "flex",
+                      }}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     {user.profile ? (
                       <>
                         <div className="font-medium text-gray-900 dark:text-white truncate">
-                          {user.profile.name || user.profile.display_name || 'Anonymous'}
+                          {getDisplayName(user.profile)}
                         </div>
                         {user.profile.nip05 && (
                           <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
@@ -817,10 +939,14 @@ export default function Decimator() {
                     onClick={() => handleToggleProtection(user.pubkey)}
                     className={`p-2 transition-colors ${
                       protectedPubkeys.has(user.pubkey)
-                        ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400'
+                        ? "text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                        : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400"
                     }`}
-                    title={protectedPubkeys.has(user.pubkey) ? 'Remove protection' : 'Protect from decimation'}
+                    title={
+                      protectedPubkeys.has(user.pubkey)
+                        ? "Remove protection"
+                        : "Protect from decimation"
+                    }
                   >
                     {protectedPubkeys.has(user.pubkey) ? (
                       <ShieldCheck className="w-4 h-4" />
@@ -834,7 +960,9 @@ export default function Decimator() {
                     title="Copy npub"
                   >
                     {copiedNpub === user.pubkey ? (
-                      <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
+                      <span className="text-green-600 dark:text-green-400 text-xs">
+                        ✓
+                      </span>
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}

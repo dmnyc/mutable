@@ -37,6 +37,9 @@ import {
   fetchProfile,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
+import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { getProfileLink } from "@/lib/utils/links";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 
 const INITIAL_LOAD_COUNT = 20;
 const LOAD_MORE_COUNT = 20;
@@ -354,11 +357,7 @@ export default function MuteOScope() {
       setSearchCompleted(true);
     } catch (err) {
       console.error("Search error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to search for public mute lists",
-      );
+      setError(getErrorMessage(err, "Failed to search for public mute lists"));
       setProgress("");
     } finally {
       setSearching(false);
@@ -412,12 +411,10 @@ export default function MuteOScope() {
   };
 
   const handleCopyNpub = async (npub: string) => {
-    try {
-      await navigator.clipboard.writeText(npub);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy npub:", error);
     }
   };
 
@@ -486,9 +483,7 @@ export default function MuteOScope() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={userProfile.picture}
-                        alt={
-                          userProfile.display_name || userProfile.name || "User"
-                        }
+                        alt={getDisplayName(userProfile, "User")}
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
@@ -507,9 +502,7 @@ export default function MuteOScope() {
                       {userProfile && (
                         <>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {userProfile.display_name ||
-                              userProfile.name ||
-                              "Anonymous"}
+                            {getDisplayName(userProfile)}
                           </span>
                           {userProfile.nip05 && (
                             <span className="text-xs text-gray-600 dark:text-gray-400">
@@ -527,9 +520,7 @@ export default function MuteOScope() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={userProfile.picture}
-                        alt={
-                          userProfile.display_name || userProfile.name || "User"
-                        }
+                        alt={getDisplayName(userProfile, "User")}
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
@@ -714,9 +705,7 @@ export default function MuteOScope() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={profile.picture}
-                              alt={
-                                profile.display_name || profile.name || "User"
-                              }
+                              alt={getDisplayName(profile, "User")}
                               className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display =
@@ -733,9 +722,7 @@ export default function MuteOScope() {
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 dark:text-white truncate">
-                              {profile.display_name ||
-                                profile.name ||
-                                "Anonymous"}
+                              {getDisplayName(profile)}
                             </p>
                             {profile.nip05 && (
                               <p className="text-xs text-green-600 dark:text-green-400 truncate">
@@ -924,10 +911,9 @@ export default function MuteOScope() {
               <div className="space-y-3">
                 {displayedResults.map((muteal) => {
                   const profile = muteal.profile;
-                  const displayName =
-                    profile?.display_name ||
-                    profile?.name ||
-                    (profile ? "Anonymous" : "Loading profile...");
+                  const displayName = profile
+                    ? getDisplayName(profile)
+                    : "Loading profile...";
                   const npub = hexToNpub(muteal.mutedBy);
                   const isLoading = !profile;
 
@@ -1039,7 +1025,7 @@ export default function MuteOScope() {
 
                         {/* View on npub.world */}
                         <a
-                          href={`https://npub.world/${npub}`}
+                          href={getProfileLink(muteal.mutedBy)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
