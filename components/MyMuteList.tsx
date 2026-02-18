@@ -26,6 +26,9 @@ export default function MyMuteList() {
     setActiveTab,
   } = useStore();
 
+  const [subTab, setSubTab] = useState<"profiles" | "wordsTagsThreads">(
+    "profiles",
+  );
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishSuccess, setPublishSuccess] = useState(false);
@@ -114,7 +117,7 @@ export default function MyMuteList() {
         {/* Success/Error Messages */}
         {publishSuccess && (
           <div className="mt-4 p-3 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded text-green-700 dark:text-green-200 text-sm">
-            Mute list published successfully!
+            Mute list saved successfully!
           </div>
         )}
 
@@ -147,16 +150,56 @@ export default function MyMuteList() {
       {/* Privacy Controls */}
       {!muteListLoading && <PrivacyControls />}
 
-      {/* Mute List Categories */}
+      {/* Sub-tab Navigation */}
       {!muteListLoading && (
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setSubTab("profiles")}
+              className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${
+                subTab === "profiles"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              Profiles
+              <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+                {muteList.pubkeys.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setSubTab("wordsTagsThreads")}
+              className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${
+                subTab === "wordsTagsThreads"
+                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              Words, Tags & Threads
+              <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+                {muteList.words.length +
+                  muteList.tags.length +
+                  muteList.threads.length}
+              </span>
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {/* Mute List Categories */}
+      {!muteListLoading && subTab === "profiles" && (
         <div className="space-y-6">
           <MuteListCategory
             category="pubkeys"
-            title="Muted Pubkeys"
+            title="Muted Profiles"
             items={muteList.pubkeys}
             placeholder="Enter pubkey (hex or npub)"
           />
+        </div>
+      )}
 
+      {!muteListLoading && subTab === "wordsTagsThreads" && (
+        <div className="space-y-6">
           <MuteListCategory
             category="words"
             title="Muted Words"

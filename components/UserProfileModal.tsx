@@ -5,6 +5,7 @@ import { Profile, MuteList } from "@/types";
 import {
   fetchMuteList,
   parseMuteListEvent,
+  publishMuteList,
   hexToNpub,
   hexToNote,
   parseEventReference,
@@ -36,6 +37,7 @@ import {
   Shield,
   ShieldCheck,
   Edit2,
+  Save,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -50,8 +52,14 @@ export default function UserProfileModal({
   onClose,
 }: UserProfileModalProps) {
   const { session } = useAuth();
-  const { muteList, addMutedItem, removeMutedItem, updateMutedItem } =
-    useStore();
+  const {
+    muteList,
+    addMutedItem,
+    removeMutedItem,
+    updateMutedItem,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+  } = useStore();
   const {
     addProtection: addProtectionToRelay,
     removeProtection: removeProtectionFromRelay,
@@ -84,6 +92,9 @@ export default function UserProfileModal({
   const [muteEventRefError, setMuteEventRefError] = useState<string | null>(
     null,
   );
+  const [publishing, setPublishing] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [editingReason, setEditingReason] = useState(false);
   const [editedReason, setEditedReason] = useState("");
   const [editedEventRef, setEditedEventRef] = useState("");
@@ -215,6 +226,25 @@ export default function UserProfileModal({
 
   const handleUnmute = () => {
     removeMutedItem(profile.pubkey, "pubkeys");
+  };
+
+  const handlePublish = async () => {
+    if (!session) return;
+    try {
+      setPublishing(true);
+      setPublishError(null);
+      setPublishSuccess(false);
+      await publishMuteList(muteList, session.relays);
+      setHasUnsavedChanges(false);
+      setPublishSuccess(true);
+      setTimeout(() => setPublishSuccess(false), 3000);
+    } catch (error) {
+      setPublishError(
+        error instanceof Error ? error.message : "Failed to publish mute list",
+      );
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const handleUpdateReason = async () => {
@@ -784,6 +814,30 @@ export default function UserProfileModal({
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* Publish Now */}
+          {session && hasUnsavedChanges && (
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-bold animate-pulse disabled:animate-none disabled:bg-red-400 disabled:cursor-not-allowed"
+            >
+              <Save size={18} />
+              <span>{publishing ? "Saving..." : "Save Mute List"}</span>
+            </button>
+          )}
+
+          {publishSuccess && (
+            <div className="p-3 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded text-green-700 dark:text-green-200 text-sm text-center">
+              Mute list saved successfully!
+            </div>
+          )}
+
+          {publishError && (
+            <div className="p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 rounded text-red-700 dark:text-red-200 text-sm text-center">
+              {publishError}
             </div>
           )}
 

@@ -186,7 +186,7 @@ export default function MuteListCategory({
     setEditingValue(item.value);
     setEditValue(item.value); // Pre-populate edit field for non-pubkey categories
     setEditReason(item.reason || "");
-    setEditEventRef(item.eventRef || "");
+    setEditEventRef(item.type !== "thread" ? item.eventRef || "" : "");
     setError(null);
     setEventRefError(null);
   };
@@ -380,6 +380,9 @@ export default function MuteListCategory({
       } catch {
         return `${item.value.slice(0, 16)}...${item.value.slice(-8)}`;
       }
+    }
+    if (category === "tags") {
+      return `#${item.value}`;
     }
     return item.value;
   };
@@ -631,7 +634,7 @@ export default function MuteListCategory({
                               {item.reason}
                             </p>
                           )}
-                          {item.eventRef && (
+                          {item.type !== "thread" && item.eventRef && (
                             <a
                               href={generateEventLink(item.eventRef)}
                               target="_blank"
@@ -775,20 +778,24 @@ export default function MuteListCategory({
                           placeholder="Reason (optional)"
                           autoFocus
                         />
-                        <input
-                          type="text"
-                          value={editEventRef}
-                          onChange={(e) => {
-                            setEditEventRef(e.target.value);
-                            setEventRefError(null);
-                          }}
-                          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
-                          placeholder="Event reference (optional): nevent1... or note1..."
-                        />
-                        {eventRefError && (
-                          <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                            {eventRefError}
-                          </div>
+                        {category !== "threads" && (
+                          <>
+                            <input
+                              type="text"
+                              value={editEventRef}
+                              onChange={(e) => {
+                                setEditEventRef(e.target.value);
+                                setEventRefError(null);
+                              }}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                              placeholder="Event reference (optional): nevent1... or note1..."
+                            />
+                            {eventRefError && (
+                              <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                {eventRefError}
+                              </div>
+                            )}
+                          </>
                         )}
                         <div className="flex space-x-2">
                           <button
@@ -952,20 +959,24 @@ export default function MuteListCategory({
                     className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
                     placeholder="Reason (optional)"
                   />
-                  <input
-                    type="text"
-                    value={newEventRef}
-                    onChange={(e) => {
-                      setNewEventRef(e.target.value);
-                      setEventRefError(null);
-                    }}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
-                    placeholder="Event reference (optional): nevent1... or note1..."
-                  />
-                  {eventRefError && (
-                    <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {eventRefError}
-                    </div>
+                  {category !== "threads" && (
+                    <>
+                      <input
+                        type="text"
+                        value={newEventRef}
+                        onChange={(e) => {
+                          setNewEventRef(e.target.value);
+                          setEventRefError(null);
+                        }}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+                        placeholder="Event reference (optional): nevent1... or note1..."
+                      />
+                      {eventRefError && (
+                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          {eventRefError}
+                        </div>
+                      )}
+                    </>
                   )}
                   <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
                     {category === "pubkeys" && (

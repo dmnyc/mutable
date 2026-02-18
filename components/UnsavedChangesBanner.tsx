@@ -63,7 +63,7 @@ export default function UnsavedChangesBanner({
               className="px-4 py-2 text-sm font-bold bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 rounded-lg transition-colors flex items-center gap-1.5 animate-pulse"
             >
               <Save size={16} />
-              <span>Publish</span>
+              <span>Save</span>
             </button>
           </div>
         </div>

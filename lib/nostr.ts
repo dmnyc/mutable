@@ -396,7 +396,6 @@ async function decryptPrivateMutes(
             type: "thread",
             value,
             reason,
-            eventRef,
             private: true,
           });
           break;
@@ -473,7 +472,6 @@ export async function parseMuteListEvent(
           type: "thread",
           value,
           reason,
-          eventRef,
           private: false,
         });
         break;
@@ -566,13 +564,8 @@ export function muteListToTags(muteList: MuteList): string[][] {
 
   muteList.threads.forEach((item) => {
     const tag = ["e", item.value];
-    // Add reason (or empty string if eventRef but no reason)
-    if (item.reason || item.eventRef) {
-      tag.push(item.reason || "");
-    }
-    // Add eventRef if present
-    if (item.eventRef) {
-      tag.push(item.eventRef);
+    if (item.reason) {
+      tag.push(item.reason);
     }
     tags.push(tag);
   });
