@@ -12,6 +12,8 @@ import {
 import html2canvas from "html2canvas";
 import { DMContact, Profile } from "@/types";
 import { hexToNpub, publishTextNote, DEFAULT_RELAYS } from "@/lib/nostr";
+import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { uploadImageToBlossom } from "@/lib/imageUpload";
 import { useStore } from "@/lib/store";
 import { nip19 } from "nostr-tools";
@@ -348,10 +350,7 @@ export default function DMCircle({
 
   const getShortShareText = (isSelf: boolean, useDisplayName: boolean) => {
     const npub = hexToNpub(targetPubkey);
-    const name =
-      targetProfile?.display_name ||
-      targetProfile?.name ||
-      npub.slice(0, 12) + "...";
+    const name = getDisplayName(targetProfile, npub.slice(0, 12) + "...");
 
     if (isSelf) {
       return "I just sn👀ped myself on Snoopable by #Mutable.\n\nYour DMs aren't as private as you think!\n\nGo snoop yourself...or anyone else.\nhttps://mutable.top/snoopable";
@@ -422,10 +421,7 @@ export default function DMCircle({
       // Set default share text - different if snooping yourself vs others
       const isSelf = session?.pubkey === targetPubkey;
       const npub = hexToNpub(targetPubkey);
-      const name =
-        targetProfile?.display_name ||
-        targetProfile?.name ||
-        npub.slice(0, 12) + "...";
+      const name = getDisplayName(targetProfile, npub.slice(0, 12) + "...");
 
       // Store for later substitution when publishing
       setShareTargetNpub(isSelf ? null : npub);
@@ -491,7 +487,7 @@ export default function DMCircle({
       }
     } catch (err) {
       console.error("Failed to publish:", err);
-      setPublishError(err instanceof Error ? err.message : "Failed to publish");
+      setPublishError(getErrorMessage(err, "Failed to publish"));
       setPublishStatus("");
     } finally {
       setIsPublishing(false);
@@ -511,13 +507,15 @@ export default function DMCircle({
     }
   };
 
-  const copyNoteLink = () => {
+  const copyNoteLink = async () => {
     if (publishedNoteId) {
-      navigator.clipboard.writeText(
+      const success = await copyToClipboard(
         `https://jumble.social/notes/${publishedNoteId}`,
       );
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+      if (success) {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      }
     }
   };
 
@@ -525,12 +523,10 @@ export default function DMCircle({
   const handleCopyImageLink = async () => {
     // If we already uploaded, just copy the existing URL
     if (uploadedImageUrl) {
-      try {
-        await navigator.clipboard.writeText(uploadedImageUrl);
+      const success = await copyToClipboard(uploadedImageUrl);
+      if (success) {
         setCopiedImageLink(true);
         setTimeout(() => setCopiedImageLink(false), 2000);
-      } catch (err) {
-        console.error("Failed to copy:", err);
       }
       return;
     }
@@ -542,14 +538,14 @@ export default function DMCircle({
       const url = await uploadShareImage();
 
       // Copy to clipboard
-      await navigator.clipboard.writeText(url);
-      setCopiedImageLink(true);
-      setTimeout(() => setCopiedImageLink(false), 2000);
+      const success = await copyToClipboard(url);
+      if (success) {
+        setCopiedImageLink(true);
+        setTimeout(() => setCopiedImageLink(false), 2000);
+      }
     } catch (err) {
       console.error("Failed to upload image:", err);
-      setPublishError(
-        err instanceof Error ? err.message : "Failed to upload image",
-      );
+      setPublishError(getErrorMessage(err, "Failed to upload image"));
     } finally {
       setIsUploadingImage(false);
     }
@@ -567,9 +563,7 @@ export default function DMCircle({
       setShowShareableNoteModal(true);
     } catch (err) {
       console.error("Failed to prepare shareable note:", err);
-      setPublishError(
-        err instanceof Error ? err.message : "Failed to prepare shareable note",
-      );
+      setPublishError(getErrorMessage(err, "Failed to prepare shareable note"));
     } finally {
       setIsUploadingImage(false);
     }
@@ -585,8 +579,8 @@ export default function DMCircle({
         throw new Error("Shareable note is not ready yet");
       }
 
-      if (document.hasFocus() && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(noteText);
+      if (document.hasFocus()) {
+        await copyToClipboard(noteText);
       } else if (shareableNoteRef.current) {
         shareableNoteRef.current.focus();
         shareableNoteRef.current.select();
@@ -599,9 +593,7 @@ export default function DMCircle({
       setTimeout(() => setCopiedShareableNote(false), 2000);
     } catch (err) {
       console.error("Failed to copy shareable note:", err);
-      setPublishError(
-        err instanceof Error ? err.message : "Failed to copy shareable note",
-      );
+      setPublishError(getErrorMessage(err, "Failed to copy shareable note"));
     }
   };
 
@@ -708,9 +700,10 @@ export default function DMCircle({
         {hoveredContact && (
           <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-lg text-sm z-10">
             <div className="font-medium">
-              {hoveredContact.profile?.display_name ||
-                hoveredContact.profile?.name ||
-                hexToNpub(hoveredContact.pubkey).slice(0, 16) + "..."}
+              {getDisplayName(
+                hoveredContact.profile,
+                hexToNpub(hoveredContact.pubkey).slice(0, 16) + "...",
+              )}
             </div>
             <div className="text-xs text-gray-300">
               {hoveredContact.title} · {hoveredContact.totalCount} exchanges

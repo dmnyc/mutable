@@ -1,16 +1,21 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { publishTextNote } from '@/lib/nostr';
-import { useAuth } from '@/hooks/useAuth';
-import { X, Copy, Check, Send, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { publishTextNote } from "@/lib/nostr";
+import { getErrorMessage } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
+import { useAuth } from "@/hooks/useAuth";
+import { X, Copy, Check, Send, Loader2 } from "lucide-react";
 
 interface DecimatorShareModalProps {
   decimatedCount: number;
   onClose: () => void;
 }
 
-export default function DecimatorShareModal({ decimatedCount, onClose }: DecimatorShareModalProps) {
+export default function DecimatorShareModal({
+  decimatedCount,
+  onClose,
+}: DecimatorShareModalProps) {
   const { session } = useAuth();
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -19,31 +24,31 @@ export default function DecimatorShareModal({ decimatedCount, onClose }: Decimat
 
   // Generate the share message
   const getShareMessage = () => {
-    const baseUrl = 'https://mutable.top';
+    const baseUrl = "https://mutable.top";
     return `I just decimated ${decimatedCount} of my follows using Decimator by #Mutable! 💀\n\nCull your follows randomly by any amount you like – it's nothing personal!\n\nTry it here:\n${baseUrl}`;
   };
 
   // Copy to clipboard
   const handleCopy = async () => {
     const messageToShare = getShareMessage();
-    try {
-      await navigator.clipboard.writeText(messageToShare);
+    const success = await copyToClipboard(messageToShare);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-    } catch (err) {
+    } else {
       // Fallback for older browsers
-      const textArea = document.createElement('textarea');
+      const textArea = document.createElement("textarea");
       textArea.value = messageToShare;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
       document.body.appendChild(textArea);
       textArea.select();
       try {
-        document.execCommand('copy');
+        document.execCommand("copy");
         setCopied(true);
         setTimeout(() => setCopied(false), 3000);
       } catch (e) {
-        setError('Failed to copy to clipboard');
+        setError("Failed to copy to clipboard");
       }
       document.body.removeChild(textArea);
     }
@@ -52,7 +57,7 @@ export default function DecimatorShareModal({ decimatedCount, onClose }: Decimat
   // Post to Nostr
   const handlePost = async () => {
     if (!session) {
-      setError('You must be signed in to post');
+      setError("You must be signed in to post");
       return;
     }
 
@@ -62,13 +67,17 @@ export default function DecimatorShareModal({ decimatedCount, onClose }: Decimat
     try {
       // Build tags
       const tags: string[][] = [
-        ['t', 'Decimator'],
-        ['t', 'Mutable'],
-        ['client', 'Mutable'] // Client tag to show "Posted from Mutable"
+        ["t", "Decimator"],
+        ["t", "Mutable"],
+        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
       ];
 
       const messageToShare = getShareMessage();
-      const result = await publishTextNote(messageToShare, tags, session.relays);
+      const result = await publishTextNote(
+        messageToShare,
+        tags,
+        session.relays,
+      );
 
       if (result.success) {
         setPosted(true);
@@ -76,17 +85,20 @@ export default function DecimatorShareModal({ decimatedCount, onClose }: Decimat
           onClose();
         }, 2000);
       } else {
-        setError(result.error || 'Failed to publish note');
+        setError(result.error || "Failed to publish note");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to publish note');
+      setError(getErrorMessage(err, "Failed to publish note"));
     } finally {
       setPosting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      onClick={onClose}
+    >
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full"
         onClick={(e) => e.stopPropagation()}
@@ -117,9 +129,15 @@ export default function DecimatorShareModal({ decimatedCount, onClose }: Decimat
               Message Preview
             </label>
             <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-              <div>I just decimated {decimatedCount} of my follows using Decimator by #Mutable! 💀</div>
+              <div>
+                I just decimated {decimatedCount} of my follows using Decimator
+                by #Mutable! 💀
+              </div>
               <br />
-              <div>Cull your follows randomly by any amount you like – it&apos;s nothing personal!</div>
+              <div>
+                Cull your follows randomly by any amount you like – it&apos;s
+                nothing personal!
+              </div>
               <br />
               <div>Try it here:</div>
               <div>https://mutable.top</div>

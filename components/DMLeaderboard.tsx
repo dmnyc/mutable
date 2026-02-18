@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { DMContact } from "@/types";
 import { hexToNpub } from "@/lib/nostr";
+import { getDisplayName } from "@/lib/utils/format";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 
 interface DMLeaderboardProps {
   contacts: DMContact[];
@@ -81,12 +83,10 @@ export default function DMLeaderboard({
 
   const handleCopyNpub = async (npub: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(npub);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy npub:", error);
     }
   };
 
@@ -171,9 +171,7 @@ export default function DMLeaderboard({
                     onClick={() => onSelectContact(contact)}
                     className="font-semibold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors truncate"
                   >
-                    {contact.profile?.display_name ||
-                      contact.profile?.name ||
-                      npub.slice(0, 16) + "..."}
+                    {getDisplayName(contact.profile, npub.slice(0, 16) + "...")}
                   </button>
 
                   {/* Title Badge */}

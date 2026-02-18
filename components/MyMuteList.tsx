@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { publishMuteList } from "@/lib/nostr";
+import { getErrorMessage } from "@/lib/utils/format";
 import {
   Save,
   RefreshCw,
@@ -49,9 +50,7 @@ export default function MyMuteList() {
       // Clear success message after 3 seconds
       setTimeout(() => setPublishSuccess(false), 3000);
     } catch (error) {
-      setPublishError(
-        error instanceof Error ? error.message : "Failed to publish mute list",
-      );
+      setPublishError(getErrorMessage(error, "Failed to publish mute list"));
     } finally {
       setPublishing(false);
     }

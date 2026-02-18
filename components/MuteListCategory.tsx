@@ -27,7 +27,11 @@ import {
   fetchEventById,
 } from "@/lib/nostr";
 import { useAuth } from "@/hooks/useAuth";
+import { truncateNpub } from "@/lib/utils/format";
+import { getEventLink } from "@/lib/utils/links";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import UserSearchInput from "./UserSearchInput";
+import ProfileAvatar from "./ProfileAvatar";
 import UserProfileModal from "./UserProfileModal";
 import { Event } from "nostr-tools";
 
@@ -269,16 +273,6 @@ export default function MuteListCategory({
     });
   };
 
-  // Generate link to view event on Nostr client
-  const generateEventLink = (eventId: string): string => {
-    try {
-      const note = hexToNote(eventId);
-      return `https://jumble.social/notes/${note}`;
-    } catch {
-      return "#";
-    }
-  };
-
   // Safely convert hex to note format, with fallback
   const safeHexToNote = (eventId: string): string => {
     try {
@@ -374,12 +368,7 @@ export default function MuteListCategory({
 
   const displayValue = (item: MuteItem) => {
     if (category === "pubkeys") {
-      try {
-        const npub = hexToNpub(item.value);
-        return `${npub.slice(0, 16)}...${npub.slice(-8)}`;
-      } catch {
-        return `${item.value.slice(0, 16)}...${item.value.slice(-8)}`;
-      }
+      return truncateNpub(item.value);
     }
     if (category === "tags") {
       return `#${item.value}`;
@@ -388,13 +377,11 @@ export default function MuteListCategory({
   };
 
   const handleCopyNpub = async (pubkey: string) => {
-    try {
-      const npub = hexToNpub(pubkey);
-      await navigator.clipboard.writeText(npub);
+    const npub = hexToNpub(pubkey);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopySuccess(pubkey);
       setTimeout(() => setCopySuccess(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy npub:", error);
     }
   };
 
@@ -636,7 +623,7 @@ export default function MuteListCategory({
                           )}
                           {item.type !== "thread" && item.eventRef && (
                             <a
-                              href={generateEventLink(item.eventRef)}
+                              href={getEventLink(item.eventRef)}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}

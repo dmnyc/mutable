@@ -14,8 +14,15 @@ import {
   isFollowing,
   unfollowUser,
   fetchProfile,
-  DEFAULT_RELAYS,
 } from "@/lib/nostr";
+import {
+  getDisplayName as getDisplayNameUtil,
+  truncateNpub,
+  getErrorMessage,
+} from "@/lib/utils/format";
+import { getEventLink, getProfileLink } from "@/lib/utils/links";
+import { copyToClipboard } from "@/lib/utils/clipboard";
+import { getRelays } from "@/lib/utils/relays";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { useRelaySync } from "@/hooks/useRelaySync";
@@ -129,10 +136,7 @@ export default function UserProfileModal({
 
       setLoadingProfile(true);
       try {
-        const relays =
-          session?.relays && session.relays.length > 0
-            ? session.relays
-            : DEFAULT_RELAYS;
+        const relays = getRelays(session);
         const fetchedProfile = await fetchProfile(profile.pubkey, relays);
         if (fetchedProfile) {
           setEnrichedProfile(fetchedProfile);
@@ -154,10 +158,7 @@ export default function UserProfileModal({
   // Load user's mute list and check follow status
   useEffect(() => {
     const loadUserData = async () => {
-      const relays =
-        session?.relays && session.relays.length > 0
-          ? session.relays
-          : DEFAULT_RELAYS;
+      const relays = getRelays(session);
 
       // Load mute list (works for both logged in and logged out)
       setLoadingMuteList(true);
@@ -239,9 +240,7 @@ export default function UserProfileModal({
       setPublishSuccess(true);
       setTimeout(() => setPublishSuccess(false), 3000);
     } catch (error) {
-      setPublishError(
-        error instanceof Error ? error.message : "Failed to publish mute list",
-      );
+      setPublishError(getErrorMessage(error, "Failed to publish mute list"));
     } finally {
       setPublishing(false);
     }
@@ -344,24 +343,21 @@ export default function UserProfileModal({
     );
   };
 
-  const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+  const handleCopy = async (text: string, label: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
       setCopySuccess(label);
       setTimeout(() => setCopySuccess(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy:", error);
     }
   };
 
   const getDisplayName = () => {
     if (loadingProfile) return "Loading...";
-    return enrichedProfile.display_name || enrichedProfile.name || "Anonymous";
+    return getDisplayNameUtil(enrichedProfile);
   };
 
   const getTruncatedNpub = (pubkey: string) => {
-    const npub = hexToNpub(pubkey);
-    return `${npub.slice(0, 16)}...${npub.slice(-16)}`;
+    return truncateNpub(pubkey, 16, 16);
   };
 
   const getEventDisplay = (eventRef: string) => {
@@ -369,15 +365,6 @@ export default function UserProfileModal({
       return hexToNote(eventRef);
     } catch {
       return eventRef;
-    }
-  };
-
-  const generateEventLink = (eventRef: string): string => {
-    try {
-      const note = hexToNote(eventRef);
-      return `https://jumble.social/notes/${note}`;
-    } catch {
-      return "#";
     }
   };
 
@@ -391,10 +378,7 @@ export default function UserProfileModal({
     const target = parseEventTarget(trimmed);
     if (!target || !target.address) return null;
 
-    const relays =
-      session?.relays && session.relays.length > 0
-        ? session.relays
-        : DEFAULT_RELAYS;
+    const relays = getRelays(session);
     const event = await fetchEventByAddress(target.address, relays, 8000);
     return event?.id ?? null;
   };
@@ -433,10 +417,7 @@ export default function UserProfileModal({
   ) => {
     if (!userMuteList) return;
 
-    const relays =
-      session?.relays && session.relays.length > 0
-        ? session.relays
-        : DEFAULT_RELAYS;
+    const relays = getRelays(session);
 
     setLoadingProfiles(true);
     const profilesMap = new Map<string, Profile>(mutedProfiles);
@@ -485,10 +466,7 @@ export default function UserProfileModal({
       // Fetch their public mute list if not already loaded
       let muteList = userMuteList;
       if (!muteList) {
-        const relays =
-          session.relays && session.relays.length > 0
-            ? session.relays
-            : DEFAULT_RELAYS;
+        const relays = getRelays(session);
         const event = await fetchMuteList(profile.pubkey, relays);
         if (event) {
           muteList = await parseMuteListEvent(event);
@@ -586,9 +564,7 @@ export default function UserProfileModal({
                 {getTruncatedNpub(profile.pubkey)}
               </code>
               <button
-                onClick={() =>
-                  copyToClipboard(hexToNpub(profile.pubkey), "npub")
-                }
+                onClick={() => handleCopy(hexToNpub(profile.pubkey), "npub")}
                 className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                 title="Copy npub"
               >
@@ -700,10 +676,7 @@ export default function UserProfileModal({
 
             <button
               onClick={() =>
-                window.open(
-                  `https://npub.world/${hexToNpub(profile.pubkey)}`,
-                  "_blank",
-                )
+                window.open(getProfileLink(profile.pubkey), "_blank")
               }
               className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
@@ -784,7 +757,7 @@ export default function UserProfileModal({
                   {mutedItem?.eventRef && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                       <a
-                        href={generateEventLink(mutedItem.eventRef)}
+                        href={getEventLink(mutedItem.eventRef)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline break-all"
@@ -796,7 +769,7 @@ export default function UserProfileModal({
                       <button
                         onClick={() => {
                           if (!mutedItem?.eventRef) return;
-                          copyToClipboard(
+                          handleCopy(
                             getEventDisplay(mutedItem.eventRef),
                             "event-ref",
                           );
@@ -1033,7 +1006,7 @@ export default function UserProfileModal({
                                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                                       <button
                                         onClick={() =>
-                                          copyToClipboard(
+                                          handleCopy(
                                             hexToNpub(item.value),
                                             `muted-${item.value}`,
                                           )
@@ -1083,7 +1056,7 @@ export default function UserProfileModal({
                                       <button
                                         onClick={() =>
                                           window.open(
-                                            `https://npub.world/${hexToNpub(item.value)}`,
+                                            getProfileLink(item.value),
                                             "_blank",
                                           )
                                         }

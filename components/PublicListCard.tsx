@@ -27,6 +27,13 @@ import {
   Share2,
   ExternalLink,
 } from "lucide-react";
+import {
+  getDisplayName,
+  truncateNpub,
+  getErrorMessage,
+} from "@/lib/utils/format";
+import { getProfileLink } from "@/lib/utils/links";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import ImportConfirmationDialog from "./ImportConfirmationDialog";
 import UserProfileModal from "./UserProfileModal";
 import { useAuth } from "@/hooks/useAuth";
@@ -265,12 +272,7 @@ export default function PublicListCard({
   };
 
   const displayAuthor = () => {
-    try {
-      const npub = hexToNpub(list.author);
-      return `${npub.slice(0, 12)}...${npub.slice(-8)}`;
-    } catch {
-      return `${list.author.slice(0, 12)}...${list.author.slice(-8)}`;
-    }
+    return truncateNpub(list.author, 12, 8);
   };
 
   const handleDelete = async () => {
@@ -290,7 +292,7 @@ export default function PublicListCard({
       }, 1500);
     } catch (error) {
       console.error("Failed to delete pack:", error);
-      alert(error instanceof Error ? error.message : "Failed to delete pack");
+      alert(getErrorMessage(error, "Failed to delete pack"));
       setDeleting(false);
     }
   };
@@ -298,23 +300,19 @@ export default function PublicListCard({
   const handleCopyLink = async () => {
     // Use author+dTag format for stable links that always point to the latest version
     const url = `${window.location.origin}/pack/${list.author}/${list.dTag}`;
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy link:", error);
     }
   };
 
   const handleCopyNpub = async (pubkey: string) => {
     const npub = hexToNpub(pubkey);
-    try {
-      await navigator.clipboard.writeText(npub);
+    const success = await copyToClipboard(npub);
+    if (success) {
       setCopiedNpub(npub);
       setTimeout(() => setCopiedNpub(null), 2000);
-    } catch (error) {
-      console.error("Failed to copy npub:", error);
     }
   };
 
@@ -534,11 +532,7 @@ export default function PublicListCard({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={creatorProfile.picture}
-                    alt={
-                      creatorProfile.display_name ||
-                      creatorProfile.name ||
-                      "Creator"
-                    }
+                    alt={getDisplayName(creatorProfile, "Creator")}
                     className="w-5 h-5 rounded-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = "none";
@@ -548,9 +542,7 @@ export default function PublicListCard({
                   <User size={14} />
                 )}
                 <span className="font-medium">
-                  {creatorProfile?.display_name ||
-                    creatorProfile?.name ||
-                    displayAuthor()}
+                  {getDisplayName(creatorProfile, displayAuthor())}
                 </span>
                 {creatorProfile?.nip05 && (
                   <span
@@ -674,12 +666,10 @@ export default function PublicListCard({
 
                           return currentPageItems.map((item) => {
                             const profile = pubkeyProfiles.get(item.value);
-                            const displayName =
-                              profile?.display_name ||
-                              profile?.name ||
-                              hexToNpub(item.value).slice(0, 12) +
-                                "..." +
-                                hexToNpub(item.value).slice(-8);
+                            const displayName = getDisplayName(
+                              profile,
+                              truncateNpub(item.value, 12, 8),
+                            );
                             const isAlreadyMuted = muteList.pubkeys.some(
                               (p) => p.value === item.value,
                             );
@@ -771,7 +761,7 @@ export default function PublicListCard({
                                     <Copy size={16} />
                                   </button>
                                   <a
-                                    href={`https://npub.world/${hexToNpub(item.value)}`}
+                                    href={getProfileLink(item.value)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
