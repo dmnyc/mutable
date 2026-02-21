@@ -606,6 +606,25 @@ async function encryptPrivateMutes(
   }
 }
 
+// Publish an event to relays with a timeout to prevent indefinite hangs.
+// pool.publish() returns promises that may never settle if relay connections
+// fail silently, so we race against a timeout.
+async function publishToRelays(
+  pool: SimplePool,
+  relays: string[],
+  event: Event,
+  timeoutMs: number = 15000,
+): Promise<void> {
+  const publishPromise = Promise.any(pool.publish(relays, event));
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error("Publish timeout: no relay responded in time")),
+      timeoutMs,
+    ),
+  );
+  await Promise.race([publishPromise, timeoutPromise]);
+}
+
 // Publish mute list (handles both public and private mutes)
 export async function publishMuteList(
   muteList: MuteList,
@@ -633,7 +652,7 @@ export async function publishMuteList(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -657,7 +676,7 @@ export async function publishFollowList(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -836,7 +855,7 @@ export async function publishPublicList(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -878,7 +897,7 @@ export async function updatePublicList(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -900,7 +919,7 @@ export async function publishTextNote(
     const signedEvent = await signEvent(eventTemplate);
     const pool = getPool();
 
-    await Promise.any(pool.publish(relays, signedEvent));
+    await publishToRelays(pool, relays, signedEvent);
 
     return { success: true, event: signedEvent };
   } catch (error) {
@@ -951,7 +970,7 @@ export async function publishProfile(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -1007,7 +1026,7 @@ export async function deletePublicList(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -1818,7 +1837,7 @@ export async function unfollowUser(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -1854,7 +1873,7 @@ export async function unfollowMultipleUsers(
   const signedEvent = await signEvent(eventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, signedEvent));
+  await publishToRelays(pool, relays, signedEvent);
 
   return signedEvent;
 }
@@ -2801,7 +2820,7 @@ export async function massMuteAndUnfollowDomain(
   const followEvent = await signEvent(followEventTemplate);
   const pool = getPool();
 
-  await Promise.any(pool.publish(relays, followEvent));
+  await publishToRelays(pool, relays, followEvent);
 
   console.log("✅ Follow list updated");
 
