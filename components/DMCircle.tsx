@@ -637,10 +637,10 @@ export default function DMCircle({
       >
         {/* Center Profile */}
         <div
-          className="absolute transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute"
           style={{
-            left: `${layout.centerX}%`,
-            top: `${layout.centerY}%`,
+            left: `calc(${layout.centerX}% - ${layout.centerRadius}%)`,
+            top: `calc(${layout.centerY}% - ${layout.centerRadius}%)`,
             width: `${layout.centerRadius * 2}%`,
             height: `${layout.centerRadius * 2}%`,
           }}
@@ -663,10 +663,10 @@ export default function DMCircle({
         {layout.positions.map((pos, i) => (
           <div
             key={pos.contact.pubkey}
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-110"
+            className="absolute cursor-pointer transition-transform hover:scale-110"
             style={{
-              left: `${pos.x}%`,
-              top: `${pos.y}%`,
+              left: `calc(${pos.x}% - ${pos.size / 2}%)`,
+              top: `calc(${pos.y}% - ${pos.size / 2}%)`,
               width: `${pos.size}%`,
               height: `${pos.size}%`,
             }}
