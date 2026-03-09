@@ -38,7 +38,7 @@ import {
 
 export default function Backups() {
   const { session } = useAuth();
-  const { muteList, setMuteList } = useStore();
+  const { muteList, setMuteList, signer } = useStore();
   const { saveBackupToRelay, fetchBackupFromRelay } = useRelaySync();
   const [backups, setBackups] = useState<Backup[]>([]);
   const [selectedType, setSelectedType] = useState<
@@ -57,6 +57,7 @@ export default function Backups() {
   const [includeFollowList, setIncludeFollowList] = useState(true);
   const [foundOnRelays, setFoundOnRelays] = useState<string[]>([]);
   const [queriedRelays, setQueriedRelays] = useState<string[]>([]);
+  const [relayBackupError, setRelayBackupError] = useState<string | null>(null);
 
   // Profile backup state
   const [profileBackups, setProfileBackups] = useState<
@@ -71,30 +72,37 @@ export default function Backups() {
     loadBackups();
   }, []);
 
-  // Fetch relay backup on mount
+  // Fetch relay backup once signer is available (not just session)
+  // NIP-46 signers restore asynchronously, so session exists before signer is ready
   useEffect(() => {
-    if (session) {
-      loadRelayBackup();
+    if (session && signer) {
+      loadRelayBackup(signer);
     }
-  }, [session]);
+  }, [session, signer]);
 
   const loadBackups = () => {
     const allBackups = backupService.getAllBackups();
     setBackups(allBackups);
   };
 
-  const loadRelayBackup = async () => {
+  const loadRelayBackup = async (signerOverride?: import("@/lib/signers").Signer) => {
+    // Use the passed signer (from useEffect where React state is reliable),
+    // or fall back to store for manual calls (refresh button, post-save)
+    const activeSigner = signerOverride || useStore.getState().signer;
+    if (!activeSigner) {
+      console.warn("[Backups] No signer available for relay backup fetch");
+      return;
+    }
+
     setRelayBackupLoading(true);
+    setRelayBackupError(null);
     try {
-      const result = await fetchBackupFromRelay();
-      if (result.success && result.backup) {
-        setRelayBackup(result.backup);
-        setFoundOnRelays(result.foundOnRelays || []);
-        setQueriedRelays(result.queriedRelays || []);
-      } else {
-        setRelayBackup(null);
-        setFoundOnRelays([]);
-        setQueriedRelays(result.queriedRelays || []);
+      const result = await fetchBackupFromRelay(activeSigner);
+      setRelayBackup(result.backup || null);
+      setFoundOnRelays(result.foundOnRelays || []);
+      setQueriedRelays(result.queriedRelays || []);
+      if (result.error) {
+        setRelayBackupError(result.error);
       }
     } catch (error) {
       console.error("Failed to fetch relay backup:", error);
@@ -764,6 +772,23 @@ export default function Backups() {
                 </div>
               )}
 
+              {relayBackupError && (
+                <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle
+                      size={16}
+                      className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+                    />
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      {relayBackupError.includes("too large for remote signer") ||
+                        relayBackupError.includes("plaintext size")
+                        ? "Backup too large to decrypt with a remote signer (NIP-46). Log in with a browser extension (NIP-07) and click \"Save to Relays\" to re-save in the new split format."
+                        : relayBackupError}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {relayBackup && (
                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-6">
                   <p>
@@ -822,7 +847,7 @@ export default function Backups() {
               </button>
 
               <button
-                onClick={loadRelayBackup}
+                onClick={() => loadRelayBackup()}
                 disabled={relayBackupLoading}
                 className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
                 title="Refresh relay backup status"

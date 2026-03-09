@@ -15,6 +15,7 @@ import { syncManager } from "@/lib/syncManager";
 import { backupService } from "@/lib/backupService";
 import { MuteBackupData } from "@/lib/relayStorage";
 import { MuteList } from "@/types";
+import { Signer } from "@/lib/signers";
 
 export function useRelaySync() {
   const { session } = useStore();
@@ -193,8 +194,10 @@ export function useRelaySync() {
 
   /**
    * Fetch backup from relays (NIP-78)
+   * Accepts an optional signer to avoid race conditions where
+   * the store signer may be cleared during async relay queries
    */
-  const fetchBackupFromRelay = useCallback(async (): Promise<{
+  const fetchBackupFromRelay = useCallback(async (signer?: Signer): Promise<{
     success: boolean;
     backup?: MuteBackupData;
     foundOnRelays?: string[];
@@ -208,6 +211,7 @@ export function useRelaySync() {
     return await backupService.fetchBackupFromRelay(
       session.pubkey,
       session.relays,
+      signer,
     );
   }, [session]);
 

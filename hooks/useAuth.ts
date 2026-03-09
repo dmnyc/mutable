@@ -365,6 +365,8 @@ export function useAuth() {
           hexToBytes(nip46Session.clientSecretKey),
         );
         setSigner(nip46Signer);
+      } else if (session.signerType === "nip46" && !nip46Session) {
+        console.error("[useAuth] Cannot restore NIP-46 signer: nip46Session data not available");
       }
     } catch (error) {
       console.error("Failed to restore signer:", error);
@@ -378,15 +380,15 @@ export function useAuth() {
     if (session && authState === "disconnected") {
       setAuthState("connected");
 
-      // Restore signer if needed
-      restoreSigner();
+      // Restore signer first (must complete before operations that need it)
+      restoreSigner().then(() => {
+        // Refresh mute list to ensure we have latest data from relays
+        loadMuteList(session.pubkey, session.relays);
 
-      // Refresh mute list to ensure we have latest data from relays
-      loadMuteList(session.pubkey, session.relays);
-
-      // Sync all app data with relay storage
-      syncManager.syncAll(session.pubkey, session.relays).catch((error) => {
-        console.error("Failed to sync app data with relays:", error);
+        // Sync all app data with relay storage
+        syncManager.syncAll(session.pubkey, session.relays).catch((error) => {
+          console.error("Failed to sync app data with relays:", error);
+        });
       });
     }
   }, [session, authState, setAuthState, loadMuteList, restoreSigner]);
