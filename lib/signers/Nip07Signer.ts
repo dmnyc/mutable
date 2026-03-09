@@ -10,6 +10,10 @@ interface WindowWithNostr extends Window {
       encrypt(pubkey: string, plaintext: string): Promise<string>;
       decrypt(pubkey: string, ciphertext: string): Promise<string>;
     };
+    nip44?: {
+      encrypt(pubkey: string, plaintext: string): Promise<string>;
+      decrypt(pubkey: string, ciphertext: string): Promise<string>;
+    };
   };
 }
 
@@ -52,6 +56,20 @@ export class Nip07Signer implements Signer {
       throw new Error("NIP-07 extension or nip04 methods not available");
     }
     return await window.nostr.nip04.decrypt(pubkey, ciphertext);
+  }
+
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    if (!hasNip07() || !window.nostr?.nip44) {
+      throw new Error("NIP-07 extension or nip44 methods not available");
+    }
+    return await window.nostr.nip44.encrypt(pubkey, plaintext);
+  }
+
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    if (!hasNip07() || !window.nostr?.nip44) {
+      throw new Error("NIP-07 extension or nip44 methods not available");
+    }
+    return await window.nostr.nip44.decrypt(pubkey, ciphertext);
   }
 
   /**

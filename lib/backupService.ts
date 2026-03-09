@@ -354,6 +354,7 @@ class BackupService {
   async fetchBackupFromRelay(
     userPubkey: string,
     relays: string[],
+    signer?: import("./signers").Signer,
   ): Promise<{
     success: boolean;
     backup?: MuteBackupData;
@@ -362,13 +363,14 @@ class BackupService {
     error?: string;
   }> {
     try {
-      const result = await fetchMuteBackupFromRelay(userPubkey, relays);
+      const result = await fetchMuteBackupFromRelay(userPubkey, relays, 5000, signer);
       if (!result.backup) {
         return {
           success: true,
           backup: undefined,
           foundOnRelays: result.foundOnRelays,
           queriedRelays: result.queriedRelays,
+          error: result.decryptError,
         };
       }
       return {

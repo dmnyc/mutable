@@ -159,6 +159,20 @@ export class Nip46Signer implements Signer {
   }
 
   /**
+   * Encrypt a message using NIP-44 via the remote signer
+   */
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    return await this.bunkerSigner.nip44Encrypt(pubkey, plaintext);
+  }
+
+  /**
+   * Decrypt a message using NIP-44 via the remote signer
+   */
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    return await this.bunkerSigner.nip44Decrypt(pubkey, ciphertext);
+  }
+
+  /**
    * Close the connection to the bunker
    */
   async close(): Promise<void> {
