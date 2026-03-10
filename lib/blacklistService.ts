@@ -11,7 +11,7 @@ import {
 } from './relayStorage';
 
 class BlacklistService {
-  private storageKey = 'mutable_blacklisted_pubkeys';
+  private currentUserPubkey: string | null = null;
   private syncInProgress = false;
 
   // Cache for performance optimization
@@ -22,6 +22,28 @@ class BlacklistService {
     blacklist: null,
     storageVersion: null,
   };
+
+  /**
+   * Get the localStorage key scoped to the current user.
+   * Falls back to the legacy global key when no user is set.
+   */
+  private get storageKey(): string {
+    if (this.currentUserPubkey) {
+      return `mutable_blacklisted_pubkeys_${this.currentUserPubkey}`;
+    }
+    return 'mutable_blacklisted_pubkeys';
+  }
+
+  /**
+   * Set the active user pubkey and reset the cache.
+   * Call this on sign-in (with the pubkey) and on sign-out (with null).
+   */
+  setUser(pubkey: string | null): void {
+    if (this.currentUserPubkey !== pubkey) {
+      this.currentUserPubkey = pubkey;
+      this.invalidateCache();
+    }
+  }
 
   /**
    * Get current localStorage value for cache validation
