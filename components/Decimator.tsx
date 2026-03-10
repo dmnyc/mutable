@@ -13,6 +13,7 @@ import {
   Share2,
   Shield,
   ShieldCheck,
+  MinusCircle,
   ChevronDown,
   ChevronUp,
   Trash2,
@@ -374,6 +375,10 @@ export default function Decimator() {
         }
       }
     }
+  };
+
+  const handleRemoveFromSelection = (pubkey: string) => {
+    setSelectedUsers((prev) => prev.filter((user) => user.pubkey !== pubkey));
   };
 
   const handleClearAllProtection = () => {
@@ -935,6 +940,13 @@ export default function Decimator() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleRemoveFromSelection(user.pubkey)}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                    title="Remove from selection"
+                  >
+                    <MinusCircle className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => handleToggleProtection(user.pubkey)}
                     className={`p-2 transition-colors ${
