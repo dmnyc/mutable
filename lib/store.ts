@@ -8,6 +8,7 @@ import {
   Profile,
 } from "@/types";
 import { Signer, BunkerPointer } from "./signers";
+import { blacklistService } from "./blacklistService";
 
 // NIP-46 session data for restoration (persisted)
 export interface Nip46SessionData {
@@ -127,12 +128,16 @@ const initialMuteList: MuteList = {
   threads: [],
 };
 
-// Load blacklist from localStorage on initialization
-const loadBlacklistFromStorage = (): Set<string> => {
+// Load blacklist from localStorage on initialization (user-scoped)
+const loadBlacklistFromStorage = (pubkey?: string | null): Set<string> => {
   if (typeof window === "undefined") return new Set<string>();
 
+  const key = pubkey
+    ? `mutable_blacklisted_pubkeys_${pubkey}`
+    : "mutable_blacklisted_pubkeys";
+
   try {
-    const stored = localStorage.getItem("mutable_blacklisted_pubkeys");
+    const stored = localStorage.getItem(key);
     if (stored) {
       const array = JSON.parse(stored);
       return new Set<string>(array);
@@ -169,11 +174,14 @@ export const useStore = create<AppState>()(
       // Auth actions
       setAuthState: (state) => set({ authState: state }),
 
-      setSession: (session) =>
+      setSession: (session) => {
+        blacklistService.setUser(session?.pubkey ?? null);
         set({
           session,
           authState: session ? "connected" : "disconnected",
-        }),
+          blacklistedPubkeys: loadBlacklistFromStorage(session?.pubkey),
+        });
+      },
 
       setUserProfile: (profile) => set({ userProfile: profile }),
 
@@ -337,12 +345,12 @@ export const useStore = create<AppState>()(
         set((state) => {
           const newBlacklist = new Set(state.blacklistedPubkeys);
           newBlacklist.add(pubkey);
-          // Persist to localStorage
+          // Persist to localStorage (user-scoped)
           if (typeof window !== "undefined") {
-            localStorage.setItem(
-              "mutable_blacklisted_pubkeys",
-              JSON.stringify(Array.from(newBlacklist)),
-            );
+            const key = state.session?.pubkey
+              ? `mutable_blacklisted_pubkeys_${state.session.pubkey}`
+              : "mutable_blacklisted_pubkeys";
+            localStorage.setItem(key, JSON.stringify(Array.from(newBlacklist)));
           }
           return { blacklistedPubkeys: newBlacklist };
         }),
@@ -351,25 +359,25 @@ export const useStore = create<AppState>()(
         set((state) => {
           const newBlacklist = new Set(state.blacklistedPubkeys);
           newBlacklist.delete(pubkey);
-          // Persist to localStorage
+          // Persist to localStorage (user-scoped)
           if (typeof window !== "undefined") {
-            localStorage.setItem(
-              "mutable_blacklisted_pubkeys",
-              JSON.stringify(Array.from(newBlacklist)),
-            );
+            const key = state.session?.pubkey
+              ? `mutable_blacklisted_pubkeys_${state.session.pubkey}`
+              : "mutable_blacklisted_pubkeys";
+            localStorage.setItem(key, JSON.stringify(Array.from(newBlacklist)));
           }
           return { blacklistedPubkeys: newBlacklist };
         }),
 
       clearBlacklist: () =>
-        set(() => {
+        set((state) => {
           const newBlacklist = new Set<string>();
-          // Persist to localStorage
+          // Persist to localStorage (user-scoped)
           if (typeof window !== "undefined") {
-            localStorage.setItem(
-              "mutable_blacklisted_pubkeys",
-              JSON.stringify([]),
-            );
+            const key = state.session?.pubkey
+              ? `mutable_blacklisted_pubkeys_${state.session.pubkey}`
+              : "mutable_blacklisted_pubkeys";
+            localStorage.setItem(key, JSON.stringify([]));
           }
           return { blacklistedPubkeys: newBlacklist };
         }),
