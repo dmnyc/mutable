@@ -66,7 +66,7 @@ const pageUrls: Record<ActivePage, string> = {
   decimator: "/dashboard?tab=decimator",
   listCleaner: "/dashboard?tab=listCleaner",
   snoopable: "/snoopable",
-  clonable: "/dashboard?tab=clonable",
+  clonable: "/clonable",
   settings: "/dashboard?tab=settings",
 };
 
