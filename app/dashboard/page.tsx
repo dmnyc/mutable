@@ -30,6 +30,7 @@ import DomainPurge from "@/components/DomainPurge";
 import Purgatory from "@/components/Purgatory";
 import NoteNuke from "@/components/NoteNuke";
 import Snoopable from "@/components/Snoopable";
+import Clonable from "@/components/Clonable";
 import GlobalUserSearch from "@/components/GlobalUserSearch";
 import UserProfileModal from "@/components/UserProfileModal";
 import OnboardingModal from "@/components/OnboardingModal";
@@ -76,6 +77,7 @@ function DashboardContent() {
     "decimator",
     "listCleaner",
     "snoopable",
+    "clonable",
   ] as const;
   const isToolTabActive = toolTabs.includes(activeTab as any);
 
@@ -104,6 +106,7 @@ function DashboardContent() {
       "purgatory",
       "noteNuke",
       "snoopable",
+      "clonable",
     ] as const;
 
     if (tabParam && validTabs.includes(tabParam as any)) {
@@ -629,6 +632,19 @@ function DashboardContent() {
                   >
                     List Cleaner
                   </button>
+                  <button
+                    onClick={() => {
+                      changeTab("clonable");
+                      setToolsDropdownOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
+                      activeTab === "clonable"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Clonable
+                  </button>
                 </div>
               )}
             </div>
@@ -673,6 +689,7 @@ function DashboardContent() {
                 {activeTab === "noteNuke" && "Note Nuke"}
                 {activeTab === "listCleaner" && "List Cleaner"}
                 {activeTab === "snoopable" && "Snoopable"}
+                {activeTab === "clonable" && "Clonable"}
                 {activeTab === "backups" && "Backups"}
                 {activeTab === "settings" && "Settings"}
               </span>
@@ -856,6 +873,19 @@ function DashboardContent() {
                         >
                           List Cleaner
                         </button>
+                        <button
+                          onClick={() => {
+                            changeTab("clonable");
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "clonable"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Clonable
+                        </button>
                       </div>
                     )}
                   </div>
@@ -880,6 +910,7 @@ function DashboardContent() {
         {activeTab === "purgatory" && <Purgatory />}
         {activeTab === "listCleaner" && <ListCleaner />}
         {activeTab === "snoopable" && <Snoopable />}
+        {activeTab === "clonable" && <Clonable />}
         {activeTab === "backups" && <Backups />}
         {activeTab === "settings" && <Settings />}
       </main>

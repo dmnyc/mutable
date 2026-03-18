@@ -52,7 +52,8 @@ interface AppState {
     | "purgatory"
     | "decimator"
     | "noteNuke"
-    | "snoopable";
+    | "snoopable"
+    | "clonable";
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
@@ -89,7 +90,8 @@ interface AppState {
       | "purgatory"
       | "decimator"
       | "noteNuke"
-      | "snoopable",
+      | "snoopable"
+      | "clonable",
   ) => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;

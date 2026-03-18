@@ -17,6 +17,7 @@ type ActivePage =
   | "decimator"
   | "listCleaner"
   | "snoopable"
+  | "clonable"
   | "settings";
 
 interface DashboardNavProps {
@@ -30,6 +31,7 @@ const toolPages: ActivePage[] = [
   "purgatory",
   "decimator",
   "listCleaner",
+  "clonable",
 ];
 
 // Map page IDs to display names
@@ -46,6 +48,7 @@ const pageNames: Record<ActivePage, string> = {
   decimator: "Decimator",
   listCleaner: "List Cleaner",
   snoopable: "Snoopable",
+  clonable: "Clonable",
   settings: "Settings",
 };
 
@@ -63,6 +66,7 @@ const pageUrls: Record<ActivePage, string> = {
   decimator: "/dashboard?tab=decimator",
   listCleaner: "/dashboard?tab=listCleaner",
   snoopable: "/snoopable",
+  clonable: "/dashboard?tab=clonable",
   settings: "/dashboard?tab=settings",
 };
 
