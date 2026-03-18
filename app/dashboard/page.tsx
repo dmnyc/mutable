@@ -632,11 +632,9 @@ function DashboardContent() {
                   >
                     List Cleaner
                   </button>
-                  <button
-                    onClick={() => {
-                      changeTab("clonable");
-                      setToolsDropdownOpen(false);
-                    }}
+                  <Link
+                    href="/clonable"
+                    onClick={() => setToolsDropdownOpen(false)}
                     className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "clonable"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -644,7 +642,7 @@ function DashboardContent() {
                     }`}
                   >
                     Clonable
-                  </button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -873,11 +871,9 @@ function DashboardContent() {
                         >
                           List Cleaner
                         </button>
-                        <button
-                          onClick={() => {
-                            changeTab("clonable");
-                            setMobileMenuOpen(false);
-                          }}
+                        <Link
+                          href="/clonable"
+                          onClick={() => setMobileMenuOpen(false)}
                           className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
                             activeTab === "clonable"
                               ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -885,7 +881,7 @@ function DashboardContent() {
                           }`}
                         >
                           Clonable
-                        </button>
+                        </Link>
                       </div>
                     )}
                   </div>
