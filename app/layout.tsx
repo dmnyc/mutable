@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.mutable.top"),
   title: "Mutable - Your Nostr Mute List Manager",
   description: "Your Nostr Mute List Manager",
   icons: {
