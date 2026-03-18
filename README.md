@@ -67,7 +67,7 @@ Analyze public NIP-04 DM metadata to see who someone talks to most (without decr
 - **No Login Required**: Analyze any npub using public relay data
 
 ### Authentication
-- **NIP-07**: Connect using browser extensions (Alby, nos2x, Nossern)
+- **NIP-07**: Connect using browser extensions (Alby, nos2x)
 - **NIP-46**: Connect with remote signers like Amber for enhanced key security
 - **Session Persistence**: Automatic reconnection with signer restoration
 

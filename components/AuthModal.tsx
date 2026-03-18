@@ -423,12 +423,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </a>{" "}
               or{" "}
               <a
-                href="https://github.com/nicokimmel/nossern"
+                href="https://github.com/fiatjaf/nos2x"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline"
               >
-                Nossern
+                nos2x
               </a>{" "}
               to get started.
             </p>
