@@ -10,6 +10,8 @@ export const metadata: Metadata = {
     title: "Clonable by Mutable: Migrate your Nostr identity to a new key",
     description:
       "Clone your profile, follows, mutes, and relays from an old key to a new one. Essential tool for recovering from a compromised nsec.",
+    url: "https://www.mutable.top/clonable",
+    type: "website",
     images: ["/clonable_social_card.png"],
   },
   twitter: {
