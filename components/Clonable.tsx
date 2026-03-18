@@ -311,9 +311,12 @@ export default function Clonable() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Clonable
-        </h1>
+        <div className="flex items-center gap-3 mb-2">
+          <ClonableIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Clonable
+          </h1>
+        </div>
         <p className="text-gray-600 dark:text-gray-400">
           Migrate your profile, follows, mutes, and relays from another account
           to your current keyset. Useful when recovering from a compromised key.
@@ -857,6 +860,30 @@ function PublishRow({
         )}
       </div>
     </div>
+  );
+}
+
+function ClonableIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Left face */}
+      <circle cx="5.5" cy="7" r="2.5" />
+      <path d="M0.5 18c0-2.8 2.2-5 5-5" />
+      {/* Right face */}
+      <circle cx="18.5" cy="7" r="2.5" />
+      <path d="M23.5 18c0-2.8-2.2-5-5-5" />
+      {/* Arrow between them */}
+      <path d="M9.5 12h5" />
+      <path d="M13 10l1.5 2-1.5 2" />
+    </svg>
   );
 }
 
