@@ -423,7 +423,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </a>{" "}
               or{" "}
               <a
-                href="https://github.com/fiatjaf/nos2x"
+                href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline"
