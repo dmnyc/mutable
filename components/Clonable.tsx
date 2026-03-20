@@ -550,6 +550,10 @@ export default function Clonable() {
             Confirm Destination
             <ArrowRight size={20} />
           </button>
+
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+            You can also sign in with a browser extension or remote signer for a smoother experience.
+          </p>
         </div>
       </div>
     );
@@ -821,9 +825,11 @@ export default function Clonable() {
                   Select data to clone
                 </h3>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
                 {/* Profile */}
                 <label
-                  className={`flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
+                  className={`sm:col-span-2 flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
                     cloneData.profile
                       ? "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                       : "border-gray-100 dark:border-gray-800 opacity-50 cursor-not-allowed"
@@ -1192,6 +1198,7 @@ export default function Clonable() {
                     </p>
                   </div>
                 </label>
+                </div>
               </div>
 
               {/* Clone button */}
@@ -1211,12 +1218,14 @@ export default function Clonable() {
       {/* Step: Publishing */}
       {(step === "publishing" || step === "done") && (
         <div className="space-y-6">
-          <div className="space-y-3">
-            <PublishRow
-              label="Profile"
-              status={publishStatus.profile}
-              error={publishErrors.profile}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <PublishRow
+                label="Profile"
+                status={publishStatus.profile}
+                error={publishErrors.profile}
+              />
+            </div>
             <PublishRow
               label="Follow List"
               status={publishStatus.follows}
