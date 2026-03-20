@@ -169,7 +169,7 @@ export default function ClonableWrapper() {
 
                 <div className="flex items-center gap-3">
                   <span className="hidden md:inline text-sm text-gray-600 dark:text-gray-400">
-                    Sign in to use Clonable
+                    Sign in for more features
                   </span>
                   <Link
                     href="/"

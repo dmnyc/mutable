@@ -8,14 +8,28 @@ import {
   publishProfile,
   publishFollowList,
   publishMuteList,
+  muteListToTags,
   getExpandedRelayList,
   getPool,
   signEvent,
   DEFAULT_RELAYS,
 } from "./nostr";
-import { MuteList, Profile, RelayListMetadata, RELAY_LIST_KIND } from "@/types";
+import {
+  MuteList,
+  Profile,
+  RelayListMetadata,
+  RELAY_LIST_KIND,
+  MUTE_LIST_KIND,
+  FOLLOW_LIST_KIND,
+} from "@/types";
 import { NsecSigner } from "./signers/NsecSigner";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
+
+export interface RawListEvent {
+  tags: string[][];
+  content: string;
+  kind: number;
+}
 
 export interface CloneableData {
   profile: { parsed: Profile; rawContent: Record<string, unknown> } | null;
@@ -24,6 +38,62 @@ export interface CloneableData {
   muteList: MuteList | null;
   muteListHasPrivate: boolean;
   relayList: RelayListMetadata | null;
+  pinnedNotes: RawListEvent | null;
+  bookmarks: RawListEvent | null;
+  communities: RawListEvent | null;
+  searchRelays: RawListEvent | null;
+  interests: RawListEvent | null;
+  emojiLists: RawListEvent | null;
+  dmRelays: RawListEvent | null;
+}
+
+/**
+ * Fetch a raw list event by kind for a given pubkey.
+ */
+async function fetchRawListEvent(
+  pubkey: string,
+  kind: number,
+  relays: string[],
+): Promise<RawListEvent | null> {
+  const pool = getPool();
+  const events = await pool.querySync(relays, {
+    kinds: [kind],
+    authors: [pubkey],
+    limit: 5,
+  });
+  if (events.length === 0) return null;
+  events.sort((a, b) => b.created_at - a.created_at);
+  const event = events[0];
+  return { tags: event.tags, content: event.content, kind: event.kind };
+}
+
+/**
+ * Publish a raw list event, optionally using a destination signer.
+ */
+async function publishClonedRawListEvent(
+  event: RawListEvent,
+  relays: string[],
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  const eventTemplate: EventTemplate = {
+    kind: event.kind,
+    tags: event.tags,
+    content: event.content,
+    created_at: Math.floor(Date.now() / 1000),
+  };
+
+  const signedEvent = destinationSigner
+    ? await destinationSigner.signEvent(eventTemplate)
+    : await signEvent(eventTemplate);
+  const pool = getPool();
+
+  const publishPromise = Promise.any(pool.publish(relays, signedEvent));
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Publish timeout")), 15000),
+  );
+  await Promise.race([publishPromise, timeoutPromise]);
+
+  return signedEvent;
 }
 
 /**
@@ -41,11 +111,30 @@ export async function fetchSourceData(
     : DEFAULT_RELAYS;
 
   // Step 2: Fetch all other data in parallel using source relays
-  const [rawContent, profile, followEvent, muteEvent] = await Promise.all([
+  const [
+    rawContent,
+    profile,
+    followEvent,
+    muteEvent,
+    pinnedNotes,
+    bookmarks,
+    communities,
+    searchRelays,
+    interests,
+    emojiLists,
+    dmRelays,
+  ] = await Promise.all([
     fetchRawProfileContent(pubkey, sourceRelays),
     fetchProfile(pubkey, sourceRelays),
     fetchFollowList(pubkey, sourceRelays),
     fetchMuteList(pubkey, sourceRelays),
+    fetchRawListEvent(pubkey, 10001, sourceRelays),
+    fetchRawListEvent(pubkey, 10003, sourceRelays),
+    fetchRawListEvent(pubkey, 10004, sourceRelays),
+    fetchRawListEvent(pubkey, 10007, sourceRelays),
+    fetchRawListEvent(pubkey, 10015, sourceRelays),
+    fetchRawListEvent(pubkey, 10030, sourceRelays),
+    fetchRawListEvent(pubkey, 10050, sourceRelays),
   ]);
 
   // Parse profile
@@ -97,6 +186,13 @@ export async function fetchSourceData(
     muteList,
     muteListHasPrivate,
     relayList: relayResult.metadata,
+    pinnedNotes,
+    bookmarks,
+    communities,
+    searchRelays,
+    interests,
+    emojiLists,
+    dmRelays,
   };
 }
 
@@ -191,6 +287,7 @@ async function decryptPrivateMutesWithSigner(
 export async function publishClonedRelayList(
   relayData: RelayListMetadata,
   relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
 ): Promise<Event> {
   const tags: string[][] = [];
 
@@ -211,7 +308,9 @@ export async function publishClonedRelayList(
     created_at: Math.floor(Date.now() / 1000),
   };
 
-  const signedEvent = await signEvent(eventTemplate);
+  const signedEvent = destinationSigner
+    ? await destinationSigner.signEvent(eventTemplate)
+    : await signEvent(eventTemplate);
   const pool = getPool();
 
   const publishPromise = Promise.any(pool.publish(relays, signedEvent));
@@ -229,7 +328,30 @@ export async function publishClonedRelayList(
 export async function publishClonedProfile(
   rawContent: Record<string, unknown>,
   relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
 ): Promise<Event> {
+  if (destinationSigner) {
+    const cleanContent: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawContent)) {
+      if (value !== "" && value !== undefined && value !== null) {
+        cleanContent[key] = value;
+      }
+    }
+    const eventTemplate: EventTemplate = {
+      kind: 0,
+      tags: [],
+      content: JSON.stringify(cleanContent),
+      created_at: Math.floor(Date.now() / 1000),
+    };
+    const signedEvent = await destinationSigner.signEvent(eventTemplate);
+    const pool = getPool();
+    const publishPromise = Promise.any(pool.publish(relays, signedEvent));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Publish timeout")), 15000),
+    );
+    await Promise.race([publishPromise, timeoutPromise]);
+    return signedEvent;
+  }
   return publishProfile({}, rawContent, relays);
 }
 
@@ -240,17 +362,130 @@ export async function publishClonedFollows(
   pubkeys: string[],
   relays: string[] = DEFAULT_RELAYS,
   content: string = "",
+  destinationSigner?: NsecSigner,
 ): Promise<Event> {
+  if (destinationSigner) {
+    const tags = pubkeys.map((pubkey) => ["p", pubkey]);
+    const eventTemplate: EventTemplate = {
+      kind: FOLLOW_LIST_KIND,
+      tags,
+      content,
+      created_at: Math.floor(Date.now() / 1000),
+    };
+    const signedEvent = await destinationSigner.signEvent(eventTemplate);
+    const pool = getPool();
+    const publishPromise = Promise.any(pool.publish(relays, signedEvent));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Publish timeout")), 15000),
+    );
+    await Promise.race([publishPromise, timeoutPromise]);
+    return signedEvent;
+  }
   return publishFollowList(pubkeys, relays, content);
 }
 
 /**
  * Publish cloned mute list for the currently logged-in user.
- * Private items are re-encrypted using the logged-in signer.
+ * Private items are re-encrypted using the destination signer when provided.
  */
 export async function publishClonedMutes(
   muteList: MuteList,
   relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
 ): Promise<Event> {
+  if (destinationSigner) {
+    const destPubkey = await destinationSigner.getPublicKey();
+    const publicList: MuteList = {
+      pubkeys: muteList.pubkeys.filter((item) => !item.private),
+      words: muteList.words.filter((item) => !item.private),
+      tags: muteList.tags.filter((item) => !item.private),
+      threads: muteList.threads.filter((item) => !item.private),
+    };
+    const privateList: MuteList = {
+      pubkeys: muteList.pubkeys.filter((item) => item.private),
+      words: muteList.words.filter((item) => item.private),
+      tags: muteList.tags.filter((item) => item.private),
+      threads: muteList.threads.filter((item) => item.private),
+    };
+    const tags = muteListToTags(publicList);
+    const privateTags = muteListToTags(privateList);
+    let encryptedContent = "";
+    if (privateTags.length > 0) {
+      encryptedContent = await destinationSigner.nip04Encrypt(
+        destPubkey,
+        JSON.stringify(privateTags),
+      );
+    }
+    const eventTemplate: EventTemplate = {
+      kind: MUTE_LIST_KIND,
+      tags,
+      content: encryptedContent,
+      created_at: Math.floor(Date.now() / 1000),
+    };
+    const signedEvent = await destinationSigner.signEvent(eventTemplate);
+    const pool = getPool();
+    const publishPromise = Promise.any(pool.publish(relays, signedEvent));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Publish timeout")), 15000),
+    );
+    await Promise.race([publishPromise, timeoutPromise]);
+    return signedEvent;
+  }
   return publishMuteList(muteList, relays);
+}
+
+export async function publishClonedPinnedNotes(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
+}
+
+export async function publishClonedBookmarks(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
+}
+
+export async function publishClonedCommunities(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
+}
+
+export async function publishClonedSearchRelays(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
+}
+
+export async function publishClonedInterests(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
+}
+
+export async function publishClonedEmojiLists(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
+}
+
+export async function publishClonedDmRelays(
+  event: RawListEvent,
+  relays: string[] = DEFAULT_RELAYS,
+  destinationSigner?: NsecSigner,
+): Promise<Event> {
+  return publishClonedRawListEvent(event, relays, destinationSigner);
 }
