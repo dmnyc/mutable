@@ -85,9 +85,16 @@ export type AuthState = "disconnected" | "connecting" | "connected" | "error";
 // - Private items are encrypted in the 'content' field using NIP-44
 // - A single event can contain both public and private mutes
 export const MUTE_LIST_KIND = 10000; // Mute list (NIP-51) - can have public tags AND encrypted content
+export const PINNED_NOTES_KIND = 10001; // Pinned Notes (NIP-51)
+export const RELAY_LIST_KIND = 10002; // NIP-65: Relay List Metadata
+export const BOOKMARKS_KIND = 10003; // Bookmarks (NIP-51)
+export const COMMUNITIES_KIND = 10004; // Communities (NIP-51)
+export const SEARCH_RELAYS_KIND = 10007; // Search Relays (NIP-51)
+export const INTERESTS_KIND = 10015; // Interests (NIP-51)
+export const EMOJI_LISTS_KIND = 10030; // Emoji Lists (NIP-51)
+export const DM_RELAYS_KIND = 10050; // DM Relays (NIP-51)
 export const PUBLIC_LIST_KIND = 30001; // Generic public lists (deprecated for mutes)
 export const FOLLOW_LIST_KIND = 3;
-export const RELAY_LIST_KIND = 10002; // NIP-65: Relay List Metadata
 
 // Type guards
 export function isMutedPubkey(item: MuteItem): item is MutedPubkey {
