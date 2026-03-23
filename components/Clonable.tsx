@@ -859,6 +859,16 @@ export default function Clonable() {
                   </div>
                 </label>
 
+                {/* NIP-05 warning */}
+                {selected.profile && cloneData.profile?.parsed.nip05 && (
+                  <div className="sm:col-span-2 flex items-start gap-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700">
+                    <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
+                    <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                      Your Nostr address (NIP-05: <span className="font-mono">{cloneData.profile.parsed.nip05}</span>) will not automatically work on your new profile. You may need to contact the provider of your Nostr address service to have it updated to your new key, or create a new one.
+                    </p>
+                  </div>
+                )}
+
                 {/* Follows */}
                 <label
                   className={`flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
