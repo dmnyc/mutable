@@ -65,11 +65,11 @@ export default function PrivacyControls() {
               <div className="space-y-2">
                 <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
 
-                <p><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
+                <p><strong>Private:</strong> Encrypted using NIP-44 (per NIP-51 spec). Supported by clients that implement NIP-44 decryption. Legacy NIP-04 encrypted mutes are also read for backward compatibility.</p>
 
                 <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
 
-                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
+                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for maximum compatibility across all clients. Private mutes require NIP-44 support in the client.</p>
               </div>
 
               <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -154,7 +154,7 @@ export default function PrivacyControls() {
 
       <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients (Damus, Primal, etc.) to ensure mutes work everywhere. Only use private mute lists for extra privacy and understand they won&apos;t work in every client.
+          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients to ensure mutes work everywhere. Private mutes use NIP-44 encryption (per NIP-51) and require client support to decrypt.
         </p>
       </div>
     </div>

@@ -5,6 +5,7 @@ import {
   finalizeEvent,
   nip04,
   nip19,
+  nip44,
 } from "nostr-tools";
 import { Signer } from "./types";
 
@@ -45,6 +46,22 @@ export class NsecSigner implements Signer {
 
   async nip04Decrypt(pubkey: string, ciphertext: string): Promise<string> {
     return nip04.decrypt(this.secretKey, pubkey, ciphertext);
+  }
+
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    const conversationKey = nip44.v2.utils.getConversationKey(
+      this.secretKey,
+      pubkey,
+    );
+    return nip44.v2.encrypt(plaintext, conversationKey);
+  }
+
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    const conversationKey = nip44.v2.utils.getConversationKey(
+      this.secretKey,
+      pubkey,
+    );
+    return nip44.v2.decrypt(ciphertext, conversationKey);
   }
 
   /**

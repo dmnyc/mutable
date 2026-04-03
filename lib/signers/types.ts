@@ -4,9 +4,10 @@ import { EventTemplate, VerifiedEvent } from "nostr-tools";
  * Extended Signer interface that includes encryption methods
  * needed for private mute list and relay storage encryption.
  *
- * NIP-04 methods are required (used for kind 10000 private mute lists).
- * NIP-44 methods are optional but preferred for relay storage (NIP-78)
- * because some NIP-46 bunkers don't grant nip04_decrypt permission.
+ * NIP-04 methods are required as a fallback for legacy data.
+ * NIP-44 methods are optional but preferred for both kind 10000 private
+ * mute lists (per NIP-51) and relay storage (NIP-78). NIP-44 is also
+ * better supported by NIP-46 bunkers which may deny nip04 permissions.
  */
 export interface Signer {
   getPublicKey(): Promise<string>;

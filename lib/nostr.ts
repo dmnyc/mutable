@@ -327,9 +327,11 @@ export async function fetchMuteList(
 }
 
 // Decrypt private mutes from content field using the active signer
+// Supports both NIP-44 (modern) and NIP-04 (legacy) based on encryption tag hint
 async function decryptPrivateMutes(
   encryptedContent: string,
   authorPubkey: string,
+  encMethod?: "nip44" | "nip04",
 ): Promise<MuteList> {
   const privateMutes: MuteList = {
     pubkeys: [],
@@ -350,8 +352,32 @@ async function decryptPrivateMutes(
       return privateMutes;
     }
 
-    // NIP-04 decryption via signer
-    const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+    // Decrypt using the appropriate method based on the encryption tag
+    // If no tag (legacy events), try NIP-44 first then fall back to NIP-04
+    let decrypted: string;
+    if (encMethod === "nip04") {
+      // Explicitly tagged as NIP-04
+      decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+    } else if (encMethod === "nip44") {
+      // Explicitly tagged as NIP-44
+      if (!signer.nip44Decrypt) {
+        throw new Error(
+          "Private mutes were encrypted with NIP-44 but current signer doesn't support nip44Decrypt.",
+        );
+      }
+      decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+    } else {
+      // No encryption tag (legacy event) — try NIP-44 first, fall back to NIP-04
+      if (signer.nip44Decrypt) {
+        try {
+          decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+        } catch {
+          decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+        }
+      } else {
+        decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+      }
+    }
 
     if (!decrypted || !decrypted.trim()) {
       return privateMutes;
@@ -484,9 +510,16 @@ export async function parseMuteListEvent(
   // Parse private mutes from encrypted content (if any)
   if (event.content && event.content.trim() !== "") {
     try {
+      // Check for encryption method tag to determine which cipher was used
+      const encTag = event.tags.find((t) => t[0] === "encryption");
+      const encMethod = encTag?.[1] === "nip44" || encTag?.[1] === "nip04"
+        ? (encTag[1] as "nip44" | "nip04")
+        : undefined;
+
       const privateMutes = await decryptPrivateMutes(
         event.content,
         event.pubkey,
+        encMethod,
       );
       muteList.pubkeys.push(...privateMutes.pubkeys);
       muteList.words.push(...privateMutes.words);
@@ -577,26 +610,35 @@ export function muteListToTags(muteList: MuteList): string[][] {
 }
 
 // Encrypt private mutes for content field using the active signer
+// Prefers NIP-44 (modern, spec-correct per NIP-51) with fallback to NIP-04
 async function encryptPrivateMutes(
   privateList: MuteList,
   recipientPubkey: string,
-): Promise<string> {
+): Promise<{ encrypted: string; encMethod: "nip44" | "nip04" }> {
   const privateTags = muteListToTags(privateList);
 
   if (privateTags.length === 0) {
-    return "";
+    return { encrypted: "", encMethod: "nip44" };
   }
 
   try {
     // Get the active signer for encryption
     const signer = getSigner();
+    const plaintext = JSON.stringify(privateTags);
 
-    // NIP-04 encryption via signer (encrypt to yourself)
-    const encrypted = await signer.nip04Encrypt(
-      recipientPubkey,
-      JSON.stringify(privateTags),
-    );
-    return encrypted;
+    // Try NIP-44 first (modern, spec-correct per NIP-51, better supported by NIP-46 bunkers)
+    if (signer.nip44Encrypt) {
+      try {
+        const encrypted = await signer.nip44Encrypt(recipientPubkey, plaintext);
+        return { encrypted, encMethod: "nip44" };
+      } catch (error) {
+        console.warn("NIP-44 encrypt failed, falling back to NIP-04:", error);
+      }
+    }
+
+    // Fallback to NIP-04
+    const encrypted = await signer.nip04Encrypt(recipientPubkey, plaintext);
+    return { encrypted, encMethod: "nip04" };
   } catch (error) {
     console.error("Failed to encrypt private mutes:", error);
     throw new Error(
@@ -639,8 +681,16 @@ export async function publishMuteList(
   // Convert public items to tags
   const tags = muteListToTags(publicList);
 
-  // Encrypt private items for content field
-  const encryptedContent = await encryptPrivateMutes(privateList, userPubkey);
+  // Encrypt private items for content field (prefers NIP-44, falls back to NIP-04)
+  const { encrypted: encryptedContent, encMethod } = await encryptPrivateMutes(
+    privateList,
+    userPubkey,
+  );
+
+  // Add encryption method tag so decryption knows which cipher was used
+  if (encryptedContent) {
+    tags.push(["encryption", encMethod]);
+  }
 
   const eventTemplate: EventTemplate = {
     kind: MUTE_LIST_KIND,
