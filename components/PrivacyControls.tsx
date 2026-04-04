@@ -65,11 +65,11 @@ export default function PrivacyControls() {
               <div className="space-y-2">
                 <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
 
-                <p><strong>Private:</strong> Encrypted using NIP-44 (per NIP-51 spec). Supported by clients that implement NIP-44 decryption. Legacy NIP-04 encrypted mutes are also read for backward compatibility.</p>
+                <p><strong>Private:</strong> Encrypted using NIP-44 as required by the NIP-51 spec. Mutable also reads legacy NIP-04 encrypted mutes for backward compatibility.</p>
 
-                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
+                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Compatibility:</strong> Not all clients support private mutes consistently. Some may silently overwrite or drop them. Jumble currently uses the older NIP-04 encryption, while Primal does not encrypt private mutes at all. If your favorite client doesn&apos;t handle private mutes correctly, encourage its developers to follow the NIP-51 spec.</p>
 
-                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for maximum compatibility across all clients. Private mutes require NIP-44 support in the client.</p>
+                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for maximum compatibility. Only use private mutes if you understand the cross-client limitations.</p>
               </div>
 
               <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -154,7 +154,7 @@ export default function PrivacyControls() {
 
       <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients to ensure mutes work everywhere. Private mutes use NIP-44 encryption (per NIP-51) and require client support to decrypt.
+          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients to ensure mutes work everywhere. Private mutes use NIP-44 encryption per the NIP-51 spec, but not all clients support this yet.
         </p>
       </div>
     </div>

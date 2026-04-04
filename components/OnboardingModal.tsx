@@ -68,7 +68,7 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
                   <div className="flex items-start gap-2">
                     <EyeOff className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={14} />
                     <div className="text-xs text-indigo-800 dark:text-indigo-200">
-                      <strong>Private (Limited Compatibility):</strong> Encrypted in the content field using NIP-44 (per NIP-51 spec). Works in clients that support NIP-44 decryption.
+                      <strong>Private (Limited Compatibility):</strong> Encrypted with NIP-44 per the NIP-51 spec. Not all clients support this yet — if yours doesn&apos;t, ask its developers to adopt NIP-51.
                     </div>
                   </div>
                 </div>
