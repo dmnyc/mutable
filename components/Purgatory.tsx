@@ -62,6 +62,7 @@ export default function Purgatory() {
     addMutedItem,
     removeMutedItem,
     setHasUnsavedChanges,
+    defaultMutePrivacy,
   } = useStore();
 
   // Mode selection
@@ -273,7 +274,7 @@ export default function Purgatory() {
         type: "pubkey" as const,
         value: pubkey,
         reason,
-        private: false,
+        private: defaultMutePrivacy,
       };
     });
 

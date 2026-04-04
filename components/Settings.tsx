@@ -36,13 +36,15 @@ import {
   Download,
   Upload,
   User,
+  Lock,
+  Unlock,
 } from "lucide-react";
 
 export default function Settings() {
   const router = useRouter();
   const { disconnect } = useAuth();
   const { triggerSync, getSyncStatus, isOnline } = useRelaySync();
-  const { session, setHasCompletedOnboarding } = useStore();
+  const { session, setHasCompletedOnboarding, defaultMutePrivacy, setDefaultMutePrivacy } = useStore();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetStep, setResetStep] = useState(0);
@@ -997,6 +999,46 @@ export default function Settings() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Mute Privacy Default */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          {defaultMutePrivacy ? <Lock size={24} className="text-purple-600 dark:text-purple-400" /> : <Unlock size={24} className="text-amber-600 dark:text-amber-400" />}
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Mute Privacy
+          </h2>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Default privacy for new mutes
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {defaultMutePrivacy
+                  ? "New mutes will be private (encrypted with NIP-44)"
+                  : "New mutes will be public (visible to everyone)"}
+              </p>
+            </div>
+            <button
+              onClick={() => setDefaultMutePrivacy(!defaultMutePrivacy)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                defaultMutePrivacy ? "bg-purple-600" : "bg-gray-300 dark:bg-gray-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  defaultMutePrivacy ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Public mutes are more compatible across Nostr clients. Private mutes use NIP-44 encryption per the NIP-51 spec, but not all clients support this yet. You can always change individual items using the lock icon.
+          </p>
         </div>
       </div>
 

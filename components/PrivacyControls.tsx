@@ -5,7 +5,7 @@ import { useStore } from '@/lib/store';
 import { Lock, Unlock, Eye, EyeOff, Info, AlertCircle } from 'lucide-react';
 
 export default function PrivacyControls() {
-  const { muteList, bulkSetPrivacy } = useStore();
+  const { muteList, bulkSetPrivacy, defaultMutePrivacy, setDefaultMutePrivacy } = useStore();
   const [showInfo, setShowInfo] = useState(true); // Default to visible
 
   const publicPubkeys = muteList.pubkeys.filter(item => !item.private).length;
@@ -152,7 +152,30 @@ export default function PrivacyControls() {
         </div>
       </div>
 
-      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Default privacy for new mutes</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {defaultMutePrivacy ? "New mutes will be private (encrypted)" : "New mutes will be public (visible)"}
+            </p>
+          </div>
+          <button
+            onClick={() => setDefaultMutePrivacy(!defaultMutePrivacy)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              defaultMutePrivacy ? "bg-purple-600" : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                defaultMutePrivacy ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
           <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients to ensure mutes work everywhere. Private mutes use NIP-44 encryption per the NIP-51 spec, but not all clients support this yet.
         </p>
