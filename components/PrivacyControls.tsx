@@ -153,17 +153,18 @@ export default function PrivacyControls() {
       </div>
 
       <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white">Default privacy for new mutes</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {defaultMutePrivacy ? "New mutes will be private (encrypted)" : "New mutes will be public (visible)"}
-            </p>
-          </div>
+        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Default privacy for new mutes</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          {defaultMutePrivacy ? "New mutes will be private (encrypted)" : "New mutes will be public (visible)"}
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <span className={`text-xs font-medium ${!defaultMutePrivacy ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
+            Public
+          </span>
           <button
             onClick={() => setDefaultMutePrivacy(!defaultMutePrivacy)}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              defaultMutePrivacy ? "bg-purple-600" : "bg-gray-300 dark:bg-gray-600"
+              defaultMutePrivacy ? "bg-purple-600" : "bg-amber-500"
             }`}
           >
             <span
@@ -172,6 +173,9 @@ export default function PrivacyControls() {
               }`}
             />
           </button>
+          <span className={`text-xs font-medium ${defaultMutePrivacy ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"}`}>
+            Private
+          </span>
         </div>
       </div>
 
