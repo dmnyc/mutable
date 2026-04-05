@@ -45,6 +45,8 @@ import {
   ShieldCheck,
   Edit2,
   Save,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -66,6 +68,7 @@ export default function UserProfileModal({
     updateMutedItem,
     hasUnsavedChanges,
     setHasUnsavedChanges,
+    defaultMutePrivacy,
   } = useStore();
   const {
     addProtection: addProtectionToRelay,
@@ -95,6 +98,7 @@ export default function UserProfileModal({
   const [isProtected, setIsProtected] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [muteReason, setMuteReason] = useState("");
+  const [mutePrivate, setMutePrivate] = useState(defaultMutePrivacy);
   const [muteEventRef, setMuteEventRef] = useState("");
   const [muteEventRefError, setMuteEventRefError] = useState<string | null>(
     null,
@@ -216,11 +220,13 @@ export default function UserProfileModal({
         value: profile.pubkey,
         reason: reason || undefined,
         eventRef,
+        private: mutePrivate,
       },
       "pubkeys",
     );
     setShowReasonInput(false);
     setMuteReason("");
+    setMutePrivate(defaultMutePrivacy);
     setMuteEventRef("");
     setMuteEventRefError(null);
   };
@@ -619,6 +625,26 @@ export default function UserProfileModal({
                     {muteEventRefError}
                   </p>
                 )}
+                <div className="flex items-center justify-center gap-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <span className={`text-xs font-medium ${!mutePrivate ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
+                    Public
+                  </span>
+                  <button
+                    onClick={() => setMutePrivate(!mutePrivate)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      mutePrivate ? "bg-purple-600" : "bg-amber-500"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                        mutePrivate ? "translate-x-5" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-xs font-medium ${mutePrivate ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"}`}>
+                    Private
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleMute(muteReason)}

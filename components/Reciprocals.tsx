@@ -337,7 +337,6 @@ export default function Reciprocals() {
             type: "pubkey",
             value: result.pubkey,
             reason: "Non-reciprocal follow",
-            private: false,
           },
           "pubkeys",
         );
@@ -406,7 +405,6 @@ export default function Reciprocals() {
         type: "pubkey",
         value: pubkey,
         reason: "Non-reciprocal follow",
-        private: false,
       },
       "pubkeys",
     );

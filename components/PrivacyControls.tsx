@@ -5,7 +5,7 @@ import { useStore } from '@/lib/store';
 import { Lock, Unlock, Eye, EyeOff, Info, AlertCircle } from 'lucide-react';
 
 export default function PrivacyControls() {
-  const { muteList, bulkSetPrivacy } = useStore();
+  const { muteList, bulkSetPrivacy, defaultMutePrivacy, setDefaultMutePrivacy } = useStore();
   const [showInfo, setShowInfo] = useState(true); // Default to visible
 
   const publicPubkeys = muteList.pubkeys.filter(item => !item.private).length;
@@ -65,11 +65,11 @@ export default function PrivacyControls() {
               <div className="space-y-2">
                 <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
 
-                <p><strong>Private:</strong> Encrypted using NIP-04. Works in Primal and Amethyst, but not Damus.</p>
+                <p><strong>Private:</strong> Encrypted using NIP-44 as required by the NIP-51 spec. Mutable also reads legacy NIP-04 encrypted mutes for backward compatibility.</p>
 
-                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Warning:</strong> Other clients may overwrite and delete all private mutes. Only manage private mutes through Mutable.</p>
+                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Compatibility:</strong> Not all clients support private mutes consistently. Some may silently overwrite or drop them. Jumble currently uses the older NIP-04 encryption, while Primal does not encrypt private mutes at all. If your favorite client doesn&apos;t handle private mutes correctly, encourage its developers to follow the NIP-51 spec.</p>
 
-                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for compatibility across all clients. Private mutes offer less compatibility.</p>
+                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for maximum compatibility. Only use private mutes if you understand the cross-client limitations.</p>
               </div>
 
               <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -152,9 +152,36 @@ export default function PrivacyControls() {
         </div>
       </div>
 
-      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Default privacy for new mutes</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          {defaultMutePrivacy ? "New mutes will be private (encrypted)" : "New mutes will be public (visible)"}
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <span className={`text-xs font-medium ${!defaultMutePrivacy ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
+            Public
+          </span>
+          <button
+            onClick={() => setDefaultMutePrivacy(!defaultMutePrivacy)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              defaultMutePrivacy ? "bg-purple-600" : "bg-amber-500"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                defaultMutePrivacy ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className={`text-xs font-medium ${defaultMutePrivacy ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"}`}>
+            Private
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients (Damus, Primal, etc.) to ensure mutes work everywhere. Only use private mute lists for extra privacy and understand they won&apos;t work in every client.
+          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients to ensure mutes work everywhere. Private mutes use NIP-44 encryption per the NIP-51 spec, but not all clients support this yet.
         </p>
       </div>
     </div>

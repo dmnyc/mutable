@@ -38,6 +38,9 @@ interface AppState {
   publicListsLoading: boolean;
   importedPackItems: Record<string, Set<string>>; // packId -> Set of imported item values
 
+  // Preferences
+  defaultMutePrivacy: boolean; // true = new mutes default to private
+
   // UI state
   activeTab:
     | "myList"
@@ -95,6 +98,7 @@ interface AppState {
   ) => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
+  setDefaultMutePrivacy: (isPrivate: boolean) => void;
 
   // Blacklist operations
   addToBlacklist: (pubkey: string) => void;
@@ -168,6 +172,7 @@ export const useStore = create<AppState>()(
       publicLists: [],
       publicListsLoading: false,
       importedPackItems: {},
+      defaultMutePrivacy: false,
       activeTab: "myList",
       showAuthModal: false,
       hasCompletedOnboarding: false,
@@ -271,11 +276,19 @@ export const useStore = create<AppState>()(
       setHasCompletedOnboarding: (completed) =>
         set({ hasCompletedOnboarding: completed }),
 
+      setDefaultMutePrivacy: (isPrivate) =>
+        set({ defaultMutePrivacy: isPrivate }),
+
       // Mute list CRUD operations
       addMutedItem: (item, category) =>
         set((state) => {
           const newList = { ...state.muteList };
-          newList[category] = [...newList[category], item as any];
+          // Apply default privacy if not explicitly set
+          const itemWithPrivacy =
+            item.private === undefined
+              ? { ...item, private: state.defaultMutePrivacy }
+              : item;
+          newList[category] = [...newList[category], itemWithPrivacy as any];
           return { muteList: newList, hasUnsavedChanges: true };
         }),
 
@@ -420,6 +433,7 @@ export const useStore = create<AppState>()(
         muteList: state.muteList,
         hasUnsavedChanges: state.hasUnsavedChanges,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        defaultMutePrivacy: state.defaultMutePrivacy,
         // Persist user profile for faster display on reload
         userProfile: state.userProfile,
         // Persist NIP-46 session data for restoration (signer itself is not persisted)

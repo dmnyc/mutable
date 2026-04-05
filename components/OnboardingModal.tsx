@@ -62,13 +62,13 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
                   <div className="flex items-start gap-2">
                     <Eye className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" size={14} />
                     <div className="text-xs text-indigo-800 dark:text-indigo-200">
-                      <strong>Public (Recommended):</strong> Stored in event tags, visible to anyone. Works in ALL Nostr clients (Damus, Primal, Amethyst, etc.).
+                      <strong>Public (Recommended):</strong> Stored in event tags, visible to anyone. Works in all Nostr clients.
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <EyeOff className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={14} />
                     <div className="text-xs text-indigo-800 dark:text-indigo-200">
-                      <strong>Private (Limited Compatibility):</strong> Encrypted in the content field. Only works in some clients (Primal, Amethyst). Damus and others don&apos;t decrypt them.
+                      <strong>Private (Limited Compatibility):</strong> Encrypted with NIP-44 per the NIP-51 spec. Not all clients support this yet — if yours doesn&apos;t, ask its developers to adopt NIP-51.
                     </div>
                   </div>
                 </div>

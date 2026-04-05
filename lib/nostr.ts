@@ -327,6 +327,7 @@ export async function fetchMuteList(
 }
 
 // Decrypt private mutes from content field using the active signer
+// Per NIP-51: detect NIP-04 vs NIP-44 by checking for "?iv=" in the ciphertext
 async function decryptPrivateMutes(
   encryptedContent: string,
   authorPubkey: string,
@@ -350,8 +351,21 @@ async function decryptPrivateMutes(
       return privateMutes;
     }
 
-    // NIP-04 decryption via signer
-    const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+    // Per NIP-51 spec: detect cipher by searching for "?iv=" in ciphertext.
+    // NIP-04 ciphertexts end with "?iv=<base64>", NIP-44 do not.
+    const isNip04 = encryptedContent.includes("?iv=");
+
+    let decrypted: string;
+    if (isNip04) {
+      decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+    } else {
+      if (!signer.nip44Decrypt) {
+        throw new Error(
+          "Private mutes use NIP-44 encryption but your signer doesn't support NIP-44 decryption.",
+        );
+      }
+      decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+    }
 
     if (!decrypted || !decrypted.trim()) {
       return privateMutes;
@@ -577,6 +591,7 @@ export function muteListToTags(muteList: MuteList): string[][] {
 }
 
 // Encrypt private mutes for content field using the active signer
+// Per NIP-51: uses NIP-44 (spec-correct), falls back to NIP-04 if signer lacks NIP-44
 async function encryptPrivateMutes(
   privateList: MuteList,
   recipientPubkey: string,
@@ -588,15 +603,20 @@ async function encryptPrivateMutes(
   }
 
   try {
-    // Get the active signer for encryption
     const signer = getSigner();
+    const plaintext = JSON.stringify(privateTags);
 
-    // NIP-04 encryption via signer (encrypt to yourself)
-    const encrypted = await signer.nip04Encrypt(
-      recipientPubkey,
-      JSON.stringify(privateTags),
-    );
-    return encrypted;
+    // NIP-44 preferred (spec-correct per NIP-51)
+    if (signer.nip44Encrypt) {
+      try {
+        return await signer.nip44Encrypt(recipientPubkey, plaintext);
+      } catch (error) {
+        console.warn("NIP-44 encrypt failed, falling back to NIP-04:", error);
+      }
+    }
+
+    // Fallback to NIP-04 (legacy, produces ciphertext with "?iv=" for auto-detection)
+    return await signer.nip04Encrypt(recipientPubkey, plaintext);
   } catch (error) {
     console.error("Failed to encrypt private mutes:", error);
     throw new Error(
@@ -639,7 +659,7 @@ export async function publishMuteList(
   // Convert public items to tags
   const tags = muteListToTags(publicList);
 
-  // Encrypt private items for content field
+  // Encrypt private items for content field (NIP-44 per spec, NIP-04 fallback)
   const encryptedContent = await encryptPrivateMutes(privateList, userPubkey);
 
   const eventTemplate: EventTemplate = {
