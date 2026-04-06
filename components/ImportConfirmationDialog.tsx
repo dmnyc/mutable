@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Shield, AlertTriangle, Loader2, Archive } from 'lucide-react';
 import { PublicMuteList } from '@/types';
 
@@ -57,7 +58,7 @@ export default function ImportConfirmationDialog({
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -207,6 +208,7 @@ export default function ImportConfirmationDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
