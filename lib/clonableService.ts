@@ -164,10 +164,17 @@ export async function fetchSourceData(
     // Decrypt private mutes if nsecSigner provided
     if (nsecSigner && muteListHasPrivate) {
       try {
+        // Check for encryption method tag to determine which cipher was used
+        const encTag = muteEvent.tags.find((t) => t[0] === "encryption");
+        const encMethod = encTag?.[1] === "nip44" || encTag?.[1] === "nip04"
+          ? (encTag[1] as "nip44" | "nip04")
+          : undefined;
+
         const privateMutes = await decryptPrivateMutesWithSigner(
           muteEvent.content,
           pubkey,
           nsecSigner,
+          encMethod,
         );
         muteList.pubkeys.push(...privateMutes.pubkeys);
         muteList.words.push(...privateMutes.words);
@@ -233,11 +240,13 @@ function parseMuteEventPublicTags(event: Event): MuteList {
 
 /**
  * Decrypt private mutes using a specific signer (not the store signer).
+ * Supports both NIP-44 (modern) and NIP-04 (legacy) based on encryption tag hint.
  */
 async function decryptPrivateMutesWithSigner(
   encryptedContent: string,
   authorPubkey: string,
   signer: NsecSigner,
+  encMethod?: "nip44" | "nip04",
 ): Promise<MuteList> {
   const privateMutes: MuteList = {
     pubkeys: [],
@@ -250,12 +259,29 @@ async function decryptPrivateMutesWithSigner(
     return privateMutes;
   }
 
-  const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
-  if (!decrypted || !decrypted.trim()) {
+  let decrypted: string;
+  if (encMethod === "nip44") {
+    decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+  } else if (encMethod === "nip04") {
+    decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+  } else {
+    // No tag (legacy) — try NIP-44 first, fall back to NIP-04
+    try {
+      decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+    } catch {
+      decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+    }
+  }
+
+  if (typeof decrypted !== "string" || !decrypted.trim()) {
     return privateMutes;
   }
 
-  const privateTags = JSON.parse(decrypted) as string[][];
+  const parsed = JSON.parse(decrypted);
+  if (!Array.isArray(parsed)) {
+    return privateMutes;
+  }
+  const privateTags = parsed as string[][];
 
   for (const tag of privateTags) {
     const [tagType, value, ...rest] = tag;

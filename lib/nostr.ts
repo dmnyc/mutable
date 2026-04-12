@@ -370,7 +370,12 @@ async function decryptPrivateMutes(
       // No encryption tag (legacy event) — try NIP-44 first, fall back to NIP-04
       if (signer.nip44Decrypt) {
         try {
-          decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+          const result = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+          // Guard against extensions returning non-string values
+          if (typeof result !== "string") {
+            throw new Error("NIP-44 decrypt returned non-string result");
+          }
+          decrypted = result;
         } catch {
           decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
         }
@@ -379,13 +384,19 @@ async function decryptPrivateMutes(
       }
     }
 
-    if (!decrypted || !decrypted.trim()) {
+    // Guard against signers returning non-string values
+    if (typeof decrypted !== "string" || !decrypted.trim()) {
       return privateMutes;
     }
 
     let privateTags: string[][];
     try {
-      privateTags = JSON.parse(decrypted) as string[][];
+      const parsed = JSON.parse(decrypted);
+      if (!Array.isArray(parsed)) {
+        console.warn("Decrypted private mutes is not an array");
+        return privateMutes;
+      }
+      privateTags = parsed as string[][];
     } catch {
       console.warn("Failed to parse decrypted private mutes");
       return privateMutes;
@@ -630,7 +641,11 @@ async function encryptPrivateMutes(
     if (signer.nip44Encrypt) {
       try {
         const encrypted = await signer.nip44Encrypt(recipientPubkey, plaintext);
-        return { encrypted, encMethod: "nip44" };
+        // Guard against extensions returning non-string values
+        if (typeof encrypted === "string" && encrypted.length > 0) {
+          return { encrypted, encMethod: "nip44" };
+        }
+        console.warn("NIP-44 encrypt returned invalid result, falling back to NIP-04");
       } catch (error) {
         console.warn("NIP-44 encrypt failed, falling back to NIP-04:", error);
       }
@@ -638,6 +653,9 @@ async function encryptPrivateMutes(
 
     // Fallback to NIP-04
     const encrypted = await signer.nip04Encrypt(recipientPubkey, plaintext);
+    if (typeof encrypted !== "string" || encrypted.length === 0) {
+      throw new Error("NIP-04 encrypt returned invalid result");
+    }
     return { encrypted, encMethod: "nip04" };
   } catch (error) {
     console.error("Failed to encrypt private mutes:", error);
