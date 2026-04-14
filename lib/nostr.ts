@@ -367,13 +367,19 @@ async function decryptPrivateMutes(
       decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
     }
 
-    if (!decrypted || !decrypted.trim()) {
+    // Guard against signers returning non-string values (e.g. {} from some extensions)
+    if (typeof decrypted !== "string" || !decrypted.trim()) {
       return privateMutes;
     }
 
     let privateTags: string[][];
     try {
-      privateTags = JSON.parse(decrypted) as string[][];
+      const parsed = JSON.parse(decrypted);
+      if (!Array.isArray(parsed)) {
+        console.warn("Decrypted private mutes is not an array");
+        return privateMutes;
+      }
+      privateTags = parsed as string[][];
     } catch {
       console.warn("Failed to parse decrypted private mutes");
       return privateMutes;
@@ -609,14 +615,23 @@ async function encryptPrivateMutes(
     // NIP-44 preferred (spec-correct per NIP-51)
     if (signer.nip44Encrypt) {
       try {
-        return await signer.nip44Encrypt(recipientPubkey, plaintext);
+        const encrypted = await signer.nip44Encrypt(recipientPubkey, plaintext);
+        // Guard against extensions returning non-string values
+        if (typeof encrypted === "string" && encrypted.length > 0) {
+          return encrypted;
+        }
+        console.warn("NIP-44 encrypt returned invalid result, falling back to NIP-04");
       } catch (error) {
         console.warn("NIP-44 encrypt failed, falling back to NIP-04:", error);
       }
     }
 
     // Fallback to NIP-04 (legacy, produces ciphertext with "?iv=" for auto-detection)
-    return await signer.nip04Encrypt(recipientPubkey, plaintext);
+    const encrypted = await signer.nip04Encrypt(recipientPubkey, plaintext);
+    if (typeof encrypted !== "string" || encrypted.length === 0) {
+      throw new Error("NIP-04 encrypt returned invalid result");
+    }
+    return encrypted;
   } catch (error) {
     console.error("Failed to encrypt private mutes:", error);
     throw new Error(
@@ -2027,6 +2042,29 @@ export async function searchMutealsFromFollows(
     `Follows scan complete: Found ${muteuals.length} Muteuals out of ${followedPubkeys.length} follows`,
   );
   return muteuals;
+}
+
+// Fetch approximate note count for a pubkey (lightweight, for mute ratio)
+export async function fetchNoteCount(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<number> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  try {
+    const events = await pool.querySync(expandedRelays, {
+      kinds: [1],
+      authors: [pubkey],
+      limit: 500,
+    });
+    // Deduplicate by event id
+    const unique = new Set(events.map((e) => e.id));
+    return unique.size;
+  } catch (error) {
+    console.error("Failed to fetch note count:", error);
+    return 0;
+  }
 }
 
 // Search for muteuals network-wide

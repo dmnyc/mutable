@@ -250,12 +250,25 @@ async function decryptPrivateMutesWithSigner(
     return privateMutes;
   }
 
-  const decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
-  if (!decrypted || !decrypted.trim()) {
+  // Per NIP-51: detect NIP-04 vs NIP-44 by checking for "?iv=" in ciphertext
+  const isNip04 = encryptedContent.includes("?iv=");
+  let decrypted: string;
+  if (isNip04) {
+    decrypted = await signer.nip04Decrypt(authorPubkey, encryptedContent);
+  } else {
+    decrypted = await signer.nip44Decrypt(authorPubkey, encryptedContent);
+  }
+
+  // Guard against signers returning non-string values
+  if (typeof decrypted !== "string" || !decrypted.trim()) {
     return privateMutes;
   }
 
-  const privateTags = JSON.parse(decrypted) as string[][];
+  const parsed = JSON.parse(decrypted);
+  if (!Array.isArray(parsed)) {
+    return privateMutes;
+  }
+  const privateTags = parsed as string[][];
 
   for (const tag of privateTags) {
     const [tagType, value, ...rest] = tag;
