@@ -4,5 +4,14 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "headers": [
+    {
+      "source": "/.well-known/nostr.json",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Content-Type", "value": "application/json" }
+      ]
+    }
+  ]
 }
