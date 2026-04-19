@@ -3,17 +3,72 @@ import {
   saveMuteBackupToRelay,
   fetchMuteBackupFromRelay,
   deleteMuteBackupFromRelay,
+  saveListBackupToRelay as saveListBackupToRelayImpl,
+  fetchListBackupFromRelay as fetchListBackupFromRelayImpl,
+  deleteListBackupFromRelay as deleteListBackupFromRelayImpl,
+  LIST_BACKUP_PREFIX,
   MuteBackupData,
+  ListBackupResult,
+  ListBackupSaveResult,
 } from "./relayStorage";
+
+export type BackupType =
+  | "mute-list"
+  | "follow-list"
+  | "bookmarks"
+  | "pinned-notes"
+  | "interests";
+
+export const LIST_BACKUP_TYPES: Readonly<BackupType[]> = [
+  "mute-list",
+  "follow-list",
+  "bookmarks",
+  "pinned-notes",
+  "interests",
+];
+
+// Map between NIP-51 list kind and BackupType for the three list-backup kinds.
+export const LIST_KIND_TO_TYPE: Record<number, BackupType> = {
+  10001: "pinned-notes",
+  10003: "bookmarks",
+  10015: "interests",
+};
+export const LIST_TYPE_TO_KIND: Partial<Record<BackupType, number>> = {
+  "pinned-notes": 10001,
+  bookmarks: 10003,
+  interests: 10015,
+};
+
+/**
+ * Raw NIP-51 list event payload stored in a list-type Backup. Kept opaque:
+ * `content` may be NIP-04/NIP-44 ciphertext (private list items) and is
+ * preserved verbatim so restore round-trips without ever decrypting.
+ */
+export interface RawListBackupPayload {
+  kind: number;
+  tags: string[][];
+  content: string;
+}
 
 export interface Backup {
   id: string;
-  type: "mute-list" | "follow-list";
+  type: BackupType;
   pubkey: string;
-  data: MuteList | string[]; // MuteList for mute-list, string[] of pubkeys for follow-list
+  // mute-list → MuteList; follow-list → string[]; list types → RawListBackupPayload
+  data: MuteList | string[] | RawListBackupPayload;
   createdAt: number;
   notes?: string;
   eventId?: string; // The Nostr event ID this backup was created from
+}
+
+function isRawListBackupPayload(value: unknown): value is RawListBackupPayload {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Partial<RawListBackupPayload>;
+  return (
+    typeof v.kind === "number" &&
+    Array.isArray(v.tags) &&
+    typeof v.content === "string"
+  );
 }
 
 class BackupService {
@@ -72,12 +127,13 @@ class BackupService {
   /**
    * Get backups filtered by type
    */
-  getBackupsByType(type: "mute-list" | "follow-list"): Backup[] {
+  getBackupsByType(type: BackupType): Backup[] {
     return this.getAllBackups().filter((backup) => backup.type === type);
   }
 
   /**
-   * Save a backup
+   * Save a backup. Caps each backup type at MAX_BACKUPS independently so
+   * adding a new type never evicts backups of existing types.
    */
   saveBackup(backup: Backup): boolean {
     try {
@@ -86,19 +142,26 @@ class BackupService {
       // Add new backup
       backups.unshift(backup); // Add to beginning
 
-      // Limit backups per type
-      const muteBackups = backups
-        .filter((b) => b.type === "mute-list")
-        .slice(0, this.MAX_BACKUPS);
-      const followBackups = backups
-        .filter((b) => b.type === "follow-list")
-        .slice(0, this.MAX_BACKUPS);
+      // Cap each known type at MAX_BACKUPS independently. Anything with an
+      // unknown type is preserved as-is so forward-compat backups are not lost.
+      const byType: Record<string, Backup[]> = {};
+      const unknownTypeBackups: Backup[] = [];
+      for (const b of backups) {
+        if (LIST_BACKUP_TYPES.includes(b.type)) {
+          (byType[b.type] = byType[b.type] || []).push(b);
+        } else {
+          unknownTypeBackups.push(b);
+        }
+      }
 
-      const limitedBackups = [...muteBackups, ...followBackups].sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
+      const limited: Backup[] = [];
+      for (const type of LIST_BACKUP_TYPES) {
+        limited.push(...(byType[type] || []).slice(0, this.MAX_BACKUPS));
+      }
+      limited.push(...unknownTypeBackups);
+      limited.sort((a, b) => b.createdAt - a.createdAt);
 
-      localStorage.setItem(this.BACKUP_KEY, JSON.stringify(limitedBackups));
+      localStorage.setItem(this.BACKUP_KEY, JSON.stringify(limited));
       return true;
     } catch (error) {
       console.error("Failed to save backup:", error);
@@ -147,6 +210,29 @@ class BackupService {
   }
 
   /**
+   * Create a NIP-51 list-type backup (bookmarks / pinned notes / interests).
+   * `data` preserves the raw event tags + (possibly encrypted) content so
+   * restore can republish the event verbatim.
+   */
+  createListBackup(
+    pubkey: string,
+    type: "bookmarks" | "pinned-notes" | "interests",
+    payload: RawListBackupPayload,
+    notes?: string,
+    eventId?: string,
+  ): Backup {
+    return {
+      id: this.generateBackupId(),
+      type,
+      pubkey,
+      data: payload,
+      createdAt: Date.now(),
+      notes,
+      eventId,
+    };
+  }
+
+  /**
    * Export a backup to JSON file
    */
   exportBackupToFile(backup: Backup): void {
@@ -187,7 +273,7 @@ class BackupService {
       }
 
       // Validate type
-      if (backup.type !== "mute-list" && backup.type !== "follow-list") {
+      if (!LIST_BACKUP_TYPES.includes(backup.type)) {
         return { success: false, error: "Invalid backup type" };
       }
 
@@ -205,6 +291,24 @@ class BackupService {
       } else if (backup.type === "follow-list") {
         if (!Array.isArray(backup.data)) {
           return { success: false, error: "Invalid follow list backup format" };
+        }
+      } else if (
+        backup.type === "bookmarks" ||
+        backup.type === "pinned-notes" ||
+        backup.type === "interests"
+      ) {
+        if (!isRawListBackupPayload(backup.data)) {
+          return {
+            success: false,
+            error: `Invalid ${backup.type} backup format`,
+          };
+        }
+        const expectedKind = LIST_TYPE_TO_KIND[backup.type];
+        if (expectedKind && backup.data.kind !== expectedKind) {
+          return {
+            success: false,
+            error: `Backup kind ${backup.data.kind} does not match type ${backup.type}`,
+          };
         }
       }
 
@@ -266,7 +370,7 @@ class BackupService {
   /**
    * Get the most recent backup of a specific type
    */
-  getMostRecentBackup(type: "mute-list" | "follow-list"): Backup | null {
+  getMostRecentBackup(type: BackupType): Backup | null {
     const backups = this.getBackupsByType(type);
     if (backups.length === 0) return null;
     return backups[0]; // Already sorted by createdAt descending
@@ -277,7 +381,7 @@ class BackupService {
    * Returns true if last backup was more than X days ago
    */
   shouldRemindBackup(
-    type: "mute-list" | "follow-list",
+    type: BackupType,
     daysSinceLastBackup: number = 7,
   ): boolean {
     const lastBackup = this.getMostRecentBackup(type);
@@ -310,6 +414,24 @@ class BackupService {
       return null;
     }
     return backup.data as string[];
+  }
+
+  /**
+   * Restore a list-type backup (bookmarks / pinned notes / interests).
+   * Returns the raw NIP-51 payload if successful, null otherwise.
+   */
+  restoreListBackup(backupId: string): RawListBackupPayload | null {
+    const backup = this.getBackupById(backupId);
+    if (!backup) return null;
+    if (
+      backup.type !== "bookmarks" &&
+      backup.type !== "pinned-notes" &&
+      backup.type !== "interests"
+    ) {
+      return null;
+    }
+    if (!isRawListBackupPayload(backup.data)) return null;
+    return backup.data;
   }
 
   // =============================================================================
@@ -409,6 +531,128 @@ class BackupService {
           error instanceof Error
             ? error.message
             : "Failed to delete backup from relay",
+      };
+    }
+  }
+
+  // =============================================================================
+  // List (NIP-51) Backup Relay Functions — bookmarks / pinned notes / interests
+  // =============================================================================
+
+  /**
+   * Save a NIP-51 list backup to relays (encrypted, chunked).
+   */
+  async saveListBackupToRelay(
+    kind: number,
+    rawEvent: RawListBackupPayload,
+    userPubkey: string,
+    relays: string[],
+    notes?: string,
+    signer?: import("./signers").Signer,
+  ): Promise<{ success: boolean; result?: ListBackupSaveResult; error?: string }> {
+    if (!LIST_BACKUP_PREFIX[kind]) {
+      return { success: false, error: `Unsupported list backup kind: ${kind}` };
+    }
+    try {
+      const result = await saveListBackupToRelayImpl(
+        kind,
+        rawEvent,
+        userPubkey,
+        relays,
+        notes,
+        signer,
+      );
+      if (result.savedChunks === 0) {
+        return {
+          success: false,
+          result,
+          error: "Failed to save any chunks to relays",
+        };
+      }
+      return { success: true, result };
+    } catch (error) {
+      console.error("Failed to save list backup to relays:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save list backup to relays",
+      };
+    }
+  }
+
+  /**
+   * Fetch a NIP-51 list backup from relays (chunks reassembled).
+   */
+  async fetchListBackupFromRelay(
+    kind: number,
+    userPubkey: string,
+    relays: string[],
+    signer?: import("./signers").Signer,
+  ): Promise<{
+    success: boolean;
+    backup?: ListBackupResult["backup"];
+    foundOnRelays?: string[];
+    queriedRelays?: string[];
+    error?: string;
+  }> {
+    if (!LIST_BACKUP_PREFIX[kind]) {
+      return { success: false, error: `Unsupported list backup kind: ${kind}` };
+    }
+    try {
+      const result = await fetchListBackupFromRelayImpl(
+        kind,
+        userPubkey,
+        relays,
+        5000,
+        signer,
+      );
+      return {
+        success: true,
+        backup: result.backup || undefined,
+        foundOnRelays: result.foundOnRelays,
+        queriedRelays: result.queriedRelays,
+        error: result.decryptError,
+      };
+    } catch (error) {
+      console.error("Failed to fetch list backup from relays:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch list backup from relays",
+      };
+    }
+  }
+
+  /**
+   * Delete a NIP-51 list backup from relays (all chunks).
+   */
+  async deleteListBackupFromRelay(
+    kind: number,
+    userPubkey: string,
+    relays: string[],
+  ): Promise<{ success: boolean; deletedChunks?: number; error?: string }> {
+    if (!LIST_BACKUP_PREFIX[kind]) {
+      return { success: false, error: `Unsupported list backup kind: ${kind}` };
+    }
+    try {
+      const { deletedChunks } = await deleteListBackupFromRelayImpl(
+        kind,
+        userPubkey,
+        relays,
+      );
+      return { success: true, deletedChunks };
+    } catch (error) {
+      console.error("Failed to delete list backup from relay:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete list backup from relay",
       };
     }
   }

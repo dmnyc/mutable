@@ -32,10 +32,18 @@ export const D_TAGS = {
   PROFILE_BACKUP_0: "mutable:profile-backup:0",
   PROFILE_BACKUP_1: "mutable:profile-backup:1",
   PROFILE_BACKUP_2: "mutable:profile-backup:2",
+  BOOKMARKS_BACKUP: "mutable:bookmarks-backup",
+  PINNED_NOTES_BACKUP: "mutable:pinned-notes-backup",
+  INTERESTS_BACKUP: "mutable:interests-backup",
 } as const;
 
-// DTagType includes static tags plus dynamic follow backup chunk tags
-export type DTagType = (typeof D_TAGS)[keyof typeof D_TAGS] | `mutable:follow-backup:${number}`;
+// DTagType includes static tags plus dynamic follow/list backup chunk tags
+export type DTagType =
+  | (typeof D_TAGS)[keyof typeof D_TAGS]
+  | `mutable:follow-backup:${number}`
+  | `mutable:bookmarks-backup:${number}`
+  | `mutable:pinned-notes-backup:${number}`
+  | `mutable:interests-backup:${number}`;
 
 // Max follows per chunk to stay within NIP-46 transport limits (65KB)
 // 500 pubkeys × ~66 bytes = ~33KB raw → ~20KB compressed → well under 65KB
@@ -95,6 +103,23 @@ export interface ProfileBackupData {
   profile: Record<string, unknown>; // full kind:0 content JSON
 }
 
+/**
+ * Backup payload for generic NIP-51 list events (bookmarks, pinned notes, interests).
+ * The list event's tags are split across chunks; `content` (which may be
+ * NIP-04/NIP-44 ciphertext holding private list items) is stored verbatim on
+ * chunkIndex 0 only and treated as opaque.
+ */
+export interface ListBackupData {
+  version: number;
+  timestamp: number;
+  kind: number; // 10001 | 10003 | 10015
+  tags: string[][];
+  content?: string;
+  totalChunks: number;
+  chunkIndex: number;
+  notes?: string;
+}
+
 // Union type for all data types
 export type StorageData =
   | ProtectedUsersData
@@ -102,7 +127,8 @@ export type StorageData =
   | PreferencesData
   | ImportedPacksData
   | MuteBackupData
-  | ProfileBackupData;
+  | ProfileBackupData
+  | ListBackupData;
 
 // Prefix marker for compressed data (added before NIP-04 encryption)
 const COMPRESSED_PREFIX = "gz:";
@@ -953,4 +979,329 @@ export async function deleteMuteBackupFromRelay(
 ): Promise<Event> {
   console.log(`[RelayStorage] Deleting mute backup from relay...`);
   return deleteAppData(D_TAGS.MUTE_BACKUP, userPubkey, relays);
+}
+
+// =============================================================================
+// Generic NIP-51 list backup (bookmarks, pinned notes, interests)
+// =============================================================================
+
+// d-tag prefix per supported NIP-51 list kind. Actual d-tags include :${chunkIndex}.
+export const LIST_BACKUP_PREFIX: Record<number, string> = {
+  10001: "mutable:pinned-notes-backup",
+  10003: "mutable:bookmarks-backup",
+  10015: "mutable:interests-backup",
+};
+
+// Chunk size for splitting tags across NIP-78 events. 500 × ~80 bytes ≈ 40KB
+// raw → ~20KB compressed, well under the NIP-46 65KB transport limit.
+export const LIST_TAG_CHUNK_SIZE = 500;
+
+// Hard cap on chunks we will publish or fetch. Covers very large lists
+// (up to 20,000 items) while preventing runaway fetch loops.
+export const MAX_LIST_CHUNKS = 40;
+
+function listBackupDTag(
+  kind: number,
+  chunkIndex: number,
+): DTagType {
+  const prefix = LIST_BACKUP_PREFIX[kind];
+  if (!prefix) {
+    throw new Error(`Unsupported list backup kind: ${kind}`);
+  }
+  return `${prefix}:${chunkIndex}` as DTagType;
+}
+
+export interface ListBackupSaveResult {
+  savedChunks: number;
+  totalChunks: number;
+}
+
+/**
+ * Save a NIP-51 list event as a chunked, encrypted backup on relays.
+ * The event's tags are split into LIST_TAG_CHUNK_SIZE slices; the (possibly
+ * encrypted) `content` is stored only on chunk 0.
+ */
+export async function saveListBackupToRelay(
+  kind: number,
+  rawEvent: { tags: string[][]; content: string },
+  userPubkey: string,
+  relays: string[],
+  notes?: string,
+  explicitSigner?: import("./signers").Signer,
+): Promise<ListBackupSaveResult> {
+  if (!LIST_BACKUP_PREFIX[kind]) {
+    throw new Error(`Unsupported list backup kind: ${kind}`);
+  }
+
+  const timestamp = Date.now();
+  const tags = rawEvent.tags || [];
+  const totalChunks = Math.max(1, Math.ceil(tags.length / LIST_TAG_CHUNK_SIZE));
+
+  if (totalChunks > MAX_LIST_CHUNKS) {
+    throw new Error(
+      `List backup for kind ${kind} has ${totalChunks} chunks which exceeds the ${MAX_LIST_CHUNKS} chunk limit.`,
+    );
+  }
+
+  console.log(
+    `[RelayStorage] Saving list backup (kind ${kind}, ${tags.length} tags) in ${totalChunks} chunk(s)...`,
+  );
+
+  let savedChunks = 0;
+  for (let i = 0; i < totalChunks; i++) {
+    const slice = tags.slice(
+      i * LIST_TAG_CHUNK_SIZE,
+      (i + 1) * LIST_TAG_CHUNK_SIZE,
+    );
+    const payload: ListBackupData = {
+      version: 1,
+      timestamp,
+      kind,
+      tags: slice,
+      totalChunks,
+      chunkIndex: i,
+      notes,
+      // Content lives on chunk 0 only — it's one opaque ciphertext blob.
+      ...(i === 0 ? { content: rawEvent.content || "" } : {}),
+    };
+
+    try {
+      await publishAppData(
+        listBackupDTag(kind, i),
+        payload,
+        userPubkey,
+        relays,
+        true,
+        explicitSigner,
+      );
+      savedChunks++;
+    } catch (error) {
+      console.warn(
+        `[RelayStorage] Failed to save list backup chunk ${i}/${totalChunks} for kind ${kind}:`,
+        error,
+      );
+    }
+  }
+
+  console.log(
+    `[RelayStorage] List backup for kind ${kind}: saved ${savedChunks}/${totalChunks} chunks`,
+  );
+
+  return { savedChunks, totalChunks };
+}
+
+export interface ListBackupResult {
+  backup: {
+    kind: number;
+    tags: string[][];
+    content: string;
+    timestamp: number;
+    notes?: string;
+    totalChunks: number;
+    fetchedChunks: number;
+  } | null;
+  foundOnRelays: string[];
+  queriedRelays: string[];
+  decryptError?: string;
+}
+
+/**
+ * Fetch a chunked list backup from relays and reassemble it.
+ * Chunk 0 is authoritative for timestamp / notes / content; missing chunk 0
+ * is treated as a hard failure (no backup found). Missing later chunks are
+ * reported via `fetchedChunks` so the UI can warn the user.
+ */
+export async function fetchListBackupFromRelay(
+  kind: number,
+  userPubkey: string,
+  relays: string[],
+  timeoutMs: number = 5000,
+  explicitSigner?: import("./signers").Signer,
+): Promise<ListBackupResult> {
+  if (!LIST_BACKUP_PREFIX[kind]) {
+    throw new Error(`Unsupported list backup kind: ${kind}`);
+  }
+
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+  const chunk0DTag = listBackupDTag(kind, 0);
+
+  console.log(
+    `[RelayStorage] Fetching list backup (kind ${kind}) from ${expandedRelays.length} relays...`,
+  );
+
+  // Step 1: find which relays hold chunk 0 and grab the latest chunk-0 event.
+  const foundOnRelays: string[] = [];
+  let latestChunk0: Event | null = null;
+
+  const relayPromises = expandedRelays.map(async (relayUrl) => {
+    return new Promise<{ relay: string; event: Event | null }>((resolve) => {
+      const relayTimeoutId = setTimeout(() => {
+        resolve({ relay: relayUrl, event: null });
+      }, timeoutMs);
+
+      try {
+        const sub = pool.subscribeMany(
+          [relayUrl],
+          {
+            kinds: [APP_DATA_KIND],
+            authors: [userPubkey],
+            "#d": [chunk0DTag],
+          },
+          {
+            onevent(event: Event) {
+              clearTimeout(relayTimeoutId);
+              sub.close();
+              resolve({ relay: relayUrl, event });
+            },
+            oneose() {
+              clearTimeout(relayTimeoutId);
+              sub.close();
+              resolve({ relay: relayUrl, event: null });
+            },
+          },
+        );
+      } catch (error) {
+        clearTimeout(relayTimeoutId);
+        console.warn(`[RelayStorage] Error querying ${relayUrl}:`, error);
+        resolve({ relay: relayUrl, event: null });
+      }
+    });
+  });
+
+  const results = await Promise.all(relayPromises);
+  for (const result of results) {
+    if (result.event) {
+      foundOnRelays.push(result.relay);
+      if (!latestChunk0 || result.event.created_at > latestChunk0.created_at) {
+        latestChunk0 = result.event;
+      }
+    }
+  }
+
+  if (!latestChunk0) {
+    console.log(`[RelayStorage] No list backup found for kind ${kind}`);
+    return {
+      backup: null,
+      foundOnRelays: [],
+      queriedRelays: expandedRelays,
+    };
+  }
+
+  // Step 2: decrypt chunk 0.
+  let chunk0: ListBackupData;
+  try {
+    const data = await processEvent(latestChunk0, explicitSigner);
+    if (!data) {
+      return { backup: null, foundOnRelays, queriedRelays: expandedRelays };
+    }
+    chunk0 = data as ListBackupData;
+    if (
+      typeof chunk0.timestamp !== "number" ||
+      typeof chunk0.totalChunks !== "number" ||
+      !Array.isArray(chunk0.tags)
+    ) {
+      console.error(`[RelayStorage] Invalid list backup chunk 0 structure`);
+      return { backup: null, foundOnRelays, queriedRelays: expandedRelays };
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[RelayStorage] Error processing list backup chunk 0:`,
+      errorMsg,
+    );
+    return {
+      backup: null,
+      foundOnRelays,
+      queriedRelays: expandedRelays,
+      decryptError: errorMsg,
+    };
+  }
+
+  const totalChunks = Math.min(chunk0.totalChunks || 1, MAX_LIST_CHUNKS);
+  const allTags: string[][] = [...chunk0.tags];
+  let fetchedChunks = 1;
+
+  // Step 3: fetch remaining chunks in parallel.
+  if (totalChunks > 1) {
+    const chunkPromises: Promise<StorageData | null>[] = [];
+    for (let i = 1; i < totalChunks; i++) {
+      chunkPromises.push(
+        fetchAppData(
+          listBackupDTag(kind, i),
+          userPubkey,
+          relays,
+          timeoutMs,
+          explicitSigner,
+        ),
+      );
+    }
+    const chunkResults = await Promise.allSettled(chunkPromises);
+    for (const result of chunkResults) {
+      if (result.status === "fulfilled" && result.value) {
+        const chunk = result.value as ListBackupData;
+        if (Array.isArray(chunk.tags)) {
+          allTags.push(...chunk.tags);
+          fetchedChunks++;
+        }
+      }
+    }
+    console.log(
+      `[RelayStorage] List backup (kind ${kind}): fetched ${fetchedChunks}/${totalChunks} chunks`,
+    );
+  }
+
+  return {
+    backup: {
+      kind: chunk0.kind || kind,
+      tags: allTags,
+      content: chunk0.content || "",
+      timestamp: chunk0.timestamp,
+      notes: chunk0.notes,
+      totalChunks,
+      fetchedChunks,
+    },
+    foundOnRelays,
+    queriedRelays: expandedRelays,
+  };
+}
+
+/**
+ * Delete a chunked list backup from relays by publishing kind-5 deletions for
+ * each chunk's d-tag.
+ */
+export async function deleteListBackupFromRelay(
+  kind: number,
+  userPubkey: string,
+  relays: string[],
+): Promise<{ deletedChunks: number }> {
+  if (!LIST_BACKUP_PREFIX[kind]) {
+    throw new Error(`Unsupported list backup kind: ${kind}`);
+  }
+
+  // Determine how many chunks exist so we don't publish spurious deletions.
+  const existing = await fetchListBackupFromRelay(kind, userPubkey, relays);
+  const totalChunks = existing.backup?.totalChunks || 0;
+  if (totalChunks === 0) {
+    return { deletedChunks: 0 };
+  }
+
+  let deletedChunks = 0;
+  for (let i = 0; i < totalChunks; i++) {
+    try {
+      await deleteAppData(listBackupDTag(kind, i), userPubkey, relays);
+      deletedChunks++;
+    } catch (error) {
+      // deleteAppData throws if the event is gone — not a problem.
+      console.warn(
+        `[RelayStorage] Could not delete list backup chunk ${i} for kind ${kind}:`,
+        error,
+      );
+    }
+  }
+
+  console.log(
+    `[RelayStorage] Deleted ${deletedChunks}/${totalChunks} chunks for kind ${kind}`,
+  );
+  return { deletedChunks };
 }
