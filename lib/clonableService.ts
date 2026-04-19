@@ -50,7 +50,7 @@ export interface CloneableData {
 /**
  * Fetch a raw list event by kind for a given pubkey.
  */
-async function fetchRawListEvent(
+export async function fetchRawListEvent(
   pubkey: string,
   kind: number,
   relays: string[],
@@ -70,7 +70,7 @@ async function fetchRawListEvent(
 /**
  * Publish a raw list event, optionally using a destination signer.
  */
-async function publishClonedRawListEvent(
+export async function publishClonedRawListEvent(
   event: RawListEvent,
   relays: string[],
   destinationSigner?: NsecSigner,

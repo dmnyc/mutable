@@ -12,8 +12,8 @@ import { blacklistService } from "@/lib/blacklistService";
 import { preferencesService } from "@/lib/preferencesService";
 import { importedPacksService } from "@/lib/importedPacksService";
 import { syncManager } from "@/lib/syncManager";
-import { backupService } from "@/lib/backupService";
-import { MuteBackupData } from "@/lib/relayStorage";
+import { backupService, RawListBackupPayload } from "@/lib/backupService";
+import { MuteBackupData, ListBackupResult } from "@/lib/relayStorage";
 import { MuteList } from "@/types";
 import { Signer } from "@/lib/signers";
 
@@ -232,6 +232,75 @@ export function useRelaySync() {
     );
   }, [session]);
 
+  /**
+   * Save a NIP-51 list backup (bookmarks / pinned notes / interests) to relays.
+   */
+  const saveListBackupToRelay = useCallback(
+    async (
+      kind: number,
+      rawEvent: RawListBackupPayload,
+      notes?: string,
+      signer?: Signer,
+    ) => {
+      if (!session) {
+        return { success: false, error: "No active session" };
+      }
+      return await backupService.saveListBackupToRelay(
+        kind,
+        rawEvent,
+        session.pubkey,
+        session.relays,
+        notes,
+        signer,
+      );
+    },
+    [session],
+  );
+
+  /**
+   * Fetch a NIP-51 list backup from relays.
+   */
+  const fetchListBackupFromRelay = useCallback(
+    async (
+      kind: number,
+      signer?: Signer,
+    ): Promise<{
+      success: boolean;
+      backup?: ListBackupResult["backup"];
+      foundOnRelays?: string[];
+      queriedRelays?: string[];
+      error?: string;
+    }> => {
+      if (!session) {
+        return { success: false, error: "No active session" };
+      }
+      return await backupService.fetchListBackupFromRelay(
+        kind,
+        session.pubkey,
+        session.relays,
+        signer,
+      );
+    },
+    [session],
+  );
+
+  /**
+   * Delete a NIP-51 list backup from relays.
+   */
+  const deleteListBackupFromRelay = useCallback(
+    async (kind: number) => {
+      if (!session) {
+        return { success: false, error: "No active session" };
+      }
+      return await backupService.deleteListBackupFromRelay(
+        kind,
+        session.pubkey,
+        session.relays,
+      );
+    },
+    [session],
+  );
+
   return {
     addProtection,
     removeProtection,
@@ -244,6 +313,9 @@ export function useRelaySync() {
     saveBackupToRelay,
     fetchBackupFromRelay,
     deleteMuteBackupFromRelay,
+    saveListBackupToRelay,
+    fetchListBackupFromRelay,
+    deleteListBackupFromRelay,
     isOnline: !!session,
   };
 }

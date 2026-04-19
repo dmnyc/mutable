@@ -1,11 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import { useRelaySync } from "@/hooks/useRelaySync";
-import { backupService, Backup } from "@/lib/backupService";
-import { MuteBackupData, ProfileBackupData } from "@/lib/relayStorage";
+import {
+  backupService,
+  Backup,
+  BackupType,
+  RawListBackupPayload,
+  LIST_KIND_TO_TYPE,
+} from "@/lib/backupService";
+import {
+  MuteBackupData,
+  ProfileBackupData,
+  ListBackupResult,
+} from "@/lib/relayStorage";
 import { profileBackupService } from "@/lib/profileBackupService";
 import {
   getFollowListPubkeys,
@@ -14,6 +24,10 @@ import {
   publishProfile,
   fetchRawProfileContent,
 } from "@/lib/nostr";
+import {
+  fetchRawListEvent,
+  publishClonedRawListEvent,
+} from "@/lib/clonableService";
 import {
   Archive,
   Download,
@@ -34,16 +48,79 @@ import {
   ChevronUp,
   User,
   RotateCcw,
+  Bookmark,
+  Pin,
+  Hash,
 } from "lucide-react";
+
+type ListKind = 10001 | 10003 | 10015;
+const LIST_KINDS: ReadonlyArray<ListKind> = [10003, 10015, 10001];
+
+type RelayListBackup = NonNullable<ListBackupResult["backup"]>;
+
+interface BackupTypeMeta {
+  label: string;
+  badgeBg: string;
+  iconColor: string;
+  icon: typeof Archive;
+  tabActiveClass: string;
+  statCardIconBg: string;
+}
+
+const BACKUP_TYPE_META: Record<BackupType, BackupTypeMeta> = {
+  "mute-list": {
+    label: "Mute List Backup",
+    badgeBg: "bg-red-100 dark:bg-red-900/30",
+    iconColor: "text-red-600 dark:text-red-400",
+    icon: Shield,
+    tabActiveClass: "bg-red-600 text-white",
+    statCardIconBg: "bg-red-100 dark:bg-red-900/30",
+  },
+  "follow-list": {
+    label: "Follow List Backup",
+    badgeBg: "bg-blue-100 dark:bg-blue-900/30",
+    iconColor: "text-blue-600 dark:text-blue-400",
+    icon: Users,
+    tabActiveClass: "bg-blue-600 text-white",
+    statCardIconBg: "bg-blue-100 dark:bg-blue-900/30",
+  },
+  bookmarks: {
+    label: "Bookmarks Backup",
+    badgeBg: "bg-yellow-100 dark:bg-yellow-900/30",
+    iconColor: "text-yellow-600 dark:text-yellow-400",
+    icon: Bookmark,
+    tabActiveClass: "bg-yellow-600 text-white",
+    statCardIconBg: "bg-yellow-100 dark:bg-yellow-900/30",
+  },
+  "pinned-notes": {
+    label: "Pinned Notes Backup",
+    badgeBg: "bg-indigo-100 dark:bg-indigo-900/30",
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+    icon: Pin,
+    tabActiveClass: "bg-indigo-600 text-white",
+    statCardIconBg: "bg-indigo-100 dark:bg-indigo-900/30",
+  },
+  interests: {
+    label: "Interests Backup",
+    badgeBg: "bg-teal-100 dark:bg-teal-900/30",
+    iconColor: "text-teal-600 dark:text-teal-400",
+    icon: Hash,
+    tabActiveClass: "bg-teal-600 text-white",
+    statCardIconBg: "bg-teal-100 dark:bg-teal-900/30",
+  },
+};
 
 export default function Backups() {
   const { session } = useAuth();
   const { muteList, setMuteList, signer } = useStore();
-  const { saveBackupToRelay, fetchBackupFromRelay } = useRelaySync();
+  const {
+    saveBackupToRelay,
+    fetchBackupFromRelay,
+    saveListBackupToRelay,
+    fetchListBackupFromRelay,
+  } = useRelaySync();
   const [backups, setBackups] = useState<Backup[]>([]);
-  const [selectedType, setSelectedType] = useState<
-    "all" | "mute-list" | "follow-list"
-  >("all");
+  const [selectedType, setSelectedType] = useState<"all" | BackupType>("all");
   const [isCreating, setIsCreating] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -58,6 +135,30 @@ export default function Backups() {
   const [foundOnRelays, setFoundOnRelays] = useState<string[]>([]);
   const [queriedRelays, setQueriedRelays] = useState<string[]>([]);
   const [relayBackupError, setRelayBackupError] = useState<string | null>(null);
+
+  // List (NIP-51) relay backup state — keyed by kind (10001 / 10003 / 10015)
+  const [listRelayBackups, setListRelayBackups] = useState<
+    Record<number, RelayListBackup | null>
+  >({});
+  const [listFoundOnRelays, setListFoundOnRelays] = useState<
+    Record<number, string[]>
+  >({});
+  const [listQueriedRelays, setListQueriedRelays] = useState<
+    Record<number, string[]>
+  >({});
+  const [listRelayErrors, setListRelayErrors] = useState<
+    Record<number, string | undefined>
+  >({});
+  const [listBackupLoading, setListBackupLoading] = useState<
+    Record<number, boolean>
+  >({});
+  const [listBackupSaving, setListBackupSaving] = useState<number | null>(null);
+  const [listBackupRestoring, setListBackupRestoring] = useState<
+    number | null
+  >(null);
+  const [showListRelayDetails, setShowListRelayDetails] = useState<
+    Record<number, boolean>
+  >({});
 
   // Profile backup state
   const [profileBackups, setProfileBackups] = useState<
@@ -77,7 +178,12 @@ export default function Backups() {
   useEffect(() => {
     if (session && signer) {
       loadRelayBackup(signer);
+      // Fetch list backups in parallel
+      for (const kind of LIST_KINDS) {
+        loadListRelayBackup(kind, signer);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, signer]);
 
   const loadBackups = () => {
@@ -110,6 +216,50 @@ export default function Backups() {
       setRelayBackupLoading(false);
     }
   };
+
+  const loadListRelayBackup = useCallback(
+    async (
+      kind: number,
+      signerOverride?: import("@/lib/signers").Signer,
+    ) => {
+      const activeSigner = signerOverride || useStore.getState().signer;
+      if (!activeSigner) {
+        console.warn(
+          `[Backups] No signer available for list relay backup fetch (kind ${kind})`,
+        );
+        return;
+      }
+
+      setListBackupLoading((prev) => ({ ...prev, [kind]: true }));
+      setListRelayErrors((prev) => ({ ...prev, [kind]: undefined }));
+      try {
+        const result = await fetchListBackupFromRelay(kind, activeSigner);
+        setListRelayBackups((prev) => ({
+          ...prev,
+          [kind]: result.backup || null,
+        }));
+        setListFoundOnRelays((prev) => ({
+          ...prev,
+          [kind]: result.foundOnRelays || [],
+        }));
+        setListQueriedRelays((prev) => ({
+          ...prev,
+          [kind]: result.queriedRelays || [],
+        }));
+        if (result.error) {
+          setListRelayErrors((prev) => ({ ...prev, [kind]: result.error }));
+        }
+      } catch (error) {
+        console.error(
+          `Failed to fetch list relay backup (kind ${kind}):`,
+          error,
+        );
+      } finally {
+        setListBackupLoading((prev) => ({ ...prev, [kind]: false }));
+      }
+    },
+    [fetchListBackupFromRelay],
+  );
 
   const loadProfileBackups = async () => {
     if (!session) return;
@@ -234,6 +384,25 @@ export default function Backups() {
           : "Mute list backup saved to relays";
         setSuccessMessage(message);
         setTimeout(() => setSuccessMessage(null), 5000);
+
+        // Mirror the list-backup pattern: write local-history entries so the
+        // Backups tab timeline stays consistent across all types.
+        const muteLocal = backupService.createMuteListBackup(
+          session.pubkey,
+          muteList,
+          "Saved from Backups tab (relay)",
+        );
+        backupService.saveBackup(muteLocal);
+        if (followList) {
+          const followLocal = backupService.createFollowListBackup(
+            session.pubkey,
+            followList,
+            "Saved from Backups tab (relay)",
+          );
+          backupService.saveBackup(followLocal);
+        }
+        loadBackups();
+
         // Refresh relay backup status
         await loadRelayBackup();
       } else {
@@ -371,6 +540,109 @@ export default function Backups() {
       );
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleSaveListToRelay = async (kind: ListKind) => {
+    if (!session) return;
+    const type = LIST_KIND_TO_TYPE[kind];
+    if (!type) return;
+
+    setListBackupSaving(kind);
+    setErrorMessage(null);
+    try {
+      const raw = await fetchRawListEvent(
+        session.pubkey,
+        kind,
+        session.relays,
+      );
+      if (!raw) {
+        setErrorMessage(
+          `Nothing to back up - no ${BACKUP_TYPE_META[type].label.replace(" Backup", "").toLowerCase()} event found on your relays`,
+        );
+        setTimeout(() => setErrorMessage(null), 5000);
+        return;
+      }
+
+      const payload: RawListBackupPayload = {
+        kind: raw.kind,
+        tags: raw.tags,
+        content: raw.content || "",
+      };
+
+      const result = await saveListBackupToRelay(
+        kind,
+        payload,
+        "Saved from Backups tab",
+      );
+      if (result.success) {
+        setSuccessMessage(
+          `${BACKUP_TYPE_META[type].label} saved to relays (${payload.tags.length} items${result.result ? `, ${result.result.savedChunks}/${result.result.totalChunks} chunks` : ""})`,
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+
+        // Also create a local history entry so export is possible.
+        const localBackup = backupService.createListBackup(
+          session.pubkey,
+          type as "bookmarks" | "pinned-notes" | "interests",
+          payload,
+          "Saved from Backups tab (relay)",
+        );
+        if (backupService.saveBackup(localBackup)) {
+          loadBackups();
+        }
+
+        await loadListRelayBackup(kind);
+      } else {
+        setErrorMessage(result.error || "Failed to save list backup to relays");
+        setTimeout(() => setErrorMessage(null), 5000);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to save list backup",
+      );
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setListBackupSaving(null);
+    }
+  };
+
+  const handleRestoreListFromRelay = async (kind: ListKind) => {
+    if (!session) return;
+    const type = LIST_KIND_TO_TYPE[kind];
+    if (!type) return;
+    const backup = listRelayBackups[kind];
+    if (!backup) return;
+
+    const typeLabel = BACKUP_TYPE_META[type].label.replace(" Backup", "");
+    if (
+      !confirm(
+        `Restore your ${typeLabel.toLowerCase()} from relay backup? This will replace your current ${typeLabel.toLowerCase()} list on relays and publish it immediately.`,
+      )
+    ) {
+      return;
+    }
+
+    setListBackupRestoring(kind);
+    setErrorMessage(null);
+    try {
+      await publishClonedRawListEvent(
+        { kind: backup.kind, tags: backup.tags, content: backup.content },
+        session.relays,
+      );
+      setSuccessMessage(
+        `${typeLabel} restored and published (${backup.tags.length} items)`,
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to restore list backup from relays",
+      );
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setListBackupRestoring(null);
     }
   };
 
@@ -530,6 +802,53 @@ export default function Backups() {
         setErrorMessage("Failed to restore and publish backup");
         setTimeout(() => setErrorMessage(null), 3000);
       }
+    } else if (
+      backup.type === "bookmarks" ||
+      backup.type === "pinned-notes" ||
+      backup.type === "interests"
+    ) {
+      const typeLabel = BACKUP_TYPE_META[backup.type].label.replace(
+        " Backup",
+        "",
+      );
+      if (
+        !confirm(
+          `Restore this ${typeLabel.toLowerCase()} backup? This will replace your current ${typeLabel.toLowerCase()} list and publish it immediately.`,
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const payload = backupService.restoreListBackup(backup.id);
+        if (!payload) {
+          setErrorMessage("Failed to restore backup");
+          setTimeout(() => setErrorMessage(null), 3000);
+          return;
+        }
+        try {
+          await publishClonedRawListEvent(
+            {
+              kind: payload.kind,
+              tags: payload.tags,
+              content: payload.content,
+            },
+            session.relays,
+          );
+          setSuccessMessage(
+            `${typeLabel} restored and published (${payload.tags.length} items)`,
+          );
+          setTimeout(() => setSuccessMessage(null), 5000);
+        } catch (publishError) {
+          setErrorMessage(
+            "Backup restored but failed to publish. Please try publishing manually.",
+          );
+          setTimeout(() => setErrorMessage(null), 5000);
+        }
+      } catch (error) {
+        setErrorMessage("Failed to restore and publish backup");
+        setTimeout(() => setErrorMessage(null), 3000);
+      }
     }
   };
 
@@ -546,27 +865,34 @@ export default function Backups() {
         data.tags.length +
         data.threads.length
       );
-    } else {
+    }
+    if (backup.type === "follow-list") {
       return (backup.data as string[]).length;
     }
+    // bookmarks / pinned-notes / interests — RawListBackupPayload
+    const data = backup.data as RawListBackupPayload;
+    return Array.isArray(data?.tags) ? data.tags.length : 0;
   };
 
   const muteListBackups = backups.filter((b) => b.type === "mute-list");
   const followListBackups = backups.filter((b) => b.type === "follow-list");
+  const bookmarksBackups = backups.filter((b) => b.type === "bookmarks");
+  const pinnedNotesBackups = backups.filter((b) => b.type === "pinned-notes");
+  const interestsBackups = backups.filter((b) => b.type === "interests");
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Backups
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Manage backups of your mute lists and follow lists
+            Manage backups of your mute list, follows, and bookmarks
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={handleCreateMuteListBackup}
             disabled={isCreating}
@@ -583,6 +909,19 @@ export default function Backups() {
             <Users size={18} />
             <span className="hidden sm:inline">Backup Follows</span>
           </button>
+          <a
+            href="#list-relay-backup"
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .getElementById("list-relay-backup")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            <Bookmark size={18} />
+            <span className="hidden sm:inline">More Backups</span>
+          </a>
         </div>
       </div>
 
@@ -607,7 +946,7 @@ export default function Backups() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
@@ -642,6 +981,25 @@ export default function Backups() {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-3">
+            <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+              <Bookmark
+                className="text-yellow-600 dark:text-yellow-400"
+                size={24}
+              />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Bookmarks Backups
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {bookmarksBackups.length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-3">
             <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <Archive className="text-gray-600 dark:text-gray-400" size={24} />
             </div>
@@ -660,7 +1018,7 @@ export default function Backups() {
       {/* Actions Bar */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedType("all")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -671,26 +1029,27 @@ export default function Backups() {
             >
               All ({backups.length})
             </button>
-            <button
-              onClick={() => setSelectedType("mute-list")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                selectedType === "mute-list"
-                  ? "bg-red-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
-            >
-              Mute Lists ({muteListBackups.length})
-            </button>
-            <button
-              onClick={() => setSelectedType("follow-list")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                selectedType === "follow-list"
-                  ? "bg-red-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
-            >
-              Follow Lists ({followListBackups.length})
-            </button>
+            {(
+              [
+                ["mute-list", "Mute Lists", muteListBackups.length],
+                ["follow-list", "Follow Lists", followListBackups.length],
+                ["bookmarks", "Bookmarks", bookmarksBackups.length],
+                ["interests", "Interests", interestsBackups.length],
+                ["pinned-notes", "Pinned Notes", pinnedNotesBackups.length],
+              ] as Array<[BackupType, string, number]>
+            ).map(([type, label, count]) => (
+              <button
+                key={type}
+                onClick={() => setSelectedType(type)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  selectedType === type
+                    ? BACKUP_TYPE_META[type].tabActiveClass
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                {label} ({count})
+              </button>
+            ))}
           </div>
 
           <div className="flex gap-2">
@@ -1013,7 +1372,215 @@ export default function Backups() {
         </div>
       </div>
 
+      {/* Bookmarks & Lists Relay Backup */}
+      <div
+        id="list-relay-backup"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 scroll-mt-4"
+      >
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+            <Bookmark
+              className="text-yellow-600 dark:text-yellow-400"
+              size={24}
+            />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+              Bookmarks & Lists Relay Backup
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Encrypted cross-device backups of your bookmarks, pinned notes,
+              and interests. Restore republishes the list verbatim — private
+              (encrypted) items survive without ever being decrypted here.
+            </p>
+
+            <div className="space-y-4">
+              {LIST_KINDS.map((kind) => {
+                const type = LIST_KIND_TO_TYPE[kind];
+                if (!type) return null;
+                const meta = BACKUP_TYPE_META[type];
+                const Icon = meta.icon;
+                const loading = !!listBackupLoading[kind];
+                const saving = listBackupSaving === kind;
+                const restoring = listBackupRestoring === kind;
+                const backup = listRelayBackups[kind] || null;
+                const err = listRelayErrors[kind];
+                const found = listFoundOnRelays[kind] || [];
+                const queried = listQueriedRelays[kind] || [];
+                const showDetails = !!showListRelayDetails[kind];
+
+                return (
+                  <div
+                    key={kind}
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${meta.badgeBg}`}>
+                        <Icon className={meta.iconColor} size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {meta.label.replace(" Backup", "")}
+                          </h3>
+                          {loading ? (
+                            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                              <RefreshCw size={12} className="animate-spin" />
+                              Checking…
+                            </span>
+                          ) : backup ? (
+                            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                              <Cloud size={12} />
+                              Backed up {formatDate(backup.timestamp)}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                              <CloudOff size={12} />
+                              No relay backup
+                            </span>
+                          )}
+                        </div>
+
+                        {backup && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {backup.tags.length} items
+                            {backup.content ? " • includes private items" : ""}
+                            {backup.fetchedChunks < backup.totalChunks
+                              ? ` • ${backup.fetchedChunks}/${backup.totalChunks} chunks reassembled`
+                              : ""}
+                          </p>
+                        )}
+
+                        {err && (
+                          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle
+                                size={14}
+                                className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+                              />
+                              <p className="text-xs text-amber-700 dark:text-amber-300">
+                                {err.includes("too large for remote signer") ||
+                                err.includes("plaintext size")
+                                  ? "Backup too large to decrypt with a remote signer (NIP-46). Log in with a browser extension (NIP-07) to decrypt."
+                                  : err}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => handleSaveListToRelay(kind)}
+                            disabled={saving || !session}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {saving ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <Cloud size={14} />
+                            )}
+                            Save to Relays
+                          </button>
+                          <button
+                            onClick={() => handleRestoreListFromRelay(kind)}
+                            disabled={restoring || !backup || !session}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {restoring ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <Download size={14} />
+                            )}
+                            Restore from Relays
+                          </button>
+                          <button
+                            onClick={() => loadListRelayBackup(kind)}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
+                            title="Refresh relay backup status"
+                          >
+                            <RefreshCw
+                              size={14}
+                              className={loading ? "animate-spin" : ""}
+                            />
+                          </button>
+                        </div>
+
+                        {queried.length > 0 && (
+                          <div className="mt-2">
+                            <button
+                              onClick={() =>
+                                setShowListRelayDetails((prev) => ({
+                                  ...prev,
+                                  [kind]: !prev[kind],
+                                }))
+                              }
+                              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            >
+                              {showDetails ? (
+                                <ChevronUp size={12} />
+                              ) : (
+                                <ChevronDown size={12} />
+                              )}
+                              <span>
+                                {showDetails ? "Hide" : "Show"} relays (
+                                {found.length}/{queried.length} have backup)
+                              </span>
+                            </button>
+                            {showDetails && (
+                              <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                                <ul className="text-xs space-y-1">
+                                  {queried.map((relay) => {
+                                    const has = found.includes(relay);
+                                    return (
+                                      <li
+                                        key={relay}
+                                        className={`truncate flex items-center gap-2 ${
+                                          has
+                                            ? "text-green-600 dark:text-green-400"
+                                            : "text-gray-400 dark:text-gray-500"
+                                        }`}
+                                      >
+                                        {has ? (
+                                          <CheckCircle
+                                            size={10}
+                                            className="flex-shrink-0"
+                                          />
+                                        ) : (
+                                          <CloudOff
+                                            size={10}
+                                            className="flex-shrink-0"
+                                          />
+                                        )}
+                                        {relay}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Backups List */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Local Backup History
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
+          Snapshots saved in this browser. Download any entry as JSON for offline
+          safekeeping, or restore it to publish back to your relays.
+        </p>
+      </div>
       {filteredBackups.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
           <Archive className="mx-auto text-gray-400 mb-4" size={48} />
@@ -1031,34 +1598,27 @@ export default function Backups() {
               key={backup.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4 hover:shadow-md transition-shadow"
             >
+              {(() => {
+                const meta = BACKUP_TYPE_META[backup.type];
+                const RowIcon = meta?.icon || Archive;
+                return (
               <div className="flex items-start justify-between gap-2 sm:gap-4">
                 <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
                   <div
-                    className={`p-2 rounded-lg flex-shrink-0 ${
-                      backup.type === "mute-list"
-                        ? "bg-red-100 dark:bg-red-900/30"
-                        : "bg-blue-100 dark:bg-blue-900/30"
-                    }`}
+                    className={`p-2 rounded-lg flex-shrink-0 ${meta?.badgeBg || "bg-gray-100 dark:bg-gray-700"}`}
                   >
-                    {backup.type === "mute-list" ? (
-                      <Shield
-                        className="text-red-600 dark:text-red-400"
-                        size={20}
-                      />
-                    ) : (
-                      <Users
-                        className="text-blue-600 dark:text-blue-400"
-                        size={20}
-                      />
-                    )}
+                    <RowIcon
+                      className={
+                        meta?.iconColor || "text-gray-600 dark:text-gray-400"
+                      }
+                      size={20}
+                    />
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {backup.type === "mute-list"
-                          ? "Mute List Backup"
-                          : "Follow List Backup"}
+                        {meta?.label || backup.type}
                       </h3>
                       <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         ({getBackupItemCount(backup)} items)
@@ -1108,6 +1668,8 @@ export default function Backups() {
                   </button>
                 </div>
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>
