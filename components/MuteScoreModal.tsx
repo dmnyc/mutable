@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface MuteScoreModalProps {
@@ -19,7 +20,7 @@ export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
     { emoji: '⬛', label: 'Blacklisted', range: '401+' }
   ];
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={onClose}>
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full"
@@ -77,6 +78,7 @@ export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Shield, Users, Eye, EyeOff, Archive, Download, FileText } from 'lucide-react';
 
 interface OnboardingModalProps {
@@ -189,7 +190,7 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
 
   const currentStepData = steps[currentStep];
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -265,6 +266,7 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

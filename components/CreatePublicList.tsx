@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import {
@@ -476,7 +477,7 @@ export default function CreatePublicList({
   const MAX_NAME_LENGTH = 50;
   const MAX_DESC_LENGTH = 500;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 z-10">
@@ -1100,8 +1101,9 @@ export default function CreatePublicList({
         />
       )}
 
-      {/* Duplicate Pack Warning Dialog */}
-      {showDuplicateWarning && (
+      {/* Duplicate Pack Warning Dialog — also via portal so the dark overlay
+          escapes any ancestor stacking context and covers the full viewport. */}
+      {showDuplicateWarning && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-start gap-3 mb-4">
@@ -1140,8 +1142,10 @@ export default function CreatePublicList({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

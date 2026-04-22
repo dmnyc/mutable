@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -267,7 +268,7 @@ export default function ProfileEditorModal({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={(e) => {
@@ -628,6 +629,7 @@ export default function ProfileEditorModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

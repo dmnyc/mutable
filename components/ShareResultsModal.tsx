@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Profile } from "@/types";
 import { publishTextNote, hexToNpub } from "@/lib/nostr";
 import {
@@ -134,7 +135,7 @@ export default function ShareResultsModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
       onClick={onClose}
@@ -311,6 +312,7 @@ export default function ShareResultsModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

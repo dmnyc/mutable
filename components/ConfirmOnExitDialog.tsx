@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { Save, Trash2, X } from 'lucide-react';
 
 interface ConfirmOnExitDialogProps {
@@ -17,7 +18,7 @@ export default function ConfirmOnExitDialog({
 }: ConfirmOnExitDialogProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
         <div className="p-6">
@@ -53,6 +54,7 @@ export default function ConfirmOnExitDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

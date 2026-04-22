@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Github, Zap, User } from 'lucide-react';
 import packageJson from '@/package.json';
 
@@ -89,7 +90,7 @@ export default function Footer() {
       </footer>
 
       {/* Zap Modal */}
-      {zapModal.show && (
+      {zapModal.show && createPortal(
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
           onClick={closeZapModal}
@@ -161,7 +162,8 @@ export default function Footer() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

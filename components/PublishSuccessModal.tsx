@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle, Sparkles, X } from 'lucide-react';
 
 interface PublishSuccessModalProps {
@@ -31,7 +32,7 @@ export default function PublishSuccessModal({ isOpen, onClose, itemCount }: Publ
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
         className={`relative bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl shadow-2xl border-2 border-green-500 dark:border-green-600 p-8 max-w-md w-full transform transition-all duration-300 ${
@@ -88,6 +89,7 @@ export default function PublishSuccessModal({ isOpen, onClose, itemCount }: Publ
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

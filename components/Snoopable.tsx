@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
@@ -685,7 +686,7 @@ export default function Snoopable() {
       )}
 
       {/* Share Modal */}
-      {showShareModal && analysis && (
+      {showShareModal && analysis && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
@@ -754,7 +755,8 @@ https://mutable.top/snoopable`}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* User Profile Modal */}

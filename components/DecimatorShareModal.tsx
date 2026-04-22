@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { publishTextNote } from "@/lib/nostr";
 import { getErrorMessage } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
@@ -94,7 +95,7 @@ export default function DecimatorShareModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
       onClick={onClose}
@@ -217,6 +218,7 @@ export default function DecimatorShareModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
