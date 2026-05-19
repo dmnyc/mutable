@@ -511,12 +511,12 @@ function ResultsCard({
   );
 }
 
-export default function Muggable() {
+export default function Muggable({ initialQuery }: { initialQuery?: string }) {
   const { session } = useAuth();
   const { userProfile } = useStore();
   const searchParams = useSearchParams();
 
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialQuery ?? "");
   const [endpoint, setEndpoint] = useState(DEFAULT_ESPLORA_ENDPOINT);
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState<{
@@ -569,11 +569,16 @@ export default function Muggable() {
     };
   }, [input, session?.relays]);
 
-  // Pre-populate from URL param only
+  const hasAutoRun = useRef(false);
+
+  // Auto-run from path segment (e.g. /muggable/npub1…) or ?npub= query param
   useEffect(() => {
-    const npubParam = searchParams.get("npub");
-    if (npubParam) {
-      setInput(npubParam);
+    if (hasAutoRun.current) return;
+    const query = initialQuery ?? searchParams.get("npub");
+    if (query) {
+      hasAutoRun.current = true;
+      setInput(query);
+      handleCheckWith(query);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

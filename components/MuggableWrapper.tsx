@@ -14,7 +14,11 @@ import UserProfileModal from "./UserProfileModal";
 import GlobalUserSearch from "./GlobalUserSearch";
 import AuthModal from "./AuthModal";
 
-export default function MuggableWrapper() {
+interface MuggableWrapperProps {
+  initialQuery?: string;
+}
+
+export default function MuggableWrapper({ initialQuery }: MuggableWrapperProps) {
   const { session, disconnect } = useAuth();
   const { userProfile } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -182,7 +186,7 @@ export default function MuggableWrapper() {
 
       <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
-          <Muggable />
+          <Muggable initialQuery={initialQuery} />
         </main>
       </div>
 
