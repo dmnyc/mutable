@@ -78,6 +78,7 @@ function DashboardContent() {
     "listCleaner",
     "snoopable",
     "clonable",
+    "muggable",
   ] as const;
   const isToolTabActive = toolTabs.includes(activeTab as any);
 
@@ -107,6 +108,7 @@ function DashboardContent() {
       "noteNuke",
       "snoopable",
       "clonable",
+      "muggable",
     ] as const;
 
     if (tabParam && validTabs.includes(tabParam as any)) {
@@ -643,6 +645,17 @@ function DashboardContent() {
                   >
                     Clonable
                   </Link>
+                  <Link
+                    href="/muggable"
+                    onClick={() => setToolsDropdownOpen(false)}
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
+                      activeTab === "muggable"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Muggable
+                  </Link>
                 </div>
               )}
             </div>
@@ -688,6 +701,7 @@ function DashboardContent() {
                 {activeTab === "listCleaner" && "List Cleaner"}
                 {activeTab === "snoopable" && "Snoopable"}
                 {activeTab === "clonable" && "Clonable"}
+                {activeTab === "muggable" && "Muggable"}
                 {activeTab === "backups" && "Backups"}
                 {activeTab === "settings" && "Settings"}
               </span>
@@ -881,6 +895,17 @@ function DashboardContent() {
                           }`}
                         >
                           Clonable
+                        </Link>
+                        <Link
+                          href="/muggable"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "muggable"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Muggable
                         </Link>
                       </div>
                     )}
