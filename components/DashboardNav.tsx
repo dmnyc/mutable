@@ -31,9 +31,9 @@ const toolPages: ActivePage[] = [
   "domainPurge",
   "purgatory",
   "decimator",
+  "muggable",
   "listCleaner",
   "clonable",
-  "muggable",
 ];
 
 // Map page IDs to display names
