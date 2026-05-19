@@ -107,11 +107,11 @@ function AddressRow({
   return (
     <div
       className={`border rounded-lg overflow-hidden ${
-        isPrimary
-          ? hasFunds
-            ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10"
-            : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
-          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+        hasFunds
+          ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10"
+          : isPrimary
+            ? "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
       }`}
     >
       <div className="flex items-center gap-3 px-4 py-3">
@@ -148,7 +148,7 @@ function AddressRow({
               <span
                 className={`text-sm font-semibold ${
                   hasFunds
-                    ? "text-red-600 dark:text-red-400"
+                    ? "text-green-700 dark:text-green-400"
                     : "text-gray-500 dark:text-gray-400"
                 }`}
               >
