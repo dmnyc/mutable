@@ -276,46 +276,21 @@ function SweepGuide() {
             Your <strong>nsec is the Bitcoin private key</strong>. Decoded from
             bech32, it is a 32-byte secp256k1 scalar — the same private key
             that controls the on-chain funds shown above. To move those funds
-            to a safe wallet, import this key into a Bitcoin wallet that
-            understands Taproot.
+            to safety, convert the nsec to WIF and either sweep it directly or
+            import it as a single-key wallet.
           </p>
-
-          <div className="space-y-3">
-            <p className="font-semibold text-gray-900 dark:text-white">
-              Using Sparrow Wallet (recommended)
-            </p>
-            <ol className="space-y-2 list-none">
-              {[
-                <>Download and open <a href="https://sparrowwallet.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Sparrow Wallet</a>.</>,
-                <>File → <strong>New Wallet</strong>, give it a temporary name.</>,
-                <>Under <strong>Script Type</strong>, choose <strong>Taproot (P2TR)</strong>.</>,
-                <>Under <strong>Keystore 1</strong>, click <strong>New or Imported Software Wallet</strong>.</>,
-                <>Choose <strong>Master Private Key (WIF)</strong>. Convert your nsec to WIF format (see below), paste it in, and click Import.</>,
-                <>Sparrow will derive the same Taproot address shown above. Verify the address matches before proceeding.</>,
-                <>Create a <strong>Send</strong> transaction to sweep the full balance to a fresh wallet address you control.</>,
-                <>Once swept, consider generating a new Nostr key pair so your identity key is never a funded Bitcoin address again.</>,
-              ].map((step, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                  <span className="leading-relaxed">{step}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
 
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-1">
             <p className="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              nsec → WIF conversion
+              Step 1 — convert nsec to WIF (offline)
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-              Decode your nsec from bech32 to get the 32-byte hex private key.
-              Prepend <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">0x80</code>,
+              Decode the nsec from bech32 to get the 32-byte private key, prepend
+              <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">0x80</code>,
               append <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">0x01</code> (compressed),
-              then base58check-encode the result. The <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">ian coleman bip39</code> tool
-              and <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">wif.fly.dev</code> can do this
-              conversion offline. <strong>Never paste your nsec into an online tool.</strong>
+              then base58check-encode. Never paste your nsec into a website.
+              An offline script lives in this repo at <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">tools/nsec-to-wif.mjs</code>:
+              run <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">node tools/nsec-to-wif.mjs</code> and paste your nsec at the hidden prompt.
             </p>
           </div>
 
@@ -324,9 +299,91 @@ function SweepGuide() {
             <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
               Your nsec is your most sensitive secret. Only enter it into
               software you trust, on a device you own, while offline if
-              possible. Mutable never asks for your nsec.
+              possible. After importing, always verify the wallet shows the same
+              address listed above before broadcasting anything. Mutable never
+              asks for your nsec.
             </p>
           </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <p className="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+              Step 2 — pick a wallet to import the WIF
+            </p>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  Option A — BlueWallet (mobile, easiest)
+                </p>
+                <ol className="space-y-2 list-none">
+                  {[
+                    <>Install <a href="https://bluewallet.io" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">BlueWallet</a> on iOS or Android. For maximum safety, do this on a clean device.</>,
+                    <>Tap <strong>Add Wallet → Import wallet</strong>.</>,
+                    <>Paste the WIF and tap <strong>Import</strong>. BlueWallet scans the address types derivable from that key and creates a single-key wallet for whichever holds funds.</>,
+                    <>Verify the displayed address matches one shown above, then <strong>Send</strong> the full balance to a fresh address in a wallet whose key was never used as an nsec.</>,
+                  ].map((step, i) => (
+                    <li key={i} className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  Option B — Sparrow (desktop, sweep without a wallet file)
+                </p>
+                <ol className="space-y-2 list-none">
+                  {[
+                    <>Open <a href="https://sparrowwallet.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Sparrow Wallet</a> and create or open any normal wallet you control (the <em>destination</em>, not the funded key).</>,
+                    <>From the top menu: <strong>Tools → Sweep Privkey…</strong> Paste the WIF.</>,
+                    <>Sparrow scans the addresses derivable from that key (P2PKH, P2WPKH, P2TR, …), shows any balance, and lets you choose a destination, fee, and broadcast — no wallet file is created from the funded key.</>,
+                  ].map((step, i) => (
+                    <li key={i} className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  Option C — Electrum (desktop, single-key wallet)
+                </p>
+                <ol className="space-y-2 list-none">
+                  {[
+                    <>Install <a href="https://electrum.org" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Electrum</a> (4.5+ recommended for Taproot support).</>,
+                    <>File → <strong>New/Restore</strong>, give it a temporary name → <strong>Standard wallet</strong> → <strong>Use public or private keys</strong>.</>,
+                    <>Paste your WIF prefixed with the script type that matches where your funds live — <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">p2wpkh:</code> for native SegWit, <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">p2wpkh-p2sh:</code> for wrapped SegWit, <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">p2pkh:</code> for legacy. Taproot single-key import in Electrum is version-dependent; if it does not work, fall back to Sparrow Sweep.</>,
+                    <>Verify the displayed address matches one above, then send the full balance to a fresh wallet.</>,
+                  ].map((step, i) => (
+                    <li key={i} className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-700 pt-3">
+            Realistically, you probably will not rotate your nsec — your
+            social graph, history, and verifications live on it. The practical
+            mitigation is simpler: never accept Bitcoin on-chain to this
+            address again, and tell zappers to use Lightning. The exposure
+            itself is permanent — anyone who ever saw your nsec can re-derive
+            the same key and sweep anything sent to it — but new funds only
+            land there if you let them.
+          </p>
         </div>
       )}
     </div>
@@ -674,41 +731,6 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
         </p>
       </div>
 
-      {/* Warning: on-chain zaps */}
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <AlertTriangle
-            size={18}
-            className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5"
-          />
-          <div>
-            <p className="font-semibold text-red-900 dark:text-red-200 text-sm">
-              On-chain Bitcoin zaps are a privacy trap
-            </p>
-            <p className="text-sm text-red-800 dark:text-red-300 mt-1 leading-relaxed">
-              When anyone sends you Bitcoin on-chain using your Nostr key, it
-              creates a <strong>permanent, public, immutable</strong> record on
-              the Bitcoin blockchain. Because your address is deterministically
-              derived from your public key, senders do not need your permission
-              — they can fund your address without you asking for it. Every
-              transaction is forever visible to everyone, linking your Nostr
-              identity to your full financial history.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3 border-t border-yellow-200 dark:border-yellow-800 pt-3">
-          <Zap
-            size={16}
-            className="text-yellow-500 dark:text-yellow-400 flex-shrink-0 mt-0.5"
-          />
-          <p className="text-sm text-yellow-900 dark:text-yellow-200">
-            <strong>Use Lightning zaps instead.</strong> Lightning payments
-            route through channels and do not create a permanent on-chain record
-            tied to your Nostr identity. They are faster, cheaper, and private.
-          </p>
-        </div>
-      </div>
-
       {/* Input */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
         <div className="relative">
@@ -874,6 +896,41 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
       {report && (
         <ResultsCard report={report} endpoint={endpoint} profile={checkedProfile} />
       )}
+
+      {/* Warning: on-chain zaps */}
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle
+            size={18}
+            className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5"
+          />
+          <div>
+            <p className="font-semibold text-red-900 dark:text-red-200 text-sm">
+              On-chain Bitcoin zaps are a privacy trap
+            </p>
+            <p className="text-sm text-red-800 dark:text-red-300 mt-1 leading-relaxed">
+              When anyone sends you Bitcoin on-chain using your Nostr key, it
+              creates a <strong>permanent, public, immutable</strong> record on
+              the Bitcoin blockchain. Because your address is deterministically
+              derived from your public key, senders do not need your permission
+              — they can fund your address without you asking for it. Every
+              transaction is forever visible to everyone, linking your Nostr
+              identity to your full financial history.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 border-t border-yellow-200 dark:border-yellow-800 pt-3">
+          <Zap
+            size={16}
+            className="text-yellow-500 dark:text-yellow-400 flex-shrink-0 mt-0.5"
+          />
+          <p className="text-sm text-yellow-900 dark:text-yellow-200">
+            <strong>Use Lightning zaps instead.</strong> Lightning payments
+            route through channels and do not create a permanent on-chain record
+            tied to your Nostr identity. They are faster, cheaper, and private.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
