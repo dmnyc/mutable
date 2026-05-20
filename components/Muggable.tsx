@@ -289,8 +289,9 @@ function SweepGuide() {
               <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">0x80</code>,
               append <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">0x01</code> (compressed),
               then base58check-encode. Never paste your nsec into a website.
-              An offline script lives in this repo at <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">tools/nsec-to-wif.mjs</code>:
+              An offline script lives in this repo at <a href="https://github.com/dmnyc/mutable/blob/main/tools/README.md" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline"><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">tools/nsec-to-wif.mjs</code></a>:
               run <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">node tools/nsec-to-wif.mjs</code> and paste your nsec at the hidden prompt.
+              See the <a href="https://github.com/dmnyc/mutable/blob/main/tools/README.md" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">tool README</a> for safety design and import instructions.
             </p>
           </div>
 
