@@ -732,7 +732,7 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
       {/* Input */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
         <div className="relative">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search
                 size={15}
@@ -758,7 +758,7 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
             {checking ? (
               <button
                 onClick={handleStop}
-                className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center gap-2"
+                className="w-full sm:w-auto px-4 py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center justify-center gap-2"
               >
                 Stop
               </button>
@@ -767,7 +767,7 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
                 <button
                   onClick={handleCheck}
                   disabled={!input.trim()}
-                  className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   <Search size={15} />
                   Check
@@ -783,7 +783,7 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
                         // ignore
                       }
                     }}
-                    className="px-4 py-2 text-sm border border-red-400 dark:border-red-600 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 whitespace-nowrap"
+                    className="w-full sm:w-auto px-4 py-2 text-sm border border-red-400 dark:border-red-600 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     <User size={15} />
                     Check me
