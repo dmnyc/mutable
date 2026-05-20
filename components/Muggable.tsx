@@ -548,9 +548,6 @@ function ResultsCard({
         )}
       </div>
 
-      {/* Sweep guide — only when funded */}
-      {isFunded && <SweepGuide />}
-
       {/* Source + timestamp */}
       <p className="text-xs text-gray-400 dark:text-gray-500">
         Source:{" "}
@@ -896,6 +893,9 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
       {report && (
         <ResultsCard report={report} endpoint={endpoint} profile={checkedProfile} />
       )}
+
+      {/* Sweep guide — always visible */}
+      <SweepGuide />
 
       {/* Warning: on-chain zaps */}
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-3">
