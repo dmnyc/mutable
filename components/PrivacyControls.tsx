@@ -69,7 +69,7 @@ export default function PrivacyControls() {
 
                 <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Compatibility:</strong> Support varies across clients. Mutable and Wisp follow the NIP-51 spec for private mutes; Jumble currently uses the older NIP-04 encryption; Primal stores private mutes unencrypted; and Damus doesn&apos;t read private mutes yet, so editing your list there can drop them when it republishes. If your favorite client doesn&apos;t handle private mutes, let the developers know.</p>
 
-                <p className="text-green-800 dark:text-green-300"><strong>💾 Take snapshots:</strong> Before switching clients, save a backup from the <strong>Backups</strong> tab. If another client doesn&apos;t carry your private mutes through, you can restore from the snapshot.</p>
+                <p className="text-green-800 dark:text-green-300"><strong>💾 Take snapshots:</strong> Before switching clients, save a backup from the <strong>Backups</strong> tab. If another client doesn&apos;t carry your private mutes through, you can restore from the backup.</p>
 
                 <p className="text-blue-900 dark:text-blue-100"><strong>💡 Your call:</strong> Public and private mutes each have tradeoffs. Pick what fits how you use Nostr, and know what your client supports.</p>
               </div>
