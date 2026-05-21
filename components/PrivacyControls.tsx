@@ -92,21 +92,18 @@ export default function PrivacyControls() {
                 Public Mutes
               </h4>
             </div>
-            <span className="text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
-              More Compatible
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
+              Visible to everyone
             </span>
           </div>
           <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
             {publicCount}
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+          <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
             {publicPubkeys} {publicPubkeys === 1 ? 'profile' : 'profiles'}
             {publicWords > 0 && `, ${publicWords} ${publicWords === 1 ? 'word' : 'words'}`}
             {publicTags > 0 && `, ${publicTags} ${publicTags === 1 ? 'tag' : 'tags'}`}
             {publicThreads > 0 && `, ${publicThreads} ${publicThreads === 1 ? 'thread' : 'threads'}`}
-          </p>
-          <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-            Visible to everyone
           </p>
           <button
             onClick={handleMakeAllPrivate}
@@ -127,21 +124,18 @@ export default function PrivacyControls() {
                 Private Mutes
               </h4>
             </div>
-            <span className="text-xs font-medium text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
-              Less Compatible
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
+              Encrypted (only you can see)
             </span>
           </div>
           <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mb-1">
             {privateCount}
           </p>
-          <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">
+          <p className="text-xs text-purple-700 dark:text-purple-300 mb-3">
             {privatePubkeys} {privatePubkeys === 1 ? 'profile' : 'profiles'}
             {privateWords > 0 && `, ${privateWords} ${privateWords === 1 ? 'word' : 'words'}`}
             {privateTags > 0 && `, ${privateTags} ${privateTags === 1 ? 'tag' : 'tags'}`}
             {privateThreads > 0 && `, ${privateThreads} ${privateThreads === 1 ? 'thread' : 'threads'}`}
-          </p>
-          <p className="text-sm text-purple-800 dark:text-purple-200 mb-3">
-            Encrypted (only you can see)
           </p>
           <button
             onClick={handleMakeAllPublic}
