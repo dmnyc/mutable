@@ -42,6 +42,7 @@ import Footer from "@/components/Footer";
 import { Profile } from "@/types";
 import { fetchProfile, getFollowListPubkeys } from "@/lib/nostr";
 import { backupService } from "@/lib/backupService";
+import { syncManager } from "@/lib/syncManager";
 
 function DashboardContent() {
   const router = useRouter();
@@ -56,6 +57,7 @@ function DashboardContent() {
     muteList,
     userProfile,
     setUserProfile,
+    signer,
   } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -151,6 +153,20 @@ function DashboardContent() {
 
     loadUserProfile();
   }, [session, userProfile, setUserProfile]);
+
+  // Sync app data with relays once per tab+pubkey, after signer is ready.
+  // Deferred from sign-in so the four service decrypts don't pile up as
+  // simultaneous extension/bunker permission prompts during login.
+  useEffect(() => {
+    if (!session?.pubkey || !signer) return;
+    const key = `mutable-synced-${session.pubkey}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    syncManager.syncAll(session.pubkey, session.relays).catch((error) => {
+      console.error("Failed to sync app data with relays:", error);
+      sessionStorage.removeItem(key);
+    });
+  }, [session?.pubkey, session?.relays, signer]);
 
   // Refresh mute list when tab becomes visible (but only if no unsaved changes)
   useEffect(() => {
