@@ -67,7 +67,9 @@ export default function PrivacyControls() {
 
                 <p><strong>Private:</strong> Encrypted using NIP-44 as required by the NIP-51 spec. Mutable also reads legacy NIP-04 encrypted mutes for backward compatibility.</p>
 
-                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Compatibility:</strong> Not all clients support private mutes consistently. Some may silently overwrite or drop them. Jumble currently uses the older NIP-04 encryption, while Primal does not encrypt private mutes at all. If your favorite client doesn&apos;t handle private mutes correctly, encourage its developers to follow the NIP-51 spec.</p>
+                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Compatibility:</strong> Support varies across clients. Mutable and Wisp follow the NIP-51 spec for private mutes; Jumble currently uses the older NIP-04 encryption; Primal stores private mutes unencrypted; and Damus doesn&apos;t read private mutes yet, so editing your list there can drop them when it republishes. If your favorite client doesn&apos;t handle private mutes, let the developers know.</p>
+
+                <p className="text-green-800 dark:text-green-300"><strong>💾 Take snapshots:</strong> Before switching clients, save a backup from the <strong>Backups</strong> tab. If another client doesn&apos;t carry your private mutes through, you can restore from the snapshot.</p>
 
                 <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for maximum compatibility. Only use private mutes if you understand the cross-client limitations.</p>
               </div>
