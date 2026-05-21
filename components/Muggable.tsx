@@ -17,6 +17,8 @@ import {
   Zap,
   Shield,
   User,
+  LifeBuoy,
+  EyeOff,
 } from "lucide-react";
 import {
   getExposure,
@@ -252,21 +254,21 @@ function SweepGuide() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border border-yellow-200 dark:border-yellow-800 rounded-xl overflow-hidden">
+    <div className="border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-yellow-50 dark:bg-yellow-900/20 text-left"
+        className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-left"
       >
         <div className="flex items-center gap-2">
-          <Zap size={16} className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" />
-          <span className="font-semibold text-sm text-yellow-900 dark:text-yellow-200">
+          <LifeBuoy size={16} className="text-blue-500 dark:text-blue-400 flex-shrink-0" />
+          <span className="font-semibold text-sm text-blue-900 dark:text-blue-200">
             How to sweep these funds to safety
           </span>
         </div>
         {open ? (
-          <ChevronUp size={15} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+          <ChevronUp size={15} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
         ) : (
-          <ChevronDown size={15} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+          <ChevronDown size={15} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
         )}
       </button>
 
@@ -324,7 +326,7 @@ function SweepGuide() {
                     <>Verify the displayed address matches one shown above, then <strong>Send</strong> the full balance to a fresh address in a wallet whose key was never used as an nsec.</>,
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">
                         {i + 1}
                       </span>
                       <span className="leading-relaxed">{step}</span>
@@ -344,7 +346,7 @@ function SweepGuide() {
                     <>Sparrow scans the addresses derivable from that key (P2PKH, P2WPKH, P2TR, …), shows any balance, and lets you choose a destination, fee, and broadcast — no wallet file is created from the funded key.</>,
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">
                         {i + 1}
                       </span>
                       <span className="leading-relaxed">{step}</span>
@@ -365,7 +367,7 @@ function SweepGuide() {
                     <>Verify the displayed address matches one above, then send the full balance to a fresh wallet.</>,
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold flex items-center justify-center">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center">
                         {i + 1}
                       </span>
                       <span className="leading-relaxed">{step}</span>
@@ -929,6 +931,30 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
             <strong>Use Lightning zaps instead.</strong> Lightning payments
             route through channels and do not create a permanent on-chain record
             tied to your Nostr identity. They are faster, cheaper, and private.
+          </p>
+        </div>
+        <div className="flex items-start gap-3 border-t border-yellow-200 dark:border-yellow-800 pt-3">
+          <EyeOff
+            size={16}
+            className="text-purple-500 dark:text-purple-400 flex-shrink-0 mt-0.5"
+          />
+          <p className="text-sm text-purple-900 dark:text-purple-200">
+            <strong>For on-chain, look at silent payments (BIP352).</strong>{" "}
+            A static <code className="bg-purple-100 dark:bg-purple-900/30 px-1 rounded">sp1…</code>{" "}
+            address lets senders derive a unique per-payment output that only
+            you can spend, with no public address reuse. To actually be safer
+            than the exposed P2TR above, generate the <code className="bg-purple-100 dark:bg-purple-900/30 px-1 rounded">sp1…</code>{" "}
+            from a Bitcoin wallet whose seed is independent of your nsec —
+            otherwise it inherits the same exposure.{" "}
+            <a
+              href="https://openetr.org/bitcoin/check-balance"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-purple-700 dark:hover:text-purple-300"
+            >
+              openetr.org
+            </a>{" "}
+            is a useful explorer for the keys and addresses derivable from a Nostr identity.
           </p>
         </div>
       </div>
