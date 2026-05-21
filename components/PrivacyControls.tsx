@@ -71,7 +71,7 @@ export default function PrivacyControls() {
 
                 <p className="text-green-800 dark:text-green-300"><strong>💾 Take snapshots:</strong> Before switching clients, save a backup from the <strong>Backups</strong> tab. If another client doesn&apos;t carry your private mutes through, you can restore from the snapshot.</p>
 
-                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Recommendation:</strong> Use public mutes for maximum compatibility. Only use private mutes if you understand the cross-client limitations.</p>
+                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Your call:</strong> Public and private mutes each have tradeoffs. Pick what fits how you use Nostr, and know what your client supports.</p>
               </div>
 
               <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -183,7 +183,7 @@ export default function PrivacyControls() {
 
       <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Recommendation:</strong> Keep mutes <strong>public</strong> if you use multiple Nostr clients to ensure mutes work everywhere. Private mutes use NIP-44 encryption per the NIP-51 spec, but not all clients support this yet.
+          <strong>Note:</strong> Public mutes work in every client; private mutes use NIP-44 encryption per the NIP-51 spec but depend on client support. Pick what suits you — check your client's behavior across the mute kinds you care about.
         </p>
       </div>
     </div>
