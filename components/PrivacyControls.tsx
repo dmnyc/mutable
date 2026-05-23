@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useStore } from '@/lib/store';
-import { Lock, Unlock, Eye, EyeOff, Info, AlertCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, Info, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function PrivacyControls() {
   const { muteList, bulkSetPrivacy, defaultMutePrivacy, setDefaultMutePrivacy } = useStore();
@@ -47,8 +47,124 @@ export default function PrivacyControls() {
         </button>
       </div>
 
+      {/* Cards row with directional switch between them */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 md:gap-4 items-stretch w-full max-w-full">
+        {/* Private Mutes */}
+        <div className="p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg w-full max-w-full">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <EyeOff size={20} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+              <h4 className="font-semibold text-purple-900 dark:text-purple-100 truncate">
+                Private Mutes
+              </h4>
+            </div>
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">
+              Encrypted (only you can see)
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mb-1">
+            {privateCount}
+          </p>
+          <p className="text-xs text-purple-700 dark:text-purple-300">
+            {privatePubkeys} {privatePubkeys === 1 ? 'profile' : 'profiles'}
+            {privateWords > 0 && `, ${privateWords} ${privateWords === 1 ? 'word' : 'words'}`}
+            {privateTags > 0 && `, ${privateTags} ${privateTags === 1 ? 'tag' : 'tags'}`}
+            {privateThreads > 0 && `, ${privateThreads} ${privateThreads === 1 ? 'thread' : 'threads'}`}
+          </p>
+        </div>
+
+        {/* Switch column — directional arrows between the two cards */}
+        <div className="flex flex-row md:flex-col items-center justify-center gap-2 px-1 md:px-0 py-2 md:py-0">
+          <button
+            onClick={handleMakeAllPrivate}
+            disabled={publicCount === 0}
+            title="Move every public mute into the encrypted private list"
+            className="w-full md:w-auto px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <ArrowUp size={14} className="md:hidden" />
+            <ArrowLeft size={14} className="hidden md:block" />
+            <span>Make all private</span>
+          </button>
+          <button
+            onClick={handleMakeAllPublic}
+            disabled={privateCount === 0}
+            title="Move every private mute into the public list"
+            className="w-full md:w-auto px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <span>Make all public</span>
+            <ArrowDown size={14} className="md:hidden" />
+            <ArrowRight size={14} className="hidden md:block" />
+          </button>
+        </div>
+
+        {/* Public Mutes */}
+        <div className="p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg w-full max-w-full">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Eye size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <h4 className="font-semibold text-amber-900 dark:text-amber-100 truncate">
+                Public Mutes
+              </h4>
+            </div>
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded">
+              Visible to everyone
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
+            {publicCount}
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            {publicPubkeys} {publicPubkeys === 1 ? 'profile' : 'profiles'}
+            {publicWords > 0 && `, ${publicWords} ${publicWords === 1 ? 'word' : 'words'}`}
+            {publicTags > 0 && `, ${publicTags} ${publicTags === 1 ? 'tag' : 'tags'}`}
+            {publicThreads > 0 && `, ${publicThreads} ${publicThreads === 1 ? 'thread' : 'threads'}`}
+          </p>
+        </div>
+      </div>
+
+      {/* Default privacy — compact segmented control */}
+      <div className="mt-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
+            Default for new mutes
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {defaultMutePrivacy
+              ? "New mutes will be encrypted (only you can see)"
+              : "New mutes will be visible to everyone"}
+          </p>
+        </div>
+        <div className="inline-flex rounded-lg bg-gray-200 dark:bg-gray-800 p-1 self-start sm:self-auto flex-shrink-0">
+          <button
+            onClick={() => setDefaultMutePrivacy(true)}
+            aria-pressed={defaultMutePrivacy}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              defaultMutePrivacy
+                ? "bg-purple-600 text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            }`}
+          >
+            <EyeOff size={13} />
+            Private
+          </button>
+          <button
+            onClick={() => setDefaultMutePrivacy(false)}
+            aria-pressed={!defaultMutePrivacy}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              !defaultMutePrivacy
+                ? "bg-amber-500 text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            }`}
+          >
+            <Eye size={13} />
+            Public
+          </button>
+        </div>
+      </div>
+
+      {/* Info block — now below the dashboard row */}
       {showInfo && (
-        <div className="mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg w-full max-w-full">
+        <div className="mt-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg w-full max-w-full">
           <div className="flex items-start gap-2 sm:gap-3 w-full max-w-full">
             <Info size={18} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0 text-xs sm:text-sm text-gray-900 dark:text-gray-200 space-y-2 sm:space-y-3">
@@ -81,105 +197,6 @@ export default function PrivacyControls() {
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-full">
-        {/* Public Mutes */}
-        <div className="p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg w-full max-w-full">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Eye size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
-              <h4 className="font-semibold text-amber-900 dark:text-amber-100 truncate">
-                Public Mutes
-              </h4>
-            </div>
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
-              Visible to everyone
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
-            {publicCount}
-          </p>
-          <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-            {publicPubkeys} {publicPubkeys === 1 ? 'profile' : 'profiles'}
-            {publicWords > 0 && `, ${publicWords} ${publicWords === 1 ? 'word' : 'words'}`}
-            {publicTags > 0 && `, ${publicTags} ${publicTags === 1 ? 'tag' : 'tags'}`}
-            {publicThreads > 0 && `, ${publicThreads} ${publicThreads === 1 ? 'thread' : 'threads'}`}
-          </p>
-          <button
-            onClick={handleMakeAllPrivate}
-            disabled={publicCount === 0}
-            className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <Lock size={14} />
-            <span>Make All Private</span>
-          </button>
-        </div>
-
-        {/* Private Mutes */}
-        <div className="p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg w-full max-w-full">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <EyeOff size={20} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-              <h4 className="font-semibold text-purple-900 dark:text-purple-100 truncate">
-                Private Mutes
-              </h4>
-            </div>
-            <span className="text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
-              Encrypted (only you can see)
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mb-1">
-            {privateCount}
-          </p>
-          <p className="text-xs text-purple-700 dark:text-purple-300 mb-3">
-            {privatePubkeys} {privatePubkeys === 1 ? 'profile' : 'profiles'}
-            {privateWords > 0 && `, ${privateWords} ${privateWords === 1 ? 'word' : 'words'}`}
-            {privateTags > 0 && `, ${privateTags} ${privateTags === 1 ? 'tag' : 'tags'}`}
-            {privateThreads > 0 && `, ${privateThreads} ${privateThreads === 1 ? 'thread' : 'threads'}`}
-          </p>
-          <button
-            onClick={handleMakeAllPublic}
-            disabled={privateCount === 0}
-            className="w-full px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <Unlock size={14} />
-            <span>Make All Public</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Default privacy for new mutes</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          {defaultMutePrivacy ? "New mutes will be private (encrypted)" : "New mutes will be public (visible)"}
-        </p>
-        <div className="flex items-center justify-center gap-3">
-          <span className={`text-xs font-medium ${!defaultMutePrivacy ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
-            Public
-          </span>
-          <button
-            onClick={() => setDefaultMutePrivacy(!defaultMutePrivacy)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              defaultMutePrivacy ? "bg-purple-600" : "bg-amber-500"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                defaultMutePrivacy ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span className={`text-xs font-medium ${defaultMutePrivacy ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"}`}>
-            Private
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-        <p className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Note:</strong> Public mutes work in every client; private mutes use NIP-44 encryption per the NIP-51 spec but depend on client support. Pick what suits you — check your client's behavior across the mute kinds you care about.
-        </p>
-      </div>
     </div>
   );
 }
