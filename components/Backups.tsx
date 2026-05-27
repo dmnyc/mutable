@@ -17,6 +17,7 @@ import {
   ListBackupResult,
 } from "@/lib/relayStorage";
 import { profileBackupService } from "@/lib/profileBackupService";
+import FollowRecoverySection from "./FollowRecoverySection";
 import {
   getFollowListPubkeys,
   publishMuteList,
@@ -1570,6 +1571,9 @@ export default function Backups() {
           </div>
         </div>
       </div>
+
+      {/* Follow List Recovery */}
+      <FollowRecoverySection />
 
       {/* Backups List */}
       <div>
