@@ -20,6 +20,7 @@ import {
   recoverFollowList,
   FollowListCandidate,
   FollowRecoveryScanResult,
+  RecoverFollowListResult,
 } from "@/lib/followRecovery";
 import { getErrorMessage } from "@/lib/utils/format";
 import { backupService } from "@/lib/backupService";
@@ -47,8 +48,11 @@ export default function FollowRecoverySection() {
   const [result, setResult] = useState<FollowRecoveryScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [restoreSuccess, setRestoreSuccess] = useState<
+    (RecoverFollowListResult & { followCount: number }) | null
+  >(null);
   const [showAllCandidates, setShowAllCandidates] = useState(false);
+  const [showPerRelay, setShowPerRelay] = useState(false);
 
   const handleScan = async () => {
     if (!session) return;
@@ -84,7 +88,8 @@ export default function FollowRecoverySection() {
 
     setRestoring(candidate.eventId);
     setError(null);
-    setSuccessMessage(null);
+    setRestoreSuccess(null);
+    setShowPerRelay(false);
 
     try {
       // Snapshot the current list locally before overwriting, so the user
@@ -98,10 +103,8 @@ export default function FollowRecoverySection() {
         backupService.saveBackup(backup);
       }
 
-      await recoverFollowList(candidate, session.relays);
-      setSuccessMessage(
-        `Follow list restored and published (${candidate.followCount} follow${candidate.followCount === 1 ? "" : "s"}).`,
-      );
+      const publishResult = await recoverFollowList(candidate, session.relays);
+      setRestoreSuccess({ ...publishResult, followCount: candidate.followCount });
       // Re-scan so the UI reflects the new "current" state.
       await handleScan();
     } catch (err) {
@@ -320,16 +323,71 @@ export default function FollowRecoverySection() {
                 </div>
               )}
 
-              {successMessage && (
-                <div className="mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
-                  <div className="flex items-start gap-2">
+              {restoreSuccess && (
+                <div className="mb-4 p-4 rounded-lg border-2 border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20 shadow-sm">
+                  <div className="flex items-start gap-3">
                     <CheckCircle
-                      size={16}
+                      size={28}
                       className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5"
                     />
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      {successMessage}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-base font-bold text-green-800 dark:text-green-200 mb-1">
+                        Follow list restored
+                      </h4>
+                      <p className="text-sm text-green-700 dark:text-green-300 mb-2">
+                        Republished{" "}
+                        <span className="font-bold text-green-800 dark:text-green-100">
+                          {restoreSuccess.followCount}
+                        </span>{" "}
+                        follow
+                        {restoreSuccess.followCount === 1 ? "" : "s"} · accepted by{" "}
+                        <span className="font-semibold">
+                          {restoreSuccess.accepted.length}/{restoreSuccess.total}
+                        </span>{" "}
+                        relays · event{" "}
+                        <span className="font-mono text-xs">
+                          {restoreSuccess.eventId.slice(0, 12)}…
+                        </span>
+                      </p>
+
+                      <button
+                        onClick={() => setShowPerRelay(!showPerRelay)}
+                        className="text-xs text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer flex items-center gap-1"
+                      >
+                        {showPerRelay ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        )}
+                        Per-relay results
+                      </button>
+                      {showPerRelay && (
+                        <div className="mt-2 space-y-1 text-xs font-mono">
+                          {restoreSuccess.accepted.map((r) => (
+                            <div key={r} className="text-green-700 dark:text-green-300">
+                              ✓ {r}
+                            </div>
+                          ))}
+                          {restoreSuccess.rejected.map((r) => (
+                            <div
+                              key={r.relay}
+                              className="text-red-600 dark:text-red-300 break-all"
+                            >
+                              ✗ {r.relay} — {r.reason}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {restoreSuccess.rejected.length > 0 && (
+                        <p className="text-xs text-green-700/80 dark:text-green-200/70 mt-3">
+                          {restoreSuccess.rejected.length} relay
+                          {restoreSuccess.rejected.length === 1 ? "" : "s"} rejected the
+                          event. Other clients reading from the accepting relays will see
+                          your restored follow list. Propagation may take a moment.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
