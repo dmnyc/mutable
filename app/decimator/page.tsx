@@ -10,12 +10,14 @@ export const metadata: Metadata = {
     title: "Decimator by Mutable: Trim your Nostr follow list",
     description:
       "Trim your follow list. Randomly remove a percentage, shrink to a target count, or unfollow everyone — with a local backup saved before any change.",
+    images: ["/decimator_social_card.png"],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Decimator by Mutable: Trim your Nostr follow list",
     description:
       "Trim your follow list. Randomly remove a percentage, shrink to a target count, or unfollow everyone — with a local backup saved before any change.",
+    images: ["/decimator_social_card.png"],
   },
 };
 
