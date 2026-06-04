@@ -66,7 +66,7 @@ const pageUrls: Record<ActivePage, string> = {
   noteNuke: "/note-nuke",
   domainPurge: "/dashboard?tab=domainPurge",
   purgatory: "/purgatory",
-  decimator: "/dashboard?tab=decimator",
+  decimator: "/decimator",
   listCleaner: "/dashboard?tab=listCleaner",
   snoopable: "/snoopable",
   clonable: "/clonable",

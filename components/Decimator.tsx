@@ -269,6 +269,78 @@ export default function Decimator() {
     setShowShareModal(true);
   };
 
+  const handleUnfollowEveryone = async () => {
+    if (!session) return;
+
+    setError(null);
+
+    // Fetch the current follow list up front so the confirm dialog can show
+    // the exact count and so we have something to back up.
+    let currentFollows: string[];
+    try {
+      setProcessing(true);
+      setProgress("Fetching your current follow list…");
+      currentFollows = await getFollowListPubkeys(
+        session.pubkey,
+        session.relays,
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to fetch follow list"));
+      setProcessing(false);
+      setProgress("");
+      return;
+    } finally {
+      setProgress("");
+    }
+
+    if (currentFollows.length === 0) {
+      setProcessing(false);
+      setError("You are not following anyone — nothing to unfollow.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `⚠️ UNFOLLOW EVERYONE\n\n` +
+        `This will unfollow all ${currentFollows.length} accounts you currently follow.\n\n` +
+        `Before continuing:\n` +
+        `• A local backup of your follow list will be saved automatically.\n` +
+        `• You can also export a snapshot from the Backups tab right now if you want extra copies.\n` +
+        `• If you later regret this, the Backups tab has a Follow List Recovery tool that can find and republish older versions of your follow list from relays.\n\n` +
+        `This action publishes an empty contact list to your relays. Continue?`,
+    );
+
+    if (!confirmed) {
+      setProcessing(false);
+      return;
+    }
+
+    try {
+      setProgress("Creating backup…");
+      const backup = backupService.createFollowListBackup(
+        session.pubkey,
+        currentFollows,
+        `Auto-backup before unfollowing everyone (${currentFollows.length} follows)`,
+      );
+      backupService.saveBackup(backup);
+
+      setProgress(
+        `Unfollowing ${currentFollows.length} account${currentFollows.length === 1 ? "" : "s"}…`,
+      );
+      await unfollowMultipleUsers(currentFollows, session.relays);
+
+      setProgress("");
+      setDecimatedCount(currentFollows.length);
+      setTotalFollows(0);
+      setSelectedUsers([]);
+      setShowShareModal(true);
+    } catch (err) {
+      console.error("Unfollow everyone error:", err);
+      setError(getErrorMessage(err, "Failed to unfollow everyone"));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleDecimate = async () => {
     if (!session || selectedUsers.length === 0) return;
 
@@ -816,6 +888,36 @@ export default function Decimator() {
             Cancel
           </button>
         )}
+      </div>
+
+      {/* Nuclear option — its own card so it's visually distinct from the normal flow */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mt-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+          Unfollow Everyone
+        </h2>
+        <button
+          onClick={handleUnfollowEveryone}
+          disabled={processing || totalFollows === 0}
+          className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-gray-900 disabled:text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          <Trash2 className="w-5 h-5" />
+          Unfollow Everyone
+        </button>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg p-4 mt-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-red-900 dark:text-red-200">
+              <p className="font-semibold mb-1">This drops every follow you have.</p>
+              <p className="leading-relaxed">
+                Publishes an empty contact list. A local backup is saved
+                automatically, and the <strong>Backups tab</strong> has a Follow
+                List Recovery tool that can rebuild your list from older relay
+                copies if you change your mind. Still, take a fresh export there
+                first if this matters to you.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Error Display */}
