@@ -777,7 +777,7 @@ export default function Decimator() {
             <input
               type="range"
               min="1"
-              max="50"
+              max="90"
               value={percentageValue}
               onChange={(e) => setPercentageValue(Number(e.target.value))}
               className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-600"
@@ -785,7 +785,7 @@ export default function Decimator() {
             />
             <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
               <span>1%</span>
-              <span>50%</span>
+              <span>90%</span>
             </div>
             {totalFollows && (
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
