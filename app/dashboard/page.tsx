@@ -522,8 +522,8 @@ function DashboardContent() {
             >
               Muteuals
             </button>
-            <button
-              onClick={() => changeTab("reciprocals")}
+            <Link
+              href="/reciprocals"
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
                 activeTab === "reciprocals"
                   ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
@@ -531,7 +531,7 @@ function DashboardContent() {
               }`}
             >
               Reciprocals
-            </button>
+            </Link>
             <Link
               href="/mute-o-scope"
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -624,11 +624,9 @@ function DashboardContent() {
                   >
                     Purgatory
                   </button>
-                  <button
-                    onClick={() => {
-                      changeTab("decimator");
-                      setToolsDropdownOpen(false);
-                    }}
+                  <Link
+                    href="/decimator"
+                    onClick={() => setToolsDropdownOpen(false)}
                     className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
                       activeTab === "decimator"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -636,7 +634,7 @@ function DashboardContent() {
                     }`}
                   >
                     Decimator
-                  </button>
+                  </Link>
                   <Link
                     href="/muggable"
                     onClick={() => setToolsDropdownOpen(false)}
@@ -767,11 +765,9 @@ function DashboardContent() {
                   >
                     Muteuals
                   </button>
-                  <button
-                    onClick={() => {
-                      changeTab("reciprocals");
-                      setMobileMenuOpen(false);
-                    }}
+                  <Link
+                    href="/reciprocals"
+                    onClick={() => setMobileMenuOpen(false)}
                     className={`block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                       activeTab === "reciprocals"
                         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -779,7 +775,7 @@ function DashboardContent() {
                     }`}
                   >
                     Reciprocals
-                  </button>
+                  </Link>
                   <Link
                     href="/mute-o-scope"
                     onClick={() => setMobileMenuOpen(false)}
@@ -875,11 +871,9 @@ function DashboardContent() {
                         >
                           Purgatory
                         </button>
-                        <button
-                          onClick={() => {
-                            changeTab("decimator");
-                            setMobileMenuOpen(false);
-                          }}
+                        <Link
+                          href="/decimator"
+                          onClick={() => setMobileMenuOpen(false)}
                           className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
                             activeTab === "decimator"
                               ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -887,7 +881,7 @@ function DashboardContent() {
                           }`}
                         >
                           Decimator
-                        </button>
+                        </Link>
                         <Link
                           href="/muggable"
                           onClick={() => setMobileMenuOpen(false)}

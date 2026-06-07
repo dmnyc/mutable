@@ -60,7 +60,7 @@ const pageUrls: Record<ActivePage, string> = {
   myList: "/dashboard?tab=myList",
   publicLists: "/dashboard?tab=publicLists",
   muteuals: "/dashboard?tab=muteuals",
-  reciprocals: "/dashboard?tab=reciprocals",
+  reciprocals: "/reciprocals",
   muteOScope: "/mute-o-scope",
   backups: "/dashboard?tab=backups",
   noteNuke: "/note-nuke",
