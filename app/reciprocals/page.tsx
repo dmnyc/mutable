@@ -2,22 +2,30 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 import ReciprocalsWrapper from "@/components/ReciprocalsWrapper";
 
+const reciprocalsImage = {
+  url: "/reciprocals_social_card.png",
+  width: 1200,
+  height: 630,
+  alt: "Reciprocals by Mutable — Find non-reciprocal Nostr follows",
+};
+
 export const metadata: Metadata = {
   title: "Reciprocals by Mutable: Find non-reciprocal Nostr follows",
   description:
     "Find people you follow who don't follow you back, then unfollow or mute them in bulk — with a local backup saved before any change.",
   openGraph: {
+    type: "website",
     title: "Reciprocals by Mutable: Find non-reciprocal Nostr follows",
     description:
       "Find people you follow who don't follow you back, then unfollow or mute them in bulk — with a local backup saved before any change.",
-    images: ["/reciprocals_social_card.png"],
+    images: [reciprocalsImage],
   },
   twitter: {
     card: "summary_large_image",
     title: "Reciprocals by Mutable: Find non-reciprocal Nostr follows",
     description:
       "Find people you follow who don't follow you back, then unfollow or mute them in bulk — with a local backup saved before any change.",
-    images: ["/reciprocals_social_card.png"],
+    images: [reciprocalsImage],
   },
 };
 

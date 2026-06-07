@@ -10,15 +10,30 @@ export const metadata: Metadata = {
     icon: '/mutable_logo.svg',
   },
   openGraph: {
+    type: "website",
     title: "Mutable - Your Nostr Mute List Manager",
     description: "Your Nostr Mute List Manager",
-    images: ['/mutable_social_card.png'],
+    images: [
+      {
+        url: "/mutable_social_card.png",
+        width: 1200,
+        height: 630,
+        alt: "Mutable — Your Nostr Mute List Manager",
+      },
+    ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: "summary_large_image",
     title: "Mutable - Your Nostr Mute List Manager",
     description: "Your Nostr Mute List Manager",
-    images: ['/mutable_social_card.png'],
+    images: [
+      {
+        url: "/mutable_social_card.png",
+        width: 1200,
+        height: 630,
+        alt: "Mutable — Your Nostr Mute List Manager",
+      },
+    ],
   },
 };
 
