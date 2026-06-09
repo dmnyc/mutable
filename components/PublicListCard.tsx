@@ -62,6 +62,7 @@ export default function PublicListCard({
     getNewItemsCount,
     markPackItemsAsImported,
     isBlacklisted,
+    defaultMutePrivacy,
   } = useStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -214,37 +215,47 @@ export default function PublicListCard({
             ...item,
             // If no reason provided, use pack name as the reason
             reason: item.reason || list.name,
+            // Honor the user's default privacy choice — the pack's own
+            // `private` flag describes pack-author categorization and
+            // shouldn't override how the user wants items stored in their list.
+            private: defaultMutePrivacy,
           })),
       ],
       words: [
         ...muteList.words,
-        ...(list.list.words || []).filter((item) => {
-          const exists = muteList.words.some(
-            (existing) => existing.value === item.value,
-          );
-          if (!exists) itemsToImport.push(item.value);
-          return !exists;
-        }),
+        ...(list.list.words || [])
+          .filter((item) => {
+            const exists = muteList.words.some(
+              (existing) => existing.value === item.value,
+            );
+            if (!exists) itemsToImport.push(item.value);
+            return !exists;
+          })
+          .map((item) => ({ ...item, private: defaultMutePrivacy })),
       ],
       tags: [
         ...muteList.tags,
-        ...(list.list.tags || []).filter((item) => {
-          const exists = muteList.tags.some(
-            (existing) => existing.value === item.value,
-          );
-          if (!exists) itemsToImport.push(item.value);
-          return !exists;
-        }),
+        ...(list.list.tags || [])
+          .filter((item) => {
+            const exists = muteList.tags.some(
+              (existing) => existing.value === item.value,
+            );
+            if (!exists) itemsToImport.push(item.value);
+            return !exists;
+          })
+          .map((item) => ({ ...item, private: defaultMutePrivacy })),
       ],
       threads: [
         ...muteList.threads,
-        ...(list.list.threads || []).filter((item) => {
-          const exists = muteList.threads.some(
-            (existing) => existing.value === item.value,
-          );
-          if (!exists) itemsToImport.push(item.value);
-          return !exists;
-        }),
+        ...(list.list.threads || [])
+          .filter((item) => {
+            const exists = muteList.threads.some(
+              (existing) => existing.value === item.value,
+            );
+            if (!exists) itemsToImport.push(item.value);
+            return !exists;
+          })
+          .map((item) => ({ ...item, private: defaultMutePrivacy })),
       ],
     };
 
