@@ -1459,21 +1459,69 @@ export async function fetchProfile(
 ): Promise<Profile | null> {
   const pool = getPool();
 
-  // Use expanded relay list to maximize chances of finding the profile
-  const expandedRelays = getExpandedRelayList(relays);
+  // Profile-optimized relay set. DEFAULT_RELAYS (which includes the
+  // purplepag.es profile aggregator + other high-coverage relays) is listed
+  // FIRST so it is never dropped when the caller already has many relays of its
+  // own — this is what keeps kind:0 fresh. The caller's relays are appended for
+  // extra coverage of accounts that only publish to niche relays. This replaces
+  // getExpandedRelayList(), which prioritized the *viewer's* relays and could
+  // therefore return a stale (or missing) profile for a contact.
+  const expandedRelays = Array.from(
+    new Set([...DEFAULT_RELAYS, ...relays]),
+  ).slice(0, 10);
 
   try {
-    // Add timeout wrapper around querySync
-    const events = await Promise.race([
-      pool.querySync(expandedRelays, {
-        kinds: [PROFILE_KIND],
-        authors: [pubkey],
-        limit: 5,
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Profile fetch timeout")), timeoutMs),
-      ),
-    ]);
+    // Collect kind:0 events via a live subscription so that, if the timeout
+    // fires, we still return the newest event received SO FAR instead of
+    // discarding partial results (the old Promise.race rejected on timeout and
+    // lost everything). Finishes early once a majority of relays have sent EOSE.
+    const events = await new Promise<Event[]>((resolve) => {
+      const collected: Event[] = [];
+      let eoseCount = 0;
+      let settled = false;
+      let graceTimer: ReturnType<typeof setTimeout> | null = null;
+      let sub: { close: () => void } | null = null;
+
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(hardTimer);
+        if (graceTimer) clearTimeout(graceTimer);
+        try {
+          sub?.close();
+        } catch {
+          // ignore
+        }
+        resolve(collected);
+      };
+
+      const hardTimer = setTimeout(() => {
+        console.warn(`Profile fetch timeout for ${pubkey.substring(0, 8)}`);
+        done();
+      }, timeoutMs);
+
+      sub = pool.subscribeMany(
+        expandedRelays,
+        { kinds: [PROFILE_KIND], authors: [pubkey], limit: 3 },
+        {
+          onevent(event) {
+            collected.push(event);
+          },
+          oneose() {
+            eoseCount++;
+            // After a majority report, allow a short grace for a slower relay
+            // that may hold a newer copy, then finish.
+            const threshold = Math.max(
+              1,
+              Math.ceil(expandedRelays.length * 0.6),
+            );
+            if (eoseCount >= threshold && !graceTimer) {
+              graceTimer = setTimeout(done, 600);
+            }
+          },
+        },
+      );
+    });
 
     if (events.length === 0) return null;
 
