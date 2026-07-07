@@ -368,7 +368,6 @@ export default function DMCircle({
       blob,
       filename: `dm-circle-${hexToNpub(targetPubkey).slice(0, 12)}.png`,
       signer: isSignedIn ? signer! : undefined,
-      server: isSignedIn ? "https://blossom.band" : undefined,
     });
 
     setUploadedImageUrl(uploadResult.url);
@@ -456,13 +455,12 @@ export default function DMCircle({
       setPublishStatus("Generating image...");
       const blob = await captureImage();
 
-      // Upload to Blossom
-      setPublishStatus("Uploading to blossom.band...");
+      // Upload to Blossom (tries multiple servers with graceful fallback)
+      setPublishStatus("Uploading image...");
       const uploadResult = await uploadImageToBlossom({
         blob,
         filename: `dm-circle-${hexToNpub(targetPubkey).slice(0, 12)}.png`,
         signer: signer!,
-        server: "https://blossom.band",
       });
 
       // Build the note content - replace @name with nostr: link, add image URL
