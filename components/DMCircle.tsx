@@ -179,11 +179,52 @@ export default function DMCircle({
         }
       }
 
+      // Fallback pass: for the target and any contacts whose real picture never
+      // resolved, load a deterministic dicebear avatar so no tile is left empty.
+      const needsFallback = (url: string | undefined) =>
+        !url || newFailedImages.has(url) || !newLoadedImages.has(url);
+
+      const fallbackUrls: string[] = [];
+      if (needsFallback(targetProfile?.picture)) {
+        fallbackUrls.push(fallbackAvatarUrl(targetPubkey));
+      }
+      displayContacts.forEach((c) => {
+        if (needsFallback(c.profile?.picture)) {
+          fallbackUrls.push(fallbackAvatarUrl(c.pubkey));
+        }
+      });
+
+      for (let i = 0; i < fallbackUrls.length; i += batchSize) {
+        const batch = fallbackUrls.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map(async (url) => ({
+            url,
+            base64: await loadImageAsBase64(url),
+          })),
+        );
+
+        results.forEach(({ url, base64 }) => {
+          if (base64) {
+            newLoadedImages.set(url, base64);
+          } else {
+            newFailedImages.add(url);
+          }
+        });
+
+        setLoadedImages(new Map(newLoadedImages));
+        setFailedImages(new Set(newFailedImages));
+
+        if (i + batchSize < fallbackUrls.length) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
       setIsLoadingImages(false);
     };
 
     loadAllImages();
-  }, [targetProfile?.picture, displayContacts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetProfile?.picture, targetPubkey, displayContacts]);
 
   // Check if image loaded successfully
   const hasValidImage = (url: string | undefined): boolean => {
@@ -195,6 +236,23 @@ export default function DMCircle({
   const getImageUrl = (url: string | undefined): string | undefined => {
     if (!url) return undefined;
     return loadedImages.get(url);
+  };
+
+  // Deterministic generated avatar for accounts whose real picture is missing
+  // or failed to load (matches the dicebear fallback used elsewhere in the app).
+  const fallbackAvatarUrl = (pubkey: string) =>
+    `https://api.dicebear.com/7.x/bottts/svg?seed=${pubkey}`;
+
+  // Resolve the base64 image to render: real picture first, then the generated
+  // fallback, then undefined (caller shows a plain icon as a last resort).
+  const resolveAvatar = (
+    realUrl: string | undefined,
+    pubkey: string,
+  ): string | undefined => {
+    if (hasValidImage(realUrl)) return getImageUrl(realUrl);
+    const fallback = fallbackAvatarUrl(pubkey);
+    if (hasValidImage(fallback)) return getImageUrl(fallback);
+    return undefined;
   };
 
   // Calculate positions for contacts in concentric rings
@@ -644,10 +702,10 @@ export default function DMCircle({
             height: `${layout.centerRadius * 2}%`,
           }}
         >
-          {hasValidImage(targetProfile?.picture) ? (
+          {resolveAvatar(targetProfile?.picture, targetPubkey) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={getImageUrl(targetProfile?.picture)}
+              src={resolveAvatar(targetProfile?.picture, targetPubkey)}
               alt=""
               className="w-full h-full rounded-full object-cover border-2 border-white/50"
             />
@@ -672,10 +730,13 @@ export default function DMCircle({
             onMouseEnter={() => setHoveredContact(pos.contact)}
             onMouseLeave={() => setHoveredContact(null)}
           >
-            {hasValidImage(pos.contact.profile?.picture) ? (
+            {resolveAvatar(pos.contact.profile?.picture, pos.contact.pubkey) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={getImageUrl(pos.contact.profile?.picture)}
+                src={resolveAvatar(
+                  pos.contact.profile?.picture,
+                  pos.contact.pubkey,
+                )}
                 alt=""
                 className="w-full h-full rounded-full object-cover border border-white/30"
               />
