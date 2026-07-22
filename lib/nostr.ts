@@ -21,6 +21,9 @@ import {
   PublicMuteList,
   DomainPurgeResult,
   ReciprocalResult,
+  REPORT_KIND,
+  ReportResult,
+  ReportFeedEntry,
 } from "@/types";
 import { useStore } from "./store";
 import { Signer } from "./signers";
@@ -2435,6 +2438,295 @@ export async function enrichMutealsWithProfiles(
   }
 
   return enriched;
+}
+
+// ============================================================================
+// REPORTABLE - NIP-56 REPORT FUNCTIONS
+// ============================================================================
+
+// Extract the report type for a target pubkey from a kind:1984 event's tags.
+// Per NIP-56 the reason lives as the 3rd element of the matching ["p", <pubkey>, <type>] tag.
+function extractReportType(event: Event, targetPubkey?: string): string | undefined {
+  const pTags = event.tags.filter((t) => t[0] === "p");
+  const matching = targetPubkey
+    ? pTags.find((t) => t[1] === targetPubkey)
+    : pTags[0];
+  if (matching?.[2]) return matching[2];
+
+  // Fall back to an e-tag reason (note reports carry the type on the e tag instead)
+  const eTag = event.tags.find((t) => t[0] === "e" && t[2]);
+  if (eTag?.[2]) return eTag[2];
+
+  return undefined;
+}
+
+// Search the network for all public reports (kind 1984) filed against a pubkey
+export async function searchReportsNetworkWide(
+  targetPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (count: number) => void,
+  abortSignal?: AbortSignal,
+  onResultFound?: (result: ReportResult) => void,
+): Promise<ReportResult[]> {
+  const pool = getPool();
+
+  console.log(
+    `🔍 Searching ${relays.length} relays for reports against ${targetPubkey.substring(0, 8)}...`,
+  );
+
+  let events: Event[] = [];
+
+  try {
+    events = await new Promise<Event[]>((resolve) => {
+      const collectedEvents: Event[] = [];
+      const seenEventIds = new Set<string>();
+      let timeout: NodeJS.Timeout;
+      let checkInterval: NodeJS.Timeout;
+      let eoseCount = 0;
+      let lastEventTime = Date.now();
+      let resolved = false;
+
+      const sub = pool.subscribeMany(
+        relays,
+        {
+          kinds: [REPORT_KIND],
+          "#p": [targetPubkey],
+          limit: 5000,
+        } as any,
+        {
+          onevent(event) {
+            if (!seenEventIds.has(event.id)) {
+              seenEventIds.add(event.id);
+              collectedEvents.push(event);
+              lastEventTime = Date.now();
+              if (onProgress && collectedEvents.length % 10 === 0) {
+                onProgress(collectedEvents.length);
+              }
+            }
+          },
+          oneose() {
+            eoseCount++;
+            const targetEoseCount = Math.max(1, Math.ceil(relays.length * 0.8));
+            if (eoseCount >= targetEoseCount) {
+              const eventCountBeforeWait = collectedEvents.length;
+              const receivedFromAll = eoseCount >= relays.length;
+              const waitTime = receivedFromAll ? 5000 : 3000;
+              setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                clearInterval(checkInterval);
+                clearTimeout(timeout);
+                sub.close();
+                resolve(collectedEvents);
+              }, waitTime);
+              void eventCountBeforeWait;
+            }
+          },
+        },
+      );
+
+      timeout = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
+        sub.close();
+        resolve(collectedEvents);
+      }, 60000);
+
+      checkInterval = setInterval(() => {
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+        if (eoseCount > 0 && timeSinceLastEvent > 20000) {
+          if (resolved) return;
+          resolved = true;
+          clearInterval(checkInterval);
+          clearTimeout(timeout);
+          sub.close();
+          resolve(collectedEvents);
+        }
+      }, 1000);
+    });
+  } catch (error) {
+    console.error("⚠️ Report query failed:", error);
+    return [];
+  }
+
+  const reports: ReportResult[] = [];
+
+  for (const event of events) {
+    if (abortSignal?.aborted) break;
+
+    const hasReported = event.tags.some(
+      (tag) => tag[0] === "p" && tag[1] === targetPubkey,
+    );
+    if (!hasReported) continue;
+
+    const eTag = event.tags.find((t) => t[0] === "e");
+
+    const result: ReportResult = {
+      reportedBy: event.pubkey,
+      reportType: extractReportType(event, targetPubkey),
+      reportedEventId: eTag?.[1],
+      content: event.content || undefined,
+      reportedAt: event.created_at,
+      eventId: event.id,
+    };
+
+    reports.push(result);
+
+    if (onResultFound) onResultFound(result);
+    if (onProgress) onProgress(reports.length);
+  }
+
+  // Most recent first
+  reports.sort((a, b) => b.reportedAt - a.reportedAt);
+
+  return reports;
+}
+
+// Fetch profiles for report results (mirrors enrichMutealsWithProfiles)
+export async function enrichReportsWithProfiles(
+  reports: ReportResult[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal,
+  batchSize: number = 5,
+): Promise<ReportResult[]> {
+  const batches: ReportResult[][] = [];
+  for (let i = 0; i < reports.length; i += batchSize) {
+    batches.push(reports.slice(i, i + batchSize));
+  }
+
+  const enriched: ReportResult[] = [];
+  let processedCount = 0;
+  const profileCache = new Map<string, Profile | null>();
+
+  for (const batch of batches) {
+    if (abortSignal?.aborted) {
+      return [...enriched, ...reports.slice(processedCount)];
+    }
+
+    const profilePromises = batch.map(async (report) => {
+      if (profileCache.has(report.reportedBy)) {
+        return { report, profile: profileCache.get(report.reportedBy) ?? null };
+      }
+      try {
+        const profile = await fetchProfile(report.reportedBy, relays);
+        profileCache.set(report.reportedBy, profile);
+        return { report, profile };
+      } catch (error) {
+        console.error(`Failed to fetch profile for ${report.reportedBy}:`, error);
+        profileCache.set(report.reportedBy, null);
+        return { report, profile: null };
+      }
+    });
+
+    const results = await Promise.allSettled(profilePromises);
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        enriched.push({
+          ...result.value.report,
+          profile: result.value.profile || undefined,
+        });
+      }
+    });
+
+    processedCount += batch.length;
+    if (onProgress) onProgress(processedCount, reports.length);
+
+    if (processedCount < reports.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  return enriched;
+}
+
+// Fetch a network-wide feed of recent public reports (not scoped to one target)
+export async function fetchRecentReportsFeed(
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 100,
+  sinceDays: number = 30,
+): Promise<ReportFeedEntry[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays, 10);
+  const since = Math.floor(Date.now() / 1000) - sinceDays * 86400;
+
+  let events: Event[] = [];
+  try {
+    events = await pool.querySync(expandedRelays, {
+      kinds: [REPORT_KIND],
+      since,
+      limit,
+    });
+  } catch (error) {
+    console.error("Failed to fetch reports feed:", error);
+    return [];
+  }
+
+  const seenEventIds = new Set<string>();
+  const entries: ReportFeedEntry[] = [];
+
+  for (const event of events) {
+    if (seenEventIds.has(event.id)) continue;
+    seenEventIds.add(event.id);
+
+    const reportedPubkeys = event.tags
+      .filter((t) => t[0] === "p" && t[1])
+      .map((t) => t[1]);
+
+    if (reportedPubkeys.length === 0) continue;
+
+    entries.push({
+      reportedBy: event.pubkey,
+      reportedPubkeys,
+      reportType: extractReportType(event),
+      content: event.content || undefined,
+      reportedAt: event.created_at,
+      eventId: event.id,
+    });
+  }
+
+  entries.sort((a, b) => b.reportedAt - a.reportedAt);
+
+  return entries.slice(0, limit);
+}
+
+// Fetch profiles for both reporter and reported users in a feed (dedupes shared pubkeys)
+export async function enrichReportsFeedWithProfiles(
+  entries: ReportFeedEntry[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+): Promise<ReportFeedEntry[]> {
+  const profileCache = new Map<string, Profile | null>();
+  const allPubkeys = new Set<string>();
+  entries.forEach((e) => {
+    allPubkeys.add(e.reportedBy);
+    e.reportedPubkeys.forEach((p) => allPubkeys.add(p));
+  });
+
+  const pubkeyList = Array.from(allPubkeys);
+  const batchSize = 5;
+  let processed = 0;
+
+  for (let i = 0; i < pubkeyList.length; i += batchSize) {
+    const batch = pubkeyList.slice(i, i + batchSize);
+    const results = await Promise.allSettled(
+      batch.map((pk) => fetchProfile(pk, relays)),
+    );
+    results.forEach((result, idx) => {
+      const pk = batch[idx];
+      profileCache.set(pk, result.status === "fulfilled" ? result.value : null);
+    });
+    processed += batch.length;
+    if (onProgress) onProgress(processed, pubkeyList.length);
+  }
+
+  return entries.map((entry) => ({
+    ...entry,
+    reporterProfile: profileCache.get(entry.reportedBy) || undefined,
+    targetProfiles: entry.reportedPubkeys
+      .map((pk) => profileCache.get(pk) || undefined)
+      .filter((p): p is Profile => !!p),
+  }));
 }
 
 // Get follow list as array of pubkeys

@@ -19,6 +19,7 @@ type ActivePage =
   | "snoopable"
   | "clonable"
   | "muggable"
+  | "reportable"
   | "settings";
 
 interface DashboardNavProps {
@@ -32,6 +33,7 @@ const toolPages: ActivePage[] = [
   "purgatory",
   "decimator",
   "muggable",
+  "reportable",
   "listCleaner",
   "clonable",
 ];
@@ -52,6 +54,7 @@ const pageNames: Record<ActivePage, string> = {
   snoopable: "Snoopable",
   clonable: "Clonable",
   muggable: "Muggable",
+  reportable: "Reportable",
   settings: "Settings",
 };
 
@@ -71,6 +74,7 @@ const pageUrls: Record<ActivePage, string> = {
   snoopable: "/snoopable",
   clonable: "/clonable",
   muggable: "/muggable",
+  reportable: "/reportable",
   settings: "/dashboard?tab=settings",
 };
 
