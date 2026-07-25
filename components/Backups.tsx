@@ -18,6 +18,7 @@ import {
 } from "@/lib/relayStorage";
 import { profileBackupService } from "@/lib/profileBackupService";
 import FollowRecoverySection from "./FollowRecoverySection";
+import MuteRecoverySection from "./MuteRecoverySection";
 import {
   getFollowListPubkeys,
   publishMuteList,
@@ -1572,8 +1573,21 @@ export default function Backups() {
         </div>
       </div>
 
-      {/* Follow List Recovery */}
-      <FollowRecoverySection />
+      {/* List Recovery */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            List Recovery
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Scan your relays for older versions of a list that may have been
+            overwritten, then republish the one you want back.
+          </p>
+        </div>
+
+        <MuteRecoverySection />
+        <FollowRecoverySection />
+      </div>
 
       {/* Backups List */}
       <div>
