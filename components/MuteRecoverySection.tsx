@@ -2,25 +2,28 @@
 
 import { useState } from "react";
 import {
+  VolumeX,
   RefreshCw,
   AlertTriangle,
   CheckCircle,
   AlertCircle,
-  Users,
+  ShieldOff,
   Star,
   History,
   Cloud,
   ChevronDown,
   ChevronUp,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  scanFollowListHistory,
-  recoverFollowList,
-  FollowListCandidate,
-  FollowRecoveryScanResult,
-  RecoverFollowListResult,
-} from "@/lib/followRecovery";
+  scanMuteListHistory,
+  recoverMuteList,
+  MuteListCandidate,
+  MuteRecoveryScanResult,
+  RecoverMuteListResult,
+} from "@/lib/muteRecovery";
+import { parseMuteListEvent } from "@/lib/nostr";
 import { getErrorMessage } from "@/lib/utils/format";
 import { backupService } from "@/lib/backupService";
 
@@ -39,16 +42,16 @@ function relativeAge(unixSeconds: number): string {
   return "just now";
 }
 
-export default function FollowRecoverySection() {
+export default function MuteRecoverySection() {
   const { session } = useAuth();
   const [optedIn, setOptedIn] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState<string>("");
-  const [result, setResult] = useState<FollowRecoveryScanResult | null>(null);
+  const [result, setResult] = useState<MuteRecoveryScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreSuccess, setRestoreSuccess] = useState<
-    (RecoverFollowListResult & { followCount: number }) | null
+    (RecoverMuteListResult & { totalCount: number }) | null
   >(null);
   const [showAllCandidates, setShowAllCandidates] = useState(false);
   const [showPerRelay, setShowPerRelay] = useState(false);
@@ -61,27 +64,25 @@ export default function FollowRecoverySection() {
     setProgress("Connecting to relays…");
 
     try {
-      const scan = await scanFollowListHistory(
-        session.pubkey,
-        session.relays,
-        { onProgress: setProgress },
-      );
+      const scan = await scanMuteListHistory(session.pubkey, session.relays, {
+        onProgress: setProgress,
+      });
       setResult(scan);
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to scan follow list history"));
+      setError(getErrorMessage(err, "Failed to scan mute list history"));
     } finally {
       setScanning(false);
       setProgress("");
     }
   };
 
-  const handleRecover = async (candidate: FollowListCandidate) => {
+  const handleRecover = async (candidate: MuteListCandidate) => {
     if (!session) return;
 
     const confirmMsg =
-      `Restore this follow list with ${candidate.followCount} follow${candidate.followCount === 1 ? "" : "s"} ` +
+      `Restore this mute list with ${candidate.totalCount} item${candidate.totalCount === 1 ? "" : "s"} ` +
       `from ${formatDate(candidate.createdAt)}?\n\n` +
-      `This will REPLACE your current follow list on relays and publish immediately. ` +
+      `This will REPLACE your current mute list on relays and publish immediately. ` +
       `A local snapshot of your current list will be saved first so you can roll back.`;
     if (!confirm(confirmMsg)) return;
 
@@ -94,30 +95,32 @@ export default function FollowRecoverySection() {
       // Snapshot the current list locally before overwriting, so the user
       // can roll back from the Local Backup History if they change their mind.
       if (result?.current) {
-        const backup = backupService.createFollowListBackup(
+        const currentMuteList = await parseMuteListEvent(result.current.event);
+        const backup = backupService.createMuteListBackup(
           session.pubkey,
-          result.current.followPubkeys,
-          `Auto-snapshot before Follow Recovery (event ${result.current.eventId.slice(0, 8)})`,
+          currentMuteList,
+          `Auto-snapshot before Mute Recovery (event ${result.current.eventId.slice(0, 8)})`,
         );
         backupService.saveBackup(backup);
       }
 
-      const publishResult = await recoverFollowList(candidate, session.relays);
-      setRestoreSuccess({ ...publishResult, followCount: candidate.followCount });
+      const publishResult = await recoverMuteList(candidate, session.relays);
+      setRestoreSuccess({ ...publishResult, totalCount: candidate.totalCount });
       // Re-scan so the UI reflects the new "current" state.
       await handleScan();
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to publish recovered follow list"));
+      setError(getErrorMessage(err, "Failed to publish recovered mute list"));
     } finally {
       setRestoring(null);
     }
   };
 
-  const renderCandidate = (candidate: FollowListCandidate) => {
+  const renderCandidate = (candidate: MuteListCandidate) => {
     const isRecommended = candidate.isRecommended;
     const isCurrent = candidate.isCurrent;
-    const tombstone = candidate.followCount === 0;
+    const tombstone = candidate.totalCount === 0;
     const recovering = restoring === candidate.eventId;
+    const undercounted = candidate.hasPrivateContent && !candidate.privateDecrypted;
 
     return (
       <div
@@ -131,18 +134,33 @@ export default function FollowRecoverySection() {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <Users
+              <ShieldOff
                 size={16}
                 className={
                   tombstone
                     ? "text-gray-400"
-                    : "text-purple-600 dark:text-purple-400"
+                    : "text-blue-600 dark:text-blue-400"
                 }
               />
               <span className="font-semibold text-gray-900 dark:text-white">
-                {candidate.followCount} follow
-                {candidate.followCount === 1 ? "" : "s"}
+                {candidate.totalCount} muted item
+                {candidate.totalCount === 1 ? "" : "s"}
               </span>
+              {candidate.hasPrivateContent && (
+                <span
+                  title={
+                    candidate.privateDecrypted
+                      ? `${candidate.privateCount} private item${candidate.privateCount === 1 ? "" : "s"} decrypted`
+                      : "Has private items that couldn't be decrypted"
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-200 text-purple-900 dark:bg-purple-800 dark:text-purple-100"
+                >
+                  <Lock size={12} />
+                  {candidate.privateDecrypted
+                    ? `${candidate.privateCount} private`
+                    : "private undecryptable"}
+                </span>
+              )}
               {isRecommended && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-200 text-green-900 dark:bg-green-800 dark:text-green-100">
                   <Star size={12} /> Recommended
@@ -168,6 +186,14 @@ export default function FollowRecoverySection() {
               {" · "}
               found on {candidate.foundOnRelays.length} relay
               {candidate.foundOnRelays.length === 1 ? "" : "s"}
+              {undercounted && (
+                <>
+                  {" · "}
+                  <span className="text-amber-600 dark:text-amber-400">
+                    count may be incomplete — private items undecryptable
+                  </span>
+                </>
+              )}
             </p>
           </div>
           <button
@@ -182,16 +208,16 @@ export default function FollowRecoverySection() {
             }`}
             title={
               tombstone
-                ? "This version has no follows — nothing to restore"
+                ? "This version has no muted items — nothing to restore"
                 : isCurrent
-                  ? "This is already your current follow list"
-                  : "Republish this version as your follow list"
+                  ? "This is already your current mute list"
+                  : "Republish this version as your mute list"
             }
           >
             {recovering ? (
               <RefreshCw size={14} className="animate-spin" />
             ) : (
-              <Users size={14} />
+              <VolumeX size={14} />
             )}
             Restore
           </button>
@@ -204,18 +230,18 @@ export default function FollowRecoverySection() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <Users
-              className="text-purple-600 dark:text-purple-400"
+          <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+            <VolumeX
+              className="text-blue-600 dark:text-blue-400"
               size={24}
             />
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-              Follow List Recovery
+              Mute List Recovery
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Sign in to scan your relays for older versions of your follow
+              Sign in to scan your relays for older versions of your mute
               list and recover one that may have been overwritten.
             </p>
           </div>
@@ -232,18 +258,18 @@ export default function FollowRecoverySection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-start gap-4">
-        <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-          <Users className="text-purple-600 dark:text-purple-400" size={24} />
+        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+          <VolumeX className="text-blue-600 dark:text-blue-400" size={24} />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-            Follow List Recovery
+            Mute List Recovery
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Cross-client kind:3 overwrites are the most common way a follow
-            graph gets lost. This tool scans your relays (plus a broad
-            archival set) for older versions of your follow list and lets
-            you republish a previous one.
+            Cross-client kind:10000 overwrites are a common way a mute list
+            gets lost. This tool scans your relays (plus a broad archival
+            set) for older versions of your mute list and lets you
+            republish a previous one.
           </p>
 
           {!optedIn ? (
@@ -261,12 +287,17 @@ export default function FollowRecoverySection() {
                       old versions of replaceable events.
                     </li>
                     <li>
-                      Restoring will overwrite your current follow list. A
+                      Restoring will overwrite your current mute list. A
                       local snapshot of the current list is saved first.
                     </li>
                     <li>
+                      Private (encrypted) mutes are counted using your
+                      signer, but republished exactly as ciphertext — they
+                      are never decrypted and re-encrypted.
+                    </li>
+                    <li>
                       Your private key never leaves your signer; only a
-                      signed kind:3 event is published.
+                      signed kind:10000 event is published.
                     </li>
                   </ul>
                   <button
@@ -331,15 +362,15 @@ export default function FollowRecoverySection() {
                     />
                     <div className="flex-1 min-w-0">
                       <h4 className="text-base font-bold text-green-800 dark:text-green-200 mb-1">
-                        Follow list restored
+                        Mute list restored
                       </h4>
                       <p className="text-sm text-green-700 dark:text-green-300 mb-2">
                         Republished{" "}
                         <span className="font-bold text-green-800 dark:text-green-100">
-                          {restoreSuccess.followCount}
+                          {restoreSuccess.totalCount}
                         </span>{" "}
-                        follow
-                        {restoreSuccess.followCount === 1 ? "" : "s"} · accepted by{" "}
+                        muted item
+                        {restoreSuccess.totalCount === 1 ? "" : "s"} · accepted by{" "}
                         <span className="font-semibold">
                           {restoreSuccess.accepted.length}/{restoreSuccess.total}
                         </span>{" "}
@@ -383,7 +414,7 @@ export default function FollowRecoverySection() {
                           {restoreSuccess.rejected.length} relay
                           {restoreSuccess.rejected.length === 1 ? "" : "s"} rejected the
                           event. Other clients reading from the accepting relays will see
-                          your restored follow list. Propagation may take a moment.
+                          your restored mute list. Propagation may take a moment.
                         </p>
                       )}
                     </div>
@@ -419,7 +450,7 @@ export default function FollowRecoverySection() {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         Largest non-empty version found
                         {result.current
-                          ? `, with ${recommended.followCount - result.current.followCount} more follow${recommended.followCount - result.current.followCount === 1 ? "" : "s"} than your current list (${result.current.followCount})`
+                          ? `, with ${recommended.totalCount - result.current.totalCount} more item${recommended.totalCount - result.current.totalCount === 1 ? "" : "s"} than your current list (${result.current.totalCount})`
                           : ""}
                         .
                       </p>
@@ -435,9 +466,9 @@ export default function FollowRecoverySection() {
                         />
                         <p className="text-sm text-blue-700 dark:text-blue-300">
                           No older version was found that&apos;s larger than
-                          your current follow list. Your current list of{" "}
-                          {result.current?.followCount ?? 0} follow
-                          {result.current?.followCount === 1 ? "" : "s"}{" "}
+                          your current mute list. Your current list of{" "}
+                          {result.current?.totalCount ?? 0} muted item
+                          {result.current?.totalCount === 1 ? "" : "s"}{" "}
                           appears to already be the best available.
                         </p>
                       </div>
