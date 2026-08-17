@@ -304,7 +304,18 @@ export default function Snoopable() {
 
       content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
 
-      const result = await publishTextNote(content, [], session.relays);
+      const tags: string[][] = [
+        ["t", "Snoopable"],
+        ["t", "Mutable"],
+        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
+      ];
+      // Tag the subject when reporting on someone else, matching how the
+      // note already mentions them via nostr:npub.
+      if (!isOwnAnalysis) {
+        tags.unshift(["p", analysis.targetPubkey]);
+      }
+
+      const result = await publishTextNote(content, tags, session.relays);
 
       if (result.success) {
         setShowShareModal(false);

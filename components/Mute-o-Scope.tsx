@@ -35,27 +35,21 @@ import {
   searchProfiles,
   getExpandedRelayList,
   fetchProfile,
+  fetchNoteCount,
+  type NoteCountResult,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
 import { getProfileLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import {
+  getMuteScore,
+  getMuteRatioSignal,
+  formatPerThousand,
+} from "@/lib/utils/muteScore";
 
 const INITIAL_LOAD_COUNT = 20;
 const LOAD_MORE_COUNT = 20;
-
-// Get Mute Score based on mute count
-const getMuteScore = (count: number): { emoji: string; label: string } => {
-  if (count === 0) return { emoji: "⬜", label: "Pristine" };
-  if (count <= 25) return { emoji: "🟦", label: "Low" };
-  if (count <= 50) return { emoji: "🟩", label: "Average" };
-  if (count <= 75) return { emoji: "🟨", label: "Moderate" };
-  if (count <= 100) return { emoji: "🟧", label: "High" };
-  if (count <= 200) return { emoji: "🟥", label: "Severe" };
-  if (count <= 300) return { emoji: "🟪", label: "Legendary" };
-  if (count <= 400) return { emoji: "🟫", label: "Shitlisted" };
-  return { emoji: "⬛", label: "Blacklisted" };
-};
 
 export default function MuteOScope() {
   const searchParams = useSearchParams();
@@ -76,6 +70,8 @@ export default function MuteOScope() {
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showMuteScoreModal, setShowMuteScoreModal] = useState(false);
+  const [noteCount, setNoteCount] = useState<NoteCountResult | null>(null);
+  const [noteCountLoading, setNoteCountLoading] = useState(false);
   const [shareButtonClicked, setShareButtonClicked] = useState(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
@@ -233,8 +229,10 @@ export default function MuteOScope() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allResults.length, displayedResults.length, loadingMore]); // handleLoadMore intentionally not included to avoid recreation
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async (overridePubkey?: string) => {
+    // overridePubkey lets callers (e.g. "Scope Myself") search a known pubkey
+    // immediately, without waiting for the searchQuery state to flush.
+    if (!overridePubkey && !searchQuery.trim()) return;
 
     try {
       setSearching(true);
@@ -247,10 +245,10 @@ export default function MuteOScope() {
 
       // Convert to hex pubkey
       // If we already have a targetPubkey from profile selection, use it
-      let pubkey = targetPubkey || searchQuery.trim();
+      let pubkey = overridePubkey || targetPubkey || searchQuery.trim();
 
       // Only do conversion if we don't already have a valid pubkey
-      if (!targetPubkey) {
+      if (!overridePubkey && !targetPubkey) {
         try {
           if (pubkey.startsWith("npub") || pubkey.startsWith("nprofile")) {
             pubkey = npubToHex(pubkey);
@@ -301,11 +299,43 @@ export default function MuteOScope() {
         }
       }
 
+      // The override path skips the npub-conversion block above, so load the
+      // profile here to populate the results header and share modal.
+      if (overridePubkey) {
+        setProgress("Loading profile...");
+        const profile = await fetchProfile(pubkey, relays);
+        setTargetProfile(profile);
+        if (profile) {
+          setSearchQuery(
+            profile.display_name ||
+              profile.name ||
+              profile.nip05 ||
+              hexToNpub(pubkey),
+          );
+        }
+      }
+
       setTargetPubkey(pubkey);
+      setNoteCount(null);
       setProgress("Searching network for public mute lists...");
 
       // Use expanded relay list for better coverage
       const expandedRelays = getExpandedRelayList(relays);
+
+      // Kick off the note count alongside the mute scan. It's only needed for
+      // the ratio, so it must never block or fail the primary result.
+      setNoteCountLoading(true);
+      const noteCountPromise = fetchNoteCount(pubkey, relays)
+        .then((result) => {
+          setNoteCount(result);
+          return result;
+        })
+        .catch((err) => {
+          console.error("Note count failed:", err);
+          setNoteCount(null);
+          return null;
+        })
+        .finally(() => setNoteCountLoading(false));
 
       // Collect all results first (don't stream)
       const rawResults = await searchMutealsNetworkWide(
@@ -318,6 +348,9 @@ export default function MuteOScope() {
         },
         // No streaming callback - collect all first
       );
+
+      // Let the parallel note count settle (it usually finished long ago).
+      await noteCountPromise;
 
       if (rawResults.length === 0) {
         setAllResults([]);
@@ -431,6 +464,16 @@ export default function MuteOScope() {
     setSelectedProfile(profile);
   };
 
+  const handleScopeMyself = () => {
+    if (!session?.pubkey || searching) return;
+    // Clear any prior target so the override drives the search cleanly.
+    setTargetPubkey(null);
+    setTargetProfile(null);
+    setShowProfileResults(false);
+    setSearchQuery(hexToNpub(session.pubkey));
+    handleSearch(session.pubkey);
+  };
+
   const handleReset = () => {
     setSearchQuery("");
     setTargetPubkey(null);
@@ -443,6 +486,8 @@ export default function MuteOScope() {
     setSearchCompleted(false);
     setProfileSearchResults([]);
     setShowProfileResults(false);
+    setNoteCount(null);
+    setNoteCountLoading(false);
   };
 
   return (
@@ -756,6 +801,16 @@ export default function MuteOScope() {
                     </>
                   )}
                 </button>
+                {session && !searching && (
+                  <button
+                    onClick={handleScopeMyself}
+                    className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center gap-2"
+                    title="Check your own public mute list exposure"
+                  >
+                    <User size={20} />
+                    <span className="hidden sm:inline">Scope Myself</span>
+                  </button>
+                )}
                 {(searchQuery || allResults.length > 0) && !searching && (
                   <button
                     onClick={handleReset}
@@ -855,6 +910,13 @@ export default function MuteOScope() {
                     This user is not publicly muted by anyone on the scanned
                     relays, or their mute lists are encrypted.
                   </p>
+                  {noteCount && noteCount.count > 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      Clean across {noteCount.count.toLocaleString()}
+                      {noteCount.isCapped ? "+" : ""} note
+                      {noteCount.count === 1 ? "" : "s"} posted.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -883,23 +945,67 @@ export default function MuteOScope() {
                     </button>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <button
-                    onClick={() => setShowMuteScoreModal(true)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                    title="Click to view all Mute Score levels"
-                  >
-                    <span className="text-2xl">
-                      {getMuteScore(allResults.length).emoji}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Mute Score: {getMuteScore(allResults.length).label}
-                    </span>
-                    <Info
-                      size={16}
-                      className="text-gray-500 dark:text-gray-400"
-                    />
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setShowMuteScoreModal(true)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                      title="Click to view all Mute Score levels"
+                    >
+                      <span className="text-2xl">
+                        {getMuteScore(allResults.length).emoji}
+                      </span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Mute Score: {getMuteScore(allResults.length).label}
+                      </span>
+                      <Info
+                        size={16}
+                        className="text-gray-500 dark:text-gray-400"
+                      />
+                    </button>
+
+                    {/* Mute Ratio — mutes normalized against notes posted, so
+                        volume alone doesn't inflate the signal. */}
+                    {noteCountLoading && (
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm text-gray-500 dark:text-gray-400">
+                        <Loader2 size={14} className="animate-spin" />
+                        Mute Ratio…
+                      </div>
+                    )}
+                    {!noteCountLoading && noteCount && noteCount.count > 0 && (
+                      <div
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg"
+                        title={`${allResults.length} mute${allResults.length === 1 ? "" : "s"} across ${noteCount.count.toLocaleString()}${noteCount.isCapped ? "+" : ""} notes${
+                          noteCount.isCapped
+                            ? " (relays capped the count, so the real ratio is lower)"
+                            : ""
+                        }`}
+                      >
+                        <span className="text-2xl">
+                          {
+                            getMuteRatioSignal(allResults.length, noteCount.count)
+                              .emoji
+                          }
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          Mute Ratio:{" "}
+                          {formatPerThousand(
+                            getMuteRatioSignal(
+                              allResults.length,
+                              noteCount.count,
+                            ).perThousand,
+                          )}
+                          {noteCount.isCapped ? "+" : ""} / 1k notes
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {
+                            getMuteRatioSignal(allResults.length, noteCount.count)
+                              .label
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   {allResults.length > displayedResults.length && (
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Showing {displayedResults.length} of {allResults.length}
@@ -1087,6 +1193,8 @@ export default function MuteOScope() {
             <ShareResultsModal
               targetProfile={targetProfile}
               resultCount={allResults.length}
+              noteCount={noteCount?.count}
+              noteCountCapped={noteCount?.isCapped}
               onClose={() => setShowShareModal(false)}
             />
           )}
