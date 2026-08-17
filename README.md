@@ -250,7 +250,6 @@ Mutable implements NIP-78 (Application-specific Data) to sync your settings acro
 
 ## Default Relays
 
-- wss://relay.damus.io
 - wss://relay.primal.net
 - wss://nos.lol
 - wss://relay.snort.social
