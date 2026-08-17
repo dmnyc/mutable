@@ -2092,26 +2092,139 @@ export async function searchMutealsFromFollows(
   return muteuals;
 }
 
-// Fetch approximate note count for a pubkey (lightweight, for mute ratio)
+export interface NoteCountResult {
+  /** Best available note count across relays. */
+  count: number;
+  /**
+   * True when every relay hit the fetch cap, so `count` is a floor rather than
+   * a real total (display as "500+"). Never set when a COUNT succeeded.
+   */
+  isCapped: boolean;
+  /** How the number was obtained, for UI wording and debugging. */
+  method: "count" | "fetch" | "none";
+}
+
+const NOTE_FETCH_CAP = 1000;
+
+/**
+ * Ask a single relay for a NIP-45 COUNT of the author's kind:1 notes.
+ * Resolves null when the relay doesn't support COUNT, errors, or times out.
+ */
+function countNotesViaNip45(
+  relayUrl: string,
+  pubkey: string,
+  timeoutMs = 5000,
+): Promise<number | null> {
+  return new Promise((resolve) => {
+    const normalized = normalizeRelayUrl(relayUrl);
+    if (!normalized || typeof WebSocket === "undefined") return resolve(null);
+
+    let settled = false;
+    let ws: WebSocket;
+    const subId = `mutable-count-${Math.random().toString(36).slice(2, 10)}`;
+
+    const finish = (value: number | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        ws?.close();
+      } catch {
+        // ignore
+      }
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => finish(null), timeoutMs);
+
+    try {
+      ws = new WebSocket(normalized);
+    } catch {
+      return finish(null);
+    }
+
+    ws.onopen = () => {
+      ws.send(
+        JSON.stringify(["COUNT", subId, { kinds: [1], authors: [pubkey] }]),
+      );
+    };
+
+    ws.onmessage = (event) => {
+      let msg: unknown;
+      try {
+        msg = JSON.parse(String((event as MessageEvent).data));
+      } catch {
+        return;
+      }
+      if (!Array.isArray(msg)) return;
+
+      // ["COUNT", <subId>, {count: n}]
+      if (msg[0] === "COUNT" && msg[1] === subId) {
+        const n = (msg[2] as { count?: number })?.count;
+        finish(typeof n === "number" && n >= 0 ? n : null);
+        return;
+      }
+      // Relays without NIP-45 answer with NOTICE or CLOSED.
+      if (msg[0] === "NOTICE" || (msg[0] === "CLOSED" && msg[1] === subId)) {
+        finish(null);
+      }
+    };
+
+    ws.onerror = () => finish(null);
+  });
+}
+
+/**
+ * Fetch a pubkey's total kind:1 note count, for the mute ratio.
+ *
+ * Prefers NIP-45 COUNT, which returns a true total rather than a page of
+ * events — important because prolific posters otherwise saturate any fetch
+ * limit and make the ratio meaningless. Relay support is partial (nos.lol and
+ * relay.damus.io answer COUNT; primal, purplepag.es and snort do not), and
+ * counts differ per relay since each only holds what it received, so we take
+ * the highest value returned.
+ *
+ * When no relay supports COUNT we fall back to fetching events and counting
+ * unique ids, flagging `isCapped` if we hit the cap.
+ */
 export async function fetchNoteCount(
   pubkey: string,
   relays: string[] = DEFAULT_RELAYS,
-): Promise<number> {
-  const pool = getPool();
+): Promise<NoteCountResult> {
   const expandedRelays = getExpandedRelayList(relays);
 
+  // 1. Try NIP-45 COUNT across relays in parallel; take the max.
   try {
+    const counts = await Promise.all(
+      expandedRelays.map((relay) => countNotesViaNip45(relay, pubkey)),
+    );
+    const valid = counts.filter((c): c is number => c !== null);
+    if (valid.length > 0) {
+      const best = Math.max(...valid);
+      // A relay can legitimately answer 0; only trust that if it's all we have.
+      if (best > 0) return { count: best, isCapped: false, method: "count" };
+    }
+  } catch (error) {
+    console.warn("NIP-45 COUNT failed, falling back to fetch:", error);
+  }
+
+  // 2. Fall back to fetching and counting unique events.
+  try {
+    const pool = getPool();
     const events = await pool.querySync(expandedRelays, {
       kinds: [1],
       authors: [pubkey],
-      limit: 500,
+      limit: NOTE_FETCH_CAP,
     });
-    // Deduplicate by event id
     const unique = new Set(events.map((e) => e.id));
-    return unique.size;
+    return {
+      count: unique.size,
+      isCapped: unique.size >= NOTE_FETCH_CAP,
+      method: "fetch",
+    };
   } catch (error) {
     console.error("Failed to fetch note count:", error);
-    return 0;
+    return { count: 0, isCapped: false, method: "none" };
   }
 }
 

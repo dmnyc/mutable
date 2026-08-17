@@ -10,21 +10,35 @@ import {
 } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  getMuteScore,
+  getMuteRatioSignal,
+  formatPerThousand,
+} from "@/lib/utils/muteScore";
 import { X, Copy, Check, Send, Loader2 } from "lucide-react";
 
 interface ShareResultsModalProps {
   targetProfile: Profile;
   resultCount: number;
+  /** Total notes posted, for the mute ratio. Omitted when unavailable. */
+  noteCount?: number;
+  /** True when relays capped the note count, so the real ratio is lower. */
+  noteCountCapped?: boolean;
   onClose: () => void;
 }
 
 export default function ShareResultsModal({
   targetProfile,
   resultCount,
+  noteCount,
+  noteCountCapped = false,
   onClose,
 }: ShareResultsModalProps) {
   const { session } = useAuth();
-  const [isMe, setIsMe] = useState(false);
+  // Pre-check "This is me!" whenever the results being shared are the signed-in
+  // user's own — covers Scope Myself, a self npub paste, and ?npub= links alike.
+  const isSelf = session?.pubkey === targetProfile.pubkey;
+  const [isMe, setIsMe] = useState(isSelf);
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
@@ -36,17 +50,18 @@ export default function ShareResultsModal({
     return getDisplayNameUtil(targetProfile, `@${npub.substring(0, 16)}...`);
   };
 
-  // Get Mute Score based on mute count
-  const getMuteScore = (count: number): { emoji: string; label: string } => {
-    if (count === 0) return { emoji: "⬜", label: "Pristine" };
-    if (count <= 25) return { emoji: "🟦", label: "Low" };
-    if (count <= 50) return { emoji: "🟩", label: "Average" };
-    if (count <= 75) return { emoji: "🟨", label: "Moderate" };
-    if (count <= 100) return { emoji: "🟧", label: "High" };
-    if (count <= 200) return { emoji: "🟥", label: "Severe" };
-    if (count <= 300) return { emoji: "🟪", label: "Legendary" };
-    if (count <= 400) return { emoji: "🟫", label: "Shitlisted" };
-    return { emoji: "⬛", label: "Blacklisted" };
+  // Only show a ratio when we actually have a denominator.
+  const hasRatio = typeof noteCount === "number" && noteCount > 0;
+  const ratio = hasRatio
+    ? getMuteRatioSignal(resultCount, noteCount as number)
+    : null;
+
+  // e.g. "🟥 Mute Ratio: 60+ / 1k notes (High)"
+  const getRatioLine = (): string | null => {
+    if (!ratio) return null;
+    return `${ratio.emoji} Mute Ratio: ${formatPerThousand(ratio.perThousand)}${
+      noteCountCapped ? "+" : ""
+    } / 1k notes (${ratio.label})`;
   };
 
   // Generate the actual share message (with nostr:npub for posting)
@@ -54,12 +69,17 @@ export default function ShareResultsModal({
     const npub = hexToNpub(targetProfile.pubkey);
     const baseUrl = "https://mutable.top/mute-o-scope";
     const muteScore = getMuteScore(resultCount);
+    const ratioLine = getRatioLine();
+
+    const scoreBlock = `${muteScore.emoji} Mute Score: ${muteScore.label}${
+      ratioLine ? `\n${ratioLine}` : ""
+    }`;
 
     if (isMeValue) {
-      return `I just found myself on ${resultCount} public mute list${resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
+      return `I just found myself on ${resultCount} public mute list${resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!\n\n${scoreBlock}\n\nScope your mutes here: 🔍\n${baseUrl}`;
     } else {
       // Include nostr: mention so clients will parse it and create a clickable link
-      return `Hey nostr:${npub}, I just found you on ${resultCount} public mute list${resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!\n\n${muteScore.emoji} Mute Score: ${muteScore.label}\n\nScope your mutes here: 🔍\n${baseUrl}`;
+      return `Hey nostr:${npub}, I just found you on ${resultCount} public mute list${resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!\n\n${scoreBlock}\n\nScope your mutes here: 🔍\n${baseUrl}`;
     }
   };
 
@@ -210,6 +230,7 @@ export default function ShareResultsModal({
                   {getMuteScore(resultCount).emoji} Mute Score:{" "}
                   {getMuteScore(resultCount).label}
                 </div>
+                {getRatioLine() && <div>{getRatioLine()}</div>}
                 <br />
                 <div>Scope your mutes here: 🔍</div>
                 <div>https://mutable.top/mute-o-scope</div>
@@ -225,6 +246,7 @@ export default function ShareResultsModal({
                   {getMuteScore(resultCount).emoji} Mute Score:{" "}
                   {getMuteScore(resultCount).label}
                 </div>
+                {getRatioLine() && <div>{getRatioLine()}</div>}
                 <br />
                 <div>Scope your mutes here: 🔍</div>
                 <div>https://mutable.top/mute-o-scope</div>

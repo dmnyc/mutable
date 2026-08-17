@@ -533,7 +533,17 @@ export default function DMCircle({
 
       // Publish the note
       setPublishStatus("Publishing note...");
-      const result = await publishTextNote(noteContent, [], DEFAULT_RELAYS);
+      const tags: string[][] = [
+        ["t", "Snoopable"],
+        ["t", "Mutable"],
+        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
+      ];
+      // Tag the subject when the circle is someone else's.
+      if (session?.pubkey !== targetPubkey) {
+        tags.unshift(["p", targetPubkey]);
+      }
+
+      const result = await publishTextNote(noteContent, tags, DEFAULT_RELAYS);
 
       if (result.success && result.event) {
         const noteId = nip19.noteEncode(result.event.id);
