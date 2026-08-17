@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,6 +69,19 @@ export default function Snoopable() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Contact profiles keyed by pubkey, so the heatmap drill-down can name the
+  // counterparty of each message without re-fetching anything.
+  const contactProfilesByPubkey = useMemo(() => {
+    const map = new Map<string, Profile>();
+    analysis?.contacts.forEach((contact) => {
+      if (contact.profile) map.set(contact.pubkey, contact.profile);
+    });
+    if (analysis?.targetProfile) {
+      map.set(analysis.targetPubkey, analysis.targetProfile);
+    }
+    return map;
+  }, [analysis]);
 
   // Check for npub in URL params on mount
   useEffect(() => {
@@ -673,7 +686,17 @@ export default function Snoopable() {
             />
           )}
 
-          {activeTab === "heatmap" && <DMHeatmap data={analysis.heatmapData} />}
+          {activeTab === "heatmap" && (
+            <DMHeatmap
+              data={analysis.heatmapData}
+              profilesByPubkey={contactProfilesByPubkey}
+              onSelectPubkey={(pubkey) =>
+                setSelectedProfile(
+                  contactProfilesByPubkey.get(pubkey) || { pubkey },
+                )
+              }
+            />
+          )}
 
           {activeTab === "circle" && (
             <DMCircle

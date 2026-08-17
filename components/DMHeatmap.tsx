@@ -1,15 +1,26 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { DMActivityDay } from "@/types";
+import { ArrowDownLeft, ArrowUpRight, X } from "lucide-react";
+import { DMActivityDay, DMMessageMeta, Profile } from "@/types";
+import { hexToNpub } from "@/lib/nostr";
+import { getDisplayName } from "@/lib/utils/format";
 
 interface DMHeatmapProps {
   data: DMActivityDay[];
+  /** Profiles keyed by hex pubkey, used to name counterparties in the drill-down. */
+  profilesByPubkey?: Map<string, Profile>;
+  onSelectPubkey?: (pubkey: string) => void;
 }
 
-export default function DMHeatmap({ data }: DMHeatmapProps) {
+export default function DMHeatmap({
+  data,
+  profilesByPubkey,
+  onSelectPubkey,
+}: DMHeatmapProps) {
   const [hoveredDay, setHoveredDay] = useState<DMActivityDay | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [selectedDay, setSelectedDay] = useState<DMActivityDay | null>(null);
 
   // Generate last 12 months of data
   const { weeks, monthLabels, maxCount } = useMemo(() => {
@@ -112,6 +123,30 @@ export default function DMHeatmap({ data }: DMHeatmapProps) {
     });
   };
 
+  const formatTime = (unixSeconds: number) =>
+    new Date(unixSeconds * 1000).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  // Drill-down derivations for the currently selected day.
+  const dayMessages: DMMessageMeta[] = useMemo(
+    () => selectedDay?.messages ?? [],
+    [selectedDay],
+  );
+
+  const maxContentLength = useMemo(
+    () => dayMessages.reduce((max, m) => Math.max(max, m.contentLength), 0),
+    [dayMessages],
+  );
+
+  const daySummary = useMemo(() => {
+    const partners = new Set(
+      dayMessages.map((m) => m.counterparty).filter(Boolean),
+    );
+    return { partnerCount: partners.size };
+  }, [dayMessages]);
+
   if (data.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -164,9 +199,24 @@ export default function DMHeatmap({ data }: DMHeatmapProps) {
                     day ? (
                       <div
                         key={day.date}
-                        className={`w-[10px] h-[10px] rounded-sm ${getColor(day.count)} cursor-pointer transition-colors hover:ring-1 hover:ring-purple-500`}
+                        className={`w-[10px] h-[10px] rounded-sm ${getColor(day.count)} transition-colors ${
+                          day.count > 0
+                            ? "cursor-pointer hover:ring-1 hover:ring-purple-500"
+                            : "cursor-default"
+                        } ${
+                          selectedDay?.date === day.date
+                            ? "ring-2 ring-purple-600 dark:ring-purple-400"
+                            : ""
+                        }`}
                         onMouseEnter={(e) => handleMouseEnter(day, e)}
                         onMouseLeave={handleMouseLeave}
+                        onClick={() => {
+                          if (day.count === 0) return;
+                          setSelectedDay((prev) =>
+                            prev?.date === day.date ? null : day,
+                          );
+                        }}
+                        title={day.count > 0 ? "Click to see this day's messages" : undefined}
                       />
                     ) : (
                       <div
@@ -206,6 +256,154 @@ export default function DMHeatmap({ data }: DMHeatmapProps) {
           </span>
         </div>
       </div>
+
+      {/* Day drill-down */}
+      {selectedDay && (
+        <div className="border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50/50 dark:bg-purple-900/10 p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white">
+                {formatDate(selectedDay.date)}
+              </h4>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                {selectedDay.count} message
+                {selectedDay.count === 1 ? "" : "s"} with{" "}
+                {daySummary.partnerCount}{" "}
+                {daySummary.partnerCount === 1 ? "person" : "people"}
+                {" · "}
+                <span className="text-purple-700 dark:text-purple-300">
+                  ↑ {selectedDay.sentCount} sent
+                </span>
+                {" · "}
+                <span className="text-pink-700 dark:text-pink-300">
+                  ↓ {selectedDay.receivedCount} received
+                </span>
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedDay(null)}
+              className="p-1 rounded text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {dayMessages.length === 0 ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Per-message detail isn&apos;t available for this day. Re-run the
+              analysis to capture it.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+                {dayMessages.map((msg) => {
+                  const profile = profilesByPubkey?.get(msg.counterparty);
+                  const name = msg.counterparty
+                    ? profile
+                      ? getDisplayName(profile)
+                      : `${hexToNpub(msg.counterparty).slice(0, 14)}…`
+                    : "unknown";
+                  const isSent = msg.direction === "sent";
+                  const widthPct =
+                    maxContentLength > 0
+                      ? Math.max(4, (msg.contentLength / maxContentLength) * 100)
+                      : 0;
+
+                  return (
+                    <div
+                      key={msg.eventId}
+                      className="flex items-center gap-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5"
+                    >
+                      <span
+                        className={
+                          isSent
+                            ? "text-purple-600 dark:text-purple-400 flex-shrink-0"
+                            : "text-pink-600 dark:text-pink-400 flex-shrink-0"
+                        }
+                        title={isSent ? "Sent" : "Received"}
+                      >
+                        {isSent ? (
+                          <ArrowUpRight size={14} />
+                        ) : (
+                          <ArrowDownLeft size={14} />
+                        )}
+                      </span>
+
+                      <span className="font-mono text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
+                        {formatTime(msg.createdAt)}
+                      </span>
+
+                      <button
+                        onClick={() =>
+                          msg.counterparty && onSelectPubkey?.(msg.counterparty)
+                        }
+                        disabled={!msg.counterparty || !onSelectPubkey}
+                        className="font-medium text-gray-900 dark:text-white truncate max-w-[10rem] text-left enabled:hover:underline disabled:cursor-default"
+                        title={
+                          msg.counterparty
+                            ? hexToNpub(msg.counterparty)
+                            : undefined
+                        }
+                      >
+                        {name}
+                      </button>
+
+                      {/* Ciphertext size — the body stays encrypted, but its
+                          length is public and approximates message size. */}
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                        <div className="hidden sm:block w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${isSent ? "bg-purple-500" : "bg-pink-500"}`}
+                            style={{ width: `${widthPct}%` }}
+                          />
+                        </div>
+                        <span
+                          className="text-gray-500 dark:text-gray-400 tabular-nums flex-shrink-0"
+                          title="Encrypted payload size in bytes"
+                        >
+                          {msg.contentLength}B
+                        </span>
+                      </div>
+
+                      {msg.client && (
+                        <span
+                          className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex-shrink-0 hidden md:inline"
+                          title="Client tag published with this message"
+                        >
+                          {msg.client}
+                        </span>
+                      )}
+                      {msg.replyToEventId && (
+                        <span
+                          className="text-gray-400 dark:text-gray-500 flex-shrink-0"
+                          title="Replies to an earlier event"
+                        >
+                          ↩
+                        </span>
+                      )}
+                      {msg.expiresAt && (
+                        <span
+                          className="text-amber-600 dark:text-amber-400 flex-shrink-0"
+                          title="Disappearing message"
+                        >
+                          ⏳
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
+                Message contents stay encrypted — everything above is public
+                envelope metadata. Sizes are ciphertext bytes, which approximate
+                the original message length.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Tooltip */}
       {hoveredDay && tooltipPos && (

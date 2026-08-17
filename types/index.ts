@@ -206,12 +206,26 @@ export interface DMContact {
   title?: string; // Fun title (BFF, Ghost, etc.)
 }
 
+// A single DM envelope, as observable WITHOUT decrypting the content.
+// Everything here is public metadata leaked by a NIP-04 (kind:4) event.
+export interface DMMessageMeta {
+  eventId: string;
+  createdAt: number; // Unix timestamp
+  direction: "sent" | "received"; // relative to the analyzed target
+  counterparty: string; // hex pubkey of the other participant
+  contentLength: number; // ciphertext length in bytes — approximates message size
+  client?: string; // from a ["client", ...] tag, if the sender's app set one
+  replyToEventId?: string; // from an ["e", ...] tag — reveals threading
+  expiresAt?: number; // from an ["expiration", ...] tag (disappearing messages)
+}
+
 // Heatmap data point for DM activity
 export interface DMActivityDay {
   date: string; // YYYY-MM-DD
   count: number;
   sentCount: number;
   receivedCount: number;
+  messages?: DMMessageMeta[]; // per-message envelopes for this day (drill-down)
 }
 
 // Overall DM analysis result

@@ -3549,23 +3549,57 @@ function generateDMHeatmapData(
   sentEvents: Event[],
   receivedEvents: Event[],
 ): import("@/types").DMActivityDay[] {
-  const dayMap = new Map<string, { sent: number; received: number }>();
+  const dayMap = new Map<
+    string,
+    {
+      sent: number;
+      received: number;
+      messages: import("@/types").DMMessageMeta[];
+    }
+  >();
 
-  // Process sent DMs
-  for (const event of sentEvents) {
-    const date = new Date(event.created_at * 1000).toISOString().split("T")[0];
-    const existing = dayMap.get(date) || { sent: 0, received: 0 };
-    existing.sent++;
-    dayMap.set(date, existing);
-  }
+  const tagValue = (event: Event, name: string): string | undefined =>
+    event.tags.find((t) => t[0] === name)?.[1] || undefined;
 
-  // Process received DMs
-  for (const event of receivedEvents) {
+  // Capture the envelope metadata that is public even though the body is
+  // encrypted — this is what powers the heatmap day drill-down.
+  const toMeta = (
+    event: Event,
+    direction: "sent" | "received",
+  ): import("@/types").DMMessageMeta => {
+    // For sent DMs the counterparty is the p-tagged recipient; for received
+    // DMs it's the event author.
+    const counterparty =
+      direction === "sent" ? tagValue(event, "p") || "" : event.pubkey;
+    const expiration = tagValue(event, "expiration");
+
+    return {
+      eventId: event.id,
+      createdAt: event.created_at,
+      direction,
+      counterparty,
+      contentLength: event.content?.length ?? 0,
+      client: tagValue(event, "client"),
+      replyToEventId: tagValue(event, "e"),
+      expiresAt: expiration ? Number(expiration) || undefined : undefined,
+    };
+  };
+
+  const record = (event: Event, direction: "sent" | "received") => {
     const date = new Date(event.created_at * 1000).toISOString().split("T")[0];
-    const existing = dayMap.get(date) || { sent: 0, received: 0 };
-    existing.received++;
+    const existing = dayMap.get(date) || {
+      sent: 0,
+      received: 0,
+      messages: [],
+    };
+    if (direction === "sent") existing.sent++;
+    else existing.received++;
+    existing.messages.push(toMeta(event, direction));
     dayMap.set(date, existing);
-  }
+  };
+
+  for (const event of sentEvents) record(event, "sent");
+  for (const event of receivedEvents) record(event, "received");
 
   // Convert to array and sort by date
   return Array.from(dayMap.entries())
@@ -3574,6 +3608,8 @@ function generateDMHeatmapData(
       count: data.sent + data.received,
       sentCount: data.sent,
       receivedCount: data.received,
+      // Chronological within the day so the drill-down reads as a timeline.
+      messages: data.messages.sort((a, b) => a.createdAt - b.createdAt),
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
