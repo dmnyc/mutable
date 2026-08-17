@@ -16,6 +16,8 @@ import {
   X,
   Share,
   Info,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import { MutealResult, Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
@@ -37,6 +39,7 @@ import {
   fetchProfile,
   fetchNoteCount,
   type NoteCountResult,
+  type ScanDiagnostic,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
@@ -72,6 +75,9 @@ export default function MuteOScope() {
   const [showMuteScoreModal, setShowMuteScoreModal] = useState(false);
   const [noteCount, setNoteCount] = useState<NoteCountResult | null>(null);
   const [noteCountLoading, setNoteCountLoading] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<ScanDiagnostic[]>([]);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false);
   const [shareButtonClicked, setShareButtonClicked] = useState(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
@@ -242,6 +248,8 @@ export default function MuteOScope() {
       setDisplayedResults([]);
       setDisplayCount(INITIAL_LOAD_COUNT);
       setProgress("Starting search...");
+      setDiagnostics([]);
+      setDiagnosticsCopied(false);
 
       // Convert to hex pubkey
       // If we already have a targetPubkey from profile selection, use it
@@ -346,7 +354,9 @@ export default function MuteOScope() {
             `Scanning relays... ${count} event${count === 1 ? "" : "s"} collected`,
           );
         },
-        // No streaming callback - collect all first
+        undefined, // no abort signal
+        undefined, // no streaming callback - collect all first
+        (entry) => setDiagnostics((prev) => [...prev, entry]),
       );
 
       // Let the parallel note count settle (it usually finished long ago).
@@ -464,6 +474,23 @@ export default function MuteOScope() {
     setSelectedProfile(profile);
   };
 
+  const hasDiagnosticWarning = diagnostics.some((d) =>
+    d.label.startsWith("⚠️"),
+  );
+
+  const handleCopyDiagnostics = async () => {
+    const text = [
+      `Mutable scan details`,
+      ...diagnostics.map((d) => `${d.label}: ${d.detail}`),
+      `Results shown: ${allResults.length}`,
+    ].join("\n");
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setDiagnosticsCopied(true);
+      setTimeout(() => setDiagnosticsCopied(false), 3000);
+    }
+  };
+
   const handleScopeMyself = () => {
     if (!session?.pubkey || searching) return;
     // Clear any prior target so the override drives the search cleanly.
@@ -488,6 +515,9 @@ export default function MuteOScope() {
     setShowProfileResults(false);
     setNoteCount(null);
     setNoteCountLoading(false);
+    setDiagnostics([]);
+    setShowDiagnostics(false);
+    setDiagnosticsCopied(false);
   };
 
   return (
@@ -857,6 +887,65 @@ export default function MuteOScope() {
               </div>
             )}
           </div>
+
+          {/* Scan diagnostics — surfaced in the UI so scan problems can be
+              reported without opening a browser console. */}
+          {diagnostics.length > 0 && (
+            <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <button
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Info size={16} className="text-gray-500" />
+                  Scan details
+                  {hasDiagnosticWarning && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      check this
+                    </span>
+                  )}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`text-gray-400 transition-transform ${showDiagnostics ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {showDiagnostics && (
+                <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                  <div className="space-y-2">
+                    {diagnostics.map((d, i) => (
+                      <div key={i} className="text-xs">
+                        <div className="font-semibold text-gray-700 dark:text-gray-300">
+                          {d.label}
+                        </div>
+                        <div className="font-mono text-gray-600 dark:text-gray-400 break-all">
+                          {d.detail}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleCopyDiagnostics}
+                    className="flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    {diagnosticsCopied ? (
+                      <>
+                        <Check size={14} className="text-green-600" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        Copy scan details
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Results Section - Zero Mutes (Pristine) */}
           {!searching &&
