@@ -2311,6 +2311,36 @@ export interface ScanDiagnostic {
   detail: string;
 }
 
+/** Per-relay outcome for one scan, used to render relay pills. */
+export interface RelayScanStat {
+  url: string;
+  /** Distinct events attributed to this relay via the pool's seenOn map. */
+  events: number;
+  /**
+   * False when the socket never opened — a genuinely unreachable relay.
+   * Note nostr-tools' oneose() carries no relay identity, so per-relay EOSE
+   * cannot be attributed; only the aggregate count is available.
+   */
+  connected: boolean;
+}
+
+/** Structured summary of a scan, for a dashboard-style diagnostics view. */
+export interface ScanSummary {
+  targetPubkey: string;
+  targetNpub: string;
+  relayStats: RelayScanStat[];
+  rawEvents: number;
+  uniqueAuthors: number;
+  confirmedMatches: number;
+  eoseCount: number;
+  durationMs: number;
+  resolveReason: string;
+  /** Set when relays returned lists but none matched — signals a real fault. */
+  warning?: string;
+  /** True for live updates emitted while the scan is still collecting. */
+  inProgress?: boolean;
+}
+
 export async function searchMutealsNetworkWide(
   userPubkey: string,
   relays: string[] = DEFAULT_RELAYS,
@@ -2318,10 +2348,14 @@ export async function searchMutealsNetworkWide(
   abortSignal?: AbortSignal,
   onResultFound?: (result: MutealResult) => void,
   onDiagnostic?: (entry: ScanDiagnostic) => void,
+  onSummary?: (summary: ScanSummary) => void,
 ): Promise<MutealResult[]> {
   const diag = (label: string, detail: string) =>
     onDiagnostic?.({ label, detail });
   const pool = getPool();
+  // Needed to attribute events back to individual relays via pool.seenOn,
+  // which powers the per-relay breakdown in the scan diagnostics.
+  pool.trackRelays = true;
   const muteuals: MutealResult[] = [];
   const seenPubkeys = new Set<string>();
 
@@ -2346,6 +2380,64 @@ export async function searchMutealsNetworkWide(
   const scanStartedAt = Date.now();
   let eoseReported = 0;
   let resolveReason = "unknown";
+  let lastSummaryAt = 0;
+
+  /**
+   * Build a snapshot of scan state. Called repeatedly while events stream in
+   * so the diagnostics dashboard fills in live, then once more at the end with
+   * the final tallies.
+   */
+  const buildSummary = (
+    collected: Event[],
+    counts: {
+      uniqueAuthors: number;
+      confirmedMatches: number;
+      warning?: string;
+      inProgress?: boolean;
+    },
+  ): ScanSummary => {
+    // Attribute each collected event back to the relays that served it.
+    const eventsPerRelay = new Map<string, number>();
+    for (const event of collected) {
+      const servedBy = pool.seenOn.get(event.id);
+      if (!servedBy) continue;
+      for (const relay of servedBy) {
+        const url = normalizeRelayUrl(relay.url) || relay.url;
+        eventsPerRelay.set(url, (eventsPerRelay.get(url) ?? 0) + 1);
+      }
+    }
+
+    // Connection status keys carry a trailing slash; normalize to compare.
+    const connected = new Set<string>();
+    try {
+      for (const [url, isOpen] of pool.listConnectionStatus()) {
+        if (isOpen) connected.add(normalizeRelayUrl(url) || url);
+      }
+    } catch {
+      // Status is best-effort; absence just means we can't mark relays down.
+    }
+
+    return {
+      targetPubkey: userPubkey,
+      targetNpub: hexToNpub(userPubkey),
+      relayStats: relays.map((relay) => {
+        const url = normalizeRelayUrl(relay) || relay;
+        return {
+          url,
+          events: eventsPerRelay.get(url) ?? 0,
+          connected: connected.has(url),
+        };
+      }),
+      rawEvents: collected.length,
+      uniqueAuthors: counts.uniqueAuthors,
+      confirmedMatches: counts.confirmedMatches,
+      eoseCount: eoseReported,
+      durationMs: Date.now() - scanStartedAt,
+      resolveReason: counts.inProgress ? "scanning…" : resolveReason,
+      warning: counts.warning,
+      inProgress: counts.inProgress,
+    };
+  };
 
   try {
     events = await new Promise<Event[]>((resolve, reject) => {
@@ -2378,6 +2470,22 @@ export async function searchMutealsNetworkWide(
               if (onProgress && collectedEvents.length % 10 === 0) {
                 onProgress(collectedEvents.length);
               }
+
+              // Feed the live diagnostics dashboard. Throttled to at most
+              // every 400ms so a burst of events doesn't thrash React.
+              if (onSummary && Date.now() - lastSummaryAt > 400) {
+                lastSummaryAt = Date.now();
+                const authorsSoFar = new Set(
+                  collectedEvents.map((e) => e.pubkey),
+                ).size;
+                onSummary(
+                  buildSummary(collectedEvents, {
+                    uniqueAuthors: authorsSoFar,
+                    confirmedMatches: 0,
+                    inProgress: true,
+                  }),
+                );
+              }
             }
           },
           oneose() {
@@ -2388,6 +2496,20 @@ export async function searchMutealsNetworkWide(
             console.log(
               `Received EOSE ${eoseCount}/${relays.length}, collected ${collectedEvents.length} events so far`,
             );
+
+            // Refresh the dashboard so the EOSE tally advances even during a
+            // lull in incoming events.
+            if (onSummary) {
+              lastSummaryAt = Date.now();
+              onSummary(
+                buildSummary(collectedEvents, {
+                  uniqueAuthors: new Set(collectedEvents.map((e) => e.pubkey))
+                    .size,
+                  confirmedMatches: 0,
+                  inProgress: true,
+                }),
+              );
+            }
 
             // Resolve once a useful share of relays has reported. Many relays
             // never send EOSE at all (paid/auth-gated ones in particular), so
@@ -2583,14 +2705,24 @@ export async function searchMutealsNetworkWide(
     "Confirmed matches",
     `${muteuals.length} of ${eventsByAuthor.size} authors list this pubkey in a p-tag`,
   );
-  if (eventsByAuthor.size > 0 && muteuals.length === 0) {
+  const mismatchWarning =
+    eventsByAuthor.size > 0 && muteuals.length === 0
+      ? `Relays returned ${eventsByAuthor.size} lists but none contained this exact pubkey.`
+      : undefined;
+
+  if (mismatchWarning) {
     // Relays returned mute lists but none matched — almost always a pubkey
     // mismatch (e.g. casing) rather than a genuine "nobody mutes you".
-    diag(
-      "⚠️ Mismatch",
-      `Relays returned ${eventsByAuthor.size} lists but none contained this exact pubkey. Check the pubkey above.`,
-    );
+    diag("⚠️ Mismatch", `${mismatchWarning} Check the pubkey above.`);
   }
+
+  onSummary?.(
+    buildSummary(events, {
+      uniqueAuthors: eventsByAuthor.size,
+      confirmedMatches: muteuals.length,
+      warning: mismatchWarning,
+    }),
+  );
 
   return muteuals;
 }

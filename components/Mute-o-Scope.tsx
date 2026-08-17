@@ -40,6 +40,7 @@ import {
   fetchNoteCount,
   type NoteCountResult,
   type ScanDiagnostic,
+  type ScanSummary,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
@@ -76,6 +77,7 @@ export default function MuteOScope() {
   const [noteCount, setNoteCount] = useState<NoteCountResult | null>(null);
   const [noteCountLoading, setNoteCountLoading] = useState(false);
   const [diagnostics, setDiagnostics] = useState<ScanDiagnostic[]>([]);
+  const [scanSummary, setScanSummary] = useState<ScanSummary | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [diagnosticsCopied, setDiagnosticsCopied] = useState(false);
   const [shareButtonClicked, setShareButtonClicked] = useState(false);
@@ -249,6 +251,7 @@ export default function MuteOScope() {
       setDisplayCount(INITIAL_LOAD_COUNT);
       setProgress("Starting search...");
       setDiagnostics([]);
+      setScanSummary(null);
       setDiagnosticsCopied(false);
 
       // Convert to hex pubkey
@@ -357,6 +360,7 @@ export default function MuteOScope() {
         undefined, // no abort signal
         undefined, // no streaming callback - collect all first
         (entry) => setDiagnostics((prev) => [...prev, entry]),
+        (summary) => setScanSummary(summary),
       );
 
       // Let the parallel note count settle (it usually finished long ago).
@@ -479,11 +483,31 @@ export default function MuteOScope() {
   );
 
   const handleCopyDiagnostics = async () => {
-    const text = [
-      `Mutable scan details`,
-      ...diagnostics.map((d) => `${d.label}: ${d.detail}`),
-      `Results shown: ${allResults.length}`,
-    ].join("\n");
+    const lines = [`Mutable scan details`];
+
+    if (scanSummary) {
+      lines.push(
+        `Scanned: ${scanSummary.targetNpub}`,
+        `Pubkey: ${scanSummary.targetPubkey}`,
+        `Events: ${scanSummary.rawEvents} raw / ${scanSummary.uniqueAuthors} unique authors / ${scanSummary.confirmedMatches} confirmed`,
+        `Finished in ${(scanSummary.durationMs / 1000).toFixed(1)}s via "${scanSummary.resolveReason}" (${scanSummary.eoseCount}/${scanSummary.relayStats.length} EOSE)`,
+        ``,
+        `Relays:`,
+        ...[...scanSummary.relayStats]
+          .sort((a, b) => b.events - a.events)
+          .map(
+            (r) =>
+              `  ${r.events.toString().padStart(4)} events  ${r.url}${r.connected ? "" : "  (never connected)"}`,
+          ),
+      );
+      if (scanSummary.warning) lines.push(``, `WARNING: ${scanSummary.warning}`);
+    } else {
+      // Fall back to the raw log lines if no structured summary arrived.
+      lines.push(...diagnostics.map((d) => `${d.label}: ${d.detail}`));
+    }
+
+    lines.push(``, `Results shown: ${allResults.length}`);
+    const text = lines.join("\n");
     const ok = await copyToClipboard(text);
     if (ok) {
       setDiagnosticsCopied(true);
@@ -516,6 +540,7 @@ export default function MuteOScope() {
     setNoteCount(null);
     setNoteCountLoading(false);
     setDiagnostics([]);
+    setScanSummary(null);
     setShowDiagnostics(false);
     setDiagnosticsCopied(false);
   };
@@ -890,15 +915,27 @@ export default function MuteOScope() {
 
           {/* Scan diagnostics — surfaced in the UI so scan problems can be
               reported without opening a browser console. */}
-          {diagnostics.length > 0 && (
+          {(diagnostics.length > 0 || scanSummary) && (
             <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <button
                 onClick={() => setShowDiagnostics(!showDiagnostics)}
                 className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Info size={16} className="text-gray-500" />
+                  {scanSummary?.inProgress ? (
+                    <RefreshCw
+                      size={16}
+                      className="text-blue-500 animate-spin"
+                    />
+                  ) : (
+                    <Info size={16} className="text-gray-500" />
+                  )}
                   Scan details
+                  {scanSummary?.inProgress && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                      live
+                    </span>
+                  )}
                   {hasDiagnosticWarning && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
                       check this
@@ -912,19 +949,158 @@ export default function MuteOScope() {
               </button>
 
               {showDiagnostics && (
-                <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-3">
-                  <div className="space-y-2">
-                    {diagnostics.map((d, i) => (
-                      <div key={i} className="text-xs">
-                        <div className="font-semibold text-gray-700 dark:text-gray-300">
-                          {d.label}
+                <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                  {/* Stat tiles */}
+                  {scanSummary && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        {
+                          label: "Events found",
+                          value: scanSummary.rawEvents.toLocaleString(),
+                        },
+                        {
+                          label: "Unique authors",
+                          value: scanSummary.uniqueAuthors.toLocaleString(),
+                        },
+                        {
+                          // Matching only happens after collection finishes,
+                          // so don't show a misleading 0 mid-scan.
+                          label: "Confirmed",
+                          value: scanSummary.inProgress
+                            ? "—"
+                            : scanSummary.confirmedMatches.toLocaleString(),
+                          accent: true,
+                        },
+                        {
+                          label: "Scan time",
+                          value: `${(scanSummary.durationMs / 1000).toFixed(1)}s`,
+                        },
+                      ].map((tile) => (
+                        <div
+                          key={tile.label}
+                          className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 px-3 py-2"
+                        >
+                          <div
+                            className={`text-xl font-bold tabular-nums ${
+                              tile.accent
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-gray-900 dark:text-white"
+                            }`}
+                          >
+                            {tile.value}
+                          </div>
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            {tile.label}
+                          </div>
                         </div>
-                        <div className="font-mono text-gray-600 dark:text-gray-400 break-all">
-                          {d.detail}
-                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Relay pills — each shows how many events it served */}
+                  {scanSummary && scanSummary.relayStats.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                          Relays ({scanSummary.relayStats.length})
+                        </span>
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                          {
+                            scanSummary.relayStats.filter((r) => r.events > 0)
+                              .length
+                          }{" "}
+                          returned data
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[...scanSummary.relayStats]
+                          .sort((a, b) => b.events - a.events)
+                          .map((relay) => {
+                            const host = relay.url.replace(/^wss:\/\//, "");
+                            const productive = relay.events > 0;
+                            const unreachable = !relay.connected;
+                            return (
+                              <span
+                                key={relay.url}
+                                title={
+                                  unreachable
+                                    ? `${relay.url} — never connected`
+                                    : `${relay.url} — ${relay.events} event${relay.events === 1 ? "" : "s"}`
+                                }
+                                className={`inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-medium border ${
+                                  unreachable
+                                    ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+                                    : productive
+                                      ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300"
+                                      : "bg-gray-100 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+                                }`}
+                              >
+                                <span className="font-mono">{host}</span>
+                                <span
+                                  className={`min-w-[1.25rem] text-center rounded-full px-1 tabular-nums ${
+                                    unreachable
+                                      ? "bg-red-100 dark:bg-red-800/60"
+                                      : productive
+                                        ? "bg-green-100 dark:bg-green-800/60"
+                                        : "bg-gray-200 dark:bg-gray-600"
+                                  }`}
+                                >
+                                  {unreachable ? "!" : relay.events}
+                                </span>
+                              </span>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Target + how the scan finished */}
+                  {scanSummary && (
+                    <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 p-3 space-y-1.5 text-xs">
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          Scanned{" "}
+                        </span>
+                        <span className="font-mono text-gray-700 dark:text-gray-300 break-all">
+                          {scanSummary.targetNpub}
+                        </span>
+                      </div>
+                      <div className="text-gray-500 dark:text-gray-400">
+                        Finished via{" "}
+                        <span className="text-gray-700 dark:text-gray-300">
+                          {scanSummary.resolveReason}
+                        </span>{" "}
+                        · {scanSummary.eoseCount}/
+                        {scanSummary.relayStats.length} relays sent EOSE
+                      </div>
+                      {scanSummary.warning && (
+                        <div className="flex items-start gap-1.5 text-amber-700 dark:text-amber-300">
+                          <AlertCircle
+                            size={13}
+                            className="flex-shrink-0 mt-0.5"
+                          />
+                          <span>{scanSummary.warning}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Raw log — only when no structured summary exists (e.g. a
+                      scan that failed before any relay responded). */}
+                  {!scanSummary && (
+                    <div className="space-y-2">
+                      {diagnostics.map((d, i) => (
+                        <div key={i} className="text-xs">
+                          <div className="font-semibold text-gray-700 dark:text-gray-300">
+                            {d.label}
+                          </div>
+                          <div className="font-mono text-gray-600 dark:text-gray-400 break-all">
+                            {d.detail}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <button
                     onClick={handleCopyDiagnostics}
