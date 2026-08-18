@@ -250,11 +250,24 @@ Mutable implements NIP-78 (Application-specific Data) to sync your settings acro
 
 ## Default Relays
 
-- wss://relay.primal.net
+Chosen by measuring how many mute lists each relay actually returns, so the
+list favors coverage over familiarity. Ordered by measured yield:
+
 - wss://nos.lol
+- wss://nostr21.com
+- wss://relay.mostr.pub
+- wss://nostr.mom
+- wss://theforest.nostr1.com
+- wss://relay.primal.net
+- wss://relay.nostr.net
 - wss://relay.snort.social
 - wss://purplepag.es
-- wss://relay.nostr.net
+- wss://nostr.land
+- wss://relay.nostrplebs.com
+
+`purplepag.es` is included for profile (kind:0) coverage rather than mute
+lists. `relay.damus.io` is intentionally excluded — it is being deprecated,
+and measured at only ~0.7% marginal coverage.
 
 ## Contributing
 
