@@ -1454,81 +1454,87 @@ export default function Reportable() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
                               <button
-                                onClick={() => handleCopyNpub(npub)}
-                                className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                  copiedNpub === npub
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-gray-600 dark:text-gray-400"
-                                }`}
-                                title={copiedNpub === npub ? "Copied!" : "Copy npub"}
+                                onClick={() => setDetailReport(report)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                title="View the full report"
                               >
-                                <Fingerprint size={16} />
+                                <FileText size={16} />
+                                Full report
                               </button>
-                              <button
-                                onClick={() =>
-                                  handleCopyValue(report.eventId, `id:${report.eventId}`)
-                                }
-                                className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                  copiedValue === `id:${report.eventId}`
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-gray-600 dark:text-gray-400"
-                                }`}
-                                title={
-                                  copiedValue === `id:${report.eventId}`
-                                    ? "Copied!"
-                                    : "Copy event ID"
-                                }
-                              >
-                                {copiedValue === `id:${report.eventId}` ? (
-                                  <Check size={16} />
-                                ) : (
-                                  <Copy size={16} />
-                                )}
-                              </button>
-                              {report.rawEvent && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                  Evidence
+                                </span>
+                                <button
+                                  onClick={() => handleCopyNpub(npub)}
+                                  className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                    copiedNpub === npub
+                                      ? "text-green-600 dark:text-green-400"
+                                      : "text-gray-600 dark:text-gray-400"
+                                  }`}
+                                  title={copiedNpub === npub ? "Copied!" : "Copy npub"}
+                                >
+                                  <Fingerprint size={16} />
+                                </button>
                                 <button
                                   onClick={() =>
-                                    handleCopyValue(
-                                      JSON.stringify(report.rawEvent, null, 2),
-                                      `json:${report.eventId}`,
-                                    )
+                                    handleCopyValue(report.eventId, `id:${report.eventId}`)
                                   }
                                   className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                    copiedValue === `json:${report.eventId}`
+                                    copiedValue === `id:${report.eventId}`
                                       ? "text-green-600 dark:text-green-400"
                                       : "text-gray-600 dark:text-gray-400"
                                   }`}
                                   title={
-                                    copiedValue === `json:${report.eventId}`
+                                    copiedValue === `id:${report.eventId}`
                                       ? "Copied!"
-                                      : "Copy event JSON"
+                                      : "Copy event ID"
                                   }
                                 >
-                                  {copiedValue === `json:${report.eventId}` ? (
+                                  {copiedValue === `id:${report.eventId}` ? (
                                     <Check size={16} />
                                   ) : (
-                                    <FileJson size={16} />
+                                    <Copy size={16} />
                                   )}
                                 </button>
-                              )}
-                              <a
-                                href={getReportEventLink(report.eventId)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                title="View report on njump"
-                              >
-                                <ExternalLink size={16} />
-                              </a>
-                              <button
-                                onClick={() => setDetailReport(report)}
-                                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                title="View full report"
-                              >
-                                <FileText size={16} />
-                              </button>
+                                {report.rawEvent && (
+                                  <button
+                                    onClick={() =>
+                                      handleCopyValue(
+                                        JSON.stringify(report.rawEvent, null, 2),
+                                        `json:${report.eventId}`,
+                                      )
+                                    }
+                                    className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                      copiedValue === `json:${report.eventId}`
+                                        ? "text-green-600 dark:text-green-400"
+                                        : "text-gray-600 dark:text-gray-400"
+                                    }`}
+                                    title={
+                                      copiedValue === `json:${report.eventId}`
+                                        ? "Copied!"
+                                        : "Copy event JSON"
+                                    }
+                                  >
+                                    {copiedValue === `json:${report.eventId}` ? (
+                                      <Check size={16} />
+                                    ) : (
+                                      <FileJson size={16} />
+                                    )}
+                                  </button>
+                                )}
+                                <a
+                                  href={getReportEventLink(report.eventId)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                  title="View report on njump"
+                                >
+                                  <ExternalLink size={16} />
+                                </a>
+                              </div>
                             </div>
                           </div>
 
@@ -1664,70 +1670,76 @@ export default function Reportable() {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
                               <button
-                                onClick={() =>
-                                  handleCopyValue(entry.eventId, `id:${entry.eventId}`)
-                                }
-                                className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                  copiedValue === `id:${entry.eventId}`
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-gray-600 dark:text-gray-400"
-                                }`}
-                                title={
-                                  copiedValue === `id:${entry.eventId}`
-                                    ? "Copied!"
-                                    : "Copy event ID"
-                                }
+                                onClick={() => setDetailReport(entry)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                title="View the full report"
                               >
-                                {copiedValue === `id:${entry.eventId}` ? (
-                                  <Check size={16} />
-                                ) : (
-                                  <Copy size={16} />
-                                )}
+                                <FileText size={16} />
+                                Full report
                               </button>
-                              {entry.rawEvent && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                  Evidence
+                                </span>
                                 <button
                                   onClick={() =>
-                                    handleCopyValue(
-                                      JSON.stringify(entry.rawEvent, null, 2),
-                                      `json:${entry.eventId}`,
-                                    )
+                                    handleCopyValue(entry.eventId, `id:${entry.eventId}`)
                                   }
                                   className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                    copiedValue === `json:${entry.eventId}`
+                                    copiedValue === `id:${entry.eventId}`
                                       ? "text-green-600 dark:text-green-400"
                                       : "text-gray-600 dark:text-gray-400"
                                   }`}
                                   title={
-                                    copiedValue === `json:${entry.eventId}`
+                                    copiedValue === `id:${entry.eventId}`
                                       ? "Copied!"
-                                      : "Copy event JSON"
+                                      : "Copy event ID"
                                   }
                                 >
-                                  {copiedValue === `json:${entry.eventId}` ? (
+                                  {copiedValue === `id:${entry.eventId}` ? (
                                     <Check size={16} />
                                   ) : (
-                                    <FileJson size={16} />
+                                    <Copy size={16} />
                                   )}
                                 </button>
-                              )}
-                              <a
-                                href={getReportEventLink(entry.eventId)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                title="View report event"
-                              >
-                                <ExternalLink size={16} />
-                              </a>
-                              <button
-                                onClick={() => setDetailReport(entry)}
-                                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                title="View full report"
-                              >
-                                <FileText size={16} />
-                              </button>
+                                {entry.rawEvent && (
+                                  <button
+                                    onClick={() =>
+                                      handleCopyValue(
+                                        JSON.stringify(entry.rawEvent, null, 2),
+                                        `json:${entry.eventId}`,
+                                      )
+                                    }
+                                    className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                      copiedValue === `json:${entry.eventId}`
+                                        ? "text-green-600 dark:text-green-400"
+                                        : "text-gray-600 dark:text-gray-400"
+                                    }`}
+                                    title={
+                                      copiedValue === `json:${entry.eventId}`
+                                        ? "Copied!"
+                                        : "Copy event JSON"
+                                    }
+                                  >
+                                    {copiedValue === `json:${entry.eventId}` ? (
+                                      <Check size={16} />
+                                    ) : (
+                                      <FileJson size={16} />
+                                    )}
+                                  </button>
+                                )}
+                                <a
+                                  href={getReportEventLink(entry.eventId)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                  title="View report event on njump"
+                                >
+                                  <ExternalLink size={16} />
+                                </a>
+                              </div>
                             </div>
                           </div>
 
@@ -1927,73 +1939,79 @@ export default function Reportable() {
                           <ReportTypeBadge type={entry.reportType} />
                         </div>
 
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                          <button
+                            onClick={() => setDetailReport(entry)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            title="View the full report"
+                          >
+                            <FileText size={16} />
+                            Full report
+                          </button>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatRelativeDate(entry.reportedAt)}
                           </span>
-                          <button
-                            onClick={() =>
-                              handleCopyValue(entry.eventId, `id:${entry.eventId}`)
-                            }
-                            className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                              copiedValue === `id:${entry.eventId}`
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
-                            title={
-                              copiedValue === `id:${entry.eventId}`
-                                ? "Copied!"
-                                : "Copy event ID"
-                            }
-                          >
-                            {copiedValue === `id:${entry.eventId}` ? (
-                              <Check size={16} />
-                            ) : (
-                              <Copy size={16} />
-                            )}
-                          </button>
-                          {entry.rawEvent && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                              Evidence
+                            </span>
                             <button
                               onClick={() =>
-                                handleCopyValue(
-                                  JSON.stringify(entry.rawEvent, null, 2),
-                                  `json:${entry.eventId}`,
-                                )
+                                handleCopyValue(entry.eventId, `id:${entry.eventId}`)
                               }
                               className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                copiedValue === `json:${entry.eventId}`
+                                copiedValue === `id:${entry.eventId}`
                                   ? "text-green-600 dark:text-green-400"
                                   : "text-gray-600 dark:text-gray-400"
                               }`}
                               title={
-                                copiedValue === `json:${entry.eventId}`
+                                copiedValue === `id:${entry.eventId}`
                                   ? "Copied!"
-                                  : "Copy event JSON"
+                                  : "Copy event ID"
                               }
                             >
-                              {copiedValue === `json:${entry.eventId}` ? (
+                              {copiedValue === `id:${entry.eventId}` ? (
                                 <Check size={16} />
                               ) : (
-                                <FileJson size={16} />
+                                <Copy size={16} />
                               )}
                             </button>
-                          )}
-                          <a
-                            href={getReportEventLink(entry.eventId)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                            title="View report event"
-                          >
-                            <ExternalLink size={16} />
-                          </a>
-                          <button
-                            onClick={() => setDetailReport(entry)}
-                            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                            title="View full report"
-                          >
-                            <FileText size={16} />
-                          </button>
+                            {entry.rawEvent && (
+                              <button
+                                onClick={() =>
+                                  handleCopyValue(
+                                    JSON.stringify(entry.rawEvent, null, 2),
+                                    `json:${entry.eventId}`,
+                                  )
+                                }
+                                className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                  copiedValue === `json:${entry.eventId}`
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-gray-600 dark:text-gray-400"
+                                }`}
+                                title={
+                                  copiedValue === `json:${entry.eventId}`
+                                    ? "Copied!"
+                                    : "Copy event JSON"
+                                }
+                              >
+                                {copiedValue === `json:${entry.eventId}` ? (
+                                  <Check size={16} />
+                                ) : (
+                                  <FileJson size={16} />
+                                )}
+                              </button>
+                            )}
+                            <a
+                              href={getReportEventLink(entry.eventId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                              title="View report event on njump"
+                            >
+                              <ExternalLink size={16} />
+                            </a>
+                          </div>
                         </div>
                       </div>
                       {entry.content && (

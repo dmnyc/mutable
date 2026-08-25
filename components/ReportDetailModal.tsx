@@ -1,19 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import {
   X,
   Copy,
   Check,
   FileJson,
   ExternalLink,
-  Fingerprint,
   User,
+  Loader2,
 } from 'lucide-react';
 import { Event } from 'nostr-tools';
 import { Profile } from '@/types';
-import { hexToNpub } from '@/lib/nostr';
+import { fetchEventById, fetchProfile, DEFAULT_RELAYS, hexToNpub } from '@/lib/nostr';
 import { getDisplayName } from '@/lib/utils/format';
 import { getEventLink, getReportEventLink } from '@/lib/utils/links';
 import { copyToClipboard } from '@/lib/utils/clipboard';
@@ -52,6 +53,181 @@ const AVATAR_FALLBACK =
 
 function shortId(id: string): string {
   return `${id.slice(0, 8)}…${id.slice(-8)}`;
+}
+
+/**
+ * Notary-style seal for the report header — perforated outer edge, double
+ * ring, and the Mutable mark as the center medallion. Rings inherit theme
+ * color; the mark keeps its brand colors.
+ */
+function OfficialSeal({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      width="78"
+      height="78"
+      aria-hidden="true"
+      className={`flex-shrink-0 ${className}`}
+    >
+      {/* perforated outer edge */}
+      <circle
+        cx="50"
+        cy="50"
+        r="47.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        strokeDasharray="0.6 3.4"
+        strokeLinecap="round"
+      />
+      <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <circle
+        cx="50"
+        cy="50"
+        r="31"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeDasharray="2 2.5"
+      />
+      {/* Mutable mark, scaled into the medallion — monochrome, in the
+          seal's color; the bubble is cut out with the modal background */}
+      <g transform="translate(26 26) scale(0.16)">
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M300 149.995C300 232.842 232.842 299.99 150.005 299.99C67.1679 299.99 0 232.842 0 149.995C0 67.1477 67.1578 0 149.995 0C201.079 0 246.205 25.542 273.295 64.548C290.127 88.7952 300 118.242 300 149.995Z"
+          fill="currentColor"
+        />
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M225.306 75.3212C266.669 116.684 266.669 183.771 225.306 225.023C191.702 258.627 141.235 264.929 101.329 244.071L47.0985 254.136L56.0711 198.216C35.8094 158.421 42.243 108.561 75.483 75.3212C116.846 33.9481 183.933 33.9481 225.306 75.3212Z"
+          className="fill-white dark:fill-gray-800"
+        />
+        <path
+          d="M115.925 129.966C126.216 129.966 134.558 121.624 134.558 111.333C134.558 101.042 126.216 92.6999 115.925 92.6999C105.635 92.6999 97.2924 101.042 97.2924 111.333C97.2924 121.624 105.635 129.966 115.925 129.966Z"
+          fill="currentColor"
+        />
+        <path
+          d="M184.075 129.966C194.365 129.966 202.708 121.624 202.708 111.333C202.708 101.042 194.365 92.6999 184.075 92.6999C173.784 92.6999 165.442 101.042 165.442 111.333C165.442 121.624 173.784 129.966 184.075 129.966Z"
+          fill="currentColor"
+        />
+        <path
+          d="M109.777 161.564L172.657 224.444L189.931 207.17L127.051 144.29L109.777 161.564Z"
+          fill="currentColor"
+        />
+        <path
+          d="M127.039 224.445L189.92 161.564L172.645 144.29L109.765 207.171L127.039 224.445Z"
+          fill="currentColor"
+        />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Live preview of the note a report targets, fetched from the relays so
+ * the reader can judge the report against the reported material without
+ * leaving Mutable. Falls back to a Jumble link when no relay still has it.
+ */
+function ReportedNoteEmbed({ eventId }: { eventId: string }) {
+  const [note, setNote] = useState<Event | null>(null);
+  const [author, setAuthor] = useState<Profile | null>(null);
+  const [status, setStatus] = useState<'loading' | 'found' | 'missing'>(
+    'loading',
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setNote(null);
+    setAuthor(null);
+    setStatus('loading');
+
+    (async () => {
+      const event = await fetchEventById(eventId);
+      if (cancelled) return;
+      if (!event) {
+        setStatus('missing');
+        return;
+      }
+      setNote(event);
+      setStatus('found');
+      const profile = await fetchProfile(event.pubkey, DEFAULT_RELAYS);
+      if (!cancelled) setAuthor(profile);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+        <Loader2 size={16} className="animate-spin" />
+        Fetching the reported note…
+      </div>
+    );
+  }
+
+  if (status === 'missing') {
+    return (
+      <div className="text-sm text-gray-500 dark:text-gray-400 py-2">
+        No relay still has this note — it may have been deleted or pruned.
+        It can still be opened directly:
+      </div>
+    );
+  }
+
+  const authorNpub = (() => {
+    try {
+      return hexToNpub(note!.pubkey);
+    } catch {
+      return null;
+    }
+  })();
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900/40 overflow-hidden">
+      <div className="flex items-center gap-3 p-3 border-b border-gray-100 dark:border-gray-700">
+        {author?.picture ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={author.picture}
+            alt=""
+            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = AVATAR_FALLBACK;
+            }}
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+            <User size={16} className="text-gray-500 dark:text-gray-300" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
+            {author ? getDisplayName(author) : 'Unknown author'}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            {authorNpub
+              ? `${authorNpub.slice(0, 10)}…${authorNpub.slice(-4)}`
+              : shortId(note!.pubkey)}{' '}
+            · {new Date(note!.created_at * 1000).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+          </div>
+        </div>
+        {note!.kind !== 1 && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+            kind:{note!.kind}
+          </span>
+        )}
+      </div>
+      <p className="p-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+        {note!.content || <span className="italic text-gray-400">(empty content)</span>}
+      </p>
+    </div>
+  );
 }
 
 export default function ReportDetailModal({
@@ -107,25 +283,58 @@ export default function ReportDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2 flex-wrap">
-              Public Report <ReportTypeBadge type={report.reportType} />
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              NIP-56 report · kind:1984
-            </p>
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <OfficialSeal className="-rotate-12 opacity-80 text-blue-900 dark:text-blue-200" />
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                Public Report
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                NIP-56 report · kind:1984
+              </p>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Brand lockup — same wordmark pairing as the page header, so
+                screenshots of a report carry the source */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap leading-none">
+                Reportable
+              </span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">by</span>
+              <Image
+                src="/mutable_logo.svg"
+                alt="Mutable"
+                width={18}
+                height={18}
+              />
+              <Image
+                src="/mutable_text_dark.svg"
+                alt=""
+                width={74}
+                height={14}
+                className="hidden sm:block dark:hidden"
+              />
+              <Image
+                src="/mutable_text.svg"
+                alt=""
+                width={74}
+                height={14}
+                className="hidden sm:dark:block"
+              />
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Body — the report as a document */}
@@ -148,35 +357,43 @@ export default function ReportDetailModal({
                       ✓ {reporterProfile.nip05}
                     </div>
                   )}
+                  {(() => {
+                    try {
+                      const npub = hexToNpub(report.reportedBy!);
+                      return (
+                        <button
+                          onClick={() => handleCopy(npub, 'reporter')}
+                          className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+                          title="Copy reporter npub"
+                        >
+                          <span className="font-mono truncate">
+                            {npub.slice(0, 10)}…{npub.slice(-4)}
+                          </span>
+                          {copyIcon('reporter')}
+                        </button>
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()}
                 </div>
-                {(() => {
-                  try {
-                    const npub = hexToNpub(report.reportedBy!);
-                    return (
-                      <button
-                        onClick={() => handleCopy(npub, 'reporter')}
-                        className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors flex-shrink-0"
-                        title="Copy reporter npub"
-                      >
-                        <span className="font-mono">
-                          {npub.slice(0, 10)}…{npub.slice(-4)}
-                        </span>
-                        {copyIcon('reporter')}
-                      </button>
-                    );
-                  } catch {
-                    return null;
-                  }
-                })()}
+                <ReportTypeBadge type={report.reportType} large />
               </div>
             </section>
           )}
 
           {targets.length > 0 && (
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                {targets.length === 1 ? 'Reported account' : `Reported accounts (${targets.length})`}
-              </h3>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {targets.length === 1
+                    ? 'Reported account'
+                    : `Reported accounts (${targets.length})`}
+                </h3>
+                {!report.reportedBy && (
+                  <ReportTypeBadge type={report.reportType} large />
+                )}
+              </div>
               <div className="space-y-2">
                 {targets.slice(0, 5).map((pubkey, i) => {
                   const profile = report.targetProfiles?.[i];
@@ -245,19 +462,20 @@ export default function ReportDetailModal({
           </section>
 
           {reportedEventId && (
-            <section className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 mb-1">
+            <section>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                 Reported note
               </h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 break-all">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 break-all">
                 This report targets a specific note:
                 <span className="font-mono"> {shortId(reportedEventId)}</span>
               </p>
+              <ReportedNoteEmbed eventId={reportedEventId} />
               <a
                 href={getEventLink(reportedEventId)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Open reported note on Jumble <ExternalLink size={14} />
               </a>
@@ -305,7 +523,7 @@ export default function ReportDetailModal({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
           >
-            <Fingerprint size={14} /> njump
+            <ExternalLink size={14} /> njump
           </a>
           <button
             onClick={onClose}

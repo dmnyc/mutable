@@ -25,13 +25,19 @@ export const REPORT_TYPE_COLORS: Record<string, string> = {
   other: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
 };
 
-export default function ReportTypeBadge({ type }: { type?: string }) {
+export default function ReportTypeBadge({
+  type,
+  large = false,
+}: {
+  type?: string;
+  large?: boolean;
+}) {
   const key = type?.toLowerCase() || "other";
   const label = REPORT_TYPE_LABELS[key] || type || "Other";
   const colors = REPORT_TYPE_COLORS[key] || REPORT_TYPE_COLORS.other;
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}
+      className={`inline-flex items-center rounded-full font-semibold ${large ? "px-4 py-1.5 text-base" : "px-2 py-0.5 text-xs font-medium"} ${colors}`}
     >
       {label}
     </span>
