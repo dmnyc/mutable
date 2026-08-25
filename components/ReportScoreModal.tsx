@@ -2,23 +2,13 @@
 
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { REPORT_SCORE_LEVELS } from '@/lib/utils/reportScore';
 
 interface ReportScoreModalProps {
   onClose: () => void;
 }
 
 export default function ReportScoreModal({ onClose }: ReportScoreModalProps) {
-  const reportScoreLevels = [
-    { emoji: '⬜', label: 'Clean', range: '0' },
-    { emoji: '🟦', label: 'Flagged', range: '1-2' },
-    { emoji: '🟩', label: 'Noted', range: '3-5' },
-    { emoji: '🟨', label: 'Concerning', range: '6-10' },
-    { emoji: '🟧', label: 'Risky', range: '11-20' },
-    { emoji: '🟥', label: 'Dangerous', range: '21-40' },
-    { emoji: '🟪', label: 'Severe', range: '41-75' },
-    { emoji: '⬛', label: 'Critical', range: '76+' },
-  ];
-
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={onClose}>
       <div
@@ -46,7 +36,7 @@ export default function ReportScoreModal({ onClose }: ReportScoreModalProps) {
         {/* Content */}
         <div className="p-6">
           <div className="space-y-3">
-            {reportScoreLevels.map((level) => (
+            {REPORT_SCORE_LEVELS.map((level) => (
               <div
                 key={level.label}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
@@ -58,7 +48,7 @@ export default function ReportScoreModal({ onClose }: ReportScoreModalProps) {
                       {level.label}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {level.range} unique reporter{level.range === '0' ? 's' : 's'}
+                      {level.range} unique reporters
                     </div>
                   </div>
                 </div>

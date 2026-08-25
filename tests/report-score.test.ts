@@ -14,18 +14,18 @@ describe("getReportScore", () => {
   it("assigns the documented bands", () => {
     expect(getReportScore(1).label).toBe("Flagged");
     expect(getReportScore(2).label).toBe("Flagged");
-    expect(getReportScore(3).label).toBe("Noted");
-    expect(getReportScore(5).label).toBe("Noted");
-    expect(getReportScore(6).label).toBe("Concerning");
-    expect(getReportScore(10).label).toBe("Concerning");
-    expect(getReportScore(11).label).toBe("Risky");
-    expect(getReportScore(20).label).toBe("Risky");
-    expect(getReportScore(21).label).toBe("Dangerous");
-    expect(getReportScore(40).label).toBe("Dangerous");
-    expect(getReportScore(41).label).toBe("Severe");
-    expect(getReportScore(75).label).toBe("Severe");
-    expect(getReportScore(76).label).toBe("Critical");
-    expect(getReportScore(99999).label).toBe("Critical");
+    expect(getReportScore(3).label).toBe("Avoidable");
+    expect(getReportScore(5).label).toBe("Avoidable");
+    expect(getReportScore(6).label).toBe("Alarming");
+    expect(getReportScore(10).label).toBe("Alarming");
+    expect(getReportScore(11).label).toBe("Detestable");
+    expect(getReportScore(20).label).toBe("Detestable");
+    expect(getReportScore(21).label).toBe("Despicable");
+    expect(getReportScore(40).label).toBe("Despicable");
+    expect(getReportScore(41).label).toBe("Deplorable");
+    expect(getReportScore(75).label).toBe("Deplorable");
+    expect(getReportScore(76).label).toBe("Irredeemable");
+    expect(getReportScore(99999).label).toBe("Irredeemable");
   });
 
   it("uses unique reporters, so heavy single reporters cannot inflate it", () => {

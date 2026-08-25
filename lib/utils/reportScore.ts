@@ -8,7 +8,27 @@
 export interface ReportScoreLevel {
   emoji: string;
   label: string;
+  /** Display-only range of unique reporters, e.g. "1-2" or "76+". */
+  range: string;
+  /** Inclusive upper bound of unique reporters for this level. */
+  max: number;
 }
+
+/**
+ * The full ladder, low to high. Deadpan at the bottom — a couple of reports
+ * is a weak signal, so the low tiers stay clinical — then the language
+ * escalates with the count, Mute-o-Scope style.
+ */
+export const REPORT_SCORE_LEVELS: ReportScoreLevel[] = [
+  { emoji: "⬜", label: "Clean", range: "0", max: 0 },
+  { emoji: "🟦", label: "Flagged", range: "1-2", max: 2 },
+  { emoji: "🟩", label: "Avoidable", range: "3-5", max: 5 },
+  { emoji: "🟨", label: "Alarming", range: "6-10", max: 10 },
+  { emoji: "🟧", label: "Detestable", range: "11-20", max: 20 },
+  { emoji: "🟥", label: "Despicable", range: "21-40", max: 40 },
+  { emoji: "🟪", label: "Deplorable", range: "41-75", max: 75 },
+  { emoji: "⬛", label: "Irredeemable", range: "76+", max: Infinity },
+];
 
 /**
  * Report Score from the number of unique reporters. Scored on unique
@@ -16,14 +36,10 @@ export interface ReportScoreLevel {
  * can't inflate a target past what independent accounts are saying.
  */
 export function getReportScore(uniqueReporters: number): ReportScoreLevel {
-  if (uniqueReporters === 0) return { emoji: "⬜", label: "Clean" };
-  if (uniqueReporters <= 2) return { emoji: "🟦", label: "Flagged" };
-  if (uniqueReporters <= 5) return { emoji: "🟩", label: "Noted" };
-  if (uniqueReporters <= 10) return { emoji: "🟨", label: "Concerning" };
-  if (uniqueReporters <= 20) return { emoji: "🟧", label: "Risky" };
-  if (uniqueReporters <= 40) return { emoji: "🟥", label: "Dangerous" };
-  if (uniqueReporters <= 75) return { emoji: "🟪", label: "Severe" };
-  return { emoji: "⬛", label: "Critical" };
+  for (const level of REPORT_SCORE_LEVELS) {
+    if (uniqueReporters <= level.max) return level;
+  }
+  return REPORT_SCORE_LEVELS[REPORT_SCORE_LEVELS.length - 1];
 }
 
 /**
