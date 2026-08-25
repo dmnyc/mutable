@@ -1465,7 +1465,7 @@ export default function Reportable() {
                           </div>
 
                           {report.content && (
-                            <p className="mt-2 pl-[52px] text-sm text-gray-600 dark:text-gray-400 italic">
+                            <p className="mt-2 pl-[52px] text-sm text-gray-600 dark:text-gray-400 italic break-words">
                               &ldquo;{report.content}&rdquo;
                             </p>
                           )}
@@ -1664,7 +1664,7 @@ export default function Reportable() {
                           </div>
 
                           {entry.content && (
-                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
+                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic break-words">
                               &ldquo;{entry.content}&rdquo;
                             </p>
                           )}
@@ -1915,7 +1915,7 @@ export default function Reportable() {
                         </div>
                       </div>
                       {entry.content && (
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic break-words">
                           &ldquo;{entry.content}&rdquo;
                         </p>
                       )}
