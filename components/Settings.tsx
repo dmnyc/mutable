@@ -22,8 +22,6 @@ import {
   Trash2,
   AlertTriangle,
   Info,
-  Moon,
-  Sun,
   Bell,
   Shield,
   Eye,
@@ -69,22 +67,6 @@ export default function Settings() {
     timestamp?: number;
   } | null>(null);
   const [loadingRelays, setLoadingRelays] = useState(false);
-
-  // Theme preference (could be expanded with actual theme switching)
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return document.documentElement.classList.contains("dark");
-    }
-    return false;
-  });
-
-  const handleToggleDarkMode = () => {
-    if (typeof window !== "undefined") {
-      document.documentElement.classList.toggle("dark");
-      setDarkMode(!darkMode);
-      localStorage.setItem("theme", !darkMode ? "dark" : "light");
-    }
-  };
 
   // Use cached relay list metadata from session (fetched at login)
   useEffect(() => {
@@ -543,39 +525,6 @@ export default function Settings() {
           <span className="text-red-800 dark:text-red-200">{errorMessage}</span>
         </div>
       )}
-
-      {/* Appearance Section */}
-      {/* Commented out - may add back later
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          {darkMode ? <Moon size={24} className="text-gray-900 dark:text-white" /> : <Sun size={24} className="text-gray-900 dark:text-white" />}
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Appearance</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-white">Dark Mode</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Toggle between light and dark theme
-              </p>
-            </div>
-            <button
-              onClick={handleToggleDarkMode}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                darkMode ? 'bg-red-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  darkMode ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </div>
-      */}
 
       {/* Nostr Network Section */}
       {session && (

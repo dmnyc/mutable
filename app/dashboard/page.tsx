@@ -15,6 +15,10 @@ import {
   Settings as SettingsIcon,
   ChevronDown,
   Pencil,
+  Sun,
+  Moon,
+  Monitor,
+  Check,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +36,8 @@ import NoteNuke from "@/components/NoteNuke";
 import Snoopable from "@/components/Snoopable";
 import Clonable from "@/components/Clonable";
 import GlobalUserSearch from "@/components/GlobalUserSearch";
+import { useTheme } from "@/hooks/useTheme";
+import type { Theme } from "@/lib/theme";
 import UserProfileModal from "@/components/UserProfileModal";
 import OnboardingModal from "@/components/OnboardingModal";
 import UnsavedChangesBanner from "@/components/UnsavedChangesBanner";
@@ -69,6 +75,7 @@ function DashboardContent() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [theme, setTheme] = useTheme();
   const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   // Tools that go in the "Other Stuff" dropdown
@@ -348,11 +355,18 @@ function DashboardContent() {
                 height={40}
               />
               <Image
+                src="/mutable_text_dark.svg"
+                alt="Mutable"
+                width={120}
+                height={24}
+                className="hidden sm:block dark:hidden"
+              />
+              <Image
                 src="/mutable_text.svg"
                 alt="Mutable"
                 width={120}
                 height={24}
-                className="hidden sm:block"
+                className="hidden sm:dark:block"
               />
             </button>
 
@@ -461,6 +475,38 @@ function DashboardContent() {
                     <SettingsIcon size={16} />
                     Settings
                   </button>
+
+                  {/* Theme selector — same light/dark/system trio as Ghostr */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                    <div className="px-4 py-1.5 text-[11px] uppercase tracking-wide font-semibold text-gray-400 dark:text-gray-500">
+                      Theme
+                    </div>
+                    {(
+                      [
+                        { value: "dark", label: "Dark", Icon: Moon },
+                        { value: "light", label: "Light", Icon: Sun },
+                        { value: "system", label: "System", Icon: Monitor },
+                      ] as { value: Theme; label: string; Icon: typeof Sun }[]
+                    ).map(({ value, label, Icon }) => (
+                      <button
+                        key={value}
+                        tabIndex={0}
+                        onClick={() => setTheme(value)}
+                        className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                          theme === value
+                            ? "text-red-600 dark:text-red-400 font-medium"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        <Icon size={16} />
+                        {label}
+                        {theme === value && (
+                          <Check size={14} className="ml-auto" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="flex items-center gap-3 px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
                     <span className="w-4 text-center text-[10px]">🟢</span>
                     <span>
