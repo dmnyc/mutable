@@ -703,6 +703,35 @@ export default function Reportable() {
     ? displayedResults.filter((r) => !automatedReceivedIds.has(r.eventId))
     : displayedResults;
 
+  // Received-view headline. Automated reports never lead: the human count is
+  // the story, and the raw total only appears explicitly split into automated
+  // and human. A target with zero human reports says so — "Found 0 Public
+  // Reports" next to a Clean score reads as exoneration of a bot swarm.
+  const receivedHeadline = (
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+      {humanResults.length === 0 && hiddenReceivedCount > 0 ? (
+        <>
+          No human reports — {hiddenReceivedCount} automated report
+          {hiddenReceivedCount === 1 ? "" : "s"}{" "}
+          {hideAutomatedReceived ? "hidden" : "shown below"}
+        </>
+      ) : !hideAutomatedReceived && hiddenReceivedCount > 0 ? (
+        <>
+          Found {allResults.length} Public Report
+          {allResults.length === 1 ? "" : "s"} from {uniqueReporters} Reporter
+          {uniqueReporters === 1 ? "" : "s"} — {hiddenReceivedCount} automated,{" "}
+          {humanResults.length} human
+        </>
+      ) : (
+        <>
+          Found {visibleReceivedTotal} Public Report
+          {visibleReceivedTotal === 1 ? "" : "s"} from {visibleUniqueReporters}{" "}
+          Unique Reporter{visibleUniqueReporters === 1 ? "" : "s"}
+        </>
+      )}
+    </h3>
+  );
+
   // Report score breakdown by type for the active lookup view
   const activeForCounts =
     resultView === "received"
@@ -768,7 +797,7 @@ export default function Reportable() {
   // screenshot of the header alone tells the whole story of who was
   // searched and with what tool.
   const targetIdentityHeader = targetPubkey ? (
-    <div className="flex items-start justify-between gap-3 sm:gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-4 min-w-0 flex-1">
         {targetProfile?.picture ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -819,7 +848,7 @@ export default function Reportable() {
 
       {/* Brand lockup — plain wordmark styling (no chip container, so it
           doesn't read as a button), wordmark swaps for light/dark cards. */}
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap leading-none">
             Reportable
@@ -838,14 +867,14 @@ export default function Reportable() {
             alt=""
             width={74}
             height={14}
-            className="hidden sm:block dark:hidden"
+            className="dark:hidden"
           />
           <Image
             src="/mutable_text.svg"
             alt=""
             width={74}
             height={14}
-            className="hidden sm:dark:block"
+            className="dark:block"
           />
         </div>
       </div>
@@ -1256,24 +1285,24 @@ export default function Reportable() {
                 )}
 
               {(displayedResults.length > 0 || filedDisplayed.length > 0) && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                   {targetIdentityHeader}
 
                   {/* Received vs Filed — primary tabs, full width, each
                       view directly linkable via ?view= */}
-                  <div className="grid grid-cols-2 gap-2 p-2 bg-gray-100 dark:bg-gray-700/50 rounded-xl mb-5">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 p-1.5 sm:p-2 bg-gray-100 dark:bg-gray-700/50 rounded-xl mb-5">
                     <button
                       onClick={() => handleViewChange("received")}
-                      className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg text-base font-bold transition-colors ${
+                      className={`flex items-center justify-center gap-1 sm:gap-2.5 px-2 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold transition-colors ${
                         resultView === "received"
                           ? "bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm"
                           : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
                       }`}
                     >
-                      <Flag size={18} />
+                      <Flag size={16} />
                       Received
                       <span
-                        className={`min-w-[1.75rem] text-center px-2 py-0.5 rounded-full text-sm font-bold ${
+                        className={`min-w-[1.5rem] sm:min-w-[1.75rem] text-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs sm:text-sm font-bold ${
                           resultView === "received"
                             ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
                             : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
@@ -1284,16 +1313,16 @@ export default function Reportable() {
                     </button>
                     <button
                       onClick={() => handleViewChange("filed")}
-                      className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg text-base font-bold transition-colors ${
+                      className={`flex items-center justify-center gap-1 sm:gap-2.5 px-2 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold transition-colors ${
                         resultView === "filed"
                           ? "bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 shadow-sm"
                           : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
                       }`}
                     >
-                      <Send size={18} />
+                      <Send size={16} />
                       Filed
                       <span
-                        className={`min-w-[1.75rem] text-center px-2 py-0.5 rounded-full text-sm font-bold ${
+                        className={`min-w-[1.5rem] sm:min-w-[1.75rem] text-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs sm:text-sm font-bold ${
                           resultView === "filed"
                             ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
                             : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
@@ -1309,16 +1338,12 @@ export default function Reportable() {
                   {resultView === "received" && (
                   <>
                   <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                      Found {visibleReceivedTotal} Public Report
-                      {visibleReceivedTotal === 1 ? "" : "s"} from {visibleUniqueReporters} Unique
-                      Reporter{visibleUniqueReporters === 1 ? "" : "s"}
-                    </h3>
+                    {receivedHeadline}
 
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                       <button
                         onClick={() => setShowReportScoreModal(true)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer text-left"
                         title="Click to view all Report Score levels"
                       >
                         <span className="text-2xl">
@@ -1344,7 +1369,7 @@ export default function Reportable() {
                       {targetProfile && (
                         <button
                           onClick={() => setShowShareModal(true)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                          className="inline-flex items-center justify-center gap-2 px-3 py-1.5 w-full sm:w-auto bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                           title="Share these results on Nostr"
                         >
                           <Share2 size={16} />
@@ -1473,16 +1498,16 @@ export default function Reportable() {
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-end gap-3">
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
                               <button
                                 onClick={() => setDetailReport(report)}
-                                className="inline-flex items-center gap-1.5 h-10 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                                 title="View the full report"
                               >
                                 <FileText size={16} />
                                 Full report
                               </button>
-                              <div className="flex items-center gap-1 h-10 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                              <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
                                 <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                   Evidence
                                 </span>
@@ -1689,16 +1714,16 @@ export default function Reportable() {
                               )}
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-end gap-3">
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
                               <button
                                 onClick={() => setDetailReport(entry)}
-                                className="inline-flex items-center gap-1.5 h-10 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                                 title="View the full report"
                               >
                                 <FileText size={16} />
                                 Full report
                               </button>
-                              <div className="flex items-center gap-1 h-10 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                              <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
                                 <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                   Evidence
                                 </span>
@@ -1958,19 +1983,19 @@ export default function Reportable() {
                           <ReportTypeBadge type={entry.reportType} />
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-end gap-3">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
                           <button
                             onClick={() => setDetailReport(entry)}
-                            className="inline-flex items-center gap-1.5 h-10 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                             title="View the full report"
                           >
                             <FileText size={16} />
                             Full report
                           </button>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="self-end sm:self-auto text-xs text-gray-500 dark:text-gray-400">
                             {formatRelativeDate(entry.reportedAt)}
                           </span>
-                          <div className="flex items-center gap-1 h-10 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                          <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
                             <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                               Evidence
                             </span>
