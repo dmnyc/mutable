@@ -3170,6 +3170,7 @@ export async function searchReportsFiledBy(
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (count: number) => void,
   abortSignal?: AbortSignal,
+  onResultFound?: (result: ReportFiledResult) => void,
 ): Promise<ReportFiledResult[]> {
   const pool = getPool();
   const expandedRelays = getExpandedRelayList(relays);
@@ -3178,31 +3179,11 @@ export async function searchReportsFiledBy(
     `🔍 Searching ${expandedRelays.length} relays for reports filed by ${reporterPubkey.substring(0, 8)}...`,
   );
 
-  let events: Event[] = [];
-  try {
-    // maxWait bounds the query even if auth-gated relays never send EOSE;
-    // whatever arrived by then is returned.
-    events = await pool.querySync(
-      expandedRelays,
-      {
-        kinds: [REPORT_KIND],
-        authors: [reporterPubkey],
-        limit: 2000,
-      } as any,
-      { maxWait: 12000 },
-    );
-  } catch (error) {
-    console.error("⚠️ Filed-reports query failed:", error);
-    return [];
-  }
-
-  if (abortSignal?.aborted) return [];
-
   const seenEventIds = new Set<string>();
   const results: ReportFiledResult[] = [];
 
-  for (const event of events) {
-    if (seenEventIds.has(event.id)) continue;
+  const parseEvent = (event: Event) => {
+    if (seenEventIds.has(event.id)) return;
     seenEventIds.add(event.id);
 
     const reportedPubkeys = event.tags
@@ -3211,11 +3192,11 @@ export async function searchReportsFiledBy(
 
     // Self-reports (reporting yourself) don't count as filed-by activity.
     const targets = reportedPubkeys.filter((pk) => pk !== reporterPubkey);
-    if (targets.length === 0) continue;
+    if (targets.length === 0) return;
 
     const eTag = event.tags.find((t) => t[0] === "e");
 
-    results.push({
+    const result: ReportFiledResult = {
       reportedPubkeys: targets,
       reportType: extractReportType(event, targets[0]),
       reportedEventId: eTag?.[1],
@@ -3223,10 +3204,74 @@ export async function searchReportsFiledBy(
       reportedAt: event.created_at,
       eventId: event.id,
       rawEvent: event,
-    });
-
+    };
+    results.push(result);
+    onResultFound?.(result);
     if (onProgress && results.length % 10 === 0) onProgress(results.length);
+  };
+
+  // Same subscribe-and-collect pattern as the received scan: results stream
+  // out as they arrive, and the query closes on relay quorum or idle —
+  // querySync here would hide everything until the slowest relay's EOSE.
+  try {
+    await new Promise<void>((resolve) => {
+      let timeout: NodeJS.Timeout;
+      let checkInterval: NodeJS.Timeout;
+      let eoseCount = 0;
+      let lastEventTime = Date.now();
+      let resolved = false;
+
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+        sub.close();
+        resolve();
+      };
+
+      const sub = pool.subscribeMany(
+        expandedRelays,
+        {
+          kinds: [REPORT_KIND],
+          authors: [reporterPubkey],
+          limit: 2000,
+        } as any,
+        {
+          onevent(event) {
+            lastEventTime = Date.now();
+            parseEvent(event);
+          },
+          oneose() {
+            eoseCount++;
+            // Auth-gated and paid relays never send EOSE, so close on a
+            // quorum rather than waiting for every relay.
+            const targetEoseCount = Math.min(
+              4,
+              Math.max(1, Math.ceil(expandedRelays.length * 0.5)),
+            );
+            if (eoseCount >= targetEoseCount) {
+              const receivedFromAll = eoseCount >= expandedRelays.length;
+              setTimeout(finish, receivedFromAll ? 5000 : 3000);
+            }
+          },
+        },
+      );
+
+      // Hard cap for silent-relay stalls; the stream usually settles sooner.
+      timeout = setTimeout(finish, 15000);
+
+      checkInterval = setInterval(() => {
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+        const heardSomething = eoseCount > 0 || results.length > 0;
+        if (heardSomething && timeSinceLastEvent > 6000) finish();
+      }, 1000);
+    });
+  } catch (error) {
+    console.error("⚠️ Filed-reports query failed:", error);
   }
+
+  if (abortSignal?.aborted) return [];
 
   // Most recent first
   results.sort((a, b) => b.reportedAt - a.reportedAt);

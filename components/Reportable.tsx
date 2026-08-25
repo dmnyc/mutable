@@ -292,14 +292,31 @@ export default function Reportable() {
   ]);
 
   // Reports the target has filed against others — runs in parallel with the
-  // received-reports scan so neither view waits on the other.
+  // received-reports scan so neither view waits on the other. Results stream
+  // in as relays respond, so the tab count and rows climb live.
   const loadFiledReports = async (pubkey: string) => {
     setFiledLoading(true);
     setFiledSearchDone(false);
     setFiledResults([]);
     setFiledDisplayed([]);
     try {
-      const raw = await searchReportsFiledBy(pubkey, relays);
+      const raw = await searchReportsFiledBy(
+        pubkey,
+        relays,
+        undefined,
+        undefined,
+        (result) => {
+          setFiledResults((prev) =>
+            [...prev, result].sort((a, b) => b.reportedAt - a.reportedAt),
+          );
+          setFiledDisplayed((prev) => {
+            if (prev.length >= INITIAL_LOAD_COUNT) return prev;
+            return [...prev, result].sort(
+              (a, b) => b.reportedAt - a.reportedAt,
+            );
+          });
+        },
+      );
       setFiledResults(raw);
       setFiledDisplayed(raw.slice(0, INITIAL_LOAD_COUNT));
       setFiledSearchDone(true);
@@ -1282,7 +1299,9 @@ export default function Reportable() {
                             : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
                         }`}
                       >
-                        {filedLoading ? "…" : filedResults.length}
+                        {filedLoading && filedResults.length === 0
+                          ? "…"
+                          : filedResults.length}
                       </span>
                     </button>
                   </div>
