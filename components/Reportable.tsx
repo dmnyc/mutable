@@ -19,7 +19,6 @@ import {
   Share2,
   Bot,
   Send,
-  Hash,
   FileJson,
 } from "lucide-react";
 import { Profile, ReportResult, ReportFiledResult, ReportFeedEntry } from "@/types";
@@ -1423,7 +1422,7 @@ export default function Reportable() {
                                 {copiedValue === `id:${report.eventId}` ? (
                                   <Check size={16} />
                                 ) : (
-                                  <Hash size={16} />
+                                  <Copy size={16} />
                                 )}
                               </button>
                               {report.rawEvent && (
@@ -1615,7 +1614,7 @@ export default function Reportable() {
                                 {copiedValue === `id:${entry.eventId}` ? (
                                   <Check size={16} />
                                 ) : (
-                                  <Hash size={16} />
+                                  <Copy size={16} />
                                 )}
                               </button>
                               {entry.rawEvent && (
@@ -1874,7 +1873,7 @@ export default function Reportable() {
                             {copiedValue === `id:${entry.eventId}` ? (
                               <Check size={16} />
                             ) : (
-                              <Hash size={16} />
+                              <Copy size={16} />
                             )}
                           </button>
                           {entry.rawEvent && (
