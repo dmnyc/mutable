@@ -47,11 +47,18 @@ export default function ClonableWrapper() {
                     height={40}
                   />
                   <Image
+                    src="/mutable_text_dark.svg"
+                    alt="Mutable"
+                    width={120}
+                    height={24}
+                    className="hidden sm:block dark:hidden"
+                  />
+                  <Image
                     src="/mutable_text.svg"
                     alt="Mutable"
                     width={120}
                     height={24}
-                    className="hidden sm:block"
+                    className="hidden sm:dark:block"
                   />
                 </Link>
 
@@ -157,11 +164,18 @@ export default function ClonableWrapper() {
                     height={40}
                   />
                   <Image
+                    src="/mutable_text_dark.svg"
+                    alt="Mutable"
+                    width={120}
+                    height={24}
+                    className="hidden sm:block dark:hidden"
+                  />
+                  <Image
                     src="/mutable_text.svg"
                     alt="Mutable"
                     width={120}
                     height={24}
-                    className="hidden sm:block"
+                    className="hidden sm:dark:block"
                   />
                 </Link>
 
