@@ -323,7 +323,7 @@ export default function Reportable() {
     }
   };
 
-  // overridePubkey lets callers (e.g. "Report Myself") search a known pubkey
+  // overridePubkey lets callers (e.g. "Check my Reports") search a known pubkey
   // immediately, without waiting for the searchQuery state to flush.
   const handleSearch = async (overridePubkey?: string) => {
     if (!overridePubkey && !searchQuery.trim()) return;
@@ -1153,7 +1153,7 @@ export default function Reportable() {
                         title="Check your own public report history"
                       >
                         <User size={20} />
-                        <span className="hidden sm:inline">Report Myself</span>
+                        <span className="hidden sm:inline">Check my Reports</span>
                       </button>
                     )}
                     {(searchQuery || allResults.length > 0) && !searching && (

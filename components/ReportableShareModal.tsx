@@ -30,7 +30,7 @@ export default function ReportableShareModal({
 }: ReportableShareModalProps) {
   const { session } = useAuth();
   // Pre-check "This is me!" whenever the results being shared are the signed-in
-  // user's own — covers Report Myself, a self npub paste, and ?npub= links.
+  // user's own — covers Check my Reports, a self npub paste, and ?npub= links.
   const isSelf = session?.pubkey === targetProfile.pubkey;
   const [isMe, setIsMe] = useState(isSelf);
   const [copied, setCopied] = useState(false);
