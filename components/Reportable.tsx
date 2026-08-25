@@ -703,6 +703,35 @@ export default function Reportable() {
     ? displayedResults.filter((r) => !automatedReceivedIds.has(r.eventId))
     : displayedResults;
 
+  // Received-view headline. Automated reports never lead: the human count is
+  // the story, and the raw total only appears explicitly split into automated
+  // and human. A target with zero human reports says so — "Found 0 Public
+  // Reports" next to a Clean score reads as exoneration of a bot swarm.
+  const receivedHeadline = (
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+      {humanResults.length === 0 && hiddenReceivedCount > 0 ? (
+        <>
+          No human reports — {hiddenReceivedCount} automated report
+          {hiddenReceivedCount === 1 ? "" : "s"}{" "}
+          {hideAutomatedReceived ? "hidden" : "shown below"}
+        </>
+      ) : !hideAutomatedReceived && hiddenReceivedCount > 0 ? (
+        <>
+          Found {allResults.length} Public Report
+          {allResults.length === 1 ? "" : "s"} from {uniqueReporters} Reporter
+          {uniqueReporters === 1 ? "" : "s"} — {hiddenReceivedCount} automated,{" "}
+          {humanResults.length} human
+        </>
+      ) : (
+        <>
+          Found {visibleReceivedTotal} Public Report
+          {visibleReceivedTotal === 1 ? "" : "s"} from {visibleUniqueReporters}{" "}
+          Unique Reporter{visibleUniqueReporters === 1 ? "" : "s"}
+        </>
+      )}
+    </h3>
+  );
+
   // Report score breakdown by type for the active lookup view
   const activeForCounts =
     resultView === "received"
@@ -1309,11 +1338,7 @@ export default function Reportable() {
                   {resultView === "received" && (
                   <>
                   <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                      Found {visibleReceivedTotal} Public Report
-                      {visibleReceivedTotal === 1 ? "" : "s"} from {visibleUniqueReporters} Unique
-                      Reporter{visibleUniqueReporters === 1 ? "" : "s"}
-                    </h3>
+                    {receivedHeadline}
 
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                       <button
