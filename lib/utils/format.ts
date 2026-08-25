@@ -5,7 +5,13 @@ export function getDisplayName(
   profile: { display_name?: string; name?: string } | null | undefined,
   fallback: string = "Anonymous",
 ): string {
-  return profile?.display_name || profile?.name || fallback;
+  for (const name of [profile?.display_name, profile?.name, fallback]) {
+    // Metadata names can embed line breaks — collapse to one line so
+    // pre-wrap surfaces (share previews, copied text) don't break mid-name.
+    const cleaned = name?.replace(/\s+/g, " ").trim();
+    if (cleaned) return cleaned;
+  }
+  return fallback;
 }
 
 /** Truncate an npub for display. Converts hex pubkey to npub first. */
