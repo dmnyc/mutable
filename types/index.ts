@@ -95,6 +95,17 @@ export const EMOJI_LISTS_KIND = 10030; // Emoji Lists (NIP-51)
 export const DM_RELAYS_KIND = 10050; // DM Relays (NIP-51)
 export const PUBLIC_LIST_KIND = 30001; // Generic public lists (deprecated for mutes)
 export const FOLLOW_LIST_KIND = 3;
+export const REPORT_KIND = 1984; // Reporting (NIP-56)
+
+// NIP-56 report types
+export type ReportType =
+  | "nudity"
+  | "malware"
+  | "profanity"
+  | "illegal"
+  | "spam"
+  | "impersonation"
+  | "other";
 
 // Type guards
 export function isMutedPubkey(item: MuteItem): item is MutedPubkey {
@@ -146,6 +157,47 @@ export interface MutealResult {
   mutedAt?: number; // timestamp
   isFollowing: boolean;
   eventId: string; // the mute list event id
+}
+
+// Report result (a NIP-56 report filed against a pubkey)
+export interface ReportResult {
+  reportedBy: string; // pubkey who filed the report
+  reportType?: ReportType | string;
+  reportedEventId?: string; // if the report also targets a specific note
+  content?: string; // free-text context the reporter added
+  reportedAt: number; // timestamp (created_at)
+  eventId: string; // the report event id
+  profile?: Profile;
+  rawEvent?: Event; // full kind:1984 event, for copy-as-JSON
+}
+
+// Global report feed entry (network-wide, not scoped to a single target)
+export interface ReportFeedEntry {
+  reportedBy: string;
+  reportedPubkeys: string[]; // one report event can name multiple targets
+  reportType?: ReportType | string;
+  content?: string;
+  reportedAt: number;
+  eventId: string;
+  reporterProfile?: Profile;
+  // Aligned by index with reportedPubkeys — undefined where lookup failed,
+  // so a missing profile can never be attached to the wrong target.
+  targetProfiles?: (Profile | undefined)[];
+  rawEvent?: Event; // full kind:1984 event, for copy-as-JSON
+}
+
+// Report filed BY a user (their outgoing NIP-56 reports, lookup view)
+export interface ReportFiledResult {
+  reportedPubkeys: string[]; // targets named in this report event
+  reportType?: ReportType | string;
+  reportedEventId?: string; // if the report targets a specific note
+  content?: string; // free-text context the reporter added
+  reportedAt: number; // timestamp (created_at)
+  eventId: string; // the report event id
+  // Aligned by index with reportedPubkeys — undefined where lookup failed,
+  // so a missing profile can never be attached to the wrong target.
+  targetProfiles?: (Profile | undefined)[];
+  rawEvent?: Event; // full kind:1984 event, for copy-as-JSON
 }
 
 // Account activity status (for cleanup/inactive detection)

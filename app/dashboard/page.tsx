@@ -85,6 +85,7 @@ function DashboardContent() {
     "purgatory",
     "decimator",
     "muggable",
+    "reportable",
     "listCleaner",
     "snoopable",
     "clonable",
@@ -682,6 +683,17 @@ function DashboardContent() {
                     Decimator
                   </Link>
                   <Link
+                    href="/reportable"
+                    onClick={() => setToolsDropdownOpen(false)}
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
+                      activeTab === "reportable"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Reportable
+                  </Link>
+                  <Link
                     href="/muggable"
                     onClick={() => setToolsDropdownOpen(false)}
                     className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
@@ -927,6 +939,17 @@ function DashboardContent() {
                           }`}
                         >
                           Decimator
+                        </Link>
+                        <Link
+                          href="/reportable"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            activeTab === "reportable"
+                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          Reportable
                         </Link>
                         <Link
                           href="/muggable"

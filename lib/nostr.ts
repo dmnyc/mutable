@@ -21,11 +21,15 @@ import {
   PublicMuteList,
   DomainPurgeResult,
   ReciprocalResult,
+  REPORT_KIND,
+  ReportResult,
+  ReportFiledResult,
+  ReportFeedEntry,
 } from "@/types";
 import { useStore } from "./store";
 import { Signer } from "./signers";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
-import { naSuggest, naCountEvents } from "./nostrArchives";
+import { naSuggest, naCountEvents, naMetadata } from "./nostrArchives";
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients in 2025
@@ -2812,6 +2816,532 @@ export async function enrichMutealsWithProfiles(
   }
 
   return enriched;
+}
+
+// ============================================================================
+// REPORTABLE - NIP-56 REPORT FUNCTIONS
+// ============================================================================
+
+// Extract the report type for a target pubkey from a kind:1984 event's tags.
+// Per NIP-56 the reason lives as the 3rd element of the matching
+// ["p", <pubkey>, <type>] tag.
+function extractReportType(
+  event: Event,
+  targetPubkey?: string,
+): string | undefined {
+  const pTags = event.tags.filter((t) => t[0] === "p");
+  const matching = targetPubkey
+    ? pTags.find((t) => t[1] === targetPubkey)
+    : pTags[0];
+  if (matching?.[2]) return matching[2];
+
+  // Fall back to an e-tag reason (note reports carry the type on the e tag)
+  const eTag = event.tags.find((t) => t[0] === "e" && t[2]);
+  if (eTag?.[2]) return eTag[2];
+
+  return undefined;
+}
+
+// Search the network for all public reports (kind 1984) filed against a
+// pubkey. Mirrors searchMutealsNetworkWide's scan mechanics — capped EOSE
+// quorum, 6s settle, 60s ceiling, live diagnostics — so wide relay lists
+// with auth-gated members can't stall the scan.
+export async function searchReportsNetworkWide(
+  targetPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (count: number) => void,
+  abortSignal?: AbortSignal,
+  onResultFound?: (result: ReportResult) => void,
+  onDiagnostic?: (entry: ScanDiagnostic) => void,
+  onSummary?: (summary: ScanSummary) => void,
+): Promise<ReportResult[]> {
+  const diag = (label: string, detail: string) =>
+    onDiagnostic?.({ label, detail });
+  const pool = getPool();
+  pool.trackRelays = true;
+
+  console.log(
+    `🔍 Searching ${relays.length} relays for reports against ${targetPubkey.substring(0, 8)}...`,
+  );
+  diag("Scanning for", `${targetPubkey} (${hexToNpub(targetPubkey)})`);
+  diag("Relays queried", `${relays.length}: ${relays.join(", ")}`);
+
+  const scanStartedAt = Date.now();
+  let eoseReported = 0;
+  let resolveReason = "unknown";
+  let lastSummaryAt = 0;
+
+  const buildSummary = (
+    collected: Event[],
+    counts: {
+      uniqueReporters: number;
+      confirmedMatches: number;
+      warning?: string;
+      inProgress?: boolean;
+    },
+  ): ScanSummary => {
+    const eventsPerRelay = new Map<string, number>();
+    for (const event of collected) {
+      const servedBy = pool.seenOn.get(event.id);
+      if (!servedBy) continue;
+      for (const relay of servedBy) {
+        const url = normalizeRelayUrl(relay.url) || relay.url;
+        eventsPerRelay.set(url, (eventsPerRelay.get(url) ?? 0) + 1);
+      }
+    }
+
+    const connected = new Set<string>();
+    try {
+      for (const [url, isOpen] of pool.listConnectionStatus()) {
+        if (isOpen) connected.add(normalizeRelayUrl(url) || url);
+      }
+    } catch {
+      // Best-effort; absence just means we can't mark relays down.
+    }
+
+    return {
+      targetPubkey,
+      targetNpub: hexToNpub(targetPubkey),
+      relayStats: relays.map((relay) => {
+        const url = normalizeRelayUrl(relay) || relay;
+        return {
+          url,
+          events: eventsPerRelay.get(url) ?? 0,
+          connected: connected.has(url),
+        };
+      }),
+      rawEvents: collected.length,
+      uniqueAuthors: counts.uniqueReporters,
+      confirmedMatches: counts.confirmedMatches,
+      eoseCount: eoseReported,
+      durationMs: Date.now() - scanStartedAt,
+      resolveReason: counts.inProgress ? "scanning…" : resolveReason,
+      warning: counts.warning,
+      inProgress: counts.inProgress,
+    };
+  };
+
+  let events: Event[] = [];
+  try {
+    events = await new Promise<Event[]>((resolve) => {
+      const collectedEvents: Event[] = [];
+      const seenEventIds = new Set<string>();
+      let timeout: NodeJS.Timeout;
+      let checkInterval: NodeJS.Timeout;
+      let eoseCount = 0;
+      let lastEventTime = Date.now();
+      let resolved = false;
+
+      const sub = pool.subscribeMany(
+        relays,
+        {
+          kinds: [REPORT_KIND],
+          "#p": [targetPubkey],
+          limit: 5000,
+        } as any,
+        {
+          onevent(event) {
+            if (!seenEventIds.has(event.id)) {
+              seenEventIds.add(event.id);
+              collectedEvents.push(event);
+              lastEventTime = Date.now();
+
+              if (onProgress && collectedEvents.length % 10 === 0) {
+                onProgress(collectedEvents.length);
+              }
+
+              if (onSummary && Date.now() - lastSummaryAt > 400) {
+                lastSummaryAt = Date.now();
+                onSummary(
+                  buildSummary(collectedEvents, {
+                    uniqueReporters: new Set(
+                      collectedEvents.map((e) => e.pubkey),
+                    ).size,
+                    confirmedMatches: 0,
+                    inProgress: true,
+                  }),
+                );
+              }
+            }
+          },
+          oneose() {
+            eoseCount++;
+            eoseReported = eoseCount;
+
+            if (onSummary) {
+              lastSummaryAt = Date.now();
+              onSummary(
+                buildSummary(collectedEvents, {
+                  uniqueReporters: new Set(
+                    collectedEvents.map((e) => e.pubkey),
+                  ).size,
+                  confirmedMatches: 0,
+                  inProgress: true,
+                }),
+              );
+            }
+
+            // Same capped quorum as the mute scan: auth-gated and paid
+            // relays never send EOSE, so an uncapped target would stall.
+            const targetEoseCount = Math.min(
+              4,
+              Math.max(1, Math.ceil(relays.length * 0.5)),
+            );
+
+            if (eoseCount >= targetEoseCount) {
+              const receivedFromAll = eoseCount >= relays.length;
+              const waitTime = receivedFromAll ? 5000 : 3000;
+              setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                resolveReason = "relay responses";
+                clearInterval(checkInterval);
+                clearTimeout(timeout);
+                sub.close();
+                resolve(collectedEvents);
+              }, waitTime);
+            }
+          },
+        },
+      );
+
+      timeout = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
+        resolveReason = "60s timeout";
+        sub.close();
+        resolve(collectedEvents);
+      }, 60000);
+
+      checkInterval = setInterval(() => {
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+        const heardSomething = eoseCount > 0 || collectedEvents.length > 0;
+        if (heardSomething && timeSinceLastEvent > 6000) {
+          if (resolved) return;
+          resolved = true;
+          resolveReason = "stream settled";
+          clearInterval(checkInterval);
+          clearTimeout(timeout);
+          sub.close();
+          resolve(collectedEvents);
+        }
+      }, 1000);
+    });
+
+    diag("Events received", `${events.length} raw kind:1984 events`);
+    diag(
+      "Relay responses",
+      `${eoseReported}/${relays.length} relays sent EOSE · finished in ${
+        Math.round((Date.now() - scanStartedAt) / 100) / 10
+      }s via ${resolveReason}`,
+    );
+  } catch (error) {
+    console.error("⚠️ Report query failed:", error);
+    diag(
+      "Query FAILED",
+      error instanceof Error ? error.message : String(error),
+    );
+    return [];
+  }
+
+  const reports: ReportResult[] = [];
+
+  for (const event of events) {
+    if (abortSignal?.aborted) break;
+
+    const hasReported = event.tags.some(
+      (tag) => tag[0] === "p" && tag[1] === targetPubkey,
+    );
+    if (!hasReported) continue;
+
+    const eTag = event.tags.find((t) => t[0] === "e");
+
+    const result: ReportResult = {
+      reportedBy: event.pubkey,
+      reportType: extractReportType(event, targetPubkey),
+      reportedEventId: eTag?.[1],
+      content: event.content || undefined,
+      reportedAt: event.created_at,
+      eventId: event.id,
+      rawEvent: event,
+    };
+
+    reports.push(result);
+
+    if (onResultFound) onResultFound(result);
+  }
+
+  // Most recent first
+  reports.sort((a, b) => b.reportedAt - a.reportedAt);
+
+  const uniqueReporters = new Set(reports.map((r) => r.reportedBy)).size;
+  onSummary?.(
+    buildSummary(events, {
+      uniqueReporters,
+      confirmedMatches: reports.length,
+      warning:
+        events.length > 0 && reports.length === 0
+          ? "Relays returned report events, but none named this pubkey — possibly stale indexes."
+          : undefined,
+    }),
+  );
+
+  if (onProgress) onProgress(reports.length);
+
+  return reports;
+}
+
+// Bulk profile lookup: nostrarchives metadata first (500 pubkeys per POST),
+// then relay fetchProfile for whoever the archive missed. Used by Reportable
+// so enrichment doesn't crawl one profile per batch.
+export async function fetchProfilesBulk(
+  pubkeys: string[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+): Promise<Map<string, Profile>> {
+  const map = new Map<string, Profile>();
+  const wanted = [...new Set(pubkeys.filter((p) => p.match(/^[0-9a-f]{64}$/i)))];
+  if (wanted.length === 0) return map;
+
+  // Stage 1: archive bulk lookup
+  const archived = await naMetadata(wanted);
+  for (const p of archived) {
+    map.set(p.pubkey, {
+      pubkey: p.pubkey,
+      name: p.preferred_name || p.name,
+      display_name: p.display_name,
+      picture: p.picture,
+      nip05: p.nip05,
+      about: p.about,
+    });
+  }
+  onProgress?.(map.size, wanted.length);
+
+  // Stage 2: relays for the rest, in small parallel batches
+  const missing = wanted.filter((p) => !map.has(p));
+  const BATCH = 5;
+  let done = map.size;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map((pk) => fetchProfile(pk, relays)),
+    );
+    results.forEach((result, idx) => {
+      if (result.status === "fulfilled" && result.value) {
+        map.set(batch[idx], result.value);
+      }
+    });
+    done += batch.length;
+    onProgress?.(done, wanted.length);
+    if (i + BATCH < missing.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  return map;
+}
+
+// Fetch profiles for report results (mirrors enrichMutealsWithProfiles)
+export async function enrichReportsWithProfiles(
+  reports: ReportResult[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal,
+): Promise<ReportResult[]> {
+  const profiles = await fetchProfilesBulk(
+    reports.map((r) => r.reportedBy),
+    relays,
+    onProgress,
+  );
+  if (abortSignal?.aborted) return reports;
+
+  return reports.map((report) => ({
+    ...report,
+    profile: profiles.get(report.reportedBy),
+  }));
+}
+
+// Search for reports a pubkey has FILED against others (kind 1984 with the
+// user as author). The inverse of searchReportsNetworkWide: one author's
+// volume is bounded, so a maxWait-capped querySync is enough — no
+// quorum/settle machinery needed.
+export async function searchReportsFiledBy(
+  reporterPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (count: number) => void,
+  abortSignal?: AbortSignal,
+): Promise<ReportFiledResult[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  console.log(
+    `🔍 Searching ${expandedRelays.length} relays for reports filed by ${reporterPubkey.substring(0, 8)}...`,
+  );
+
+  let events: Event[] = [];
+  try {
+    // maxWait bounds the query even if auth-gated relays never send EOSE;
+    // whatever arrived by then is returned.
+    events = await pool.querySync(
+      expandedRelays,
+      {
+        kinds: [REPORT_KIND],
+        authors: [reporterPubkey],
+        limit: 2000,
+      } as any,
+      { maxWait: 12000 },
+    );
+  } catch (error) {
+    console.error("⚠️ Filed-reports query failed:", error);
+    return [];
+  }
+
+  if (abortSignal?.aborted) return [];
+
+  const seenEventIds = new Set<string>();
+  const results: ReportFiledResult[] = [];
+
+  for (const event of events) {
+    if (seenEventIds.has(event.id)) continue;
+    seenEventIds.add(event.id);
+
+    const reportedPubkeys = event.tags
+      .filter((t) => t[0] === "p" && t[1])
+      .map((t) => t[1]);
+
+    // Self-reports (reporting yourself) don't count as filed-by activity.
+    const targets = reportedPubkeys.filter((pk) => pk !== reporterPubkey);
+    if (targets.length === 0) continue;
+
+    const eTag = event.tags.find((t) => t[0] === "e");
+
+    results.push({
+      reportedPubkeys: targets,
+      reportType: extractReportType(event, targets[0]),
+      reportedEventId: eTag?.[1],
+      content: event.content || undefined,
+      reportedAt: event.created_at,
+      eventId: event.id,
+      rawEvent: event,
+    });
+
+    if (onProgress && results.length % 10 === 0) onProgress(results.length);
+  }
+
+  // Most recent first
+  results.sort((a, b) => b.reportedAt - a.reportedAt);
+  onProgress?.(results.length);
+
+  return results;
+}
+
+// Fetch target profiles for filed reports (mirrors enrichReportsWithProfiles)
+export async function enrichReportsFiledWithProfiles(
+  results: ReportFiledResult[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal,
+): Promise<ReportFiledResult[]> {
+  const pubkeys = new Set<string>();
+  for (const result of results) {
+    for (const reported of result.reportedPubkeys) pubkeys.add(reported);
+  }
+
+  const profiles = await fetchProfilesBulk(
+    Array.from(pubkeys),
+    relays,
+    onProgress,
+  );
+  if (abortSignal?.aborted) return results;
+
+  return results.map((result) => ({
+    ...result,
+    // Index-aligned with reportedPubkeys (see ReportFiledResult).
+    targetProfiles: result.reportedPubkeys.map((pk) => profiles.get(pk)),
+  }));
+}
+
+// Fetch a network-wide feed of recent public reports (not scoped to one
+// target). The component renders these immediately and patches profiles in
+// afterwards — see fetchProfilesBulk.
+export async function fetchRecentReportsFeed(
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 100,
+  sinceDays: number = 30,
+): Promise<ReportFeedEntry[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+  const since = Math.floor(Date.now() / 1000) - sinceDays * 86400;
+
+  let events: Event[] = [];
+  try {
+    events = await pool.querySync(expandedRelays, {
+      kinds: [REPORT_KIND],
+      since,
+      limit,
+    });
+  } catch (error) {
+    console.error("Failed to fetch reports feed:", error);
+    return [];
+  }
+
+  const seenEventIds = new Set<string>();
+  const entries: ReportFeedEntry[] = [];
+
+  for (const event of events) {
+    if (seenEventIds.has(event.id)) continue;
+    seenEventIds.add(event.id);
+
+    const reportedPubkeys = event.tags
+      .filter((t) => t[0] === "p" && t[1])
+      .map((t) => t[1]);
+
+    if (reportedPubkeys.length === 0) continue;
+
+    entries.push({
+      reportedBy: event.pubkey,
+      reportedPubkeys,
+      reportType: extractReportType(event),
+      content: event.content || undefined,
+      reportedAt: event.created_at,
+      eventId: event.id,
+      rawEvent: event,
+    });
+  }
+
+  entries.sort((a, b) => b.reportedAt - a.reportedAt);
+
+  return entries.slice(0, limit);
+}
+
+// Attach reporter and target profiles to feed entries. Non-blocking by
+// design: callers should render entries immediately and enrich in a second
+// pass so a slow archive lookup can't blank the whole feed.
+export async function enrichReportsFeedWithProfiles(
+  entries: ReportFeedEntry[],
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (current: number, total: number) => void,
+  abortSignal?: AbortSignal,
+): Promise<ReportFeedEntry[]> {
+  const pubkeys = new Set<string>();
+  for (const entry of entries) {
+    pubkeys.add(entry.reportedBy);
+    for (const reported of entry.reportedPubkeys) pubkeys.add(reported);
+  }
+
+  const profiles = await fetchProfilesBulk(
+    Array.from(pubkeys),
+    relays,
+    onProgress,
+  );
+  if (abortSignal?.aborted) return entries;
+
+  return entries.map((entry) => ({
+    ...entry,
+    reporterProfile: profiles.get(entry.reportedBy),
+    // Index-aligned with reportedPubkeys (see ReportFeedEntry).
+    targetProfiles: entry.reportedPubkeys.map((pk) => profiles.get(pk)),
+  }));
 }
 
 // Get follow list as array of pubkeys

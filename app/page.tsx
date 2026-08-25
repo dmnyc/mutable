@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
-import { Lock, Unlock, User, Loader2 } from "lucide-react";
+import { Lock, Unlock, User, Loader2, Flag } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -24,8 +24,15 @@ export default function Home() {
   const [isSearchingSnoopProfiles, setIsSearchingSnoopProfiles] =
     useState(false);
   const [showSnoopProfileResults, setShowSnoopProfileResults] = useState(false);
+  const [reportQuery, setReportQuery] = useState("");
+  const [reportSearchResults, setReportSearchResults] = useState<Profile[]>([]);
+  const [isSearchingReportProfiles, setIsSearchingReportProfiles] =
+    useState(false);
+  const [showReportProfileResults, setShowReportProfileResults] =
+    useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
   const snoopSearchDropdownRef = useRef<HTMLDivElement>(null);
+  const reportSearchDropdownRef = useRef<HTMLDivElement>(null);
   const { isConnected } = useAuth();
 
   useEffect(() => {
@@ -108,6 +115,42 @@ export default function Home() {
     return () => clearTimeout(timeoutId);
   }, [snoopQuery]);
 
+  // Real-time profile search for Reportable
+  useEffect(() => {
+    const searchReportProfiles = async () => {
+      if (!reportQuery.trim()) {
+        setReportSearchResults([]);
+        setShowReportProfileResults(false);
+        return;
+      }
+
+      if (
+        reportQuery.startsWith("npub") ||
+        reportQuery.startsWith("nprofile") ||
+        reportQuery.match(/^[0-9a-f]{64}$/i)
+      ) {
+        setReportSearchResults([]);
+        setShowReportProfileResults(false);
+        return;
+      }
+
+      setIsSearchingReportProfiles(true);
+      setShowReportProfileResults(true);
+      try {
+        const results = await searchProfiles(reportQuery, DEFAULT_RELAYS, 10);
+        setReportSearchResults(results);
+      } catch (error) {
+        console.error("Reportable profile search failed:", error);
+        setReportSearchResults([]);
+      } finally {
+        setIsSearchingReportProfiles(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchReportProfiles, 300);
+    return () => clearTimeout(timeoutId);
+  }, [reportQuery]);
+
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -143,6 +186,24 @@ export default function Home() {
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showSnoopProfileResults]);
+
+  // Handle click outside to close report dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        reportSearchDropdownRef.current &&
+        !reportSearchDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowReportProfileResults(false);
+      }
+    };
+
+    if (showReportProfileResults) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showReportProfileResults]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -182,6 +243,21 @@ export default function Home() {
     setShowSnoopProfileResults(false);
     const npub = hexToNpub(profile.pubkey);
     router.push(`/snoopable?npub=${encodeURIComponent(npub)}`);
+  };
+
+  const handleReportSearch = () => {
+    if (reportQuery.trim()) {
+      router.push(`/reportable?npub=${encodeURIComponent(reportQuery.trim())}`);
+    }
+  };
+
+  const handleSelectReportProfile = (profile: Profile) => {
+    const displayName =
+      profile.display_name || profile.name || profile.nip05 || "";
+    setReportQuery(displayName);
+    setShowReportProfileResults(false);
+    const npub = hexToNpub(profile.pubkey);
+    router.push(`/reportable?npub=${encodeURIComponent(npub)}`);
   };
 
   if (isConnected) {
@@ -266,7 +342,14 @@ export default function Home() {
                   />
                 </svg>
                 Snoopable
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-gray-700 rounded">
+              </Link>
+              <Link
+                href="/reportable"
+                className="w-full px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                <Flag size={20} />
+                Reportable
+                <span className="text-xs font-bold px-1.5 py-0.5 bg-blue-800 rounded">
                   NEW
                 </span>
               </Link>
@@ -398,10 +481,7 @@ export default function Home() {
               </svg>
               <div className="text-left">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Try Snoopable - No Login Required{" "}
-                  <span className="inline-flex items-center text-xs font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200 rounded">
-                    NEW
-                  </span>
+                  Try Snoopable - No Login Required
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   See how public your DM metadata really is. Analyze any npub to
@@ -483,6 +563,107 @@ export default function Home() {
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                          <User className="text-white" size={16} />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 dark:text-white truncate">
+                          {profile.display_name || profile.name || "Anonymous"}
+                        </div>
+                        {profile.nip05 && (
+                          <div className="text-xs text-green-600 dark:text-green-400 truncate">
+                            ✓ {profile.nip05}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Reportable Info Card */}
+          <div className="max-w-md mx-auto w-full mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-3 mb-4">
+              <Flag
+                size={24}
+                className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1"
+              />
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  Try Reportable - No Login Required{" "}
+                  <span className="inline-flex items-center text-xs font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 rounded">
+                    NEW
+                  </span>
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Search any npub to see the public NIP-56 reports filed
+                  against them — and the reports they have filed on others.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative" ref={reportSearchDropdownRef}>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={reportQuery}
+                    onChange={(e) => setReportQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleReportSearch();
+                        setShowReportProfileResults(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (reportSearchResults.length > 0) {
+                        setShowReportProfileResults(true);
+                      }
+                    }}
+                    placeholder="Enter npub or username..."
+                    className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+                  />
+                  {isSearchingReportProfiles && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleReportSearch}
+                  disabled={!reportQuery.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Flag size={16} />
+                </button>
+              </div>
+
+              {showReportProfileResults && reportSearchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                  {reportSearchResults.map((profile) => (
+                    <button
+                      key={profile.pubkey}
+                      onClick={() => handleSelectReportProfile(profile)}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                    >
+                      {profile.picture ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profile.picture}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.pubkey}`;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-red-500 flex items-center justify-center flex-shrink-0">
                           <User className="text-white" size={16} />
                         </div>
                       )}
