@@ -1454,7 +1454,7 @@ export default function Reportable() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                            <div className="flex items-center gap-3 flex-wrap justify-end flex-shrink-0">
                               <button
                                 onClick={() => setDetailReport(report)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -1463,8 +1463,8 @@ export default function Reportable() {
                                 <FileText size={16} />
                                 Full report
                               </button>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                              <div className="flex items-center gap-1 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                                <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                   Evidence
                                 </span>
                                 <button
@@ -1670,7 +1670,7 @@ export default function Reportable() {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                            <div className="flex items-center gap-3 flex-wrap justify-end flex-shrink-0">
                               <button
                                 onClick={() => setDetailReport(entry)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -1679,8 +1679,8 @@ export default function Reportable() {
                                 <FileText size={16} />
                                 Full report
                               </button>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                              <div className="flex items-center gap-1 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                                <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                   Evidence
                                 </span>
                                 <button
@@ -1939,7 +1939,7 @@ export default function Reportable() {
                           <ReportTypeBadge type={entry.reportType} />
                         </div>
 
-                        <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                        <div className="flex items-center gap-3 flex-wrap justify-end flex-shrink-0">
                           <button
                             onClick={() => setDetailReport(entry)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -1951,8 +1951,8 @@ export default function Reportable() {
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatRelativeDate(entry.reportedAt)}
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          <div className="flex items-center gap-1 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                            <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                               Evidence
                             </span>
                             <button
