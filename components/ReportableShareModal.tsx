@@ -67,12 +67,12 @@ export default function ReportableShareModal({
         : "";
 
     if (isMeValue) {
-      return `I just checked my public report history with Reportable by #Mutable. I have ${resultCount} public report${
+      return `I just checked my report history with Reportable by #Mutable. I have ${resultCount} public report${
         resultCount === 1 ? "" : "s"
       } on my permanent record.\n\n${scoreBlock}${filedBlock}\n\nCheck your reports here: 🚩\n${baseUrl}`;
     } else {
       // Include nostr: mention so clients will parse it and create a clickable link
-      return `Hey nostr:${npub}, I just looked up your public report history with Reportable by #Mutable. You have ${resultCount} public report${
+      return `Hey nostr:${npub}, I just looked up your report history with Reportable by #Mutable. You have ${resultCount} public report${
         resultCount === 1 ? "" : "s"
       } on your permanent record.\n\n${scoreBlock}${filedBlock}\n\nCheck your reports here: 🚩\n${baseUrl}`;
     }
@@ -247,7 +247,7 @@ export default function ReportableShareModal({
                   <span className="text-blue-600 dark:text-blue-400 font-medium">
                     {getDisplayName()}
                   </span>
-                  , I just looked up your public report history with Reportable
+                  , I just looked up your report history with Reportable
                   by #Mutable. You have {resultCount} public report
                   {resultCount === 1 ? "" : "s"} on your permanent record.
                 </div>
@@ -272,7 +272,7 @@ export default function ReportableShareModal({
             ) : (
               <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                 <div>
-                  I just checked my public report history with Reportable by
+                  I just checked my report history with Reportable by
                   #Mutable. I have {resultCount} public report
                   {resultCount === 1 ? "" : "s"} on my permanent record.
                 </div>
