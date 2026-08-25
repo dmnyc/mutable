@@ -21,11 +21,14 @@ import {
   Send,
   Fingerprint,
   FileJson,
+  FileText,
 } from "lucide-react";
 import { Profile, ReportResult, ReportFiledResult, ReportFeedEntry } from "@/types";
 import UserProfileModal from "./UserProfileModal";
 import ReportScoreModal from "./ReportScoreModal";
 import ReportableShareModal from "./ReportableShareModal";
+import ReportDetailModal from "./ReportDetailModal";
+import ReportTypeBadge from "./ReportTypeBadge";
 import GlobalUserSearch from "./GlobalUserSearch";
 import Footer from "./Footer";
 import DashboardNav from "./DashboardNav";
@@ -47,9 +50,14 @@ import {
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
-import { getProfileLink, getReportEventLink } from "@/lib/utils/links";
+import { getReportEventLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
-import { getReportScore, isAutomatedReporter } from "@/lib/utils/reportScore";
+import {
+  getReportScore,
+  isAutomatedContent,
+  isAutomatedReporter,
+  findAutomatedReportIds,
+} from "@/lib/utils/reportScore";
 
 const INITIAL_LOAD_COUNT = 20;
 const LOAD_MORE_COUNT = 20;
@@ -57,40 +65,6 @@ const LOAD_MORE_COUNT = 20;
 type Tab = "lookup" | "feed";
 type ResultView = "received" | "filed";
 
-const REPORT_TYPE_LABELS: Record<string, string> = {
-  nudity: "Nudity",
-  malware: "Malware",
-  profanity: "Profanity",
-  illegal: "Illegal",
-  spam: "Spam",
-  impersonation: "Impersonation",
-  other: "Other",
-};
-
-const REPORT_TYPE_COLORS: Record<string, string> = {
-  nudity: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
-  malware: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  profanity:
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  illegal: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  spam: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
-  impersonation:
-    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  other: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-};
-
-function ReportTypeBadge({ type }: { type?: string }) {
-  const key = type?.toLowerCase() || "other";
-  const label = REPORT_TYPE_LABELS[key] || type || "Other";
-  const colors = REPORT_TYPE_COLORS[key] || REPORT_TYPE_COLORS.other;
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}
-    >
-      {label}
-    </span>
-  );
-}
 
 function formatRelativeDate(timestamp?: number): string {
   if (!timestamp) return "";
@@ -121,6 +95,10 @@ export default function Reportable() {
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showReportScoreModal, setShowReportScoreModal] = useState(false);
+  const [
+    detailReport,
+    setDetailReport,
+  ] = useState<ReportResult | ReportFiledResult | ReportFeedEntry | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
   // Lookup tab state
@@ -162,6 +140,7 @@ export default function Reportable() {
   const [feedEnriching, setFeedEnriching] = useState(false);
   // Bulk reporters (anti-spam bots) bury human reports — hide by default.
   const [hideAutomatedReporters, setHideAutomatedReporters] = useState(true);
+  const [hideAutomatedReceived, setHideAutomatedReceived] = useState(true);
 
   const relays = session?.relays || DEFAULT_RELAYS;
 
@@ -680,8 +659,40 @@ export default function Reportable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  const uniqueReporters = new Set(allResults.map((r) => r.reportedBy)).size;
+
+  // Received reports judged automated: self-declared bots and coordinated
+  // same-type empty-content swarms. They collapse behind a toggle and never
+  // count toward the Report Score — automation is not independent judgment.
+  const automatedReceivedIds = useMemo(
+    () => findAutomatedReportIds(allResults),
+    [allResults],
+  );
+  const humanResults = useMemo(
+    () => allResults.filter((r) => !automatedReceivedIds.has(r.eventId)),
+    [allResults, automatedReceivedIds],
+  );
+  const uniqueHumanReporters = new Set(
+    humanResults.map((r) => r.reportedBy),
+  ).size;
+  const hiddenReceivedCount = allResults.length - humanResults.length;
+  const visibleReceivedTotal = hideAutomatedReceived
+    ? humanResults.length
+    : allResults.length;
+  const visibleUniqueReporters = hideAutomatedReceived
+    ? uniqueHumanReporters
+    : uniqueReporters;
+  const visibleReceivedResults = hideAutomatedReceived
+    ? displayedResults.filter((r) => !automatedReceivedIds.has(r.eventId))
+    : displayedResults;
+
   // Report score breakdown by type for the active lookup view
-  const activeForCounts = resultView === "received" ? allResults : filedResults;
+  const activeForCounts =
+    resultView === "received"
+      ? hideAutomatedReceived
+        ? humanResults
+        : allResults
+      : filedResults;
   const reportTypeCounts = activeForCounts.reduce<Record<string, number>>(
     (acc, r) => {
       const key = (r.reportType || "other").toLowerCase();
@@ -690,7 +701,6 @@ export default function Reportable() {
     },
     {},
   );
-  const uniqueReporters = new Set(allResults.map((r) => r.reportedBy)).size;
   const filedUniqueTargets = new Set(
     filedResults.flatMap((r) => r.reportedPubkeys),
   ).size;
@@ -715,8 +725,23 @@ export default function Reportable() {
     return automated;
   }, [feedEntries]);
 
+  // Feed entries whose content self-identifies as bot-generated collapse
+  // behind the same toggle, even when the bot's in-feed volume is low —
+  // its bulk is spread across targets and invisible to per-feed counting.
+  const automatedFeedEventIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of feedEntries) {
+      if (isAutomatedContent(entry.content)) ids.add(entry.eventId);
+    }
+    return ids;
+  }, [feedEntries]);
+
   const visibleFeedEntries = hideAutomatedReporters
-    ? feedEntries.filter((e) => !automatedReporterSet.has(e.reportedBy))
+    ? feedEntries.filter(
+        (e) =>
+          !automatedReporterSet.has(e.reportedBy) &&
+          !automatedFeedEventIds.has(e.eventId),
+      )
     : feedEntries;
   const hiddenFeedCount = feedEntries.length - visibleFeedEntries.length;
 
@@ -1266,9 +1291,9 @@ export default function Reportable() {
                   <>
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                      Found {allResults.length} Public Report
-                      {allResults.length === 1 ? "" : "s"} from {uniqueReporters} Unique
-                      Reporter{uniqueReporters === 1 ? "" : "s"}
+                      Found {visibleReceivedTotal} Public Report
+                      {visibleReceivedTotal === 1 ? "" : "s"} from {visibleUniqueReporters} Unique
+                      Reporter{visibleUniqueReporters === 1 ? "" : "s"}
                     </h3>
 
                     <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1278,17 +1303,23 @@ export default function Reportable() {
                         title="Click to view all Report Score levels"
                       >
                         <span className="text-2xl">
-                          {getReportScore(uniqueReporters).emoji}
+                          {getReportScore(uniqueHumanReporters).emoji}
                         </span>
                         <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          Report Score: {getReportScore(uniqueReporters).label}
+                          Report Score: {getReportScore(uniqueHumanReporters).label}
+                          {hiddenReceivedCount > 0 && (
+                            <span className="font-normal text-gray-500 dark:text-gray-400">
+                              {" "}
+                              ({hiddenReceivedCount} automated hidden)
+                            </span>
+                          )}
                         </span>
                         <Info size={16} className="text-gray-500 dark:text-gray-400" />
                       </button>
 
-                      {allResults.length > displayedResults.length && (
+                      {visibleReceivedResults.length < visibleReceivedTotal && (
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Showing {displayedResults.length} of {allResults.length}
+                          Showing {visibleReceivedResults.length} of {visibleReceivedTotal}
                         </p>
                       )}
                       {targetProfile && (
@@ -1302,6 +1333,36 @@ export default function Reportable() {
                         </button>
                       )}
                     </div>
+
+                    {/* Automated-report filter — bots and coordinated swarms
+                        never count toward the score; collapse behind this. */}
+                    {hiddenReceivedCount > 0 && (
+                      <button
+                        onClick={() =>
+                          setHideAutomatedReceived((prev) => !prev)
+                        }
+                        className={`w-full mt-3 p-3 rounded-lg border text-sm font-medium transition-colors text-left flex items-center gap-2 ${
+                          hideAutomatedReceived
+                            ? "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                        }`}
+                      >
+                        <Bot size={16} className="flex-shrink-0" />
+                        {hideAutomatedReceived ? (
+                          <span>
+                            {hiddenReceivedCount} automated report
+                            {hiddenReceivedCount === 1 ? "" : "s"} (bots and
+                            swarms) hidden — excluded from score — click to
+                            show
+                          </span>
+                        ) : (
+                          <span>
+                            Showing automated reports — they do not affect the
+                            score — click to hide
+                          </span>
+                        )}
+                      </button>
+                    )}
 
                     {/* Report type breakdown */}
                     <div className="flex flex-wrap gap-2 mt-3">
@@ -1331,7 +1392,7 @@ export default function Reportable() {
                         </p>
                       </div>
                     )}
-                    {displayedResults.map((report) => {
+                    {visibleReceivedResults.map((report) => {
                       const profile = report.profile;
                       const displayName = profile
                         ? getDisplayName(profile)
@@ -1453,14 +1514,21 @@ export default function Reportable() {
                                 </button>
                               )}
                               <a
-                                href={getProfileLink(report.reportedBy)}
+                                href={getReportEventLink(report.eventId)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                title="View on npub.world"
+                                title="View report on njump"
                               >
                                 <ExternalLink size={16} />
                               </a>
+                              <button
+                                onClick={() => setDetailReport(report)}
+                                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                title="View full report"
+                              >
+                                <FileText size={16} />
+                              </button>
                             </div>
                           </div>
 
@@ -1653,6 +1721,13 @@ export default function Reportable() {
                               >
                                 <ExternalLink size={16} />
                               </a>
+                              <button
+                                onClick={() => setDetailReport(entry)}
+                                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                title="View full report"
+                              >
+                                <FileText size={16} />
+                              </button>
                             </div>
                           </div>
 
@@ -1912,6 +1987,13 @@ export default function Reportable() {
                           >
                             <ExternalLink size={16} />
                           </a>
+                          <button
+                            onClick={() => setDetailReport(entry)}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="View full report"
+                          >
+                            <FileText size={16} />
+                          </button>
                         </div>
                       </div>
                       {entry.content && (
@@ -1937,11 +2019,18 @@ export default function Reportable() {
             <ReportScoreModal onClose={() => setShowReportScoreModal(false)} />
           )}
 
+          {detailReport && (
+            <ReportDetailModal
+              report={detailReport}
+              onClose={() => setDetailReport(null)}
+            />
+          )}
+
           {showShareModal && targetProfile && (
             <ReportableShareModal
               targetProfile={targetProfile}
-              resultCount={allResults.length}
-              uniqueReporterCount={uniqueReporters}
+              resultCount={humanResults.length}
+              uniqueReporterCount={uniqueHumanReporters}
               onClose={() => setShowShareModal(false)}
             />
           )}

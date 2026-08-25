@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   getReportScore,
   isAutomatedReporter,
+  isAutomatedContent,
+  findSwarmReportIds,
+  findAutomatedReportIds,
   AUTOMATED_REPORTER_ABSOLUTE,
+  AUTOMATED_BURST_MIN,
 } from "@/lib/utils/reportScore";
 
 describe("getReportScore", () => {
@@ -58,5 +62,102 @@ describe("isAutomatedReporter", () => {
     // share to mean anything.
     expect(isAutomatedReporter(3, 5)).toBe(false);
     expect(isAutomatedReporter(9, 19)).toBe(false);
+  });
+});
+
+describe("isAutomatedContent", () => {
+  it("matches self-declared bot reports", () => {
+    expect(
+      isAutomatedContent(
+        "Automated NSFW Detection Report\n\nScore: 7/10\nClassification: nudity",
+      ),
+    ).toBe(true);
+  });
+
+  it("leaves human-written reports alone", () => {
+    expect(isAutomatedContent("This account keeps spamming my replies")).toBe(
+      false,
+    );
+    expect(isAutomatedContent("")).toBe(false);
+    expect(isAutomatedContent(undefined)).toBe(false);
+  });
+});
+
+describe("findSwarmReportIds", () => {
+  const HOUR = 60 * 60;
+  const swarmReport = (n: number, at: number, type = "impersonation") => ({
+    eventId: `e${n}`,
+    reportedBy: `pk${n}`,
+    reportType: type,
+    content: "",
+    reportedAt: at,
+  });
+
+  it("flags a burst of same-type empty reports from distinct reporters", () => {
+    const reports = Array.from({ length: AUTOMATED_BURST_MIN }, (_, i) =>
+      swarmReport(i, 1_000_000 + i * HOUR),
+    );
+    expect(findSwarmReportIds(reports).size).toBe(AUTOMATED_BURST_MIN);
+  });
+
+  it("ignores a handful of empty reports", () => {
+    const reports = Array.from({ length: AUTOMATED_BURST_MIN - 1 }, (_, i) =>
+      swarmReport(i, 1_000_000 + i * HOUR),
+    );
+    expect(findSwarmReportIds(reports).size).toBe(0);
+  });
+
+  it("ignores one account filing many reports — unique scoring already handles that", () => {
+    const reports = Array.from({ length: 20 }, (_, i) => ({
+      ...swarmReport(i, 1_000_000 + i * HOUR),
+      reportedBy: "same-pk",
+    }));
+    expect(findSwarmReportIds(reports).size).toBe(0);
+  });
+
+  it("ignores bursts spread wider than the window", () => {
+    const reports = Array.from({ length: AUTOMATED_BURST_MIN }, (_, i) =>
+      swarmReport(i, 1_000_000 + i * 100 * HOUR),
+    );
+    expect(findSwarmReportIds(reports).size).toBe(0);
+  });
+
+  it("does not mix report types or written reports into a swarm", () => {
+    const reports = [
+      ...Array.from({ length: 3 }, (_, i) => swarmReport(i, 1_000_000)),
+      ...Array.from({ length: 3 }, (_, i) => swarmReport(100 + i, 1_000_000, "spam")),
+    ];
+    expect(findSwarmReportIds(reports).size).toBe(0);
+  });
+});
+
+describe("findAutomatedReportIds", () => {
+  it("unites bot-signed reports and swarm members", () => {
+    const HOUR = 60 * 60;
+    const bot = {
+      eventId: "bot-event",
+      reportedBy: "bot-pk",
+      reportType: "nudity",
+      content: "Automated NSFW Detection Report\nScore: 4/10",
+      reportedAt: 2_000_000,
+    };
+    const swarm = Array.from({ length: 6 }, (_, i) => ({
+      eventId: `swarm${i}`,
+      reportedBy: `pk${i}`,
+      reportType: "impersonation",
+      content: "",
+      reportedAt: 1_000_000 + i * HOUR,
+    }));
+    const human = {
+      eventId: "human-event",
+      reportedBy: "human-pk",
+      reportType: "spam",
+      content: "kept posting scam links",
+      reportedAt: 1_500_000,
+    };
+
+    const ids = findAutomatedReportIds([bot, human, ...swarm]);
+    expect(ids.size).toBe(7);
+    expect(ids.has("human-event")).toBe(false);
   });
 });
