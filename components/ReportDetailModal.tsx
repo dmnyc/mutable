@@ -11,6 +11,7 @@ import {
   ExternalLink,
   User,
   Loader2,
+  EyeOff,
 } from 'lucide-react';
 import { Event } from 'nostr-tools';
 import { Profile } from '@/types';
@@ -127,6 +128,106 @@ function OfficialSeal({ className = '' }: { className?: string }) {
 }
 
 /**
+ * Split text into plain-text and image-URL parts so statements and reported
+ * notes render embedded evidence as images instead of raw URLs. Trailing
+ * punctuation is sentence syntax, not part of the URL.
+ */
+function splitImageUrls(text: string): { type: 'text' | 'image'; value: string }[] {
+  const parts: { type: 'text' | 'image'; value: string }[] = [];
+  let last = 0;
+  for (const match of text.matchAll(/https?:\/\/[^\s<>"']+/gi)) {
+    const url = match[0].replace(/[.,;:!?)\]}'"]+$/, '');
+    const path = url.split(/[?#]/)[0];
+    if (!/\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(path)) continue;
+    const idx = match.index ?? 0;
+    if (idx > last) parts.push({ type: 'text', value: text.slice(last, idx) });
+    parts.push({ type: 'image', value: url });
+    last = idx + url.length;
+  }
+  if (last < text.length) parts.push({ type: 'text', value: text.slice(last) });
+  return parts;
+}
+
+/**
+ * Evidence images stay blurred until the reader explicitly opts in — the
+ * report is public record, but the material it describes may not be safe
+ * to display outright. Revealing is reversible: a corner Hide button
+ * restores the blur. Falls back to the raw URL when the host is gone.
+ */
+function SensitiveImage({ src, alt }: { src: string; alt: string }) {
+  const [revealed, setRevealed] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <a
+        href={src}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 block text-blue-600 dark:text-blue-400 hover:underline break-all"
+      >
+        {src}
+      </a>
+    );
+  }
+
+  return (
+    <div className="relative mt-2 max-w-sm rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        draggable={false}
+        onError={() => setFailed(true)}
+        className={`block max-w-full max-h-96 w-auto h-auto transition duration-300 ${
+          revealed ? '' : 'blur-xl scale-110 select-none'
+        }`}
+      />
+      {!revealed && (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          aria-label="Reveal sensitive image"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/40 text-white cursor-pointer"
+        >
+          <EyeOff size={20} />
+          <span className="text-sm font-medium">Click to reveal image</span>
+        </button>
+      )}
+      {revealed && (
+        <button
+          type="button"
+          onClick={() => setRevealed(false)}
+          aria-label="Hide sensitive image"
+          className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/50 text-white text-xs font-medium px-2.5 py-1.5 hover:bg-black/70 transition-colors cursor-pointer"
+        >
+          <EyeOff size={14} />
+          <span>Hide</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Render report or note text with any image URLs swapped for inline images. */
+function TextWithSensitiveImages({ text, imageAlt }: { text: string; imageAlt: string }) {
+  const parts = splitImageUrls(text);
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === 'image' ? (
+          <SensitiveImage key={`${i}-${part.value}`} src={part.value} alt={imageAlt} />
+        ) : (
+          <span key={i}>{part.value}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
  * Live preview of the note a report targets, fetched from the relays so
  * the reader can judge the report against the reported material without
  * leaving Mutable. Falls back to a Jumble link when no relay still has it.
@@ -223,9 +324,13 @@ function ReportedNoteEmbed({ eventId }: { eventId: string }) {
           </span>
         )}
       </div>
-      <p className="p-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
-        {note!.content || <span className="italic text-gray-400">(empty content)</span>}
-      </p>
+      <div className="p-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+        {note!.content ? (
+          <TextWithSensitiveImages text={note!.content} imageAlt="Image from the reported note" />
+        ) : (
+          <span className="italic text-gray-400">(empty content)</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -287,8 +392,8 @@ export default function ReportDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-4 flex-1 min-w-0 basis-full sm:basis-auto">
             <OfficialSeal className="-rotate-12 opacity-80 text-blue-900 dark:text-blue-200" />
             <div className="min-w-0">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
@@ -299,7 +404,7 @@ export default function ReportDetailModal({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-shrink-0 ml-auto self-end sm:self-auto">
             {/* Brand lockup — same wordmark pairing as the page header, so
                 screenshots of a report carry the source */}
             <div className="flex items-center gap-1.5">
@@ -318,14 +423,14 @@ export default function ReportDetailModal({
                 alt=""
                 width={74}
                 height={14}
-                className="hidden sm:block dark:hidden"
+                className="dark:hidden"
               />
               <Image
                 src="/mutable_text.svg"
                 alt=""
                 width={74}
                 height={14}
-                className="hidden sm:dark:block"
+                className="dark:block"
               />
             </div>
             <button
@@ -338,7 +443,7 @@ export default function ReportDetailModal({
         </div>
 
         {/* Body — the report as a document */}
-        <div className="p-6 overflow-y-auto space-y-5">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
           {report.reportedBy && (
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
@@ -452,7 +557,10 @@ export default function ReportDetailModal({
             </h3>
             {report.content?.trim() ? (
               <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-1 text-sm text-gray-700 dark:text-gray-300 italic whitespace-pre-wrap break-words">
-                {report.content}
+                <TextWithSensitiveImages
+                  text={report.content}
+                  imageAlt="Image evidence in the report statement"
+                />
               </blockquote>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 italic">
