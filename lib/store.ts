@@ -57,7 +57,8 @@ interface AppState {
     | "noteNuke"
     | "snoopable"
     | "clonable"
-    | "muggable";
+    | "muggable"
+    | "reportable";
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
@@ -96,7 +97,8 @@ interface AppState {
       | "noteNuke"
       | "snoopable"
       | "clonable"
-      | "muggable",
+      | "muggable"
+      | "reportable",
   ) => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;

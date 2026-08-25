@@ -32,8 +32,8 @@ const toolPages: ActivePage[] = [
   "domainPurge",
   "purgatory",
   "decimator",
-  "muggable",
   "reportable",
+  "muggable",
   "listCleaner",
   "clonable",
 ];
