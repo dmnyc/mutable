@@ -545,6 +545,111 @@ export default function MuteOScope() {
     setDiagnosticsCopied(false);
   };
 
+  // npub of the scan target, shown in the identity header and copyable there
+  const targetNpub = targetPubkey ? hexToNpub(targetPubkey) : null;
+
+  // Identity header for the results cards — avatar, full display name, and
+  // verified handle, so a screenshot of the header alone tells the whole
+  // story of who was scanned and by what tool.
+  const targetIdentityHeader = targetPubkey ? (
+    <div className="flex items-start justify-between gap-3 sm:gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-4 min-w-0 flex-1">
+        {targetProfile?.picture ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={targetProfile.picture}
+            alt={getDisplayName(targetProfile, "Unknown profile")}
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover flex-shrink-0 ring-2 ring-gray-100 dark:ring-gray-600 bg-gray-100 dark:bg-gray-600"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+            }}
+          />
+        ) : (
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+            <User size={32} className="text-gray-500 dark:text-gray-400" />
+          </div>
+        )}
+
+        <div className="min-w-0">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white break-words line-clamp-2 leading-tight">
+            {targetProfile
+              ? getDisplayName(targetProfile, "Unknown profile")
+              : "Unknown profile"}
+          </h3>
+          {targetProfile?.nip05 && (
+            <p className="text-sm text-green-600 dark:text-green-400 mt-0.5 truncate">
+              ✓ {targetProfile.nip05}
+            </p>
+          )}
+          {targetNpub && (
+            <button
+              onClick={() => handleCopyNpub(targetNpub)}
+              className="mt-1 inline-flex items-center gap-1.5 text-xs font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors min-w-0 max-w-full"
+              title={copiedNpub === targetNpub ? "Copied!" : "Copy npub"}
+            >
+              <span className="truncate">
+                {targetNpub.slice(0, 20)}…{targetNpub.slice(-8)}
+              </span>
+              {copiedNpub === targetNpub ? (
+                <Check size={12} className="text-green-500 flex-shrink-0" />
+              ) : (
+                <Copy size={12} className="flex-shrink-0" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Brand lockup — plain wordmark styling (no chip container, so it
+          doesn't read as a button), wordmark swaps for light/dark cards. */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <Image
+            src="/mute_o_scope_icon_dark.svg"
+            alt=""
+            width={18}
+            height={18}
+            className="dark:hidden"
+          />
+          <Image
+            src="/mute_o_scope_icon_white.svg"
+            alt=""
+            width={18}
+            height={18}
+            className="hidden dark:block"
+          />
+          <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap leading-none">
+            Mute-o-Scope
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400 dark:text-gray-500">by</span>
+          <Image
+            src="/mutable_logo.svg"
+            alt="Mutable"
+            width={18}
+            height={18}
+          />
+          <Image
+            src="/mutable_text_dark.svg"
+            alt=""
+            width={74}
+            height={14}
+            className="hidden sm:block dark:hidden"
+          />
+          <Image
+            src="/mutable_text.svg"
+            alt=""
+            width={74}
+            height={14}
+            className="hidden sm:dark:block"
+          />
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {session ? (
@@ -565,11 +670,18 @@ export default function MuteOScope() {
                     height={40}
                   />
                   <Image
+                    src="/mutable_text_dark.svg"
+                    alt="Mutable"
+                    width={120}
+                    height={24}
+                    className="hidden sm:block dark:hidden"
+                  />
+                  <Image
                     src="/mutable_text.svg"
                     alt="Mutable"
                     width={120}
                     height={24}
-                    className="hidden sm:block"
+                    className="hidden sm:dark:block"
                   />
                 </Link>
 
@@ -670,11 +782,18 @@ export default function MuteOScope() {
                     height={40}
                   />
                   <Image
+                    src="/mutable_text_dark.svg"
+                    alt="Mutable"
+                    width={120}
+                    height={24}
+                    className="hidden sm:block dark:hidden"
+                  />
+                  <Image
                     src="/mutable_text.svg"
                     alt="Mutable"
                     width={120}
                     height={24}
-                    className="hidden sm:block"
+                    className="hidden sm:dark:block"
                   />
                 </Link>
 
@@ -1130,9 +1249,10 @@ export default function MuteOScope() {
             targetPubkey &&
             !error && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                {targetIdentityHeader}
                 <div className="mb-4">
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                       Found on 0 Public Mute Lists
                     </h3>
                     {targetProfile && (
@@ -1188,9 +1308,10 @@ export default function MuteOScope() {
 
           {displayedResults.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              {targetIdentityHeader}
               <div className="mb-4">
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                     Found on {allResults.length} Public Mute List
                     {allResults.length === 1 ? "" : "s"}
                   </h3>
