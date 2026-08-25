@@ -1405,7 +1405,7 @@ export default function Reportable() {
                           key={report.eventId}
                           className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
-                          <div className="flex items-center justify-between gap-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div
                               className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
                               onClick={() =>
@@ -1454,22 +1454,22 @@ export default function Reportable() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3 flex-wrap justify-end flex-shrink-0">
+                            <div className="flex flex-wrap items-center justify-end gap-3">
                               <button
                                 onClick={() => setDetailReport(report)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center gap-1.5 h-10 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                                 title="View the full report"
                               >
                                 <FileText size={16} />
                                 Full report
                               </button>
-                              <div className="flex items-center gap-1 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                              <div className="flex items-center gap-1 h-10 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
                                 <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                   Evidence
                                 </span>
                                 <button
                                   onClick={() => handleCopyNpub(npub)}
-                                  className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                  className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                     copiedNpub === npub
                                       ? "text-green-600 dark:text-green-400"
                                       : "text-gray-600 dark:text-gray-400"
@@ -1482,7 +1482,7 @@ export default function Reportable() {
                                   onClick={() =>
                                     handleCopyValue(report.eventId, `id:${report.eventId}`)
                                   }
-                                  className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                  className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                     copiedValue === `id:${report.eventId}`
                                       ? "text-green-600 dark:text-green-400"
                                       : "text-gray-600 dark:text-gray-400"
@@ -1507,7 +1507,7 @@ export default function Reportable() {
                                         `json:${report.eventId}`,
                                       )
                                     }
-                                    className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                    className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                       copiedValue === `json:${report.eventId}`
                                         ? "text-green-600 dark:text-green-400"
                                         : "text-gray-600 dark:text-gray-400"
@@ -1529,7 +1529,7 @@ export default function Reportable() {
                                   href={getReportEventLink(report.eventId)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                                   title="View report on njump"
                                 >
                                   <ExternalLink size={16} />
@@ -1606,7 +1606,7 @@ export default function Reportable() {
                           key={entry.eventId}
                           className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
-                          <div className="flex items-center justify-between gap-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             {/* Target chips — one per reported pubkey.
                                 Bulk-report events can name dozens, so cap
                                 the row at five plus a "+N more" count. */}
@@ -1670,16 +1670,16 @@ export default function Reportable() {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-3 flex-wrap justify-end flex-shrink-0">
+                            <div className="flex flex-wrap items-center justify-end gap-3">
                               <button
                                 onClick={() => setDetailReport(entry)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center gap-1.5 h-10 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                                 title="View the full report"
                               >
                                 <FileText size={16} />
                                 Full report
                               </button>
-                              <div className="flex items-center gap-1 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                              <div className="flex items-center gap-1 h-10 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
                                 <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                   Evidence
                                 </span>
@@ -1687,7 +1687,7 @@ export default function Reportable() {
                                   onClick={() =>
                                     handleCopyValue(entry.eventId, `id:${entry.eventId}`)
                                   }
-                                  className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                  className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                     copiedValue === `id:${entry.eventId}`
                                       ? "text-green-600 dark:text-green-400"
                                       : "text-gray-600 dark:text-gray-400"
@@ -1712,7 +1712,7 @@ export default function Reportable() {
                                         `json:${entry.eventId}`,
                                       )
                                     }
-                                    className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                    className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                       copiedValue === `json:${entry.eventId}`
                                         ? "text-green-600 dark:text-green-400"
                                         : "text-gray-600 dark:text-gray-400"
@@ -1734,7 +1734,7 @@ export default function Reportable() {
                                   href={getReportEventLink(entry.eventId)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                                   title="View report event on njump"
                                 >
                                   <ExternalLink size={16} />
@@ -1879,7 +1879,7 @@ export default function Reportable() {
                       key={entry.eventId}
                       className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="flex items-center gap-2 flex-wrap text-sm min-w-0">
                           <button
                             className="font-medium text-gray-900 dark:text-white hover:underline"
@@ -1939,10 +1939,10 @@ export default function Reportable() {
                           <ReportTypeBadge type={entry.reportType} />
                         </div>
 
-                        <div className="flex items-center gap-3 flex-wrap justify-end flex-shrink-0">
+                        <div className="flex flex-wrap items-center justify-end gap-3">
                           <button
                             onClick={() => setDetailReport(entry)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            className="inline-flex items-center gap-1.5 h-10 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                             title="View the full report"
                           >
                             <FileText size={16} />
@@ -1951,7 +1951,7 @@ export default function Reportable() {
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatRelativeDate(entry.reportedAt)}
                           </span>
-                          <div className="flex items-center gap-1 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                          <div className="flex items-center gap-1 h-10 p-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
                             <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                               Evidence
                             </span>
@@ -1959,7 +1959,7 @@ export default function Reportable() {
                               onClick={() =>
                                 handleCopyValue(entry.eventId, `id:${entry.eventId}`)
                               }
-                              className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                              className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                 copiedValue === `id:${entry.eventId}`
                                   ? "text-green-600 dark:text-green-400"
                                   : "text-gray-600 dark:text-gray-400"
@@ -1984,7 +1984,7 @@ export default function Reportable() {
                                     `json:${entry.eventId}`,
                                   )
                                 }
-                                className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                   copiedValue === `json:${entry.eventId}`
                                     ? "text-green-600 dark:text-green-400"
                                     : "text-gray-600 dark:text-gray-400"
@@ -2006,7 +2006,7 @@ export default function Reportable() {
                               href={getReportEventLink(entry.eventId)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                               title="View report event on njump"
                             >
                               <ExternalLink size={16} />
@@ -2049,6 +2049,7 @@ export default function Reportable() {
               targetProfile={targetProfile}
               resultCount={humanResults.length}
               uniqueReporterCount={uniqueHumanReporters}
+              filedCount={filedResults.length}
               onClose={() => setShowShareModal(false)}
             />
           )}

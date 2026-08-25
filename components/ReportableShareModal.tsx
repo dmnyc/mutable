@@ -19,6 +19,8 @@ interface ReportableShareModalProps {
   resultCount: number;
   /** Distinct accounts that filed those reports — what the score is based on. */
   uniqueReporterCount: number;
+  /** Report events the target has filed against others. */
+  filedCount?: number;
   onClose: () => void;
 }
 
@@ -26,6 +28,7 @@ export default function ReportableShareModal({
   targetProfile,
   resultCount,
   uniqueReporterCount,
+  filedCount,
   onClose,
 }: ReportableShareModalProps) {
   const { session } = useAuth();
@@ -33,6 +36,7 @@ export default function ReportableShareModal({
   // user's own — covers Check my Reports, a self npub paste, and ?npub= links.
   const isSelf = session?.pubkey === targetProfile.pubkey;
   const [isMe, setIsMe] = useState(isSelf);
+  const [includeFiled, setIncludeFiled] = useState(false);
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
@@ -45,7 +49,10 @@ export default function ReportableShareModal({
   };
 
   // Generate the actual share message (with nostr:npub for posting)
-  const getActualShareMessage = (isMeValue: boolean = isMe) => {
+  const getActualShareMessage = (
+    isMeValue: boolean = isMe,
+    includeFiledValue: boolean = includeFiled,
+  ) => {
     const npub = hexToNpub(targetProfile.pubkey);
     const baseUrl = "https://mutable.top/reportable";
     const reportScore = getReportScore(uniqueReporterCount);
@@ -54,15 +61,20 @@ export default function ReportableShareModal({
       uniqueReporterCount === 1 ? "" : "s"
     })`;
 
+    const filedBlock =
+      includeFiledValue && filedCount !== undefined
+        ? `\n\n📄 Reports filed against others: ${filedCount}`
+        : "";
+
     if (isMeValue) {
       return `I just checked my public report history with Reportable by #Mutable — ${resultCount} report${
         resultCount === 1 ? "" : "s"
-      } on record.\n\n${scoreBlock}\n\nCheck yours here: 🚩\n${baseUrl}`;
+      } on record.\n\n${scoreBlock}${filedBlock}\n\nCheck your reports here: 🚩\n${baseUrl}`;
     } else {
       // Include nostr: mention so clients will parse it and create a clickable link
       return `Hey nostr:${npub}, I just looked up your public report history with Reportable by #Mutable — ${resultCount} report${
         resultCount === 1 ? "" : "s"
-      } on record.\n\n${scoreBlock}\n\nCheck yours here: 🚩\n${baseUrl}`;
+      } on record.\n\n${scoreBlock}${filedBlock}\n\nCheck your reports here: 🚩\n${baseUrl}`;
     }
   };
 
@@ -73,7 +85,7 @@ export default function ReportableShareModal({
 
   // Copy to clipboard
   const handleCopy = async () => {
-    const messageToShare = getActualShareMessage(isMe);
+    const messageToShare = getActualShareMessage(isMe, includeFiled);
     const success = await copyToClipboard(messageToShare);
     if (success) {
       setCopied(true);
@@ -116,7 +128,7 @@ export default function ReportableShareModal({
         ["client", "Mutable"], // Client tag to show "Posted from Mutable"
       ];
 
-      const messageToShare = getActualShareMessage(isMe);
+      const messageToShare = getActualShareMessage(isMe, includeFiled);
       const result = await publishTextNote(
         messageToShare,
         tags,
@@ -193,6 +205,36 @@ export default function ReportableShareModal({
             </div>
           </div>
 
+          {/* Include filed count checkbox */}
+          {filedCount !== undefined && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex items-center h-5">
+                  <input
+                    type="checkbox"
+                    id="reportable-includeFiled"
+                    checked={includeFiled}
+                    onChange={(e) => setIncludeFiled(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label
+                    htmlFor="reportable-includeFiled"
+                    className="text-sm font-bold text-blue-900 dark:text-blue-100 cursor-pointer block mb-1"
+                  >
+                    Include filed count
+                  </label>
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    Also share how many public reports{" "}
+                    {isMe ? "you have" : `${getDisplayName()} has`} filed
+                    against others ({filedCount} on record)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Message preview */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -216,7 +258,15 @@ export default function ReportableShareModal({
                   unique reporter{uniqueReporterCount === 1 ? "" : "s"})
                 </div>
                 <br />
-                <div>Check yours here: 🚩</div>
+                {includeFiled && filedCount !== undefined && (
+                  <>
+                    <div>
+                      📄 Reports filed against others: {filedCount}
+                    </div>
+                    <br />
+                  </>
+                )}
+                <div>Check your reports here: 🚩</div>
                 <div>https://mutable.top/reportable</div>
               </div>
             ) : (
@@ -233,7 +283,15 @@ export default function ReportableShareModal({
                   unique reporter{uniqueReporterCount === 1 ? "" : "s"})
                 </div>
                 <br />
-                <div>Check yours here: 🚩</div>
+                {includeFiled && filedCount !== undefined && (
+                  <>
+                    <div>
+                      📄 Reports filed against others: {filedCount}
+                    </div>
+                    <br />
+                  </>
+                )}
+                <div>Check your reports here: 🚩</div>
                 <div>https://mutable.top/reportable</div>
               </div>
             )}
