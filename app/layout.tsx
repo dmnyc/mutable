@@ -4,7 +4,7 @@ import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.mutable.top"),
+  metadataBase: new URL("https://mutable.top"),
   title: "Mutable - Your Nostr Mute List Manager",
   description: "Your Nostr Mute List Manager",
   icons: {
