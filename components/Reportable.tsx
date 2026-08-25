@@ -19,6 +19,7 @@ import {
   Share2,
   Bot,
   Send,
+  Fingerprint,
   FileJson,
 } from "lucide-react";
 import { Profile, ReportResult, ReportFiledResult, ReportFeedEntry } from "@/types";
@@ -1402,7 +1403,7 @@ export default function Reportable() {
                                 }`}
                                 title={copiedNpub === npub ? "Copied!" : "Copy npub"}
                               >
-                                <Copy size={16} />
+                                <Fingerprint size={16} />
                               </button>
                               <button
                                 onClick={() =>
