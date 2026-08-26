@@ -58,7 +58,8 @@ interface AppState {
     | "snoopable"
     | "clonable"
     | "muggable"
-    | "reportable";
+    | "reportable"
+    | "redactable";
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
 
@@ -98,7 +99,8 @@ interface AppState {
       | "snoopable"
       | "clonable"
       | "muggable"
-      | "reportable",
+      | "reportable"
+      | "redactable",
   ) => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;

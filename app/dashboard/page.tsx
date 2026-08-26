@@ -69,7 +69,6 @@ function DashboardContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [showConfirmOnExit, setShowConfirmOnExit] = useState(false);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -86,6 +85,7 @@ function DashboardContent() {
     "decimator",
     "muggable",
     "reportable",
+    "redactable",
     "listCleaner",
     "snoopable",
     "clonable",
@@ -694,6 +694,17 @@ function DashboardContent() {
                     Reportable
                   </Link>
                   <Link
+                    href="/redactable"
+                    onClick={() => setToolsDropdownOpen(false)}
+                    className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
+                      activeTab === "redactable"
+                        ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Redactable
+                  </Link>
+                  <Link
                     href="/muggable"
                     onClick={() => setToolsDropdownOpen(false)}
                     className={`block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors ${
@@ -781,7 +792,7 @@ function DashboardContent() {
 
             {/* Mobile Dropdown Menu */}
             {mobileMenuOpen && (
-              <div className="absolute left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
+              <div className="absolute left-0 right-0 max-h-[calc(100vh-4rem)] overflow-y-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
                   {/* Primary pages */}
                   <button
@@ -870,124 +881,121 @@ function DashboardContent() {
                     Backups
                   </button>
 
-                  {/* Other Stuff Accordion */}
+                  {/* Other Stuff — category heading, tools continue below */}
                   <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
-                    <button
-                      onClick={() => setMobileToolsOpen(!mobileToolsOpen)}
-                      className={`flex items-center justify-between w-full py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
-                        isToolTabActive
-                          ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                          : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      <span>Other Stuff</span>
-                      <ChevronDown
-                        size={16}
-                        className={`transition-transform ${mobileToolsOpen ? "rotate-180" : ""}`}
-                      />
-                    </button>
+                    <p className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Other Stuff
+                    </p>
 
-                    {/* Tool pages nested under accordion */}
-                    {mobileToolsOpen && (
-                      <div className="ml-4 mt-1 space-y-1">
-                        <button
-                          onClick={() => {
-                            changeTab("noteNuke");
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "noteNuke"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Note Nuke
-                        </button>
-                        <button
-                          onClick={() => {
-                            changeTab("domainPurge");
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "domainPurge"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Domain Purge
-                        </button>
-                        <button
-                          onClick={() => {
-                            changeTab("purgatory");
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "purgatory"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Purgatory
-                        </button>
-                        <Link
-                          href="/decimator"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "decimator"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Decimator
-                        </Link>
-                        <Link
-                          href="/reportable"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "reportable"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Reportable
-                        </Link>
-                        <Link
-                          href="/muggable"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "muggable"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Muggable
-                        </Link>
-                        <button
-                          onClick={() => {
-                            changeTab("listCleaner");
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "listCleaner"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          List Cleaner
-                        </button>
-                        <Link
-                          href="/clonable"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
-                            activeTab === "clonable"
-                              ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          Clonable
-                        </Link>
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          changeTab("noteNuke");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "noteNuke"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Note Nuke
+                      </button>
+                      <button
+                        onClick={() => {
+                          changeTab("domainPurge");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "domainPurge"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Domain Purge
+                      </button>
+                      <button
+                        onClick={() => {
+                          changeTab("purgatory");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "purgatory"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Purgatory
+                      </button>
+                      <Link
+                        href="/decimator"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "decimator"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Decimator
+                      </Link>
+                      <Link
+                        href="/reportable"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "reportable"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Reportable
+                      </Link>
+                      <Link
+                        href="/redactable"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "redactable"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Redactable
+                      </Link>
+                      <Link
+                        href="/muggable"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "muggable"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Muggable
+                      </Link>
+                      <button
+                        onClick={() => {
+                          changeTab("listCleaner");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "listCleaner"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        List Cleaner
+                      </button>
+                      <Link
+                        href="/clonable"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors ${
+                          activeTab === "clonable"
+                            ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        Clonable
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>

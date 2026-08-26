@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
-import { Lock, Unlock, User, Loader2, Flag } from "lucide-react";
+import { Lock, Unlock, User, Loader2, Flag, Trash2 } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -349,7 +349,14 @@ export default function Home() {
               >
                 <Flag size={20} />
                 Reportable
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-blue-800 rounded">
+              </Link>
+              <Link
+                href="/redactable"
+                className="w-full px-8 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                <Trash2 size={20} />
+                Redactable
+                <span className="text-xs font-bold px-1.5 py-0.5 bg-emerald-800 rounded">
                   NEW
                 </span>
               </Link>
