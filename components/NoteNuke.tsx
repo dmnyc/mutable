@@ -371,6 +371,9 @@ export default function NoteNuke() {
     const tags: string[][] = [];
     if (eventId) tags.push(["e", eventId]);
     if (eventAddress) tags.push(["a", eventAddress]);
+    // Attribution — clients that surface client tags show which tool
+    // filed the request.
+    tags.push(["client", "Note Nuke by Mutable"]);
 
     const eventTemplate: EventTemplate = {
       kind: 5,
