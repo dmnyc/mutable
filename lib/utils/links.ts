@@ -1,3 +1,4 @@
+import { nip19 } from "nostr-tools";
 import { hexToNote, hexToNpub } from "@/lib/nostr";
 
 /** Generate a link to view a Nostr event on Jumble. */
@@ -19,6 +20,34 @@ export function getReportEventLink(eventId: string): string {
   try {
     const note = hexToNote(eventId);
     return `https://njump.me/${note}`;
+  } catch {
+    return "#";
+  }
+}
+
+/**
+ * Generate a link to view a NIP-09 deletion request — or a note it targets —
+ * on njump, which renders arbitrary event kinds.
+ */
+export function getDeletionEventLink(eventId: string): string {
+  try {
+    const note = hexToNote(eventId);
+    return `https://njump.me/${note}`;
+  } catch {
+    return "#";
+  }
+}
+
+/** Link to an addressable event (a-tag coordinate) on njump via naddr. */
+export function getAddressLink(coord: string): string {
+  try {
+    const [kind, pubkey, identifier = ""] = coord.split(":");
+    const naddr = nip19.naddrEncode({
+      kind: Number(kind),
+      pubkey,
+      identifier,
+    });
+    return `https://njump.me/${naddr}`;
   } catch {
     return "#";
   }

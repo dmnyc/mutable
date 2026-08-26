@@ -200,6 +200,33 @@ export interface ReportFiledResult {
   rawEvent?: Event; // full kind:1984 event, for copy-as-JSON
 }
 
+// Deletion request (a NIP-09 kind:5 event). One event can request deletion
+// of many notes via e tags, plus addressable events (lists, long-form) via
+// a tags.
+export interface DeletionEntry {
+  deletedBy: string; // pubkey who requested the deletion
+  deletedEventIds: string[]; // note ids named in e tags
+  deletedAddresses: string[]; // a-tag coordinates, e.g. "30000:pubkey:dtag"
+  content?: string; // optional reason for the deletion
+  requestedAt: number; // timestamp (created_at)
+  eventId: string; // the kind:5 event id
+  profile?: Profile;
+  rawEvent?: Event; // full kind:5 event, for copy-as-JSON
+}
+
+// A target note recovered from relays after a deletion request named it.
+// Relays frequently ignore kind:5 events, so the "deleted" note is often
+// still served — worth showing the real post and its real author (who may
+// not be the account that requested the deletion).
+export interface RecoveredNote {
+  id: string;
+  author: string; // pubkey of the note's actual author
+  kind: number;
+  content: string;
+  createdAt: number;
+  profile?: Profile;
+}
+
 // Account activity status (for cleanup/inactive detection)
 export interface AccountActivityStatus {
   pubkey: string;

@@ -25,6 +25,8 @@ import {
   ReportResult,
   ReportFiledResult,
   ReportFeedEntry,
+  DeletionEntry,
+  RecoveredNote,
 } from "@/types";
 import { useStore } from "./store";
 import { Signer } from "./signers";
@@ -1091,6 +1093,7 @@ export async function deletePublicList(
     kind: 5, // Deletion event
     tags: [
       ["e", packEventId], // Reference the event to delete
+      ["client", "Mutable"], // Attribution for the deletion request
     ],
     content: "Deleted pack",
     created_at: Math.floor(Date.now() / 1000),
@@ -3387,6 +3390,380 @@ export async function enrichReportsFeedWithProfiles(
     // Index-aligned with reportedPubkeys (see ReportFeedEntry).
     targetProfiles: entry.reportedPubkeys.map((pk) => profiles.get(pk)),
   }));
+}
+
+// ============================================================================
+// REDACTABLE - NIP-09 DELETION REQUEST FUNCTIONS
+// ============================================================================
+
+const DELETION_KIND = 5;
+
+// The kinds Redactable treats as real user posts — text notes, replies,
+// comments, media, long-form. These are the only deletion targets worth
+// surfacing: everything else a kind:5 can name (drafts, reactions,
+// reposts, lists, wallet backups, app settings) is bookkeeping metadata,
+// not a post, and never counts, renders, or factors into a check.
+const POST_KINDS = new Set([1, 20, 21, 42, 1068, 1111, 30023]);
+
+/** True when a kind is a user-authored post (note, reply, media, article). */
+export function isPostKind(kind: number): boolean {
+  return POST_KINDS.has(kind);
+}
+
+// Parse a kind:5 event into a DeletionEntry. Events that name nothing
+// deletable (no e or a tags, or only non-post targets) are noise, not
+// deletion requests — null them.
+function parseDeletionEvent(event: Event): DeletionEntry | null {
+  const deletedEventIds = event.tags
+    .filter((t) => t[0] === "e" && t[1])
+    .map((t) => t[1]);
+  const deletedAddresses = event.tags
+    .filter((t) => t[0] === "a" && t[1])
+    .map((t) => t[1])
+    .filter((coord) => {
+      const parsed = parseCoordinate(coord);
+      return parsed !== null && isPostKind(parsed.kind);
+    });
+  if (deletedEventIds.length === 0 && deletedAddresses.length === 0)
+    return null;
+
+  return {
+    deletedBy: event.pubkey,
+    deletedEventIds,
+    deletedAddresses,
+    content: event.content || undefined,
+    requestedAt: event.created_at,
+    eventId: event.id,
+    rawEvent: event,
+  };
+}
+
+// Search for every deletion request (kind:5) a pubkey has published. An
+// author's deletion volume is bounded, so this mirrors searchReportsFiledBy's
+// subscribe-and-collect mechanics: results stream out as they arrive and the
+// query closes on relay quorum or idle — querySync would hide everything
+// until the slowest relay's EOSE.
+export async function searchDeletionsBy(
+  deleterPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  onProgress?: (count: number) => void,
+  abortSignal?: AbortSignal,
+): Promise<DeletionEntry[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+
+  console.log(
+    `🔍 Searching ${expandedRelays.length} relays for deletions by ${deleterPubkey.substring(0, 8)}...`,
+  );
+
+  const seenEventIds = new Set<string>();
+  const results: DeletionEntry[] = [];
+
+  const parseEvent = (event: Event) => {
+    if (seenEventIds.has(event.id)) return;
+    seenEventIds.add(event.id);
+    const entry = parseDeletionEvent(event);
+    if (!entry) return;
+    results.push(entry);
+    if (results.length % 10 === 0) onProgress?.(results.length);
+  };
+
+  try {
+    await new Promise<void>((resolve) => {
+      let timeout: NodeJS.Timeout;
+      let checkInterval: NodeJS.Timeout;
+      let eoseCount = 0;
+      let lastEventTime = Date.now();
+      let resolved = false;
+
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+        sub.close();
+        resolve();
+      };
+
+      const sub = pool.subscribeMany(
+        expandedRelays,
+        {
+          kinds: [DELETION_KIND],
+          authors: [deleterPubkey],
+          limit: 2000,
+        } as any,
+        {
+          onevent(event) {
+            lastEventTime = Date.now();
+            parseEvent(event);
+          },
+          oneose() {
+            eoseCount++;
+            // Auth-gated and paid relays never send EOSE, so close on a
+            // quorum rather than waiting for every relay.
+            const targetEoseCount = Math.min(
+              4,
+              Math.max(1, Math.ceil(expandedRelays.length * 0.5)),
+            );
+            if (eoseCount >= targetEoseCount) {
+              const receivedFromAll = eoseCount >= expandedRelays.length;
+              setTimeout(finish, receivedFromAll ? 5000 : 3000);
+            }
+          },
+        },
+      );
+
+      // Hard cap for silent-relay stalls; the stream usually settles sooner.
+      timeout = setTimeout(finish, 15000);
+
+      checkInterval = setInterval(() => {
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+        const heardSomething = eoseCount > 0 || results.length > 0;
+        if (heardSomething && timeSinceLastEvent > 6000) finish();
+      }, 1000);
+    });
+  } catch (error) {
+    console.error("⚠️ Deletions query failed:", error);
+  }
+
+  if (abortSignal?.aborted) return [];
+
+  // Most recent first
+  results.sort((a, b) => b.requestedAt - a.requestedAt);
+  onProgress?.(results.length);
+
+  return results;
+}
+
+// Recent deletion requests across the network (kind:5), newest first. The
+// live feed's data source — mirrors fetchRecentReportsFeed.
+export async function fetchRecentDeletionsFeed(
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 100,
+  sinceDays: number = 30,
+  maxPerAuthor: number = 0,
+  maxWaitMs: number = 10000,
+): Promise<DeletionEntry[]> {
+  const pool = getPool();
+  const expandedRelays = getExpandedRelayList(relays);
+  const since = Math.floor(Date.now() / 1000) - sinceDays * 86400;
+
+  // Errors propagate to the caller: a failed relay round must surface as
+  // an error, not as an empty feed pretending no deletion requests exist.
+  const events = await pool.querySync(
+    expandedRelays,
+    { kinds: [DELETION_KIND], since, limit },
+    { maxWait: maxWaitMs },
+  );
+
+  const seenEventIds = new Set<string>();
+  const entries: DeletionEntry[] = [];
+
+  for (const event of events) {
+    if (seenEventIds.has(event.id)) continue;
+    seenEventIds.add(event.id);
+    const entry = parseDeletionEvent(event);
+    if (entry) entries.push(entry);
+  }
+
+  entries.sort((a, b) => b.requestedAt - a.requestedAt);
+
+  // Cap entries per author so prolific spam accounts can't crowd everyone
+  // else out of the window — a single bot files thousands of void requests
+  // a month, and without a cap it fills the entire "recent" feed. 0
+  // disables the cap.
+  if (maxPerAuthor > 0) {
+    const perAuthor = new Map<string, number>();
+    const capped: DeletionEntry[] = [];
+    for (const entry of entries) {
+      const count = perAuthor.get(entry.deletedBy) ?? 0;
+      if (count >= maxPerAuthor) continue;
+      perAuthor.set(entry.deletedBy, count + 1);
+      capped.push(entry);
+      if (capped.length >= limit) break;
+    }
+    return capped;
+  }
+
+  return entries.slice(0, limit);
+}
+
+// Attach the requester's profile to deletion entries. Non-blocking by
+// design: callers render entries immediately and enrich in a second pass.
+export async function enrichDeletionsWithProfiles(
+  entries: DeletionEntry[],
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<DeletionEntry[]> {
+  const profiles = await fetchProfilesBulk(
+    entries.map((e) => e.deletedBy),
+    relays,
+  );
+  return entries.map((entry) => ({
+    ...entry,
+    profile: profiles.get(entry.deletedBy),
+  }));
+}
+
+// Fetch notes by id, chunked — relays cap the ids a single filter accepts.
+// Only ids some scanned relay still serves come back: a missing id means
+// every relay already dropped (or never saw) the note, which for a
+// deletion-request target means the request was honored there.
+export async function fetchNotesByIds(
+  ids: string[],
+  relays: string[] = DEFAULT_RELAYS,
+  maxWaitMs: number = 6000,
+): Promise<Map<string, Event>> {
+  const found = new Map<string, Event>();
+  const unique = [
+    ...new Set(ids.filter((id) => id.match(/^[0-9a-f]{64}$/i))),
+  ];
+  if (unique.length === 0) return found;
+
+  const CHUNK = 50;
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    chunks.push(unique.slice(i, i + CHUNK));
+  }
+
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      try {
+        const events = await getPool().querySync(
+          getExpandedRelayList(relays),
+          { ids: chunk },
+          { maxWait: maxWaitMs },
+        );
+        for (const event of events) {
+          if (!found.has(event.id)) found.set(event.id, event);
+        }
+      } catch (error) {
+        console.error("Failed to fetch notes by ids:", error);
+      }
+    }),
+  );
+
+  return found;
+}
+
+// Turn recovered target events into display records, resolving every
+// author's profile in one bulk pass. All kinds are returned: honored and
+// third-party classification need every recovered event's author, while
+// display-side filtering (only user posts surface) happens in the
+// component via isPostKind.
+export async function buildRecoveredNotes(
+  events: Event[],
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<Map<string, RecoveredNote>> {
+  const profiles = await fetchProfilesBulk(
+    events.map((e) => e.pubkey),
+    relays,
+  );
+  const notes = new Map<string, RecoveredNote>();
+  for (const event of events) {
+    notes.set(event.id, {
+      id: event.id,
+      author: event.pubkey,
+      kind: event.kind,
+      content: event.content,
+      createdAt: event.created_at,
+      profile: profiles.get(event.pubkey),
+    });
+  }
+  return notes;
+}
+
+/** Parse an a-tag coordinate ("kind:pubkey:dtag") from a kind:5 request. */
+export function parseCoordinate(
+  coord: string,
+): { kind: number; pubkey: string; dtag: string } | null {
+  const parts = coord.split(":");
+  if (parts.length < 2 || parts.length > 3) return null;
+  const kind = Number(parts[0]);
+  const pubkey = parts[1];
+  const dtag = parts[2] ?? "";
+  if (!Number.isInteger(kind) || !/^[0-9a-f]{64}$/i.test(pubkey)) return null;
+  return { kind, pubkey, dtag };
+}
+
+/**
+ * Fetch addressable events (the a-tag targets of kind:5 requests) by
+ * coordinate. Coordinates sharing kind+pubkey collapse into one filter with
+ * a merged #d list, so a user's list cleanups cost one query per kind
+ * instead of one per list. Keyed by coordinate string, so callers can look
+ * results up without knowing the event id.
+ */
+export async function fetchAddressableEvents(
+  coordinates: string[],
+  relays: string[] = DEFAULT_RELAYS,
+  maxWaitMs: number = 6000,
+): Promise<Map<string, Event>> {
+  const found = new Map<string, Event>();
+  const groups = new Map<string, string[]>();
+  for (const coord of [...new Set(coordinates)]) {
+    const parsed = parseCoordinate(coord);
+    if (!parsed || !isPostKind(parsed.kind)) continue;
+    const key = `${parsed.kind}:${parsed.pubkey}`;
+    const list = groups.get(key) ?? [];
+    if (!list.includes(parsed.dtag)) list.push(parsed.dtag);
+    groups.set(key, list);
+  }
+  if (groups.size === 0) return found;
+
+  // Cap #d values per query so filters stay relay-friendly.
+  const D_CHUNK = 64;
+  const queries: { filter: { kinds: number[]; authors: string[]; "#d": string[] } }[] =
+    [];
+  for (const [key, dtags] of groups) {
+    for (let i = 0; i < dtags.length; i += D_CHUNK) {
+      const [kind, pubkey] = key.split(":");
+      queries.push({
+        filter: {
+          kinds: [Number(kind)],
+          authors: [pubkey],
+          "#d": dtags.slice(i, i + D_CHUNK),
+        },
+      });
+    }
+  }
+
+  await Promise.all(
+    queries.map(async ({ filter }) => {
+      try {
+        const events = await getPool().querySync(
+          getExpandedRelayList(relays),
+          filter,
+          { maxWait: maxWaitMs },
+        );
+        for (const event of events) {
+          const d = event.tags.find((t) => t[0] === "d")?.[1] ?? "";
+          found.set(`${event.kind}:${event.pubkey}:${d}`, event);
+        }
+      } catch (error) {
+        console.error("Failed to fetch addressable events:", error);
+      }
+    }),
+  );
+
+  return found;
+}
+
+/**
+ * Same as buildRecoveredNotes, but keyed by a-tag coordinate for
+ * addressable targets.
+ */
+export async function buildRecoveredAddressables(
+  events: Event[],
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<Map<string, RecoveredNote>> {
+  const notes = await buildRecoveredNotes(events, relays);
+  const keyed = new Map<string, RecoveredNote>();
+  for (const event of events) {
+    const note = notes.get(event.id);
+    if (!note) continue;
+    const d = event.tags.find((t) => t[0] === "d")?.[1] ?? "";
+    keyed.set(`${event.kind}:${event.pubkey}:${d}`, note);
+  }
+  return keyed;
 }
 
 // Get follow list as array of pubkeys
