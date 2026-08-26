@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Radio,
+  Plus,
+  ChevronDown,
 } from "lucide-react";
 import { Profile, DeletionEntry, RecoveredNote } from "@/types";
 import Footer from "./Footer";
@@ -40,8 +43,11 @@ import {
   npubToHex,
   searchProfiles,
   fetchProfile,
-  getExpandedRelayList,
+  fetchRelayListFromNostr,
+  normalizeRelayList,
+  normalizeRelayUrl,
   DEFAULT_RELAYS,
+  KNOWN_RELAYS,
 } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
 import {
@@ -66,6 +72,36 @@ const FEED_CAP_PER_AUTHOR = 5;
 // Target-recovery runs in background waves of this many requests, keeping
 // the relay query burst small instead of firing one giant fan-out.
 const CLASSIFY_WAVE = 150;
+
+// sessionStorage key for visitor-added session relays (this tab only).
+const SESSION_RELAYS_KEY = "redactable-session-relays";
+
+// Some kind:10002 lists are junk catalogs — hundreds of entries including
+// localhost IPs and onion addresses that can never connect from a browser.
+// Keep only public, resolvable hosts.
+function isPublicRelayUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    if (parsed.protocol !== "wss:" && parsed.protocol !== "ws:") return false;
+    if (host.endsWith(".onion") || host.endsWith(".i2p")) return false;
+    if (
+      /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/.test(
+        host,
+      ) ||
+      /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host)
+    ) {
+      return false; // loopback/private/CGNAT ranges
+    }
+    return host.includes("."); // bare hostnames have no public DNS
+  } catch {
+    return false;
+  }
+}
+
+// Cap the NIP-65 fold-in: write+both relays first (that's where the user
+// actually publishes), then read relays, up to this many.
+const NIP65_RELAY_CAP = 16;
 
 type Tab = "lookup" | "feed";
 
@@ -497,8 +533,10 @@ function DeletionRow({
     recoveredAddresses,
   );
 
-  // The red count pill and the own/third-party badge appear in both row
-  // layouts — pull them out so the header variants stay readable.
+  // The red count pill and the third-party badge appear in both row
+  // layouts — pull them out so the header variants stay readable. No
+  // "own posts" badge: that's the default case everywhere now, so the
+  // badge would restate it. Only the exception gets marked.
   const postCountPill = (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-semibold">
       <Trash2 size={14} />
@@ -506,8 +544,7 @@ function DeletionRow({
     </span>
   );
   const classificationBadge =
-    recovered.length > 0 &&
-    (thirdParty ? (
+    recovered.length > 0 && thirdParty ? (
       <span
         className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full text-xs font-medium"
         title="NIP-09 relays only honor deletions from a note's own author"
@@ -515,11 +552,7 @@ function DeletionRow({
         <Bot size={12} />
         other people&rsquo;s posts
       </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium">
-        own posts
-      </span>
-    ));
+    ) : null;
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
@@ -827,7 +860,50 @@ export default function Redactable() {
   const [feedVersion, setFeedVersion] = useState(0);
   const feedEntriesRef = useRef<DeletionEntry[]>([]);
 
-  const relays = DEFAULT_RELAYS;
+  // Session-scoped relays the visitor adds by hand. sessionStorage on
+  // purpose: extras apply to this tab only and never persist beyond it.
+  const [sessionRelays, setSessionRelays] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = window.sessionStorage.getItem(SESSION_RELAYS_KEY);
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? normalizeRelayList(parsed) : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        SESSION_RELAYS_KEY,
+        JSON.stringify(sessionRelays),
+      );
+    } catch {
+      // Private mode or storage disabled — extras just won't survive reload.
+    }
+  }, [sessionRelays]);
+  const [relayInput, setRelayInput] = useState("");
+  const [relayError, setRelayError] = useState<string | null>(null);
+  const [showRelayPanel, setShowRelayPanel] = useState(false);
+
+  // A looked-up user's NIP-65 (kind:10002) relay list. Their kind:5
+  // requests and deleted posts are most likely on their own relays, so a
+  // lookup folds these in ahead of the wide base set.
+  const [targetRelays, setTargetRelays] = useState<string[]>([]);
+
+  // Wide scan set: Mutable's defaults plus the archival/known relays Note
+  // Nuke also casts to. Deleted posts surface wherever they were published,
+  // so scans go wide rather than default-only.
+  const relays = useMemo(
+    () =>
+      normalizeRelayList([
+        ...targetRelays,
+        ...sessionRelays,
+        ...DEFAULT_RELAYS,
+        ...KNOWN_RELAYS,
+      ]),
+    [targetRelays, sessionRelays],
+  );
 
   // Deep link — /redactable?npub=… searches on load
   useEffect(() => {
@@ -959,15 +1035,38 @@ export default function Redactable() {
 
       setProgress("Searching network for deletion requests...");
 
-      const results = await searchDeletionsBy(
-        pubkey,
-        getExpandedRelayList(relays),
-        (count) => {
-          setProgress(
-            `Scanning relays... ${count} deletion request${count === 1 ? "" : "s"} found`,
-          );
-        },
-      );
+      // Fold the user's own NIP-65 relay list into the scan — kind:5
+      // requests and deleted posts live wherever the user publishes.
+      setProgress("Checking the user's relay list (NIP-65)...");
+      let nip65Relays: string[] = [];
+      try {
+        const { metadata } = await fetchRelayListFromNostr(pubkey);
+        if (metadata) {
+          nip65Relays = normalizeRelayList(
+            [...metadata.both, ...metadata.write, ...metadata.read].filter(
+              isPublicRelayUrl,
+            ),
+          ).slice(0, NIP65_RELAY_CAP);
+        }
+      } catch {
+        // No relay list or it can't be fetched — the wide base set stands.
+      }
+      setTargetRelays(nip65Relays);
+
+      // Merge explicitly: the `relays` value in this closure predates the
+      // setTargetRelays call above, so it doesn't include them yet.
+      const scanRelays = normalizeRelayList([
+        ...nip65Relays,
+        ...sessionRelays,
+        ...DEFAULT_RELAYS,
+        ...KNOWN_RELAYS,
+      ]);
+
+      const results = await searchDeletionsBy(pubkey, scanRelays, (count) => {
+        setProgress(
+          `Scanning ${scanRelays.length} relays... ${count} deletion request${count === 1 ? "" : "s"} found`,
+        );
+      });
 
       setAllDeletions(results);
       setProgress("");
@@ -995,6 +1094,7 @@ export default function Redactable() {
     setSearchQuery("");
     setTargetPubkey(null);
     setTargetProfile(null);
+    setTargetRelays([]);
     setAllDeletions([]);
     setDisplayedCount(INITIAL_LOAD_COUNT);
     setError(null);
@@ -1008,6 +1108,27 @@ export default function Redactable() {
     if (!session?.pubkey) return;
     setSearchQuery(session.pubkey);
     handleSearch(session.pubkey);
+  };
+
+  const handleAddSessionRelay = () => {
+    const normalized = normalizeRelayUrl(relayInput);
+    if (!normalized) {
+      setRelayError("Enter a relay URL starting with wss:// (or ws://).");
+      return;
+    }
+    if (relays.includes(normalized)) {
+      setRelayError("That relay is already in the scan set.");
+      return;
+    }
+    setSessionRelays((prev) =>
+      prev.includes(normalized) ? prev : [...prev, normalized],
+    );
+    setRelayInput("");
+    setRelayError(null);
+  };
+
+  const handleRemoveSessionRelay = (relay: string) => {
+    setSessionRelays((prev) => prev.filter((r) => r !== relay));
   };
 
   const loadFeed = async () => {
@@ -1532,48 +1653,59 @@ export default function Redactable() {
               <Copy size={12} />
             )}
           </button>
-          {/* Signed in and browsing someone else — jump straight to your
-              own deletion history. */}
-          {session?.pubkey && targetPubkey !== session.pubkey && (
-            <button
-              onClick={handleCheckMine}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
-              title="Look up your own deletion history"
-            >
-              <User size={12} />
-              Look up yourself
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Brand lockup — wordmark swaps for light/dark mode, always visible
-          so mobile screenshots carry the brand. */}
-      <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap leading-none">
-            Redactable
-          </span>
-          <span className="text-sm font-bold text-gray-400 dark:text-gray-500 leading-none">
-            by
-          </span>
+      {/* Right column — brand lockup on top, and the self-lookup shortcut
+          tucked under it so the user's identity block stays clean. */}
+      <div className="flex flex-col items-end gap-2 flex-shrink-0 self-end sm:self-auto">
+        {/* Brand lockup — matches Mute-o-Scope's: tool name, then the
+            Mutable mark and wordmark (wordmark hidden below sm so phones
+            show the icon only). Always visible so mobile screenshots
+            carry the brand. */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap leading-none">
+              Redactable
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">by</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Image
+              src="/mutable_logo.svg"
+              alt="Mutable"
+              width={18}
+              height={18}
+            />
+            <Image
+              src="/mutable_text_dark.svg"
+              alt=""
+              width={74}
+              height={14}
+              className="hidden sm:block dark:hidden"
+            />
+            <Image
+              src="/mutable_text.svg"
+              alt=""
+              width={74}
+              height={14}
+              className="hidden sm:dark:block"
+            />
+          </div>
         </div>
-        <div className="flex items-center">
-          <Image
-            src="/mutable_text_dark.svg"
-            alt=""
-            width={74}
-            height={14}
-            className="dark:hidden"
-          />
-          <Image
-            src="/mutable_text.svg"
-            alt=""
-            width={74}
-            height={14}
-            className="dark:block"
-          />
-        </div>
+
+        {/* Signed in and browsing someone else — jump straight to your
+            own deletion history. */}
+        {session?.pubkey && targetPubkey !== session.pubkey && (
+          <button
+            onClick={handleCheckMine}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+            title="Look up your own deletion history"
+          >
+            <User size={12} />
+            Look up yourself
+          </button>
+        )}
       </div>
     </div>
   ) : null;
@@ -1702,6 +1834,96 @@ export default function Redactable() {
               </button>
             </div>
 
+            {/* Relay coverage — the scan set is wide on purpose; this strip
+                makes it visible and lets visitors widen it further. */}
+            <div className="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+              <button
+                onClick={() => setShowRelayPanel(!showRelayPanel)}
+                className="flex items-center gap-2 w-full text-left text-sm text-gray-600 dark:text-gray-300"
+              >
+                <Radio size={14} className="flex-shrink-0" />
+                <span>
+                  Scanning {relays.length} relays
+                  {targetRelays.length > 0 &&
+                    ` — includes ${targetRelays.length} from this user's NIP-65 list`}
+                  {sessionRelays.length > 0 &&
+                    ` — plus ${sessionRelays.length} added this session`}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`ml-auto flex-shrink-0 transition-transform ${showRelayPanel ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {showRelayPanel && (
+                <div className="mt-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {relays.map((relay) => {
+                      const isSession = sessionRelays.includes(relay);
+                      const isTarget = targetRelays.includes(relay);
+                      return (
+                        <span
+                          key={relay}
+                          title={relay}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${
+                            isSession
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                              : isTarget
+                                ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                : "border-gray-200 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                          }`}
+                        >
+                          {relay.replace(/^wss?:\/\//, "")}
+                          {isSession && (
+                            <button
+                              onClick={() => handleRemoveSessionRelay(relay)}
+                              aria-label={`Remove ${relay}`}
+                              className="text-emerald-700 dark:text-emerald-400 hover:text-red-600 dark:hover:text-red-400"
+                            >
+                              <X size={11} />
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={relayInput}
+                      onChange={(e) => {
+                        setRelayInput(e.target.value);
+                        setRelayError(null);
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") handleAddSessionRelay();
+                      }}
+                      placeholder="wss://relay.example.com"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                    <button
+                      onClick={handleAddSessionRelay}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                      <Plus size={14} />
+                      Add for this session
+                    </button>
+                  </div>
+                  {relayError && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                      {relayError}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Session relays apply to the feed and lookups in this tab
+                    only. Refresh the feed or re-run a lookup to scan with a
+                    relay you just added.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Lookup tab */}
             {activeTab === "lookup" && (
               <div className="p-6">
@@ -1709,7 +1931,7 @@ export default function Redactable() {
                   className="flex flex-col sm:flex-row gap-3"
                   ref={searchDropdownRef}
                 >
-                  <div className="relative flex-1">
+                  <div className="relative w-full sm:flex-1">
                     <input
                       type="text"
                       value={searchQuery}
@@ -1777,45 +1999,48 @@ export default function Redactable() {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleSearch()}
-                    disabled={searching || !searchQuery.trim()}
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {searching ? (
-                      <>
-                        <RefreshCw className="animate-spin" size={20} />
-                        <span className="hidden sm:inline">Searching...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Search size={20} />
-                        <span className="hidden sm:inline">Search</span>
-                      </>
+                  {/* Buttons wrap under the input on phones; from sm up the
+                      wrapper dissolves (display:contents) so the buttons
+                      join the input on one row like the classic layout. */}
+                  <div className="flex flex-wrap gap-2 sm:contents">
+                    <button
+                      onClick={() => handleSearch()}
+                      disabled={searching || !searchQuery.trim()}
+                      className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                    >
+                      {searching ? (
+                        <>
+                          <RefreshCw className="animate-spin" size={20} />
+                          <span>Searching...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search size={20} />
+                          <span>Search</span>
+                        </>
+                      )}
+                    </button>
+                    {session && !searching && (
+                      <button
+                        onClick={handleCheckMine}
+                        className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                        title="Check your own deletion history"
+                      >
+                        <User size={20} />
+                        <span>Check my Deletions</span>
+                      </button>
                     )}
-                  </button>
-                  {session && !searching && (
-                    <button
-                      onClick={handleCheckMine}
-                      className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center gap-2"
-                      title="Check your own deletion history"
-                    >
-                      <User size={20} />
-                      <span className="hidden sm:inline">
-                        Check my Deletions
-                      </span>
-                    </button>
-                  )}
-                  {(searchQuery || allDeletions.length > 0) && !searching && (
-                    <button
-                      onClick={handleReset}
-                      className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-                      title="Reset search"
-                    >
-                      <X size={20} />
-                      <span className="hidden sm:inline">Reset</span>
-                    </button>
-                  )}
+                    {(searchQuery || allDeletions.length > 0) && !searching && (
+                      <button
+                        onClick={handleReset}
+                        className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                        title="Reset search"
+                      >
+                        <X size={20} />
+                        <span>Reset</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {searching && progress && (

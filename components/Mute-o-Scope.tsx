@@ -500,7 +500,8 @@ export default function MuteOScope() {
               `  ${r.events.toString().padStart(4)} events  ${r.url}${r.connected ? "" : "  (never connected)"}`,
           ),
       );
-      if (scanSummary.warning) lines.push(``, `WARNING: ${scanSummary.warning}`);
+      if (scanSummary.warning)
+        lines.push(``, `WARNING: ${scanSummary.warning}`);
     } else {
       // Fall back to the raw log lines if no structured summary arrived.
       lines.push(...diagnostics.map((d) => `${d.label}: ${d.detail}`));
@@ -625,12 +626,7 @@ export default function MuteOScope() {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-400 dark:text-gray-500">by</span>
-          <Image
-            src="/mutable_logo.svg"
-            alt="Mutable"
-            width={18}
-            height={18}
-          />
+          <Image src="/mutable_logo.svg" alt="Mutable" width={18} height={18} />
           <Image
             src="/mutable_text_dark.svg"
             alt=""
@@ -878,8 +874,8 @@ export default function MuteOScope() {
           {/* Search Section */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <div className="relative" ref={searchDropdownRef}>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative w-full sm:flex-1">
                   <input
                     type="text"
                     value={searchQuery}
@@ -954,47 +950,52 @@ export default function MuteOScope() {
                     </div>
                   )}
                 </div>
-                <button
-                  data-search-button
-                  onClick={() => {
-                    setShowProfileResults(false);
-                    handleSearch();
-                  }}
-                  disabled={searching || !searchQuery.trim()}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {searching ? (
-                    <>
-                      <RefreshCw className="animate-spin" size={20} />
-                      <span className="hidden sm:inline">Searching...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Search size={20} />
-                      <span className="hidden sm:inline">Search</span>
-                    </>
+                {/* Buttons wrap under the input on phones; from sm up the
+                    wrapper dissolves (display:contents) so the buttons
+                    join the input on one row like the classic layout. */}
+                <div className="flex flex-wrap gap-2 sm:contents">
+                  <button
+                    data-search-button
+                    onClick={() => {
+                      setShowProfileResults(false);
+                      handleSearch();
+                    }}
+                    disabled={searching || !searchQuery.trim()}
+                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                  >
+                    {searching ? (
+                      <>
+                        <RefreshCw className="animate-spin" size={20} />
+                        <span>Searching...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search size={20} />
+                        <span>Search</span>
+                      </>
+                    )}
+                  </button>
+                  {session && !searching && (
+                    <button
+                      onClick={handleScopeMyself}
+                      className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                      title="Check your own public mute list exposure"
+                    >
+                      <User size={20} />
+                      <span>Scope Myself</span>
+                    </button>
                   )}
-                </button>
-                {session && !searching && (
-                  <button
-                    onClick={handleScopeMyself}
-                    className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    title="Check your own public mute list exposure"
-                  >
-                    <User size={20} />
-                    <span className="hidden sm:inline">Scope Myself</span>
-                  </button>
-                )}
-                {(searchQuery || allResults.length > 0) && !searching && (
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-                    title="Reset search"
-                  >
-                    <X size={20} />
-                    <span className="hidden sm:inline">Reset</span>
-                  </button>
-                )}
+                  {(searchQuery || allResults.length > 0) && !searching && (
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                      title="Reset search"
+                    >
+                      <X size={20} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1369,8 +1370,10 @@ export default function MuteOScope() {
                       >
                         <span className="text-2xl">
                           {
-                            getMuteRatioSignal(allResults.length, noteCount.count)
-                              .emoji
+                            getMuteRatioSignal(
+                              allResults.length,
+                              noteCount.count,
+                            ).emoji
                           }
                         </span>
                         <span className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -1385,8 +1388,10 @@ export default function MuteOScope() {
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           {
-                            getMuteRatioSignal(allResults.length, noteCount.count)
-                              .label
+                            getMuteRatioSignal(
+                              allResults.length,
+                              noteCount.count,
+                            ).label
                           }
                         </span>
                       </div>
