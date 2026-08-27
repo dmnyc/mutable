@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  ArrowLeft,
   RefreshCw,
   Search,
   Users,
@@ -791,6 +792,14 @@ export default function MuteOScope() {
                     height={24}
                     className="hidden sm:dark:block"
                   />
+                </Link>
+                <Link
+                  href="/"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                  title="Back to the Mutable home screen"
+                >
+                  <ArrowLeft size={16} />
+                  <span className="hidden sm:inline">Back</span>
                 </Link>
 
                 <div className="flex-1" />
