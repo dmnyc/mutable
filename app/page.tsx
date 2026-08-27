@@ -106,11 +106,17 @@ export default function Home() {
 
   // One lookup feeds every no-sign-in tool: resolve whatever was typed
   // (npub/nprofile passes through, hex converts, names/NIP-05 resolve via
-  // profile search) into an npub, then jump to the chosen lens.
+  // profile search) into an npub, then jump to the chosen lens. With an
+  // empty field the lens buttons simply open that tool's own home screen.
   const handleToolSearch = async (path: string) => {
     const query = searchQuery.trim();
-    if (!query || resolving) return;
+    if (resolving) return;
     setShowProfileResults(false);
+
+    if (!query) {
+      router.push(path);
+      return;
+    }
 
     if (resolvedPubkey) {
       router.push(
@@ -224,7 +230,8 @@ export default function Home() {
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Enter a username, NIP-05, or npub once, then choose your lens:
                   who mutes them, reports on them, their deleted posts, or how
-                  public their activity really is.
+                  public their activity really is — or open a lens with the
+                  field empty to start on that tool&apos;s own home screen.
                 </p>
               </div>
             </div>
@@ -308,9 +315,8 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-2 mt-3">
               <button
                 onClick={() => handleToolSearch("/mute-o-scope")}
-                disabled={!searchQuery.trim() || resolving}
                 title="Who is publicly muting them"
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
               >
                 <Image
                   src="/mute_o_scope_icon_white.svg"
@@ -322,18 +328,16 @@ export default function Home() {
               </button>
               <button
                 onClick={() => handleToolSearch("/snoopable")}
-                disabled={!searchQuery.trim() || resolving}
                 title="How public their activity really is"
-                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
               >
                 <Glasses size={16} />
                 Snoopable
               </button>
               <button
                 onClick={() => handleToolSearch("/reportable")}
-                disabled={!searchQuery.trim() || resolving}
                 title="Public reports filed about them — and by them"
-                className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
               >
                 <Flag size={16} />
                 Reportable
@@ -343,9 +347,8 @@ export default function Home() {
               </button>
               <button
                 onClick={() => handleToolSearch("/redactable")}
-                disabled={!searchQuery.trim() || resolving}
                 title="Their deletion requests and deleted posts"
-                className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 dark:ring-1 dark:ring-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 dark:ring-1 dark:ring-gray-600 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
               >
                 <Trash2 size={16} />
                 Redactable
