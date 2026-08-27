@@ -205,59 +205,6 @@ export default function Home() {
                 <Lock size={20} />
                 Connect with Nostr
               </button>
-
-              <Link
-                href="/mute-o-scope"
-                className="w-full px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Image
-                  src="/mute_o_scope_icon_white.svg"
-                  alt="Mute-o-Scope"
-                  width={20}
-                  height={20}
-                />
-                Mute-o-Scope
-              </Link>
-              <Link
-                href="/snoopable"
-                className="w-full px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <svg
-                  width="20"
-                  height="16"
-                  viewBox="0 0 459 374"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="text-white"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
-                    fill="currentColor"
-                  />
-                </svg>
-                Snoopable
-              </Link>
-              <Link
-                href="/reportable"
-                className="w-full px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Flag size={20} />
-                Reportable
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-blue-800 rounded">
-                  NEW
-                </span>
-              </Link>
-              <Link
-                href="/redactable"
-                className="w-full px-8 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Trash2 size={20} />
-                Redactable
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-emerald-800 rounded">
-                  NEW
-                </span>
-              </Link>
             </div>
           </div>
 
@@ -363,7 +310,7 @@ export default function Home() {
                 onClick={() => handleToolSearch("/mute-o-scope")}
                 disabled={!searchQuery.trim() || resolving}
                 title="Who is publicly muting them"
-                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
               >
                 <Image
                   src="/mute_o_scope_icon_white.svg"
@@ -377,7 +324,7 @@ export default function Home() {
                 onClick={() => handleToolSearch("/snoopable")}
                 disabled={!searchQuery.trim() || resolving}
                 title="How public their activity really is"
-                className="px-3 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
               >
                 <Glasses size={16} />
                 Snoopable
@@ -386,11 +333,11 @@ export default function Home() {
                 onClick={() => handleToolSearch("/reportable")}
                 disabled={!searchQuery.trim() || resolving}
                 title="Public reports filed about them — and by them"
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
               >
                 <Flag size={16} />
                 Reportable
-                <span className="text-[10px] font-bold px-1 py-px bg-blue-800 rounded">
+                <span className="text-[10px] font-bold px-1 py-px bg-orange-800 rounded">
                   NEW
                 </span>
               </button>
@@ -398,11 +345,11 @@ export default function Home() {
                 onClick={() => handleToolSearch("/redactable")}
                 disabled={!searchQuery.trim() || resolving}
                 title="Their deletion requests and deleted posts"
-                className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+                className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 dark:ring-1 dark:ring-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
               >
                 <Trash2 size={16} />
                 Redactable
-                <span className="text-[10px] font-bold px-1 py-px bg-emerald-800 rounded">
+                <span className="text-[10px] font-bold px-1 py-px bg-gray-800 rounded">
                   NEW
                 </span>
               </button>
@@ -415,14 +362,14 @@ export default function Home() {
             )}
           </div>
 
-          {/* Plebs vs. Zombies Credit */}
-          <div className="max-w-md mx-auto w-full mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span>From the creator of</span>
+          {/* Creator credits */}
+          <div className="max-w-md mx-auto w-full mt-4 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+            <span className="whitespace-nowrap">From the creator of</span>
             <a
               href="https://plebsvszombies.cc"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
+              className="flex items-center gap-1 whitespace-nowrap hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
             >
               <Image
                 src="/plebs_vs_zombies_logo.svg"
@@ -431,6 +378,21 @@ export default function Home() {
                 height={20}
               />
               Plebs vs. Zombies
+            </a>
+            <span>and</span>
+            <a
+              href="https://sidecar.top"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 whitespace-nowrap hover:text-red-600 dark:hover:text-red-400 transition-colors font-medium"
+            >
+              <Image
+                src="/sidecar_icon.svg"
+                alt="Sidecar"
+                width={18}
+                height={20}
+              />
+              Sidecar
             </a>
           </div>
         </div>
