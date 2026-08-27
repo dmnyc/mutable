@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { User, LogOut, Skull } from "lucide-react";
+import { ArrowLeft, User, LogOut, Skull } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
@@ -180,6 +180,14 @@ export default function DecimatorWrapper() {
                     className="hidden sm:dark:block"
                   />
                 </Link>
+                <Link
+                  href="/"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                  title="Back to the Mutable home screen"
+                >
+                  <ArrowLeft size={16} />
+                  <span className="hidden sm:inline">Back</span>
+                </Link>
 
                 <div className="flex-1" />
 
@@ -209,18 +217,15 @@ export default function DecimatorWrapper() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
               <div className="max-w-md mx-auto">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                  <Skull
-                    size={32}
-                    className="text-red-600 dark:text-red-400"
-                  />
+                  <Skull size={32} className="text-red-600 dark:text-red-400" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                   Decimator
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Trim your follow list. Randomly remove a percentage of follows,
-                  shrink down to a target count, or nuke the whole list — with a
-                  local backup saved before any change.
+                  Trim your follow list. Randomly remove a percentage of
+                  follows, shrink down to a target count, or nuke the whole list
+                  — with a local backup saved before any change.
                 </p>
                 <button
                   onClick={() => setShowAuthModal(true)}

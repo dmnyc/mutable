@@ -6,7 +6,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
-import { Lock, Unlock, User, Loader2, Flag, Trash2 } from "lucide-react";
+import {
+  Lock,
+  User,
+  Loader2,
+  Flag,
+  Trash2,
+  Search,
+  Glasses,
+} from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -14,25 +22,15 @@ export default function Home() {
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [snoopQuery, setSnoopQuery] = useState("");
+  const [resolvedPubkey, setResolvedPubkey] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [profileSearchResults, setProfileSearchResults] = useState<Profile[]>(
     [],
   );
   const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
   const [showProfileResults, setShowProfileResults] = useState(false);
-  const [snoopSearchResults, setSnoopSearchResults] = useState<Profile[]>([]);
-  const [isSearchingSnoopProfiles, setIsSearchingSnoopProfiles] =
-    useState(false);
-  const [showSnoopProfileResults, setShowSnoopProfileResults] = useState(false);
-  const [reportQuery, setReportQuery] = useState("");
-  const [reportSearchResults, setReportSearchResults] = useState<Profile[]>([]);
-  const [isSearchingReportProfiles, setIsSearchingReportProfiles] =
-    useState(false);
-  const [showReportProfileResults, setShowReportProfileResults] =
-    useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
-  const snoopSearchDropdownRef = useRef<HTMLDivElement>(null);
-  const reportSearchDropdownRef = useRef<HTMLDivElement>(null);
   const { isConnected } = useAuth();
 
   useEffect(() => {
@@ -61,6 +59,15 @@ export default function Home() {
         return;
       }
 
+      // A profile was just picked — its pubkey is stored, so don't re-search
+      // the display name and reopen the dropdown over the lens buttons.
+      // Editing the input clears the pick and searching resumes.
+      if (resolvedPubkey) {
+        setProfileSearchResults([]);
+        setShowProfileResults(false);
+        return;
+      }
+
       setIsSearchingProfiles(true);
       setShowProfileResults(true);
       try {
@@ -77,79 +84,7 @@ export default function Home() {
     // Debounce search - wait 300ms after user stops typing
     const timeoutId = setTimeout(searchUserProfiles, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  // Real-time profile search for Snoopable
-  useEffect(() => {
-    const searchSnoopProfiles = async () => {
-      if (!snoopQuery.trim()) {
-        setSnoopSearchResults([]);
-        setShowSnoopProfileResults(false);
-        return;
-      }
-
-      if (
-        snoopQuery.startsWith("npub") ||
-        snoopQuery.startsWith("nprofile") ||
-        snoopQuery.match(/^[0-9a-f]{64}$/i)
-      ) {
-        setSnoopSearchResults([]);
-        setShowSnoopProfileResults(false);
-        return;
-      }
-
-      setIsSearchingSnoopProfiles(true);
-      setShowSnoopProfileResults(true);
-      try {
-        const results = await searchProfiles(snoopQuery, DEFAULT_RELAYS, 10);
-        setSnoopSearchResults(results);
-      } catch (error) {
-        console.error("Snoopable profile search failed:", error);
-        setSnoopSearchResults([]);
-      } finally {
-        setIsSearchingSnoopProfiles(false);
-      }
-    };
-
-    const timeoutId = setTimeout(searchSnoopProfiles, 300);
-    return () => clearTimeout(timeoutId);
-  }, [snoopQuery]);
-
-  // Real-time profile search for Reportable
-  useEffect(() => {
-    const searchReportProfiles = async () => {
-      if (!reportQuery.trim()) {
-        setReportSearchResults([]);
-        setShowReportProfileResults(false);
-        return;
-      }
-
-      if (
-        reportQuery.startsWith("npub") ||
-        reportQuery.startsWith("nprofile") ||
-        reportQuery.match(/^[0-9a-f]{64}$/i)
-      ) {
-        setReportSearchResults([]);
-        setShowReportProfileResults(false);
-        return;
-      }
-
-      setIsSearchingReportProfiles(true);
-      setShowReportProfileResults(true);
-      try {
-        const results = await searchProfiles(reportQuery, DEFAULT_RELAYS, 10);
-        setReportSearchResults(results);
-      } catch (error) {
-        console.error("Reportable profile search failed:", error);
-        setReportSearchResults([]);
-      } finally {
-        setIsSearchingReportProfiles(false);
-      }
-    };
-
-    const timeoutId = setTimeout(searchReportProfiles, 300);
-    return () => clearTimeout(timeoutId);
-  }, [reportQuery]);
+  }, [searchQuery, resolvedPubkey]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -169,95 +104,55 @@ export default function Home() {
     }
   }, [showProfileResults]);
 
-  // Handle click outside to close snoop dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        snoopSearchDropdownRef.current &&
-        !snoopSearchDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowSnoopProfileResults(false);
-      }
-    };
-
-    if (showSnoopProfileResults) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showSnoopProfileResults]);
-
-  // Handle click outside to close report dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        reportSearchDropdownRef.current &&
-        !reportSearchDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowReportProfileResults(false);
-      }
-    };
-
-    if (showReportProfileResults) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showReportProfileResults]);
-
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      router.push(
-        `/mute-o-scope?npub=${encodeURIComponent(searchQuery.trim())}`,
-      );
-    }
-  };
-
-  const handleSnoopSearch = () => {
-    if (snoopQuery.trim()) {
-      router.push(`/snoopable?npub=${encodeURIComponent(snoopQuery.trim())}`);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-      setShowProfileResults(false);
-    }
-  };
-
-  const handleSelectProfile = (profile: Profile) => {
-    const displayName =
-      profile.display_name || profile.name || profile.nip05 || "";
-    setSearchQuery(displayName);
+  // One lookup feeds every no-sign-in tool: resolve whatever was typed
+  // (npub/nprofile passes through, hex converts, names/NIP-05 resolve via
+  // profile search) into an npub, then jump to the chosen lens.
+  const handleToolSearch = async (path: string) => {
+    const query = searchQuery.trim();
+    if (!query || resolving) return;
     setShowProfileResults(false);
-    // Navigate immediately when profile is selected - convert hex to npub
-    const npub = hexToNpub(profile.pubkey);
-    router.push(`/mute-o-scope?npub=${encodeURIComponent(npub)}`);
-  };
 
-  const handleSelectSnoopProfile = (profile: Profile) => {
-    const displayName =
-      profile.display_name || profile.name || profile.nip05 || "";
-    setSnoopQuery(displayName);
-    setShowSnoopProfileResults(false);
-    const npub = hexToNpub(profile.pubkey);
-    router.push(`/snoopable?npub=${encodeURIComponent(npub)}`);
-  };
+    if (resolvedPubkey) {
+      router.push(
+        `${path}?npub=${encodeURIComponent(hexToNpub(resolvedPubkey))}`,
+      );
+      return;
+    }
 
-  const handleReportSearch = () => {
-    if (reportQuery.trim()) {
-      router.push(`/reportable?npub=${encodeURIComponent(reportQuery.trim())}`);
+    setResolving(true);
+    setLookupError(null);
+    try {
+      let target: string;
+      if (query.startsWith("npub") || query.startsWith("nprofile")) {
+        target = query;
+      } else if (query.match(/^[0-9a-f]{64}$/i)) {
+        target = hexToNpub(query);
+      } else {
+        const profiles = await searchProfiles(query, DEFAULT_RELAYS, 10);
+        if (profiles.length === 0) {
+          setLookupError(
+            `No user found for "${query}". Try a name, NIP-05, or npub.`,
+          );
+          return;
+        }
+        target = hexToNpub(profiles[0].pubkey);
+      }
+      router.push(`${path}?npub=${encodeURIComponent(target)}`);
+    } catch (error) {
+      console.error("Failed to resolve user:", error);
+      setLookupError("Could not resolve that user. Please try again.");
+    } finally {
+      setResolving(false);
     }
   };
 
-  const handleSelectReportProfile = (profile: Profile) => {
-    const displayName =
-      profile.display_name || profile.name || profile.nip05 || "";
-    setReportQuery(displayName);
-    setShowReportProfileResults(false);
-    const npub = hexToNpub(profile.pubkey);
-    router.push(`/reportable?npub=${encodeURIComponent(npub)}`);
+  // Picking from the dropdown stores the pubkey so clicking a lens needs no
+  // second relay round trip.
+  const handleSelectProfile = (profile: Profile) => {
+    setSearchQuery(profile.display_name || profile.name || profile.nip05 || "");
+    setResolvedPubkey(profile.pubkey);
+    setLookupError(null);
+    setShowProfileResults(false);
   };
 
   if (isConnected) {
@@ -310,118 +205,59 @@ export default function Home() {
                 <Lock size={20} />
                 Connect with Nostr
               </button>
-
-              <Link
-                href="/mute-o-scope"
-                className="w-full px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Image
-                  src="/mute_o_scope_icon_white.svg"
-                  alt="Mute-o-Scope"
-                  width={20}
-                  height={20}
-                />
-                Mute-o-Scope
-              </Link>
-              <Link
-                href="/snoopable"
-                className="w-full px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <svg
-                  width="20"
-                  height="16"
-                  viewBox="0 0 459 374"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="text-white"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
-                    fill="currentColor"
-                  />
-                </svg>
-                Snoopable
-              </Link>
-              <Link
-                href="/reportable"
-                className="w-full px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Flag size={20} />
-                Reportable
-              </Link>
-              <Link
-                href="/redactable"
-                className="w-full px-8 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Trash2 size={20} />
-                Redactable
-                <span className="text-xs font-bold px-1.5 py-0.5 bg-emerald-800 rounded">
-                  NEW
-                </span>
-              </Link>
             </div>
           </div>
 
-          {/* Mute-o-Scope Info Card */}
+          {/* Universal No-Sign-In Lookup — one field feeds every anonymous
+              tool: resolve a name, NIP-05, or npub once, then pick the lens
+              to open it in. */}
           <div className="max-w-md mx-auto w-full mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
             <div className="flex items-start gap-3 mb-4">
-              <Image
-                src="/mute_o_scope_icon_white.svg"
-                alt="Mute-o-Scope"
-                width={24}
-                height={24}
-                className="flex-shrink-0 mt-1"
+              <Search
+                size={24}
+                className="text-red-600 dark:text-red-400 flex-shrink-0 mt-1"
               />
               <div className="text-left">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Try Mute-o-Scope - No Login Required
+                  Look Up Any User - No Login Required
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Search any npub to see who is publicly muting them. Perfect
-                  for checking your reputation or investigating profiles.
+                  Enter a username, NIP-05, or npub once, then choose your lens:
+                  who mutes them, reports on them, their deleted posts, or how
+                  public their activity really is.
                 </p>
               </div>
             </div>
 
-            {/* Search Box */}
             <div className="relative" ref={searchDropdownRef}>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    onFocus={() => {
-                      if (profileSearchResults.length > 0) {
-                        setShowProfileResults(true);
-                      }
-                    }}
-                    placeholder="Enter npub, username, or hex..."
-                    className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
-                  />
-                  {isSearchingProfiles && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2
-                        size={16}
-                        className="animate-spin text-gray-400"
-                      />
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleSearch}
-                  disabled={!searchQuery.trim()}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Image
-                    src="/mute_o_scope_icon_white.svg"
-                    alt="Mute-o-Scope"
-                    width={16}
-                    height={16}
-                  />
-                </button>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setResolvedPubkey(null);
+                    setLookupError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setShowProfileResults(false);
+                      handleToolSearch("/mute-o-scope");
+                    }
+                  }}
+                  onFocus={() => {
+                    if (profileSearchResults.length > 0) {
+                      setShowProfileResults(true);
+                    }
+                  }}
+                  placeholder="Enter npub, NIP-05, or username..."
+                  className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+                />
+                {(resolving || isSearchingProfiles) && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 size={16} className="animate-spin text-gray-400" />
+                  </div>
+                )}
               </div>
 
               {/* Profile search results dropdown */}
@@ -467,238 +303,73 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Snoopable Info Card */}
-          <div className="max-w-md mx-auto w-full mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-            <div className="flex items-start gap-3 mb-4">
-              <svg
-                width="24"
-                height="19"
-                viewBox="0 0 459 374"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-purple-600 dark:text-purple-400 flex-shrink-0 mt-1"
-                aria-hidden="true"
+            {/* Lens buttons — NEW stays on both Reportable and Redactable */}
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <button
+                onClick={() => handleToolSearch("/mute-o-scope")}
+                disabled={!searchQuery.trim() || resolving}
+                title="Who is publicly muting them"
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
               >
-                <path
-                  d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
-                  fill="currentColor"
+                <Image
+                  src="/mute_o_scope_icon_white.svg"
+                  alt=""
+                  width={16}
+                  height={16}
                 />
-              </svg>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Try Snoopable - No Login Required
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  See how public your DM metadata really is. Analyze any npub to
-                  view activity, top contacts, and heatmap insights.
-                </p>
-              </div>
+                Mute-o-Scope
+              </button>
+              <button
+                onClick={() => handleToolSearch("/snoopable")}
+                disabled={!searchQuery.trim() || resolving}
+                title="How public their activity really is"
+                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+              >
+                <Glasses size={16} />
+                Snoopable
+              </button>
+              <button
+                onClick={() => handleToolSearch("/reportable")}
+                disabled={!searchQuery.trim() || resolving}
+                title="Public reports filed about them — and by them"
+                className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+              >
+                <Flag size={16} />
+                Reportable
+                <span className="text-[10px] font-bold px-1 py-px bg-orange-800 rounded">
+                  NEW
+                </span>
+              </button>
+              <button
+                onClick={() => handleToolSearch("/redactable")}
+                disabled={!searchQuery.trim() || resolving}
+                title="Their deletion requests and deleted posts"
+                className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 dark:ring-1 dark:ring-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+              >
+                <Trash2 size={16} />
+                Redactable
+                <span className="text-[10px] font-bold px-1 py-px bg-gray-800 rounded">
+                  NEW
+                </span>
+              </button>
             </div>
 
-            <div className="relative" ref={snoopSearchDropdownRef}>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={snoopQuery}
-                    onChange={(e) => setSnoopQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSnoopSearch();
-                        setShowSnoopProfileResults(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (snoopSearchResults.length > 0) {
-                        setShowSnoopProfileResults(true);
-                      }
-                    }}
-                    placeholder="Enter npub or username..."
-                    className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
-                  />
-                  {isSearchingSnoopProfiles && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2
-                        size={16}
-                        className="animate-spin text-gray-400"
-                      />
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleSnoopSearch}
-                  disabled={!snoopQuery.trim()}
-                  className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg
-                    width="16"
-                    height="13"
-                    viewBox="0 0 459 374"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="text-white"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M122.637 0.00931859C53.8791 0.00931859 0 81.967 0 186.615C0 291.263 53.8586 373.221 122.616 373.221C191.374 373.221 245.233 291.263 245.233 186.615C245.253 81.967 191.389 0.00931859 122.637 0.00931859ZM122.637 341.251C73.514 341.251 32.0091 270.431 32.0091 186.636C32.0091 102.82 73.5145 32.0205 122.637 32.0205C160.523 32.0205 193.769 74.1884 207.066 131.873C200.669 129.473 193.831 127.994 186.614 127.994C154.265 127.994 127.975 154.306 127.975 186.637C127.975 218.987 154.285 245.279 186.614 245.279C193.831 245.279 200.669 243.8 207.066 241.401C193.771 299.086 160.523 341.251 122.637 341.251ZM213.264 186.636C213.264 201.331 201.309 213.288 186.614 213.288C171.919 213.288 159.964 201.331 159.964 186.636C159.964 171.94 171.919 159.983 186.614 159.983C201.309 159.983 213.264 171.94 213.264 186.636ZM335.881 0.0297912C299.014 0.0297912 266.504 23.7429 244.214 61.754C250.552 74.4505 256.03 88.0862 260.308 102.722C276.682 60.5343 304.732 32.0047 335.883 32.0047C373.77 32.0047 407.016 74.1725 420.313 131.857C413.915 129.457 407.078 127.978 399.86 127.978C367.512 127.978 341.221 154.29 341.221 186.621C341.221 218.971 367.532 245.264 399.86 245.264C407.078 245.264 413.915 243.784 420.313 241.385C407.017 299.07 373.769 341.237 335.883 341.237C304.734 341.237 276.686 312.725 260.308 270.519C256.03 285.155 250.552 298.811 244.214 311.487C266.506 349.497 298.994 373.212 335.881 373.212C404.638 373.212 458.497 291.254 458.497 186.606C458.497 81.9577 404.638 0 335.881 0V0.0297912ZM399.858 213.308C385.163 213.308 373.208 201.352 373.208 186.656C373.208 171.96 385.163 160.004 399.858 160.004C414.553 160.004 426.508 171.96 426.508 186.656C426.508 201.352 414.553 213.308 399.858 213.308Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              {showSnoopProfileResults && snoopSearchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
-                  {snoopSearchResults.map((profile) => (
-                    <button
-                      key={profile.pubkey}
-                      onClick={() => handleSelectSnoopProfile(profile)}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                    >
-                      {profile.picture ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={profile.picture}
-                          alt=""
-                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.pubkey}`;
-                          }}
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                          <User className="text-white" size={16} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">
-                          {profile.display_name || profile.name || "Anonymous"}
-                        </div>
-                        {profile.nip05 && (
-                          <div className="text-xs text-green-600 dark:text-green-400 truncate">
-                            ✓ {profile.nip05}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {lookupError && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                {lookupError}
+              </p>
+            )}
           </div>
 
-          {/* Reportable Info Card */}
-          <div className="max-w-md mx-auto w-full mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-            <div className="flex items-start gap-3 mb-4">
-              <Flag
-                size={24}
-                className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1"
-              />
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Try Reportable - No Login Required{" "}
-                  <span className="inline-flex items-center text-xs font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 rounded">
-                    NEW
-                  </span>
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Search any npub to see the public NIP-56 reports filed
-                  against them — and the reports they have filed on others.
-                </p>
-              </div>
-            </div>
-
-            <div className="relative" ref={reportSearchDropdownRef}>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={reportQuery}
-                    onChange={(e) => setReportQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleReportSearch();
-                        setShowReportProfileResults(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (reportSearchResults.length > 0) {
-                        setShowReportProfileResults(true);
-                      }
-                    }}
-                    placeholder="Enter npub or username..."
-                    className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
-                  />
-                  {isSearchingReportProfiles && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2
-                        size={16}
-                        className="animate-spin text-gray-400"
-                      />
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleReportSearch}
-                  disabled={!reportQuery.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Flag size={16} />
-                </button>
-              </div>
-
-              {showReportProfileResults && reportSearchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
-                  {reportSearchResults.map((profile) => (
-                    <button
-                      key={profile.pubkey}
-                      onClick={() => handleSelectReportProfile(profile)}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                    >
-                      {profile.picture ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={profile.picture}
-                          alt=""
-                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.pubkey}`;
-                          }}
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-red-500 flex items-center justify-center flex-shrink-0">
-                          <User className="text-white" size={16} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">
-                          {profile.display_name || profile.name || "Anonymous"}
-                        </div>
-                        {profile.nip05 && (
-                          <div className="text-xs text-green-600 dark:text-green-400 truncate">
-                            ✓ {profile.nip05}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Plebs vs. Zombies Credit */}
-          <div className="max-w-md mx-auto w-full mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span>From the creator of</span>
+          {/* Creator credits */}
+          <div className="max-w-md mx-auto w-full mt-4 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+            <span className="whitespace-nowrap">From the creator of</span>
             <a
               href="https://plebsvszombies.cc"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
+              className="flex items-center gap-1 whitespace-nowrap hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
             >
               <Image
                 src="/plebs_vs_zombies_logo.svg"
@@ -707,6 +378,21 @@ export default function Home() {
                 height={20}
               />
               Plebs vs. Zombies
+            </a>
+            <span>and</span>
+            <a
+              href="https://sidecar.top"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 whitespace-nowrap hover:text-red-600 dark:hover:text-red-400 transition-colors font-medium"
+            >
+              <Image
+                src="/sidecar_icon.svg"
+                alt="Sidecar"
+                width={18}
+                height={20}
+              />
+              Sidecar
             </a>
           </div>
         </div>

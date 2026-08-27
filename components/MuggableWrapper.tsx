@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { User, LogOut } from "lucide-react";
+import { ArrowLeft, User, LogOut } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +18,9 @@ interface MuggableWrapperProps {
   initialQuery?: string;
 }
 
-export default function MuggableWrapper({ initialQuery }: MuggableWrapperProps) {
+export default function MuggableWrapper({
+  initialQuery,
+}: MuggableWrapperProps) {
   const { session, disconnect } = useAuth();
   const { userProfile } = useStore();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -177,6 +179,14 @@ export default function MuggableWrapper({ initialQuery }: MuggableWrapperProps) 
                   height={24}
                   className="hidden sm:dark:block"
                 />
+              </Link>
+              <Link
+                href="/"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                title="Back to the Mutable home screen"
+              >
+                <ArrowLeft size={16} />
+                <span className="hidden sm:inline">Back</span>
               </Link>
 
               <div className="flex-1" />

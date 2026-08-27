@@ -660,7 +660,9 @@ async function encryptPrivateMutes(
         if (typeof encrypted === "string" && encrypted.length > 0) {
           return encrypted;
         }
-        console.warn("NIP-44 encrypt returned invalid result, falling back to NIP-04");
+        console.warn(
+          "NIP-44 encrypt returned invalid result, falling back to NIP-04",
+        );
       } catch (error) {
         console.warn("NIP-44 encrypt failed, falling back to NIP-04:", error);
       }
@@ -2599,9 +2601,9 @@ export async function searchMutealsNetworkWide(
     diag("Events received", `${events.length} raw kind:10000 events`);
     diag(
       "Relay responses",
-      `${eoseReported}/${relays.length} relays sent EOSE · finished in ${Math.round(
-        (Date.now() - scanStartedAt) / 100,
-      ) / 10}s via ${resolveReason}`,
+      `${eoseReported}/${relays.length} relays sent EOSE · finished in ${
+        Math.round((Date.now() - scanStartedAt) / 100) / 10
+      }s via ${resolveReason}`,
     );
   } catch (error) {
     console.error("⚠️ Initial query failed:", error);
@@ -2975,9 +2977,8 @@ export async function searchReportsNetworkWide(
               lastSummaryAt = Date.now();
               onSummary(
                 buildSummary(collectedEvents, {
-                  uniqueReporters: new Set(
-                    collectedEvents.map((e) => e.pubkey),
-                  ).size,
+                  uniqueReporters: new Set(collectedEvents.map((e) => e.pubkey))
+                    .size,
                   confirmedMatches: 0,
                   inProgress: true,
                 }),
@@ -3103,7 +3104,9 @@ export async function fetchProfilesBulk(
   onProgress?: (current: number, total: number) => void,
 ): Promise<Map<string, Profile>> {
   const map = new Map<string, Profile>();
-  const wanted = [...new Set(pubkeys.filter((p) => p.match(/^[0-9a-f]{64}$/i)))];
+  const wanted = [
+    ...new Set(pubkeys.filter((p) => p.match(/^[0-9a-f]{64}$/i))),
+  ];
   if (wanted.length === 0) return map;
 
   // Stage 1: archive bulk lookup
@@ -3450,7 +3453,10 @@ export async function searchDeletionsBy(
   abortSignal?: AbortSignal,
 ): Promise<DeletionEntry[]> {
   const pool = getPool();
-  const expandedRelays = getExpandedRelayList(relays);
+  // The caller owns relay breadth here: Redactable builds a wide set
+  // (defaults + archival + the user's NIP-65 relays), so no capping or
+  // default-first expansion — normalize only.
+  const expandedRelays = normalizeRelayList(relays);
 
   console.log(
     `🔍 Searching ${expandedRelays.length} relays for deletions by ${deleterPubkey.substring(0, 8)}...`,
@@ -3545,7 +3551,8 @@ export async function fetchRecentDeletionsFeed(
   maxWaitMs: number = 10000,
 ): Promise<DeletionEntry[]> {
   const pool = getPool();
-  const expandedRelays = getExpandedRelayList(relays);
+  // Same as searchDeletionsBy: the caller owns relay breadth, normalize only.
+  const expandedRelays = normalizeRelayList(relays);
   const since = Math.floor(Date.now() / 1000) - sinceDays * 86400;
 
   // Errors propagate to the caller: a failed relay round must surface as
@@ -3614,9 +3621,7 @@ export async function fetchNotesByIds(
   maxWaitMs: number = 6000,
 ): Promise<Map<string, Event>> {
   const found = new Map<string, Event>();
-  const unique = [
-    ...new Set(ids.filter((id) => id.match(/^[0-9a-f]{64}$/i))),
-  ];
+  const unique = [...new Set(ids.filter((id) => id.match(/^[0-9a-f]{64}$/i)))];
   if (unique.length === 0) return found;
 
   const CHUNK = 50;
@@ -3629,7 +3634,7 @@ export async function fetchNotesByIds(
     chunks.map(async (chunk) => {
       try {
         const events = await getPool().querySync(
-          getExpandedRelayList(relays),
+          normalizeRelayList(relays),
           { ids: chunk },
           { maxWait: maxWaitMs },
         );
@@ -3711,8 +3716,9 @@ export async function fetchAddressableEvents(
 
   // Cap #d values per query so filters stay relay-friendly.
   const D_CHUNK = 64;
-  const queries: { filter: { kinds: number[]; authors: string[]; "#d": string[] } }[] =
-    [];
+  const queries: {
+    filter: { kinds: number[]; authors: string[]; "#d": string[] };
+  }[] = [];
   for (const [key, dtags] of groups) {
     for (let i = 0; i < dtags.length; i += D_CHUNK) {
       const [kind, pubkey] = key.split(":");
@@ -3730,7 +3736,7 @@ export async function fetchAddressableEvents(
     queries.map(async ({ filter }) => {
       try {
         const events = await getPool().querySync(
-          getExpandedRelayList(relays),
+          normalizeRelayList(relays),
           filter,
           { maxWait: maxWaitMs },
         );

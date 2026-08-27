@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  ArrowLeft,
   RefreshCw,
   Search,
   Flag,
@@ -23,7 +24,12 @@ import {
   FileJson,
   FileText,
 } from "lucide-react";
-import { Profile, ReportResult, ReportFiledResult, ReportFeedEntry } from "@/types";
+import {
+  Profile,
+  ReportResult,
+  ReportFiledResult,
+  ReportFeedEntry,
+} from "@/types";
 import UserProfileModal from "./UserProfileModal";
 import ReportScoreModal from "./ReportScoreModal";
 import ReportableShareModal from "./ReportableShareModal";
@@ -65,7 +71,6 @@ const LOAD_MORE_COUNT = 20;
 type Tab = "lookup" | "feed";
 type ResultView = "received" | "filed";
 
-
 function formatRelativeDate(timestamp?: number): string {
   if (!timestamp) return "";
   const date = new Date(timestamp * 1000);
@@ -95,10 +100,9 @@ export default function Reportable() {
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showReportScoreModal, setShowReportScoreModal] = useState(false);
-  const [
-    detailReport,
-    setDetailReport,
-  ] = useState<ReportResult | ReportFiledResult | ReportFeedEntry | null>(null);
+  const [detailReport, setDetailReport] = useState<
+    ReportResult | ReportFiledResult | ReportFeedEntry | null
+  >(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
   // Lookup tab state
@@ -113,9 +117,7 @@ export default function Reportable() {
 
   // Reports the target has FILED against others (second results view)
   const [filedResults, setFiledResults] = useState<ReportFiledResult[]>([]);
-  const [filedDisplayed, setFiledDisplayed] = useState<ReportFiledResult[]>(
-    [],
-  );
+  const [filedDisplayed, setFiledDisplayed] = useState<ReportFiledResult[]>([]);
   const [filedLoading, setFiledLoading] = useState(false);
   const [filedSearchDone, setFiledSearchDone] = useState(false);
   const [resultView, setResultView] = useState<ResultView>("received");
@@ -476,9 +478,7 @@ export default function Reportable() {
         },
       );
       setDisplayedResults((prev) =>
-        prev.map(
-          (r) => enriched.find((e) => e.eventId === r.eventId) || r,
-        ),
+        prev.map((r) => enriched.find((e) => e.eventId === r.eventId) || r),
       );
       setProgress("");
     } catch (err) {
@@ -546,9 +546,7 @@ export default function Reportable() {
           },
         );
         setFiledDisplayed((prev) =>
-          prev.map(
-            (r) => enriched.find((e) => e.eventId === r.eventId) || r,
-          ),
+          prev.map((r) => enriched.find((e) => e.eventId === r.eventId) || r),
         );
         setProgress("");
       } catch (err) {
@@ -578,9 +576,7 @@ export default function Reportable() {
         },
       );
       setDisplayedResults((prev) =>
-        prev.map(
-          (r) => enriched.find((e) => e.eventId === r.eventId) || r,
-        ),
+        prev.map((r) => enriched.find((e) => e.eventId === r.eventId) || r),
       );
       setProgress("");
     } catch (err) {
@@ -656,9 +652,7 @@ export default function Reportable() {
       setFeedEnriching(true);
       const enriched = await enrichReportsFeedWithProfiles(raw, relays);
       setFeedEntries((prev) =>
-        prev.map(
-          (e) => enriched.find((n) => n.eventId === e.eventId) || e,
-        ),
+        prev.map((e) => enriched.find((n) => n.eventId === e.eventId) || e),
       );
     } catch (err) {
       console.error("Failed to load reports feed:", err);
@@ -689,9 +683,8 @@ export default function Reportable() {
     () => allResults.filter((r) => !automatedReceivedIds.has(r.eventId)),
     [allResults, automatedReceivedIds],
   );
-  const uniqueHumanReporters = new Set(
-    humanResults.map((r) => r.reportedBy),
-  ).size;
+  const uniqueHumanReporters = new Set(humanResults.map((r) => r.reportedBy))
+    .size;
   const hiddenReceivedCount = allResults.length - humanResults.length;
   const visibleReceivedTotal = hideAutomatedReceived
     ? humanResults.length
@@ -752,8 +745,10 @@ export default function Reportable() {
   ).size;
 
   // Load-more + counter helpers for whichever view is active
-  const activeTotalCount = resultView === "received" ? allResults.length : filedResults.length;
-  const activeShownCount = resultView === "received" ? displayedResults.length : filedDisplayed.length;
+  const activeTotalCount =
+    resultView === "received" ? allResults.length : filedResults.length;
+  const activeShownCount =
+    resultView === "received" ? displayedResults.length : filedDisplayed.length;
 
   // Reporters whose volume marks them as automated (anti-spam bots and
   // similar bulk reporters) — their entries bury every human report.
@@ -856,12 +851,7 @@ export default function Reportable() {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-400 dark:text-gray-500">by</span>
-          <Image
-            src="/mutable_logo.svg"
-            alt="Mutable"
-            width={18}
-            height={18}
-          />
+          <Image src="/mutable_logo.svg" alt="Mutable" width={18} height={18} />
           <Image
             src="/mutable_text_dark.svg"
             alt=""
@@ -932,7 +922,10 @@ export default function Reportable() {
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User size={16} className="text-gray-600 dark:text-gray-300" />
+                        <User
+                          size={16}
+                          className="text-gray-600 dark:text-gray-300"
+                        />
                       </div>
                     )}
                     <div className="flex flex-col">
@@ -965,7 +958,10 @@ export default function Reportable() {
                       />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User size={16} className="text-gray-600 dark:text-gray-300" />
+                        <User
+                          size={16}
+                          className="text-gray-600 dark:text-gray-300"
+                        />
                       </div>
                     )}
                   </div>
@@ -993,7 +989,12 @@ export default function Reportable() {
                 className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
                 title="Go to Home"
               >
-                <Image src="/mutable_logo.svg" alt="Mutable" width={40} height={40} />
+                <Image
+                  src="/mutable_logo.svg"
+                  alt="Mutable"
+                  width={40}
+                  height={40}
+                />
                 <Image
                   src="/mutable_text_dark.svg"
                   alt="Mutable"
@@ -1008,6 +1009,14 @@ export default function Reportable() {
                   height={24}
                   className="hidden sm:dark:block"
                 />
+              </Link>
+              <Link
+                href="/"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                title="Back to the Mutable home screen"
+              >
+                <ArrowLeft size={16} />
+                <span className="hidden sm:inline">Back</span>
               </Link>
 
               <div className="flex-1" />
@@ -1042,8 +1051,8 @@ export default function Reportable() {
                   Reportable
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  See who is publicly reporting whom on Nostr — look up a pubkey&apos;s
-                  report history or browse the live feed
+                  See who is publicly reporting whom on Nostr — look up a
+                  pubkey&apos;s report history or browse the live feed
                 </p>
               </div>
             </div>
@@ -1066,9 +1075,9 @@ export default function Reportable() {
 
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> Reports are self-published, unmoderated claims —
-                anyone can report anyone for any reason. Treat this as a public signal to
-                investigate further, not a verdict.
+                <strong>Note:</strong> Reports are self-published, unmoderated
+                claims — anyone can report anyone for any reason. Treat this as
+                a public signal to investigate further, not a verdict.
               </p>
             </div>
           </div>
@@ -1104,8 +1113,8 @@ export default function Reportable() {
               {/* Search Section */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
                 <div className="relative" ref={searchDropdownRef}>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative w-full sm:flex-1">
                       <input
                         type="text"
                         value={searchQuery}
@@ -1129,89 +1138,103 @@ export default function Reportable() {
                       />
                       {isSearchingProfiles && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <Loader2 size={20} className="animate-spin text-gray-400" />
+                          <Loader2
+                            size={20}
+                            className="animate-spin text-gray-400"
+                          />
                         </div>
                       )}
 
-                      {showProfileResults && profileSearchResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
-                          {profileSearchResults.map((profile) => (
-                            <button
-                              key={profile.pubkey}
-                              onClick={() => handleSelectProfile(profile)}
-                              className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                            >
-                              {profile.picture ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={profile.picture}
-                                  alt={getDisplayName(profile, "User")}
-                                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                  <User size={20} className="text-gray-600 dark:text-gray-300" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 dark:text-white truncate">
-                                  {getDisplayName(profile)}
-                                </p>
-                                {profile.nip05 && (
-                                  <p className="text-xs text-green-600 dark:text-green-400 truncate">
-                                    ✓ {profile.nip05}
-                                  </p>
+                      {showProfileResults &&
+                        profileSearchResults.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                            {profileSearchResults.map((profile) => (
+                              <button
+                                key={profile.pubkey}
+                                onClick={() => handleSelectProfile(profile)}
+                                className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                              >
+                                {profile.picture ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={profile.picture}
+                                    alt={getDisplayName(profile, "User")}
+                                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                    <User
+                                      size={20}
+                                      className="text-gray-600 dark:text-gray-300"
+                                    />
+                                  </div>
                                 )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 dark:text-white truncate">
+                                    {getDisplayName(profile)}
+                                  </p>
+                                  {profile.nip05 && (
+                                    <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                                      ✓ {profile.nip05}
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                    </div>
+                    {/* Buttons wrap under the input on phones; from sm up the
+                        wrapper dissolves (display:contents) so the buttons
+                        join the input on one row like the classic layout. */}
+                    <div className="flex flex-wrap gap-2 sm:contents">
+                      <button
+                        data-report-search-button
+                        onClick={() => {
+                          setShowProfileResults(false);
+                          handleSearch();
+                        }}
+                        disabled={searching || !searchQuery.trim()}
+                        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                      >
+                        {searching ? (
+                          <>
+                            <RefreshCw className="animate-spin" size={20} />
+                            <span>Searching...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Search size={20} />
+                            <span>Search</span>
+                          </>
+                        )}
+                      </button>
+                      {session && !searching && (
+                        <button
+                          onClick={handleReportMyself}
+                          className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                          title="Check your own public report history"
+                        >
+                          <User size={20} />
+                          <span>Check my Reports</span>
+                        </button>
+                      )}
+                      {(searchQuery || allResults.length > 0) && !searching && (
+                        <button
+                          onClick={handleReset}
+                          className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                          title="Reset search"
+                        >
+                          <X size={20} />
+                          <span>Reset</span>
+                        </button>
                       )}
                     </div>
-                    <button
-                      data-report-search-button
-                      onClick={() => {
-                        setShowProfileResults(false);
-                        handleSearch();
-                      }}
-                      disabled={searching || !searchQuery.trim()}
-                      className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {searching ? (
-                        <>
-                          <RefreshCw className="animate-spin" size={20} />
-                          <span className="hidden sm:inline">Searching...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Search size={20} />
-                          <span className="hidden sm:inline">Search</span>
-                        </>
-                      )}
-                    </button>
-                    {session && !searching && (
-                      <button
-                        onClick={handleReportMyself}
-                        className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center gap-2"
-                        title="Check your own public report history"
-                      >
-                        <User size={20} />
-                        <span className="hidden sm:inline">Check my Reports</span>
-                      </button>
-                    )}
-                    {(searchQuery || allResults.length > 0) && !searching && (
-                      <button
-                        onClick={handleReset}
-                        className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-                        title="Reset search"
-                      >
-                        <X size={20} />
-                        <span className="hidden sm:inline">Reset</span>
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1226,7 +1249,10 @@ export default function Reportable() {
                       )}
                       {progress && (
                         <div className="flex items-center space-x-3">
-                          <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
+                          <RefreshCw
+                            className="animate-spin text-blue-600 dark:text-blue-400"
+                            size={20}
+                          />
                           <div className="text-blue-900 dark:text-blue-100 font-medium">
                             {progress}
                           </div>
@@ -1265,11 +1291,16 @@ export default function Reportable() {
                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                         title="Click to view all Report Score levels"
                       >
-                        <span className="text-2xl">{getReportScore(0).emoji}</span>
+                        <span className="text-2xl">
+                          {getReportScore(0).emoji}
+                        </span>
                         <span className="text-sm font-semibold text-gray-900 dark:text-white">
                           Report Score: {getReportScore(0).label}
                         </span>
-                        <Info size={16} className="text-gray-500 dark:text-gray-400" />
+                        <Info
+                          size={16}
+                          className="text-gray-500 dark:text-gray-400"
+                        />
                       </button>
                     </div>
                     <div className="text-center p-8">
@@ -1278,7 +1309,8 @@ export default function Reportable() {
                         No Public Reports Found
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        No one has publicly reported this user on the scanned relays.
+                        No one has publicly reported this user on the scanned
+                        relays.
                       </p>
                     </div>
                   </div>
@@ -1336,473 +1368,520 @@ export default function Reportable() {
                   </div>
 
                   {resultView === "received" && (
-                  <>
-                  <div className="mb-4">
-                    {receivedHeadline}
+                    <>
+                      <div className="mb-4">
+                        {receivedHeadline}
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                      <button
-                        onClick={() => setShowReportScoreModal(true)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer text-left"
-                        title="Click to view all Report Score levels"
-                      >
-                        <span className="text-2xl">
-                          {getReportScore(uniqueHumanReporters).emoji}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          Report Score: {getReportScore(uniqueHumanReporters).label}
-                          {hiddenReceivedCount > 0 && (
-                            <span className="font-normal text-gray-500 dark:text-gray-400">
-                              {" "}
-                              ({hiddenReceivedCount} automated hidden)
-                            </span>
-                          )}
-                        </span>
-                        <Info size={16} className="text-gray-500 dark:text-gray-400" />
-                      </button>
-
-                      {visibleReceivedResults.length < visibleReceivedTotal && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Showing {visibleReceivedResults.length} of {visibleReceivedTotal}
-                        </p>
-                      )}
-                      {targetProfile && (
-                        <button
-                          onClick={() => setShowShareModal(true)}
-                          className="inline-flex items-center justify-center gap-2 px-3 py-1.5 w-full sm:w-auto bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                          title="Share these results on Nostr"
-                        >
-                          <Share2 size={16} />
-                          Share
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Automated-report filter — bots and coordinated swarms
-                        never count toward the score; collapse behind this. */}
-                    {hiddenReceivedCount > 0 && (
-                      <button
-                        onClick={() =>
-                          setHideAutomatedReceived((prev) => !prev)
-                        }
-                        className={`w-full mt-3 p-3 rounded-lg border text-sm font-medium transition-colors text-left flex items-center gap-2 ${
-                          hideAutomatedReceived
-                            ? "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
-                        }`}
-                      >
-                        <Bot size={16} className="flex-shrink-0" />
-                        {hideAutomatedReceived ? (
-                          <span>
-                            {hiddenReceivedCount} automated report
-                            {hiddenReceivedCount === 1 ? "" : "s"} (bots and
-                            swarms) hidden — excluded from score — click to
-                            show
-                          </span>
-                        ) : (
-                          <span>
-                            Showing automated reports — they do not affect the
-                            score — click to hide
-                          </span>
-                        )}
-                      </button>
-                    )}
-
-                    {/* Report type breakdown */}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {Object.entries(reportTypeCounts)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([type, count]) => (
-                          <div
-                            key={type}
-                            className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                          <button
+                            onClick={() => setShowReportScoreModal(true)}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer text-left"
+                            title="Click to view all Report Score levels"
                           >
-                            <ReportTypeBadge type={type} />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">
-                              ×{count}
+                            <span className="text-2xl">
+                              {getReportScore(uniqueHumanReporters).emoji}
                             </span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {allResults.length === 0 && (
-                      <div className="text-center p-6">
-                        <Flag className="mx-auto mb-3 text-green-500" size={40} />
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          No one has publicly reported this user on the scanned
-                          relays.
-                        </p>
-                      </div>
-                    )}
-                    {visibleReceivedResults.map((report) => {
-                      const profile = report.profile;
-                      const displayName = profile
-                        ? getDisplayName(profile)
-                        : "Loading profile...";
-                      const npub = hexToNpub(report.reportedBy);
-                      const isLoading = !profile;
-
-                      return (
-                        <div
-                          key={report.eventId}
-                          className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div
-                              className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
-                              onClick={() =>
-                                setSelectedProfile(profile || { pubkey: report.reportedBy })
-                              }
-                              title="View profile"
-                            >
-                              {isLoading ? (
-                                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                  <Loader2 size={20} className="text-gray-600 dark:text-gray-300 animate-spin" />
-                                </div>
-                              ) : profile?.picture ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={profile.picture}
-                                  alt={displayName}
-                                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src =
-                                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                  <User size={20} className="text-gray-600 dark:text-gray-300" />
-                                </div>
-                              )}
-
-                              <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span
-                                    className={`font-medium truncate ${isLoading ? "text-gray-500 dark:text-gray-400 italic" : "text-gray-900 dark:text-white"}`}
-                                  >
-                                    {displayName}
-                                  </span>
-                                  <ReportTypeBadge type={report.reportType} />
-                                </div>
-                                {profile?.nip05 && (
-                                  <div className="text-xs text-green-600 dark:text-green-400 truncate">
-                                    ✓ {profile.nip05}
-                                  </div>
-                                )}
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  Reported {formatRelativeDate(report.reportedAt)}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
-                              <button
-                                onClick={() => setDetailReport(report)}
-                                className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                                title="View the full report"
-                              >
-                                <FileText size={16} />
-                                Full report
-                              </button>
-                              <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
-                                <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                                  Evidence
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              Report Score:{" "}
+                              {getReportScore(uniqueHumanReporters).label}
+                              {hiddenReceivedCount > 0 && (
+                                <span className="font-normal text-gray-500 dark:text-gray-400">
+                                  {" "}
+                                  ({hiddenReceivedCount} automated hidden)
                                 </span>
-                                <button
-                                  onClick={() => handleCopyNpub(npub)}
-                                  className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                    copiedNpub === npub
-                                      ? "text-green-600 dark:text-green-400"
-                                      : "text-gray-600 dark:text-gray-400"
-                                  }`}
-                                  title={copiedNpub === npub ? "Copied!" : "Copy npub"}
-                                >
-                                  <Fingerprint size={16} />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleCopyValue(report.eventId, `id:${report.eventId}`)
-                                  }
-                                  className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                    copiedValue === `id:${report.eventId}`
-                                      ? "text-green-600 dark:text-green-400"
-                                      : "text-gray-600 dark:text-gray-400"
-                                  }`}
-                                  title={
-                                    copiedValue === `id:${report.eventId}`
-                                      ? "Copied!"
-                                      : "Copy event ID"
-                                  }
-                                >
-                                  {copiedValue === `id:${report.eventId}` ? (
-                                    <Check size={16} />
-                                  ) : (
-                                    <Copy size={16} />
-                                  )}
-                                </button>
-                                {report.rawEvent && (
-                                  <button
-                                    onClick={() =>
-                                      handleCopyValue(
-                                        JSON.stringify(report.rawEvent, null, 2),
-                                        `json:${report.eventId}`,
-                                      )
-                                    }
-                                    className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                      copiedValue === `json:${report.eventId}`
-                                        ? "text-green-600 dark:text-green-400"
-                                        : "text-gray-600 dark:text-gray-400"
-                                    }`}
-                                    title={
-                                      copiedValue === `json:${report.eventId}`
-                                        ? "Copied!"
-                                        : "Copy event JSON"
-                                    }
-                                  >
-                                    {copiedValue === `json:${report.eventId}` ? (
-                                      <Check size={16} />
-                                    ) : (
-                                      <FileJson size={16} />
-                                    )}
-                                  </button>
-                                )}
-                                <a
-                                  href={getReportEventLink(report.eventId)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                  title="View report on njump"
-                                >
-                                  <ExternalLink size={16} />
-                                </a>
-                              </div>
-                            </div>
-                          </div>
+                              )}
+                            </span>
+                            <Info
+                              size={16}
+                              className="text-gray-500 dark:text-gray-400"
+                            />
+                          </button>
 
-                          {report.content && (
-                            <p className="mt-2 pl-[52px] text-sm text-gray-600 dark:text-gray-400 italic break-words">
-                              &ldquo;{report.content}&rdquo;
+                          {visibleReceivedResults.length <
+                            visibleReceivedTotal && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Showing {visibleReceivedResults.length} of{" "}
+                              {visibleReceivedTotal}
                             </p>
                           )}
+                          {targetProfile && (
+                            <button
+                              onClick={() => setShowShareModal(true)}
+                              className="inline-flex items-center justify-center gap-2 px-3 py-1.5 w-full sm:w-auto bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                              title="Share these results on Nostr"
+                            >
+                              <Share2 size={16} />
+                              Share
+                            </button>
+                          )}
                         </div>
-                      );
-                    })}
-                    </div>
-                  </>
+
+                        {/* Automated-report filter — bots and coordinated swarms
+                        never count toward the score; collapse behind this. */}
+                        {hiddenReceivedCount > 0 && (
+                          <button
+                            onClick={() =>
+                              setHideAutomatedReceived((prev) => !prev)
+                            }
+                            className={`w-full mt-3 p-3 rounded-lg border text-sm font-medium transition-colors text-left flex items-center gap-2 ${
+                              hideAutomatedReceived
+                                ? "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                            }`}
+                          >
+                            <Bot size={16} className="flex-shrink-0" />
+                            {hideAutomatedReceived ? (
+                              <span>
+                                {hiddenReceivedCount} automated report
+                                {hiddenReceivedCount === 1 ? "" : "s"} (bots and
+                                swarms) hidden — excluded from score — click to
+                                show
+                              </span>
+                            ) : (
+                              <span>
+                                Showing automated reports — they do not affect
+                                the score — click to hide
+                              </span>
+                            )}
+                          </button>
+                        )}
+
+                        {/* Report type breakdown */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {Object.entries(reportTypeCounts)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, count]) => (
+                              <div
+                                key={type}
+                                className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                              >
+                                <ReportTypeBadge type={type} />
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                  ×{count}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {allResults.length === 0 && (
+                          <div className="text-center p-6">
+                            <Flag
+                              className="mx-auto mb-3 text-green-500"
+                              size={40}
+                            />
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              No one has publicly reported this user on the
+                              scanned relays.
+                            </p>
+                          </div>
+                        )}
+                        {visibleReceivedResults.map((report) => {
+                          const profile = report.profile;
+                          const displayName = profile
+                            ? getDisplayName(profile)
+                            : "Loading profile...";
+                          const npub = hexToNpub(report.reportedBy);
+                          const isLoading = !profile;
+
+                          return (
+                            <div
+                              key={report.eventId}
+                              className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div
+                                  className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden cursor-pointer"
+                                  onClick={() =>
+                                    setSelectedProfile(
+                                      profile || { pubkey: report.reportedBy },
+                                    )
+                                  }
+                                  title="View profile"
+                                >
+                                  {isLoading ? (
+                                    <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                      <Loader2
+                                        size={20}
+                                        className="text-gray-600 dark:text-gray-300 animate-spin"
+                                      />
+                                    </div>
+                                  ) : profile?.picture ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={profile.picture}
+                                      alt={displayName}
+                                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src =
+                                          'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                      <User
+                                        size={20}
+                                        className="text-gray-600 dark:text-gray-300"
+                                      />
+                                    </div>
+                                  )}
+
+                                  <div className="flex-1 min-w-0 overflow-hidden">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span
+                                        className={`font-medium truncate ${isLoading ? "text-gray-500 dark:text-gray-400 italic" : "text-gray-900 dark:text-white"}`}
+                                      >
+                                        {displayName}
+                                      </span>
+                                      <ReportTypeBadge
+                                        type={report.reportType}
+                                      />
+                                    </div>
+                                    {profile?.nip05 && (
+                                      <div className="text-xs text-green-600 dark:text-green-400 truncate">
+                                        ✓ {profile.nip05}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                      Reported{" "}
+                                      {formatRelativeDate(report.reportedAt)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
+                                  <button
+                                    onClick={() => setDetailReport(report)}
+                                    className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                    title="View the full report"
+                                  >
+                                    <FileText size={16} />
+                                    Full report
+                                  </button>
+                                  <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                                    <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                      Evidence
+                                    </span>
+                                    <button
+                                      onClick={() => handleCopyNpub(npub)}
+                                      className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                        copiedNpub === npub
+                                          ? "text-green-600 dark:text-green-400"
+                                          : "text-gray-600 dark:text-gray-400"
+                                      }`}
+                                      title={
+                                        copiedNpub === npub
+                                          ? "Copied!"
+                                          : "Copy npub"
+                                      }
+                                    >
+                                      <Fingerprint size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleCopyValue(
+                                          report.eventId,
+                                          `id:${report.eventId}`,
+                                        )
+                                      }
+                                      className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                        copiedValue === `id:${report.eventId}`
+                                          ? "text-green-600 dark:text-green-400"
+                                          : "text-gray-600 dark:text-gray-400"
+                                      }`}
+                                      title={
+                                        copiedValue === `id:${report.eventId}`
+                                          ? "Copied!"
+                                          : "Copy event ID"
+                                      }
+                                    >
+                                      {copiedValue ===
+                                      `id:${report.eventId}` ? (
+                                        <Check size={16} />
+                                      ) : (
+                                        <Copy size={16} />
+                                      )}
+                                    </button>
+                                    {report.rawEvent && (
+                                      <button
+                                        onClick={() =>
+                                          handleCopyValue(
+                                            JSON.stringify(
+                                              report.rawEvent,
+                                              null,
+                                              2,
+                                            ),
+                                            `json:${report.eventId}`,
+                                          )
+                                        }
+                                        className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                          copiedValue ===
+                                          `json:${report.eventId}`
+                                            ? "text-green-600 dark:text-green-400"
+                                            : "text-gray-600 dark:text-gray-400"
+                                        }`}
+                                        title={
+                                          copiedValue ===
+                                          `json:${report.eventId}`
+                                            ? "Copied!"
+                                            : "Copy event JSON"
+                                        }
+                                      >
+                                        {copiedValue ===
+                                        `json:${report.eventId}` ? (
+                                          <Check size={16} />
+                                        ) : (
+                                          <FileJson size={16} />
+                                        )}
+                                      </button>
+                                    )}
+                                    <a
+                                      href={getReportEventLink(report.eventId)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                      title="View report on njump"
+                                    >
+                                      <ExternalLink size={16} />
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {report.content && (
+                                <p className="mt-2 pl-[52px] text-sm text-gray-600 dark:text-gray-400 italic break-words">
+                                  &ldquo;{report.content}&rdquo;
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
 
                   {/* Filed-by view — reports this user submitted */}
                   {resultView === "filed" && (
-                  <>
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                        Filed {filedResults.length} Public Report
-                        {filedResults.length === 1 ? "" : "s"} against{" "}
-                        {filedUniqueTargets} Unique Target
-                        {filedUniqueTargets === 1 ? "" : "s"}
-                      </h3>
+                    <>
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                          Filed {filedResults.length} Public Report
+                          {filedResults.length === 1 ? "" : "s"} against{" "}
+                          {filedUniqueTargets} Unique Target
+                          {filedUniqueTargets === 1 ? "" : "s"}
+                        </h3>
 
-                      {filedResults.length > filedDisplayed.length && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Showing {filedDisplayed.length} of {filedResults.length}
-                        </p>
-                      )}
-
-                      {/* Report type breakdown */}
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {Object.entries(reportTypeCounts)
-                          .sort((a, b) => b[1] - a[1])
-                          .map(([type, count]) => (
-                            <div
-                              key={type}
-                              className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                            >
-                              <ReportTypeBadge type={type} />
-                              <span className="text-xs text-gray-600 dark:text-gray-400">
-                                ×{count}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {filedLoading && filedDisplayed.length === 0 && (
-                        <div className="flex items-center justify-center gap-3 p-6 text-gray-500 dark:text-gray-400">
-                          <Loader2 size={18} className="animate-spin" />
-                          Searching for reports this user has filed...
-                        </div>
-                      )}
-                      {!filedLoading && filedDisplayed.length === 0 && (
-                        <div className="text-center p-6">
-                          <Flag className="mx-auto mb-3 text-green-500" size={40} />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            This user has not publicly reported anyone on the
-                            scanned relays.
+                        {filedResults.length > filedDisplayed.length && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Showing {filedDisplayed.length} of{" "}
+                            {filedResults.length}
                           </p>
+                        )}
+
+                        {/* Report type breakdown */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {Object.entries(reportTypeCounts)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, count]) => (
+                              <div
+                                key={type}
+                                className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                              >
+                                <ReportTypeBadge type={type} />
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                  ×{count}
+                                </span>
+                              </div>
+                            ))}
                         </div>
-                      )}
-                      {filedDisplayed.map((entry) => (
-                        <div
-                          key={entry.eventId}
-                          className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            {/* Target chips — one per reported pubkey.
+                      </div>
+
+                      <div className="space-y-3">
+                        {filedLoading && filedDisplayed.length === 0 && (
+                          <div className="flex items-center justify-center gap-3 p-6 text-gray-500 dark:text-gray-400">
+                            <Loader2 size={18} className="animate-spin" />
+                            Searching for reports this user has filed...
+                          </div>
+                        )}
+                        {!filedLoading && filedDisplayed.length === 0 && (
+                          <div className="text-center p-6">
+                            <Flag
+                              className="mx-auto mb-3 text-green-500"
+                              size={40}
+                            />
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              This user has not publicly reported anyone on the
+                              scanned relays.
+                            </p>
+                          </div>
+                        )}
+                        {filedDisplayed.map((entry) => (
+                          <div
+                            key={entry.eventId}
+                            className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              {/* Target chips — one per reported pubkey.
                                 Bulk-report events can name dozens, so cap
                                 the row at five plus a "+N more" count. */}
-                            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                              {entry.reportedPubkeys
-                                .slice(0, 5)
-                                .map((pk, idx) => {
-                                  const profile = entry.targetProfiles?.[idx];
-                                  const displayName = profile
-                                    ? getDisplayName(profile)
-                                    : "Loading profile...";
-                                  return (
-                                    <button
-                                      key={pk}
-                                      onClick={() =>
-                                        setSelectedProfile(
-                                          profile || { pubkey: pk },
-                                        )
-                                      }
-                                      className="flex items-center gap-2 pl-1 pr-2.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full hover:border-red-300 dark:hover:border-red-500 transition-colors min-w-0"
-                                      title={profile?.nip05 || hexToNpub(pk)}
-                                    >
-                                      {profile?.picture ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                          src={profile.picture}
-                                          alt={displayName}
-                                          className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                                        />
-                                      ) : (
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                          {profile ? (
-                                            <User
-                                              size={14}
-                                              className="text-gray-500 dark:text-gray-300"
-                                            />
-                                          ) : (
-                                            <Loader2
-                                              size={14}
-                                              className="text-gray-500 dark:text-gray-300 animate-spin"
-                                            />
-                                          )}
-                                        </div>
-                                      )}
-                                      <span
-                                        className={`text-sm font-medium truncate max-w-[180px] ${
-                                          profile
-                                            ? "text-gray-900 dark:text-white"
-                                            : "text-gray-500 dark:text-gray-400 italic"
-                                        }`}
+                              <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                                {entry.reportedPubkeys
+                                  .slice(0, 5)
+                                  .map((pk, idx) => {
+                                    const profile = entry.targetProfiles?.[idx];
+                                    const displayName = profile
+                                      ? getDisplayName(profile)
+                                      : "Loading profile...";
+                                    return (
+                                      <button
+                                        key={pk}
+                                        onClick={() =>
+                                          setSelectedProfile(
+                                            profile || { pubkey: pk },
+                                          )
+                                        }
+                                        className="flex items-center gap-2 pl-1 pr-2.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full hover:border-red-300 dark:hover:border-red-500 transition-colors min-w-0"
+                                        title={profile?.nip05 || hexToNpub(pk)}
                                       >
-                                        {displayName}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              {entry.reportedPubkeys.length > 5 && (
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  +{entry.reportedPubkeys.length - 5} more
-                                </span>
-                              )}
-                            </div>
+                                        {profile?.picture ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img
+                                            src={profile.picture}
+                                            alt={displayName}
+                                            className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                                          />
+                                        ) : (
+                                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                            {profile ? (
+                                              <User
+                                                size={14}
+                                                className="text-gray-500 dark:text-gray-300"
+                                              />
+                                            ) : (
+                                              <Loader2
+                                                size={14}
+                                                className="text-gray-500 dark:text-gray-300 animate-spin"
+                                              />
+                                            )}
+                                          </div>
+                                        )}
+                                        <span
+                                          className={`text-sm font-medium truncate max-w-[180px] ${
+                                            profile
+                                              ? "text-gray-900 dark:text-white"
+                                              : "text-gray-500 dark:text-gray-400 italic"
+                                          }`}
+                                        >
+                                          {displayName}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                {entry.reportedPubkeys.length > 5 && (
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    +{entry.reportedPubkeys.length - 5} more
+                                  </span>
+                                )}
+                              </div>
 
-                            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
-                              <button
-                                onClick={() => setDetailReport(entry)}
-                                className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                                title="View the full report"
-                              >
-                                <FileText size={16} />
-                                Full report
-                              </button>
-                              <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
-                                <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                                  Evidence
-                                </span>
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
                                 <button
-                                  onClick={() =>
-                                    handleCopyValue(entry.eventId, `id:${entry.eventId}`)
-                                  }
-                                  className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                    copiedValue === `id:${entry.eventId}`
-                                      ? "text-green-600 dark:text-green-400"
-                                      : "text-gray-600 dark:text-gray-400"
-                                  }`}
-                                  title={
-                                    copiedValue === `id:${entry.eventId}`
-                                      ? "Copied!"
-                                      : "Copy event ID"
-                                  }
+                                  onClick={() => setDetailReport(entry)}
+                                  className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                  title="View the full report"
                                 >
-                                  {copiedValue === `id:${entry.eventId}` ? (
-                                    <Check size={16} />
-                                  ) : (
-                                    <Copy size={16} />
-                                  )}
+                                  <FileText size={16} />
+                                  Full report
                                 </button>
-                                {entry.rawEvent && (
+                                <div className="flex items-center justify-between sm:justify-start gap-1 h-10 w-full sm:w-auto p-0.5 px-1 sm:px-0.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40">
+                                  <span className="pl-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                    Evidence
+                                  </span>
                                   <button
                                     onClick={() =>
                                       handleCopyValue(
-                                        JSON.stringify(entry.rawEvent, null, 2),
-                                        `json:${entry.eventId}`,
+                                        entry.eventId,
+                                        `id:${entry.eventId}`,
                                       )
                                     }
                                     className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                                      copiedValue === `json:${entry.eventId}`
+                                      copiedValue === `id:${entry.eventId}`
                                         ? "text-green-600 dark:text-green-400"
                                         : "text-gray-600 dark:text-gray-400"
                                     }`}
                                     title={
-                                      copiedValue === `json:${entry.eventId}`
+                                      copiedValue === `id:${entry.eventId}`
                                         ? "Copied!"
-                                        : "Copy event JSON"
+                                        : "Copy event ID"
                                     }
                                   >
-                                    {copiedValue === `json:${entry.eventId}` ? (
+                                    {copiedValue === `id:${entry.eventId}` ? (
                                       <Check size={16} />
                                     ) : (
-                                      <FileJson size={16} />
+                                      <Copy size={16} />
                                     )}
                                   </button>
-                                )}
-                                <a
-                                  href={getReportEventLink(entry.eventId)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                  title="View report event on njump"
-                                >
-                                  <ExternalLink size={16} />
-                                </a>
+                                  {entry.rawEvent && (
+                                    <button
+                                      onClick={() =>
+                                        handleCopyValue(
+                                          JSON.stringify(
+                                            entry.rawEvent,
+                                            null,
+                                            2,
+                                          ),
+                                          `json:${entry.eventId}`,
+                                        )
+                                      }
+                                      className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                        copiedValue === `json:${entry.eventId}`
+                                          ? "text-green-600 dark:text-green-400"
+                                          : "text-gray-600 dark:text-gray-400"
+                                      }`}
+                                      title={
+                                        copiedValue === `json:${entry.eventId}`
+                                          ? "Copied!"
+                                          : "Copy event JSON"
+                                      }
+                                    >
+                                      {copiedValue ===
+                                      `json:${entry.eventId}` ? (
+                                        <Check size={16} />
+                                      ) : (
+                                        <FileJson size={16} />
+                                      )}
+                                    </button>
+                                  )}
+                                  <a
+                                    href={getReportEventLink(entry.eventId)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                    title="View report event on njump"
+                                  >
+                                    <ExternalLink size={16} />
+                                  </a>
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                            <ReportTypeBadge type={entry.reportType} />
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              Filed {formatRelativeDate(entry.reportedAt)}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                              <ReportTypeBadge type={entry.reportType} />
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Filed {formatRelativeDate(entry.reportedAt)}
+                              </span>
+                            </div>
 
-                          {entry.content && (
-                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic break-words">
-                              &ldquo;{entry.content}&rdquo;
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </>
+                            {entry.content && (
+                              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic break-words">
+                                &ldquo;{entry.content}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
 
                   {/* Shared load-more — counts track the active view */}
@@ -1812,7 +1891,10 @@ export default function Reportable() {
                       {loadingMore && progress ? (
                         <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
                           <div className="flex items-center justify-center space-x-3">
-                            <RefreshCw className="animate-spin text-blue-600 dark:text-blue-400" size={20} />
+                            <RefreshCw
+                              className="animate-spin text-blue-600 dark:text-blue-400"
+                              size={20}
+                            />
                             <div className="text-blue-900 dark:text-blue-100 font-medium">
                               {progress}
                             </div>
@@ -1847,7 +1929,10 @@ export default function Reportable() {
                   disabled={feedLoading}
                   className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 disabled:opacity-50"
                 >
-                  <RefreshCw size={16} className={feedLoading ? "animate-spin" : ""} />
+                  <RefreshCw
+                    size={16}
+                    className={feedLoading ? "animate-spin" : ""}
+                  />
                   Refresh
                 </button>
               </div>
@@ -1856,9 +1941,7 @@ export default function Reportable() {
                   reports, so their entries collapse behind this toggle. */}
               {automatedReporterSet.size > 0 && (
                 <button
-                  onClick={() =>
-                    setHideAutomatedReporters((prev) => !prev)
-                  }
+                  onClick={() => setHideAutomatedReporters((prev) => !prev)}
                   className={`w-full mb-4 p-3 rounded-lg border text-sm font-medium transition-colors text-left flex items-center gap-2 ${
                     hideAutomatedReporters
                       ? "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -1875,9 +1958,7 @@ export default function Reportable() {
                       click to show
                     </span>
                   ) : (
-                    <span>
-                      Showing automated reports — click to hide
-                    </span>
+                    <span>Showing automated reports — click to hide</span>
                   )}
                 </button>
               )}
@@ -1896,14 +1977,17 @@ export default function Reportable() {
                 </div>
               )}
 
-              {!feedLoading && feedLoaded && visibleFeedEntries.length === 0 && !feedError && (
-                <div className="text-center p-8">
-                  <Flag className="mx-auto mb-3 text-green-500" size={48} />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    No recent reports found on the scanned relays.
-                  </p>
-                </div>
-              )}
+              {!feedLoading &&
+                feedLoaded &&
+                visibleFeedEntries.length === 0 &&
+                !feedError && (
+                  <div className="text-center p-8">
+                    <Flag className="mx-auto mb-3 text-green-500" size={48} />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      No recent reports found on the scanned relays.
+                    </p>
+                  </div>
+                )}
 
               {feedEnriching && (
                 <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500 dark:text-gray-400">
@@ -1929,7 +2013,9 @@ export default function Reportable() {
                             className="font-medium text-gray-900 dark:text-white hover:underline"
                             onClick={() =>
                               setSelectedProfile(
-                                entry.reporterProfile || { pubkey: entry.reportedBy },
+                                entry.reporterProfile || {
+                                  pubkey: entry.reportedBy,
+                                },
                               )
                             }
                           >
@@ -2001,7 +2087,10 @@ export default function Reportable() {
                             </span>
                             <button
                               onClick={() =>
-                                handleCopyValue(entry.eventId, `id:${entry.eventId}`)
+                                handleCopyValue(
+                                  entry.eventId,
+                                  `id:${entry.eventId}`,
+                                )
                               }
                               className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                                 copiedValue === `id:${entry.eventId}`
