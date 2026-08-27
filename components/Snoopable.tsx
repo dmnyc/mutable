@@ -343,10 +343,10 @@ export default function Snoopable() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-start gap-3 mb-4">
+        <div className="flex items-start gap-4 mb-4">
           <svg
-            width="28"
-            height="23"
+            width="49"
+            height="40"
             viewBox="0 0 459 374"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -357,11 +357,11 @@ export default function Snoopable() {
               fill="currentColor"
             />
           </svg>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Snoopable
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
               NIP-04 encrypts message content, but metadata (who, when, how
               often) is public. Use <strong>NIP-17</strong> for true privacy.
             </p>
@@ -720,29 +720,31 @@ export default function Snoopable() {
       )}
 
       {/* Share Modal */}
-      {showShareModal && analysis && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              Share as Nostr Note
-            </h3>
+      {showShareModal &&
+        analysis &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                Share as Nostr Note
+              </h3>
 
-            <div className="mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeNames}
-                  onChange={(e) => setIncludeNames(e.target.checked)}
-                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Include contact names (default: titles only)
-                </span>
-              </label>
-            </div>
+              <div className="mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeNames}
+                    onChange={(e) => setIncludeNames(e.target.checked)}
+                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Include contact names (default: titles only)
+                  </span>
+                </label>
+              </div>
 
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-              {`🔍 Sn👀pable Report for ${analysis.targetPubkey === session?.pubkey ? "myself" : `@${getDisplayName(analysis.targetProfile, truncateNpub(analysis.targetPubkey))}`}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                {`🔍 Sn👀pable Report for ${analysis.targetPubkey === session?.pubkey ? "myself" : `@${getDisplayName(analysis.targetProfile, truncateNpub(analysis.targetPubkey))}`}
 
 📊 DM Activity:
 • ${analysis.totalSent} sent / ${analysis.totalReceived} received
@@ -761,37 +763,37 @@ ${analysis.contacts
 
 Your DMs aren't as private as you think!
 https://mutable.top/snoopable`}
-            </div>
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleShareAsNote}
-                disabled={isPublishing}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isPublishing ? (
-                  <>
-                    <RefreshCw className="animate-spin" size={16} />
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <MessageCircle size={16} />
-                    Publish Note
-                  </>
-                )}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleShareAsNote}
+                  disabled={isPublishing}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isPublishing ? (
+                    <>
+                      <RefreshCw className="animate-spin" size={16} />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle size={16} />
+                      Publish Note
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* User Profile Modal */}
       {selectedProfile && (
