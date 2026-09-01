@@ -6,15 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
-import {
-  Lock,
-  User,
-  Loader2,
-  Flag,
-  Trash2,
-  Search,
-  Glasses,
-} from "lucide-react";
+import SnoopableGlasses from "@/components/SnoopableGlasses";
+import { Lock, User, Loader2, Flag, Trash2, Search } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -228,10 +221,8 @@ export default function Home() {
                   Look Up Any User - No Login Required
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Enter a username, NIP-05, or npub once, then choose your lens:
-                  who mutes them, reports on them, their deleted posts, or how
-                  public their activity really is — or open a lens with the
-                  field empty to start on that tool&apos;s own home screen.
+                  Enter a username, NIP-05, or npub and pick a lens — or open
+                  any lens directly to explore.
                 </p>
               </div>
             </div>
@@ -331,7 +322,7 @@ export default function Home() {
                 title="How public their activity really is"
                 className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
               >
-                <Glasses size={16} />
+                <SnoopableGlasses className="flex-shrink-0" />
                 Snoopable
               </button>
               <button
