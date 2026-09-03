@@ -48,6 +48,7 @@ import {
   Save,
   Eye,
   EyeOff,
+  Flag,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -627,7 +628,9 @@ export default function UserProfileModal({
                   </p>
                 )}
                 <div className="flex items-center justify-center gap-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <span className={`text-xs font-medium ${!mutePrivate ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
+                  <span
+                    className={`text-xs font-medium ${!mutePrivate ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}
+                  >
                     Public
                   </span>
                   <button
@@ -642,7 +645,9 @@ export default function UserProfileModal({
                       }`}
                     />
                   </button>
-                  <span className={`text-xs font-medium ${mutePrivate ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"}`}>
+                  <span
+                    className={`text-xs font-medium ${mutePrivate ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"}`}
+                  >
                     Private
                   </span>
                 </div>
@@ -908,6 +913,33 @@ export default function UserProfileModal({
                 href={`/mute-o-scope?npub=${hexToNpub(profile.pubkey)}`}
                 target="_blank"
                 className="ml-4 flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Search size={16} />
+                <span className="whitespace-nowrap">Search</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Reportable Link */}
+          <div className="border border-orange-200 dark:border-orange-600 rounded-lg p-4 bg-orange-50 dark:bg-orange-900/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center flex-shrink-0">
+                  <Flag className="text-white" size={18} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                    See who is reporting {getDisplayName()}
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Use Reportable to search public reports network-wide
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/reportable?npub=${hexToNpub(profile.pubkey)}`}
+                target="_blank"
+                className="ml-4 flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
               >
                 <Search size={16} />
                 <span className="whitespace-nowrap">Search</span>
