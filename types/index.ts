@@ -188,6 +188,8 @@ export interface ReportFeedEntry {
 
 // Report filed BY a user (their outgoing NIP-56 reports, lookup view)
 export interface ReportFiledResult {
+  reportedBy: string; // pubkey who filed the report (the event author)
+  reporterProfile?: Profile; // filled by the view, which knows whose list it is
   reportedPubkeys: string[]; // targets named in this report event
   reportType?: ReportType | string;
   reportedEventId?: string; // if the report targets a specific note

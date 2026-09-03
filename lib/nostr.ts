@@ -3203,6 +3203,7 @@ export async function searchReportsFiledBy(
     const eTag = event.tags.find((t) => t[0] === "e");
 
     const result: ReportFiledResult = {
+      reportedBy: reporterPubkey,
       reportedPubkeys: targets,
       reportType: extractReportType(event, targets[0]),
       reportedEventId: eTag?.[1],

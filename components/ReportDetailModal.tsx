@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import Image from 'next/image';
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
 import {
   X,
   Copy,
@@ -12,14 +12,19 @@ import {
   User,
   Loader2,
   EyeOff,
-} from 'lucide-react';
-import { Event } from 'nostr-tools';
-import { Profile } from '@/types';
-import { fetchEventById, fetchProfile, DEFAULT_RELAYS, hexToNpub } from '@/lib/nostr';
-import { getDisplayName } from '@/lib/utils/format';
-import { getEventLink, getReportEventLink } from '@/lib/utils/links';
-import { copyToClipboard } from '@/lib/utils/clipboard';
-import ReportTypeBadge from './ReportTypeBadge';
+} from "lucide-react";
+import { Event } from "nostr-tools";
+import { Profile } from "@/types";
+import {
+  fetchEventById,
+  fetchProfile,
+  DEFAULT_RELAYS,
+  hexToNpub,
+} from "@/lib/nostr";
+import { getDisplayName } from "@/lib/utils/format";
+import { getEventLink, getReportEventLink } from "@/lib/utils/links";
+import { copyToClipboard } from "@/lib/utils/clipboard";
+import ReportTypeBadge from "./ReportTypeBadge";
 
 /**
  * The fields every report view (received, filed, feed) can hand to the
@@ -61,7 +66,7 @@ function shortId(id: string): string {
  * ring, and the Mutable mark as the center medallion. Rings inherit theme
  * color; the mark keeps its brand colors.
  */
-function OfficialSeal({ className = '' }: { className?: string }) {
+function OfficialSeal({ className = "" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 100 100"
@@ -81,7 +86,14 @@ function OfficialSeal({ className = '' }: { className?: string }) {
         strokeDasharray="0.6 3.4"
         strokeLinecap="round"
       />
-      <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <circle
+        cx="50"
+        cy="50"
+        r="44"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
       <circle
         cx="50"
         cy="50"
@@ -132,19 +144,21 @@ function OfficialSeal({ className = '' }: { className?: string }) {
  * notes render embedded evidence as images instead of raw URLs. Trailing
  * punctuation is sentence syntax, not part of the URL.
  */
-function splitImageUrls(text: string): { type: 'text' | 'image'; value: string }[] {
-  const parts: { type: 'text' | 'image'; value: string }[] = [];
+function splitImageUrls(
+  text: string,
+): { type: "text" | "image"; value: string }[] {
+  const parts: { type: "text" | "image"; value: string }[] = [];
   let last = 0;
   for (const match of text.matchAll(/https?:\/\/[^\s<>"']+/gi)) {
-    const url = match[0].replace(/[.,;:!?)\]}'"]+$/, '');
+    const url = match[0].replace(/[.,;:!?)\]}'"]+$/, "");
     const path = url.split(/[?#]/)[0];
     if (!/\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(path)) continue;
     const idx = match.index ?? 0;
-    if (idx > last) parts.push({ type: 'text', value: text.slice(last, idx) });
-    parts.push({ type: 'image', value: url });
+    if (idx > last) parts.push({ type: "text", value: text.slice(last, idx) });
+    parts.push({ type: "image", value: url });
     last = idx + url.length;
   }
-  if (last < text.length) parts.push({ type: 'text', value: text.slice(last) });
+  if (last < text.length) parts.push({ type: "text", value: text.slice(last) });
   return parts;
 }
 
@@ -182,7 +196,7 @@ function SensitiveImage({ src, alt }: { src: string; alt: string }) {
         draggable={false}
         onError={() => setFailed(true)}
         className={`block max-w-full max-h-96 w-auto h-auto transition duration-300 ${
-          revealed ? '' : 'blur-xl scale-110 select-none'
+          revealed ? "" : "blur-xl scale-110 select-none"
         }`}
       />
       {!revealed && (
@@ -212,13 +226,23 @@ function SensitiveImage({ src, alt }: { src: string; alt: string }) {
 }
 
 /** Render report or note text with any image URLs swapped for inline images. */
-function TextWithSensitiveImages({ text, imageAlt }: { text: string; imageAlt: string }) {
+function TextWithSensitiveImages({
+  text,
+  imageAlt,
+}: {
+  text: string;
+  imageAlt: string;
+}) {
   const parts = splitImageUrls(text);
   return (
     <>
       {parts.map((part, i) =>
-        part.type === 'image' ? (
-          <SensitiveImage key={`${i}-${part.value}`} src={part.value} alt={imageAlt} />
+        part.type === "image" ? (
+          <SensitiveImage
+            key={`${i}-${part.value}`}
+            src={part.value}
+            alt={imageAlt}
+          />
         ) : (
           <span key={i}>{part.value}</span>
         ),
@@ -235,25 +259,25 @@ function TextWithSensitiveImages({ text, imageAlt }: { text: string; imageAlt: s
 function ReportedNoteEmbed({ eventId }: { eventId: string }) {
   const [note, setNote] = useState<Event | null>(null);
   const [author, setAuthor] = useState<Profile | null>(null);
-  const [status, setStatus] = useState<'loading' | 'found' | 'missing'>(
-    'loading',
+  const [status, setStatus] = useState<"loading" | "found" | "missing">(
+    "loading",
   );
 
   useEffect(() => {
     let cancelled = false;
     setNote(null);
     setAuthor(null);
-    setStatus('loading');
+    setStatus("loading");
 
     (async () => {
       const event = await fetchEventById(eventId);
       if (cancelled) return;
       if (!event) {
-        setStatus('missing');
+        setStatus("missing");
         return;
       }
       setNote(event);
-      setStatus('found');
+      setStatus("found");
       const profile = await fetchProfile(event.pubkey, DEFAULT_RELAYS);
       if (!cancelled) setAuthor(profile);
     })();
@@ -263,7 +287,7 @@ function ReportedNoteEmbed({ eventId }: { eventId: string }) {
     };
   }, [eventId]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
         <Loader2 size={16} className="animate-spin" />
@@ -272,11 +296,11 @@ function ReportedNoteEmbed({ eventId }: { eventId: string }) {
     );
   }
 
-  if (status === 'missing') {
+  if (status === "missing") {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400 py-2">
-        No relay still has this note — it may have been deleted or pruned.
-        It can still be opened directly:
+        No relay still has this note — it may have been deleted or pruned. It
+        can still be opened directly:
       </div>
     );
   }
@@ -309,13 +333,16 @@ function ReportedNoteEmbed({ eventId }: { eventId: string }) {
         )}
         <div className="min-w-0 flex-1">
           <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
-            {author ? getDisplayName(author) : 'Unknown author'}
+            {author ? getDisplayName(author) : "Unknown author"}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
             {authorNpub
               ? `${authorNpub.slice(0, 10)}…${authorNpub.slice(-4)}`
-              : shortId(note!.pubkey)}{' '}
-            · {new Date(note!.created_at * 1000).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+              : shortId(note!.pubkey)}{" "}
+            ·{" "}
+            {new Date(note!.created_at * 1000).toLocaleDateString("en-US", {
+              dateStyle: "medium",
+            })}
           </div>
         </div>
         {note!.kind !== 1 && (
@@ -326,7 +353,10 @@ function ReportedNoteEmbed({ eventId }: { eventId: string }) {
       </div>
       <div className="p-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
         {note!.content ? (
-          <TextWithSensitiveImages text={note!.content} imageAlt="Image from the reported note" />
+          <TextWithSensitiveImages
+            text={note!.content}
+            imageAlt="Image from the reported note"
+          />
         ) : (
           <span className="italic text-gray-400">(empty content)</span>
         )}
@@ -346,7 +376,7 @@ export default function ReportDetailModal({
   // Feed entries carry the e-tag only on the raw event.
   const reportedEventId =
     report.reportedEventId ??
-    report.rawEvent?.tags.find((tag: string[]) => tag[0] === 'e')?.[1];
+    report.rawEvent?.tags.find((tag: string[]) => tag[0] === "e")?.[1];
 
   async function handleCopy(text: string, key: string) {
     const ok = await copyToClipboard(text);
@@ -382,6 +412,55 @@ export default function ReportDetailModal({
     );
   }
 
+  /**
+   * One identity line used by both the "Filed by" and "Reported account"
+   * sections, so the two always render identically: avatar, display name
+   * with NIP-05, and a copyable npub underneath.
+   */
+  function personRow(
+    profile: Profile | undefined,
+    pubkey: string,
+    copyKey: string,
+  ) {
+    const npub = (() => {
+      try {
+        return hexToNpub(pubkey);
+      } catch {
+        return null;
+      }
+    })();
+
+    return (
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {renderAvatar(profile, pubkey)}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-gray-900 dark:text-white truncate">
+              {profile ? getDisplayName(profile) : shortId(pubkey)}
+            </span>
+            {profile?.nip05 && (
+              <span className="text-xs text-green-600 dark:text-green-400 truncate">
+                ✓ {profile.nip05}
+              </span>
+            )}
+          </div>
+          {npub && (
+            <button
+              onClick={() => handleCopy(npub!, copyKey)}
+              className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+              title="Copy npub"
+            >
+              <span className="font-mono truncate">
+                {npub.slice(0, 10)}…{npub.slice(-4)}
+              </span>
+              {copyIcon(copyKey)}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
@@ -411,7 +490,9 @@ export default function ReportDetailModal({
               <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap leading-none">
                 Reportable
               </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500">by</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                by
+              </span>
               <Image
                 src="/mutable_logo.svg"
                 alt="Mutable"
@@ -450,38 +531,7 @@ export default function ReportDetailModal({
                 Filed by
               </h3>
               <div className="flex items-center gap-3 min-w-0">
-                {renderAvatar(reporterProfile, report.reportedBy)}
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
-                    {reporterProfile
-                      ? getDisplayName(reporterProfile)
-                      : 'Unknown reporter'}
-                  </div>
-                  {reporterProfile?.nip05 && (
-                    <div className="text-xs text-green-600 dark:text-green-400 truncate">
-                      ✓ {reporterProfile.nip05}
-                    </div>
-                  )}
-                  {(() => {
-                    try {
-                      const npub = hexToNpub(report.reportedBy!);
-                      return (
-                        <button
-                          onClick={() => handleCopy(npub, 'reporter')}
-                          className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-                          title="Copy reporter npub"
-                        >
-                          <span className="font-mono truncate">
-                            {npub.slice(0, 10)}…{npub.slice(-4)}
-                          </span>
-                          {copyIcon('reporter')}
-                        </button>
-                      );
-                    } catch {
-                      return null;
-                    }
-                  })()}
-                </div>
+                {personRow(reporterProfile, report.reportedBy, "reporter")}
                 <ReportTypeBadge type={report.reportType} large />
               </div>
             </section>
@@ -492,7 +542,7 @@ export default function ReportDetailModal({
               <div className="flex items-center justify-between gap-3 mb-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   {targets.length === 1
-                    ? 'Reported account'
+                    ? "Reported account"
                     : `Reported accounts (${targets.length})`}
                 </h3>
                 {!report.reportedBy && (
@@ -500,22 +550,15 @@ export default function ReportDetailModal({
                 )}
               </div>
               <div className="space-y-2">
-                {targets.slice(0, 5).map((pubkey, i) => {
-                  const profile = report.targetProfiles?.[i];
-                  return (
-                    <div key={pubkey} className="flex items-center gap-3 min-w-0">
-                      {renderAvatar(profile, pubkey)}
-                      <span className="font-medium text-gray-900 dark:text-white truncate">
-                        {profile ? getDisplayName(profile) : shortId(pubkey)}
-                      </span>
-                      {profile?.nip05 && (
-                        <span className="text-xs text-green-600 dark:text-green-400 truncate">
-                          ✓ {profile.nip05}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                {targets
+                  .slice(0, 5)
+                  .map((pubkey, i) =>
+                    personRow(
+                      report.targetProfiles?.[i],
+                      pubkey,
+                      `target-${i}`,
+                    ),
+                  )}
                 {targets.length > 5 && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     +{targets.length - 5} more
@@ -531,9 +574,9 @@ export default function ReportDetailModal({
                 Date filed
               </h3>
               <p className="text-sm text-gray-900 dark:text-white">
-                {new Date(report.reportedAt * 1000).toLocaleString('en-US', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
+                {new Date(report.reportedAt * 1000).toLocaleString("en-US", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
                 })}
               </p>
             </div>
@@ -542,11 +585,11 @@ export default function ReportDetailModal({
                 Report ID
               </h3>
               <button
-                onClick={() => handleCopy(report.eventId, 'event')}
+                onClick={() => handleCopy(report.eventId, "event")}
                 className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors font-mono"
                 title="Copy report event ID"
               >
-                {shortId(report.eventId)} {copyIcon('event')}
+                {shortId(report.eventId)} {copyIcon("event")}
               </button>
             </div>
           </section>
@@ -605,23 +648,26 @@ export default function ReportDetailModal({
         {/* Footer actions */}
         <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex flex-wrap items-center gap-2">
           <button
-            onClick={() => handleCopy(report.eventId, 'event')}
+            onClick={() => handleCopy(report.eventId, "event")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
           >
-            {copyIcon('event')} Copy ID
+            {copyIcon("event")} Copy ID
           </button>
           {report.rawEvent && (
             <button
               onClick={() =>
-                handleCopy(JSON.stringify(report.rawEvent, null, 2), 'json')
+                handleCopy(JSON.stringify(report.rawEvent, null, 2), "json")
               }
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
-              {copied === 'json' ? (
-                <Check size={14} className="text-green-600 dark:text-green-400" />
+              {copied === "json" ? (
+                <Check
+                  size={14}
+                  className="text-green-600 dark:text-green-400"
+                />
               ) : (
                 <FileJson size={14} />
-              )}{' '}
+              )}{" "}
               Copy JSON
             </button>
           )}

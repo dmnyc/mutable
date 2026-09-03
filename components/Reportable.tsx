@@ -1787,7 +1787,16 @@ export default function Reportable() {
 
                               <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-center justify-end gap-2.5 sm:gap-3">
                                 <button
-                                  onClick={() => setDetailReport(entry)}
+                                  onClick={() =>
+                                    setDetailReport({
+                                      ...entry,
+                                      // The filer is the user this filed list
+                                      // belongs to; the modal reads the
+                                      // profile from the identity header.
+                                      reporterProfile:
+                                        targetProfile ?? undefined,
+                                    })
+                                  }
                                   className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                                   title="View the full report"
                                 >
