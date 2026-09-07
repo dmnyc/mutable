@@ -3612,6 +3612,59 @@ export async function enrichDeletionsWithProfiles(
   }));
 }
 
+// Fetch the posts a pubkey published inside a look-back window. Note Nuke's
+// feed runs on this: a user picking their own notes to delete needs the
+// recent ones, not their whole history, so the window is bounded by days
+// and by a per-query limit. Only post kinds are asked for — reactions,
+// reposts and app bookkeeping are not things anyone means by "my notes".
+export async function fetchUserPostsSince(
+  pubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  sinceDays: number = 7,
+  limit: number = 200,
+  maxWaitMs: number = 8000,
+): Promise<Event[]> {
+  if (!/^[0-9a-f]{64}$/i.test(pubkey)) return [];
+
+  // Relays match author hex case-sensitively, and so does the guard below.
+  const author = pubkey.toLowerCase();
+  const expandedRelays = normalizeRelayList(relays);
+  if (expandedRelays.length === 0) return [];
+
+  const since = Math.floor(Date.now() / 1000) - sinceDays * 86400;
+
+  // Errors propagate: an empty feed must mean "no posts in the window",
+  // never "the relay round failed" — a user who is shown nothing would
+  // otherwise conclude there is nothing to delete.
+  const events = await getPool().querySync(
+    expandedRelays,
+    {
+      kinds: [...POST_KINDS],
+      authors: [author],
+      since,
+      limit,
+    },
+    { maxWait: maxWaitMs },
+  );
+
+  const seen = new Set<string>();
+  const posts: Event[] = [];
+  for (const event of events) {
+    if (seen.has(event.id)) continue;
+    seen.add(event.id);
+    // Relays are free to ignore a filter; drop anything that came back
+    // outside the window or from another author rather than offering it
+    // as a deletion target.
+    if (event.pubkey !== author) continue;
+    if (event.created_at < since) continue;
+    if (!isPostKind(event.kind)) continue;
+    posts.push(event);
+  }
+
+  posts.sort((a, b) => b.created_at - a.created_at);
+  return posts;
+}
+
 // Fetch notes by id, chunked — relays cap the ids a single filter accepts.
 // Only ids some scanned relay still serves come back: a missing id means
 // every relay already dropped (or never saw) the note, which for a

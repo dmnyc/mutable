@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_RELAYS,
   KNOWN_RELAYS,
   fetchEventByAddress,
   fetchEventById,
+  fetchUserPostsSince,
+  getExpandedRelayList,
   getNip07Relays,
   hasNip07,
   hexToNote,
   hexToNpub,
+  normalizeRelayList,
   normalizeRelayUrl,
   parseEventTarget,
   publishEventToRelay,
   signWithNip07,
 } from "@/lib/nostr";
+import { getEventLink } from "@/lib/utils/links";
 import { useAuth } from "@/hooks/useAuth";
 import { Event, EventTemplate, nip19 } from "nostr-tools";
 import NoteNukeSuccessModal from "@/components/NoteNukeSuccessModal";
@@ -22,6 +26,9 @@ import {
   AlertTriangle,
   Radiation,
   Clipboard,
+  ExternalLink,
+  FileText,
+  ListChecks,
   RefreshCw,
   Search,
   Shield,
@@ -145,6 +152,64 @@ function formatTimestamp(timestamp: number) {
   }
 }
 
+function formatRelativeDate(timestamp: number) {
+  const diffMs = Date.now() - timestamp * 1000;
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return diffDays === 1 ? "yesterday" : `${diffDays}d ago`;
+}
+
+const KIND_LABELS: Record<number, string> = {
+  1: "note",
+  20: "picture",
+  21: "video",
+  42: "reply",
+  1068: "comment",
+  1111: "comment",
+  30023: "long-form",
+};
+
+/** "long-form" for known post kinds, "kind 30090" otherwise. */
+function kindLabel(kind: number) {
+  return KIND_LABELS[kind] || `kind ${kind}`;
+}
+
+// Look-back windows offered by the feed. Deleting a note is usually
+// something you decide about soon after posting, so the default window is
+// short and the widest option still keeps one relay round cheap.
+const LOOKBACK_OPTIONS = [1, 7, 30];
+const DEFAULT_LOOKBACK_DAYS = 7;
+
+// The feed reads from the user's own relays plus Mutable's defaults — a
+// read that has to answer in seconds, not the wide publish set the nuke
+// itself fans out to.
+const FEED_RELAY_CAP = 16;
+const FEED_PAGE_SIZE = 25;
+
+// Past this many targets in one request, warn: relays cap event size and
+// tag counts, and a rejected batch is worse than two accepted ones.
+const BATCH_WARNING_THRESHOLD = 50;
+
+// Parameterized replaceable events are deleted by coordinate: a kind:5
+// naming only the id leaves the addressable version in place, so those
+// targets carry both an e and an a tag.
+function coordinateFor(event: Event): string | undefined {
+  if (event.kind < 30000 || event.kind >= 40000) return undefined;
+  const dTag = event.tags.find((tag) => tag[0] === "d")?.[1] ?? "";
+  return `${event.kind}:${event.pubkey}:${dTag}`;
+}
+
+type NukeTarget = {
+  key: string;
+  eventId?: string;
+  address?: string;
+  label: string;
+};
+
 export default function NoteNuke() {
   const { session } = useAuth();
   const [noteInput, setNoteInput] = useState("");
@@ -173,6 +238,22 @@ export default function NoteNuke() {
     total: 0,
   });
   const previewRequestRef = useRef<number | null>(null);
+
+  // Feed of the signed-in user's own recent posts — the pick-and-nuke path.
+  const [feedNotes, setFeedNotes] = useState<Event[]>([]);
+  const [feedSelection, setFeedSelection] = useState<Set<string>>(new Set());
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedLoaded, setFeedLoaded] = useState(false);
+  const [lookbackDays, setLookbackDays] = useState(DEFAULT_LOOKBACK_DAYS);
+  const [feedFilter, setFeedFilter] = useState("");
+  const [feedVisibleCount, setFeedVisibleCount] = useState(FEED_PAGE_SIZE);
+  // Notes a deletion request has already named this session. They stay in
+  // the feed until a refresh drops them, badged so a second pass through the
+  // list doesn't look like the request never went out.
+  const [nukedIds, setNukedIds] = useState<Set<string>>(new Set());
+  const autoLoadedRef = useRef<string | null>(null);
+  const lastTargetsRef = useRef<NukeTarget[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -286,6 +367,102 @@ export default function NoteNuke() {
     };
   }, [eventId, eventAddress, relayUrls]);
 
+  // Read relays for the feed: the user's own (session, NIP-65 read/both,
+  // NIP-07) topped up with Mutable's defaults. Deliberately not the full
+  // publish set — a hundred-relay query would make the feed crawl.
+  const feedRelays = useMemo(() => {
+    const userRelays = normalizeRelayList([
+      ...(session?.relays || []),
+      ...(session?.relayListMetadata
+        ? [...session.relayListMetadata.read, ...session.relayListMetadata.both]
+        : []),
+      ...nip07Relays,
+    ]);
+    return getExpandedRelayList(userRelays, FEED_RELAY_CAP);
+  }, [session, nip07Relays]);
+
+  const loadFeed = useCallback(
+    async (days: number) => {
+      const pubkey = session?.pubkey;
+      if (!pubkey) return;
+
+      setFeedLoading(true);
+      setFeedError(null);
+      try {
+        const posts = await fetchUserPostsSince(pubkey, feedRelays, days);
+        setFeedNotes(posts);
+        setFeedVisibleCount(FEED_PAGE_SIZE);
+        setFeedLoaded(true);
+        // A selection can only name notes the feed still holds — a note
+        // that dropped out of the window (or off the relays) must not stay
+        // a silent deletion target.
+        const available = new Set(posts.map((post) => post.id));
+        setFeedSelection((previous) => {
+          const next = new Set<string>();
+          previous.forEach((id) => {
+            if (available.has(id)) next.add(id);
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error("Failed to load note feed:", error);
+        setFeedError(
+          "Could not read your notes from these relays. Try refreshing.",
+        );
+      } finally {
+        setFeedLoading(false);
+      }
+    },
+    [session?.pubkey, feedRelays],
+  );
+
+  // Load once per signed-in pubkey; every later fetch is an explicit
+  // refresh or window change, so relay-list updates don't re-query.
+  useEffect(() => {
+    const pubkey = session?.pubkey;
+    if (!pubkey) return;
+    if (autoLoadedRef.current === pubkey) return;
+    autoLoadedRef.current = pubkey;
+    loadFeed(lookbackDays);
+  }, [session?.pubkey, lookbackDays, loadFeed]);
+
+  const handleLookbackChange = (days: number) => {
+    if (days === lookbackDays) return;
+    setLookbackDays(days);
+    loadFeed(days);
+  };
+
+  const filteredFeedNotes = useMemo(() => {
+    const needle = feedFilter.trim().toLowerCase();
+    if (!needle) return feedNotes;
+    return feedNotes.filter((note) =>
+      note.content.toLowerCase().includes(needle),
+    );
+  }, [feedNotes, feedFilter]);
+
+  const visibleFeedNotes = useMemo(
+    () => filteredFeedNotes.slice(0, feedVisibleCount),
+    [filteredFeedNotes, feedVisibleCount],
+  );
+
+  const toggleFeedNote = (id: string) => {
+    setFeedSelection((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Selects everything the current filter matches, not just the rendered
+  // page — otherwise "select all" would quietly mean "select all 25".
+  const handleSelectAllNotes = () => {
+    setFeedSelection(new Set(filteredFeedNotes.map((note) => note.id)));
+  };
+
   const visibleRelays = useMemo(() => {
     const lowerFilter = filterText.trim().toLowerCase();
     if (!lowerFilter) return relayTargets;
@@ -296,6 +473,45 @@ export default function NoteNuke() {
     () => relayTargets.filter((relay) => relay.selected),
     [relayTargets],
   );
+
+  const mismatchAuthor = Boolean(
+    previewEvent && session?.pubkey && previewEvent.pubkey !== session.pubkey,
+  );
+
+  const selectedFeedNotes = useMemo(
+    () => feedNotes.filter((note) => feedSelection.has(note.id)),
+    [feedNotes, feedSelection],
+  );
+
+  // Everything one Sign & Nuke will name: the notes ticked in the feed plus
+  // a pasted reference, deduped. A reference whose author isn't the signed-in
+  // user is left out — relays reject those, so it would only pad the request.
+  const nukeTargets = useMemo<NukeTarget[]>(() => {
+    const targets: NukeTarget[] = [];
+    const seen = new Set<string>();
+
+    selectedFeedNotes.forEach((note) => {
+      seen.add(note.id);
+      targets.push({
+        key: note.id,
+        eventId: note.id,
+        address: coordinateFor(note),
+        label: `${kindLabel(note.kind)} · ${formatRelativeDate(note.created_at)}`,
+      });
+    });
+
+    const manualKey = eventId || eventAddress;
+    if (manualKey && !seen.has(manualKey) && !mismatchAuthor) {
+      targets.push({
+        key: manualKey,
+        eventId: eventId ?? undefined,
+        address: eventAddress ?? undefined,
+        label: "pasted reference",
+      });
+    }
+
+    return targets;
+  }, [selectedFeedNotes, eventId, eventAddress, mismatchAuthor]);
 
   const publishStats = useMemo(() => {
     const stats = {
@@ -355,22 +571,43 @@ export default function NoteNuke() {
 
   const handleRetryFailed = async () => {
     if (isPublishing) return;
-    const retryTargets = relayTargets.filter((relay) =>
+    const retryRelays = relayTargets.filter((relay) =>
       ["error", "timeout", "rejected"].includes(relay.status),
     );
-    if (retryTargets.length === 0) return;
-    await publishDeletion(retryTargets);
+    if (retryRelays.length === 0) return;
+    // Retry the request that was actually published: the selection is
+    // cleared once a nuke goes out, so current targets would be empty.
+    const targets = lastTargetsRef.current.length
+      ? lastTargetsRef.current
+      : nukeTargets;
+    if (targets.length === 0) return;
+    await publishDeletion(retryRelays, targets);
   };
 
-  const publishDeletion = async (targets: RelayTarget[]) => {
-    if (!eventId && !eventAddress) return;
+  const publishDeletion = async (
+    relays: RelayTarget[],
+    targets: NukeTarget[],
+  ) => {
+    if (targets.length === 0) return;
 
     setIsPublishing(true);
     setLastPublishSummary(null);
+    lastTargetsRef.current = targets;
 
+    // NIP-09 lets one request name many events, so a multi-note nuke costs
+    // one signature and one publish round per relay instead of N of each.
     const tags: string[][] = [];
-    if (eventId) tags.push(["e", eventId]);
-    if (eventAddress) tags.push(["a", eventAddress]);
+    const seenTags = new Set<string>();
+    targets.forEach((target) => {
+      if (target.eventId && !seenTags.has(`e:${target.eventId}`)) {
+        seenTags.add(`e:${target.eventId}`);
+        tags.push(["e", target.eventId]);
+      }
+      if (target.address && !seenTags.has(`a:${target.address}`)) {
+        seenTags.add(`a:${target.address}`);
+        tags.push(["a", target.address]);
+      }
+    });
     // Attribution — clients that surface client tags show which tool
     // filed the request.
     tags.push(["client", "Note Nuke by Mutable"]);
@@ -393,7 +630,7 @@ export default function NoteNuke() {
       return;
     }
 
-    const queue = [...targets];
+    const queue = [...relays];
     const concurrency = 8;
     let successCount = 0;
     const runNext = async (): Promise<void> => {
@@ -423,17 +660,33 @@ export default function NoteNuke() {
 
     setIsPublishing(false);
     setLastPublishSummary(
-      `Published deletion to ${targets.length} relays. See relay statuses below.`,
+      `Published a deletion request naming ${targets.length} event${
+        targets.length === 1 ? "" : "s"
+      } to ${relays.length} relays. See relay statuses below.`,
     );
     setSuccessSnapshot({
       success: successCount,
-      total: targets.length,
+      total: relays.length,
     });
     setShowSuccessModal(true);
+
+    if (successCount > 0) {
+      // Flag the nuked notes and drop them from the selection so a second
+      // Sign & Nuke can't re-file the same request by accident.
+      const nukedNow = targets
+        .map((target) => target.eventId)
+        .filter((id): id is string => Boolean(id));
+      setNukedIds((previous) => new Set([...previous, ...nukedNow]));
+      setFeedSelection((previous) => {
+        const next = new Set(previous);
+        nukedNow.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
   };
 
   const handleNuke = async () => {
-    if (!eventId && !eventAddress) return;
+    if (nukeTargets.length === 0) return;
     if (!hasNip07()) {
       alert("NIP-07 signer not available.");
       return;
@@ -443,31 +696,25 @@ export default function NoteNuke() {
       return;
     }
 
-    if (
-      previewEvent &&
-      session?.pubkey &&
-      previewEvent.pubkey !== session.pubkey
-    ) {
-      alert(
-        "This event was authored by a different pubkey. Relays will reject deletion.",
-      );
-      return;
-    }
-
+    const targetSummary =
+      nukeTargets.length === 1
+        ? `Event: ${nukeTargets[0].address || nukeTargets[0].eventId}`
+        : `Events: ${nukeTargets.length} selected`;
     const confirmMessage =
       `NOTE NUKE\n\n` +
-      `This will publish a deletion event to ${selectedRelays.length} relays.\n` +
-      `Event: ${eventId || eventAddress}\n\n` +
+      `This will publish a deletion request naming ${nukeTargets.length} event${
+        nukeTargets.length === 1 ? "" : "s"
+      } to ${selectedRelays.length} relays.\n` +
+      `${targetSummary}\n\n` +
       `Proceed?`;
     if (!confirm(confirmMessage)) return;
 
     resetRelayStatuses();
-    const targets = selectedRelays.map((relay) => ({ ...relay }));
-    await publishDeletion(targets);
+    await publishDeletion(
+      selectedRelays.map((relay) => ({ ...relay })),
+      nukeTargets,
+    );
   };
-
-  const mismatchAuthor =
-    previewEvent && session?.pubkey && previewEvent.pubkey !== session.pubkey;
 
   const displaySources = Object.entries(relaySourceCounts)
     .filter(([, count]) => count > 0)
@@ -485,10 +732,10 @@ export default function NoteNuke() {
               Note Nuke
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 max-w-3xl">
-              Delete a Nostr event by publishing a kind 5 deletion to every
-              relay we can reach. This uses your NIP-65 relay list, NIP-07
-              relays, Mutable defaults, plus a wide catalog of known public
-              relays for maximum coverage.
+              Pick notes from your recent feed — or paste any event reference —
+              and publish a kind 5 deletion to every relay we can reach. This
+              uses your NIP-65 relay list, NIP-07 relays, Mutable defaults, plus
+              a wide catalog of known public relays for maximum coverage.
             </p>
             <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
               {displaySources.map((label) => (
@@ -504,11 +751,195 @@ export default function NoteNuke() {
         </div>
       </div>
 
+      {session?.pubkey && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+              <FileText size={16} />
+              Your recent notes
+            </div>
+            <div className="flex items-center gap-1 sm:ml-auto">
+              {LOOKBACK_OPTIONS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => handleLookbackChange(days)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                    days === lookbackDays
+                      ? "bg-red-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {days === 1 ? "24h" : `${days}d`}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => loadFeed(lookbackDays)}
+              disabled={feedLoading}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <RefreshCw
+                size={14}
+                className={feedLoading ? "animate-spin" : ""}
+              />
+              Refresh
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Notes you published in the last{" "}
+            {lookbackDays === 1 ? "24 hours" : `${lookbackDays} days`}, read
+            from {feedRelays.length} of your relays. Tick the ones to delete —
+            one deletion request can name them all.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={feedFilter}
+              onChange={(e) => {
+                setFeedFilter(e.target.value);
+                setFeedVisibleCount(FEED_PAGE_SIZE);
+              }}
+              placeholder="Filter notes by text..."
+              className="flex-1 min-w-[12rem] px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200"
+            />
+            <button
+              type="button"
+              onClick={handleSelectAllNotes}
+              disabled={filteredFeedNotes.length === 0}
+              className="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Select all ({filteredFeedNotes.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFeedSelection(new Set())}
+              disabled={feedSelection.size === 0}
+              className="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Clear
+            </button>
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+              {feedSelection.size} selected
+            </span>
+          </div>
+
+          {feedError && (
+            <div className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle size={16} />
+              {feedError}
+            </div>
+          )}
+
+          {feedLoading && feedNotes.length === 0 && (
+            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+              <RefreshCw size={14} className="animate-spin" />
+              Reading your notes from {feedRelays.length} relays...
+            </div>
+          )}
+
+          {!feedLoading &&
+            !feedError &&
+            feedLoaded &&
+            feedNotes.length === 0 && (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                No notes from the last{" "}
+                {lookbackDays === 1 ? "24 hours" : `${lookbackDays} days`} on
+                these relays. Try a wider window, or paste an event reference
+                below.
+              </div>
+            )}
+
+          {feedNotes.length > 0 && filteredFeedNotes.length === 0 && (
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              No notes match that filter.
+            </div>
+          )}
+
+          {visibleFeedNotes.length > 0 && (
+            <div className="space-y-2 max-h-96 overflow-auto pr-1">
+              {visibleFeedNotes.map((note) => {
+                const selected = feedSelection.has(note.id);
+                const nuked = nukedIds.has(note.id);
+                return (
+                  <label
+                    key={note.id}
+                    className={`flex gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selected
+                        ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                        : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                    } ${nuked ? "opacity-60" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleFeedNote(note.id)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">
+                          {kindLabel(note.kind)}
+                        </span>
+                        <span title={formatTimestamp(note.created_at)}>
+                          {formatRelativeDate(note.created_at)}
+                        </span>
+                        {nuked && (
+                          <span className="px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200">
+                            deletion requested
+                          </span>
+                        )}
+                        <a
+                          href={getEventLink(note.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="ml-auto inline-flex items-center gap-0.5 hover:underline"
+                        >
+                          jumble
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                      <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words line-clamp-3">
+                        {note.content.trim() || (
+                          <span className="italic text-gray-400 dark:text-gray-500">
+                            (no text content)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {filteredFeedNotes.length > feedVisibleCount && (
+            <button
+              type="button"
+              onClick={() =>
+                setFeedVisibleCount((count) => count + FEED_PAGE_SIZE)
+              }
+              className="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            >
+              Show more ({filteredFeedNotes.length - feedVisibleCount} left)
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm space-y-5">
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             Event reference
           </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Paste a single event to add it to the targets — optional when you
+            have notes ticked in the feed above.
+          </p>
           <div className="flex gap-2">
             <input
               type="text"
@@ -601,10 +1032,46 @@ export default function NoteNuke() {
                 <div className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
                   <AlertTriangle size={16} />
                   Your pubkey does not match this event author. Relays will
-                  reject deletion.
+                  reject deletion, so this reference is left out of the targets.
                 </div>
               )}
             </div>
+          )}
+        </div>
+
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+            <ListChecks size={16} />
+            Deletion targets ({nukeTargets.length})
+          </div>
+          {nukeTargets.length === 0 ? (
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Tick notes in the feed above, or paste an event reference, to pick
+              what gets nuked.
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-1 max-h-40 overflow-auto pr-1">
+              {nukeTargets.map((target) => (
+                <li
+                  key={target.key}
+                  className="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-300"
+                >
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+                    {target.label}
+                  </span>
+                  <span className="font-mono break-all">
+                    {target.address || target.eventId}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {nukeTargets.length > BATCH_WARNING_THRESHOLD && (
+            <p className="mt-2 text-xs text-orange-600 dark:text-orange-400 flex items-start gap-2">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              That is a large request. Some relays cap event size or tag counts
+              — if relays reject it, nuke in smaller batches.
+            </p>
           )}
         </div>
 
@@ -708,12 +1175,7 @@ export default function NoteNuke() {
           <button
             type="button"
             onClick={handleNuke}
-            disabled={
-              (!eventId && !eventAddress) ||
-              isPublishing ||
-              mismatchAuthor ||
-              !hasNip07()
-            }
+            disabled={nukeTargets.length === 0 || isPublishing || !hasNip07()}
             className="px-5 py-3 rounded-lg bg-red-600 text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPublishing ? (
@@ -722,6 +1184,7 @@ export default function NoteNuke() {
               <Radiation size={18} />
             )}
             Sign &amp; Nuke
+            {nukeTargets.length > 1 ? ` (${nukeTargets.length})` : ""}
           </button>
           {lastPublishSummary && (
             <div className="text-sm text-gray-600 dark:text-gray-300">
