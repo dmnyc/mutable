@@ -17,8 +17,7 @@ import {
   ListBackupResult,
 } from "@/lib/relayStorage";
 import { profileBackupService } from "@/lib/profileBackupService";
-import FollowRecoverySection from "./FollowRecoverySection";
-import MuteRecoverySection from "./MuteRecoverySection";
+import LazarusRecovery from "./lazarus/LazarusRecovery";
 import {
   getFollowListPubkeys,
   publishMuteList,
@@ -155,9 +154,9 @@ export default function Backups() {
     Record<number, boolean>
   >({});
   const [listBackupSaving, setListBackupSaving] = useState<number | null>(null);
-  const [listBackupRestoring, setListBackupRestoring] = useState<
-    number | null
-  >(null);
+  const [listBackupRestoring, setListBackupRestoring] = useState<number | null>(
+    null,
+  );
   const [showListRelayDetails, setShowListRelayDetails] = useState<
     Record<number, boolean>
   >({});
@@ -193,7 +192,9 @@ export default function Backups() {
     setBackups(allBackups);
   };
 
-  const loadRelayBackup = async (signerOverride?: import("@/lib/signers").Signer) => {
+  const loadRelayBackup = async (
+    signerOverride?: import("@/lib/signers").Signer,
+  ) => {
     // Use the passed signer (from useEffect where React state is reliable),
     // or fall back to store for manual calls (refresh button, post-save)
     const activeSigner = signerOverride || useStore.getState().signer;
@@ -220,10 +221,7 @@ export default function Backups() {
   };
 
   const loadListRelayBackup = useCallback(
-    async (
-      kind: number,
-      signerOverride?: import("@/lib/signers").Signer,
-    ) => {
+    async (kind: number, signerOverride?: import("@/lib/signers").Signer) => {
       const activeSigner = signerOverride || useStore.getState().signer;
       if (!activeSigner) {
         console.warn(
@@ -553,11 +551,7 @@ export default function Backups() {
     setListBackupSaving(kind);
     setErrorMessage(null);
     try {
-      const raw = await fetchRawListEvent(
-        session.pubkey,
-        kind,
-        session.relays,
-      );
+      const raw = await fetchRawListEvent(session.pubkey, kind, session.relays);
       if (!raw) {
         setErrorMessage(
           `Nothing to back up - no ${BACKUP_TYPE_META[type].label.replace(" Backup", "").toLowerCase()} event found on your relays`,
@@ -1141,9 +1135,10 @@ export default function Backups() {
                       className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
                     />
                     <p className="text-sm text-amber-700 dark:text-amber-300">
-                      {relayBackupError.includes("too large for remote signer") ||
-                        relayBackupError.includes("plaintext size")
-                        ? "Backup too large to decrypt with a remote signer (NIP-46). Log in with a browser extension (NIP-07) and click \"Save to Relays\" to re-save in the new split format."
+                      {relayBackupError.includes(
+                        "too large for remote signer",
+                      ) || relayBackupError.includes("plaintext size")
+                        ? 'Backup too large to decrypt with a remote signer (NIP-46). Log in with a browser extension (NIP-07) and click "Save to Relays" to re-save in the new split format.'
                         : relayBackupError}
                     </p>
                   </div>
@@ -1219,6 +1214,23 @@ export default function Backups() {
                 />
               </button>
             </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              No backup, or an outdated one?{" "}
+              <a
+                href="#lazarus-recovery"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document
+                    .getElementById("lazarus-recovery")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="underline hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                Check your relay history
+              </a>{" "}
+              for versions relays still hold.
+            </p>
 
             {/* Relay list toggle */}
             {queriedRelays.length > 0 && (
@@ -1573,21 +1585,7 @@ export default function Backups() {
         </div>
       </div>
 
-      {/* List Recovery */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            List Recovery
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Scan your relays for older versions of a list that may have been
-            overwritten, then republish the one you want back.
-          </p>
-        </div>
-
-        <MuteRecoverySection />
-        <FollowRecoverySection />
-      </div>
+      <LazarusRecovery onBackupsChanged={loadBackups} />
 
       {/* Backups List */}
       <div>
@@ -1595,8 +1593,8 @@ export default function Backups() {
           Local Backup History
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
-          Snapshots saved in this browser. Download any entry as JSON for offline
-          safekeeping, or restore it to publish back to your relays.
+          Snapshots saved in this browser. Download any entry as JSON for
+          offline safekeeping, or restore it to publish back to your relays.
         </p>
       </div>
       {filteredBackups.length === 0 ? (
@@ -1620,72 +1618,73 @@ export default function Backups() {
                 const meta = BACKUP_TYPE_META[backup.type];
                 const RowIcon = meta?.icon || Archive;
                 return (
-              <div className="flex items-start justify-between gap-2 sm:gap-4">
-                <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                  <div
-                    className={`p-2 rounded-lg flex-shrink-0 ${meta?.badgeBg || "bg-gray-100 dark:bg-gray-700"}`}
-                  >
-                    <RowIcon
-                      className={
-                        meta?.iconColor || "text-gray-600 dark:text-gray-400"
-                      }
-                      size={20}
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {meta?.label || backup.type}
-                      </h3>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        ({getBackupItemCount(backup)} items)
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <Calendar size={14} />
-                        <span className="text-xs sm:text-sm">
-                          {formatDate(backup.createdAt)}
-                        </span>
+                  <div className="flex items-start justify-between gap-2 sm:gap-4">
+                    <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg flex-shrink-0 ${meta?.badgeBg || "bg-gray-100 dark:bg-gray-700"}`}
+                      >
+                        <RowIcon
+                          className={
+                            meta?.iconColor ||
+                            "text-gray-600 dark:text-gray-400"
+                          }
+                          size={20}
+                        />
                       </div>
-                      {backup.notes && (
-                        <div className="flex items-center gap-1 min-w-0">
-                          <FileText size={14} className="flex-shrink-0" />
-                          <span className="truncate text-xs sm:text-sm">
-                            {backup.notes}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {meta?.label || backup.type}
+                          </h3>
+                          <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            ({getBackupItemCount(backup)} items)
                           </span>
                         </div>
-                      )}
+
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Calendar size={14} />
+                            <span className="text-xs sm:text-sm">
+                              {formatDate(backup.createdAt)}
+                            </span>
+                          </div>
+                          {backup.notes && (
+                            <div className="flex items-center gap-1 min-w-0">
+                              <FileText size={14} className="flex-shrink-0" />
+                              <span className="truncate text-xs sm:text-sm">
+                                {backup.notes}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleRestoreBackup(backup)}
+                        className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                        title="Restore and publish this backup"
+                      >
+                        <RefreshCw size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleExportBackup(backup)}
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Download backup"
+                      >
+                        <Download size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBackup(backup.id)}
+                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Delete backup"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => handleRestoreBackup(backup)}
-                    className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                    title="Restore and publish this backup"
-                  >
-                    <RefreshCw size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleExportBackup(backup)}
-                    className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                    title="Download backup"
-                  >
-                    <Download size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteBackup(backup.id)}
-                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete backup"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
                 );
               })()}
             </div>
