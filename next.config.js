@@ -7,6 +7,11 @@ const nextConfig = {
         destination: '/mute-o-scope',
         permanent: true,
       },
+      {
+        source: '/backups',
+        destination: '/dashboard?tab=backups',
+        permanent: false,
+      },
     ]
   },
 }
