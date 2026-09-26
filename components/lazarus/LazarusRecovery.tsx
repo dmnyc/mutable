@@ -730,6 +730,13 @@ export default function LazarusRecovery({
             "This version belongs to another account. Switch back to it to restore.",
           );
         }
+        // A mute list restore replaces Mutable's own copy, which can hold
+        // edits that were never published: they'd be lost without a word.
+        if (kind === 10000 && useStore.getState().hasUnsavedChanges) {
+          throw new Error(
+            "You have mute list changes that aren't published yet. Publish or discard them first, since restoring replaces them.",
+          );
+        }
 
         let writeRelays = kindScan?.writeRelays ?? [];
         let replacing = open.current;
