@@ -29,6 +29,8 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **JSON Export**: Download your mute list as a portable `.json` file
 - **JSON Import**: Restore a previously exported mute list
 - **Browser Storage**: Save snapshots to localStorage for quick recovery
+- **Recover from Relay History**: Scan relays for older versions of your follow list, mute list, profile, bookmarks, NIP-4e keys, and relay lists, then restore one after reviewing exactly what changes. Follows the [Lazarus](https://github.com/dmnyc/lazarus) recovery spec: your current version is confirmed on your write relays first, and nothing is published without your explicit click
+- **Signed Event Export**: Download your events as signed JSON and import them later to review and restore any version
 
 ### Public Mute Lists (kind:30001)
 - **Discovery**: Search for public mute lists by creator npub or list name
