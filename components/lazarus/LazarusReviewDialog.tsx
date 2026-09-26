@@ -596,7 +596,12 @@ export default function LazarusReviewDialog({
                   </label>
                   <button
                     type="button"
-                    onClick={() => onConfirm(true)}
+                    onClick={() => {
+                      // The confirmation covers this attempt only, so a later
+                      // failure never finds it already ticked
+                      setOverrideAck(false);
+                      onConfirm(true);
+                    }}
                     disabled={!overrideAck || !canPublish}
                     className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
