@@ -126,11 +126,13 @@ function DashboardContent() {
     }
   }, [searchParams, setActiveTab]);
 
+  // While React hydrates, the store reads as signed out even with a saved
+  // session, so check the real state; a bounce through "/" drops ?tab= links.
   useEffect(() => {
-    if (!isConnected) {
+    if (!useStore.getState().session) {
       router.push("/");
     }
-  }, [isConnected, router]);
+  }, [session, router]);
 
   // Show onboarding on first visit
   useEffect(() => {
