@@ -389,7 +389,7 @@ export default function Home() {
             <button
               onClick={() => handleToolSearch("/draftable")}
               title="Follow packs they've been drafted into (and can't leave)"
-              className="camo [--camo-size:240px] [--camo-x:-60px] [--camo-y:-110px] [--camo-shade:0.35] hover:[--camo-shade:0.5] w-full px-3 py-2.5 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-1.5 text-sm [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
+              className="camo [--camo-size:240px] [--camo-x:-60px] [--camo-y:-110px] hover:[--camo-shade:0.62] w-full px-3 py-2.5 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-1.5 text-sm [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
             >
               <Medal
                 size={16}

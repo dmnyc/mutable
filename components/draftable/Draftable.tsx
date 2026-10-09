@@ -10,20 +10,26 @@ import {
   Medal,
   Plus,
   RefreshCw,
+  PackageSearch,
   Share2,
   Search,
   User,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { hexToNpub } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage, truncateNpub } from "@/lib/utils/format";
 import {
   FollowPack,
+  matchPacks,
   packAddress,
+  parsePackReference,
+  referencePath,
   resolvePubkey,
 } from "@/lib/draftable/pack";
 import {
   draftableRelays,
+  fetchAllPacks,
   fetchFollowing,
   fetchPacks,
 } from "@/lib/draftable/service";
@@ -43,6 +49,9 @@ const SIGNED_IN_VIEWS: View[] = ["follows", "drafted", "mine"];
 const VIEW_STORAGE_KEY = "draftable-view";
 // The grid runs 1, 2, or 3 columns; any multiple of 6 fills every row.
 const ROW_MULTIPLE = 6;
+// Search results shown per "Show more", a multiple of ROW_MULTIPLE.
+const SEARCH_PAGE = 24;
+const SEARCH_MIN_CHARS = 2;
 
 function viewLabel(view: View, lookupName: string | null): string {
   if (lookupName) {
@@ -85,6 +94,17 @@ export default function Draftable() {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  // Pack search: what's typed, and the debounced term that's searched.
+  const [searchInput, setSearchInput] = useState(
+    () => searchParams.get("q") ?? "",
+  );
+  const [searchTerm, setSearchTerm] = useState(() =>
+    (searchParams.get("q") ?? "").trim(),
+  );
+  const [allPacks, setAllPacks] = useState<FollowPack[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchShown, setSearchShown] = useState(SEARCH_PAGE);
   const requestId = useRef(0);
   const followsCache = useRef<{ pubkey: string; follows: string[] } | null>(
     null,
@@ -112,6 +132,61 @@ export default function Draftable() {
   useEffect(() => {
     if (viewParam && VIEWS.includes(viewParam)) setView(viewParam);
   }, [viewParam]);
+
+  // A pasted link or naddr opens a pack; anything else searches by name.
+  const pastedRef = parsePackReference(searchInput);
+  const searchActive =
+    !parsePackReference(searchTerm) && searchTerm.length >= SEARCH_MIN_CHARS;
+
+  // Debounce typing, and keep the term in ?q= so Back returns to results.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const term = searchInput.trim();
+      setSearchTerm(term);
+      setSearchShown(SEARCH_PAGE);
+      const url = new URL(window.location.href);
+      if (term && !parsePackReference(term)) url.searchParams.set("q", term);
+      else url.searchParams.delete("q");
+      if (url.href !== window.location.href) {
+        window.history.replaceState(window.history.state, "", url);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Switching views or looking someone up ends a search.
+  const navKey = `${npubParam ?? ""}|${viewParam ?? ""}`;
+  const lastNavKey = useRef(navKey);
+  useEffect(() => {
+    if (lastNavKey.current === navKey) return;
+    lastNavKey.current = navKey;
+    setSearchInput("");
+  }, [navKey]);
+
+  useEffect(() => {
+    if (!searchActive) return;
+    let cancelled = false;
+    setSearching(true);
+    setSearchError(null);
+    fetchAllPacks(relays)
+      .then((result) => {
+        if (!cancelled) setAllPacks(result);
+      })
+      .catch((err) => {
+        if (!cancelled) setSearchError(getErrorMessage(err, "Search failed"));
+      })
+      .finally(() => {
+        if (!cancelled) setSearching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchActive, relays]);
+
+  const searchResults = useMemo(
+    () => (searchActive && allPacks ? matchPacks(allPacks, searchTerm) : []),
+    [searchActive, allPacks, searchTerm],
+  );
 
   // In lookup mode only "drafted into" and "made by" make sense.
   const effectiveView: View =
@@ -197,6 +272,7 @@ export default function Draftable() {
   };
 
   const selectView = (next: View) => {
+    setSearchInput("");
     setView(next);
     if (!lookupPubkey) {
       try {
@@ -211,15 +287,24 @@ export default function Draftable() {
     router.replace(`/draftable?${params.toString()}`, { scroll: false });
   };
 
+  // While more pages remain, hold back the leftovers so the last row is
+  // full. They're still loaded and lead the next page.
+  const visiblePacks =
+    hasMore && packs.length > ROW_MULTIPLE
+      ? packs.slice(0, packs.length - (packs.length % ROW_MULTIPLE))
+      : packs;
+  const shownResults = searchResults.slice(0, searchShown);
+  const displayedPacks = searchActive ? shownResults : visiblePacks;
+
   const profilePubkeys = useMemo(() => {
     const set = new Set<string>();
     if (lookupPubkey) set.add(lookupPubkey);
-    for (const pack of packs) {
+    for (const pack of displayedPacks) {
       set.add(pack.author);
       pack.members.slice(0, PREVIEW_MEMBERS).forEach((m) => set.add(m.pubkey));
     }
     return Array.from(set);
-  }, [packs, lookupPubkey]);
+  }, [displayedPacks, lookupPubkey]);
   const profiles = useProfiles(profilePubkeys, relays);
 
   const lookupProfile = lookupPubkey ? profiles.get(lookupPubkey) : undefined;
@@ -229,12 +314,9 @@ export default function Draftable() {
 
   const availableViews: View[] = lookupPubkey ? ["drafted", "mine"] : VIEWS;
 
-  // While more pages remain, hold back the leftovers so the last row is
-  // full. They're still loaded and lead the next page.
-  const visiblePacks =
-    hasMore && packs.length > ROW_MULTIPLE
-      ? packs.slice(0, packs.length - (packs.length % ROW_MULTIPLE))
-      : packs;
+  const openPastedPack = () => {
+    if (pastedRef) router.push(referencePath(pastedRef));
+  };
 
   return (
     <div className="space-y-6">
@@ -271,19 +353,68 @@ export default function Draftable() {
           <NoExitIntro />
         </div>
 
-        <div className="mt-5">
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-            <Search size={14} />
-            See which packs someone has been drafted into
-          </label>
-          <UserSearchInput
-            placeholder="Name, NIP-05, or npub"
-            onSelect={(profile) =>
-              router.push(
-                `/draftable?npub=${encodeURIComponent(hexToNpub(profile.pubkey))}&view=drafted`,
-              )
-            }
-          />
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <Search size={14} />
+              See which packs someone has been drafted into
+            </label>
+            <UserSearchInput
+              placeholder="Name, NIP-05, or npub"
+              showFollowerCount
+              onSelect={(profile) =>
+                router.push(
+                  `/draftable?npub=${encodeURIComponent(hexToNpub(profile.pubkey))}&view=drafted`,
+                )
+              }
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="pack-search"
+              className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
+              <PackageSearch size={14} />
+              Find a pack
+            </label>
+            <div className="relative">
+              <input
+                id="pack-search"
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") openPastedPack();
+                  if (e.key === "Escape") setSearchInput("");
+                }}
+                placeholder="Search by name, or paste a link or naddr"
+                className="w-full pl-10 pr-9 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-white"
+              />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={16}
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  aria-label="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            {pastedRef && (
+              <button
+                type="button"
+                onClick={openPastedPack}
+                className="mt-1.5 text-xs font-medium text-[#4b5320] dark:text-[#b9cc7f] hover:underline"
+              >
+                Open this pack (or press Enter)
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -354,34 +485,98 @@ export default function Draftable() {
       </div>
 
       {/* Drafted-into summary: the point of the whole tool */}
-      {effectiveView === "drafted" && !loading && packs.length > 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#4b5320] bg-[#f0f0dc] dark:bg-[#4b5320]/25">
-          <LockKeyhole
-            size={20}
-            className="text-[#4b5320] dark:text-[#c8d18e] flex-shrink-0 mt-0.5"
-          />
-          <p className="flex-1 text-sm text-[#33391a] dark:text-[#e6ead0]">
-            <span className="font-bold">
-              {lookupName ? `${lookupName} has` : "You've"} been drafted into{" "}
-              {packs.length}
-              {hasMore ? "+" : ""} {packs.length === 1 ? "pack" : "packs"}
-              {lookupName ? "" : " so far"}.
-            </span>{" "}
-            {lookupName ? "They" : "You"} can&apos;t leave any of them. Only
-            each pack&apos;s author can take {lookupName ? "them" : "you"} out.
-          </p>
-          <button
-            onClick={() => setShareOpen(true)}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4b5320] text-white rounded-lg text-xs font-medium hover:bg-[#3c4419] transition-colors"
-          >
-            <Share2 size={12} />
-            Share
-          </button>
-        </div>
-      )}
+      {!searchActive &&
+        effectiveView === "drafted" &&
+        !loading &&
+        packs.length > 0 && (
+          <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#4b5320] bg-[#f0f0dc] dark:bg-[#4b5320]/25">
+            <LockKeyhole
+              size={20}
+              className="text-[#4b5320] dark:text-[#c8d18e] flex-shrink-0 mt-0.5"
+            />
+            <p className="flex-1 text-sm text-[#33391a] dark:text-[#e6ead0]">
+              <span className="font-bold">
+                {lookupName ? `${lookupName} has` : "You've"} been drafted into{" "}
+                {packs.length}
+                {hasMore ? "+" : ""} {packs.length === 1 ? "pack" : "packs"}
+                {lookupName ? "" : " so far"}.
+              </span>{" "}
+              {lookupName ? "They" : "You"} can&apos;t leave any of them. Only
+              each pack&apos;s author can take {lookupName ? "them" : "you"}{" "}
+              out.
+            </p>
+            <button
+              onClick={() => setShareOpen(true)}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4b5320] text-white rounded-lg text-xs font-medium hover:bg-[#3c4419] transition-colors"
+            >
+              <Share2 size={12} />
+              Share
+            </button>
+          </div>
+        )}
 
       {/* Results */}
-      {needsSignIn ? (
+      {searchActive ? (
+        searchError ? (
+          <div className="flex items-center gap-2 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+            <AlertCircle size={16} />
+            {searchError}
+          </div>
+        ) : !allPacks ? (
+          <div className="space-y-4">
+            <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Loader2 size={14} className="animate-spin" />
+              Gathering every follow pack from {relays.length} relays. Only the
+              first search takes a moment.
+            </p>
+            <PackGridSkeleton />
+          </div>
+        ) : searchResults.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-600 dark:text-gray-400">
+            No packs match &ldquo;{searchTerm}&rdquo;. Searched the names and
+            descriptions of {allPacks.length} packs.
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+              <span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {searchResults.length}
+                </span>{" "}
+                {searchResults.length === 1 ? "pack matches" : "packs match"}{" "}
+                &ldquo;{searchTerm}&rdquo;, out of {allPacks.length}
+              </span>
+              {searching && <Loader2 size={14} className="animate-spin" />}
+              <button
+                onClick={() => setSearchInput("")}
+                className="font-medium text-[#4b5320] dark:text-[#b9cc7f] hover:underline"
+              >
+                Clear search
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {shownResults.map((pack) => (
+                <PackCard
+                  key={packAddress(pack)}
+                  pack={pack}
+                  profiles={profiles}
+                  viewerPubkey={session?.pubkey}
+                />
+              ))}
+            </div>
+            {searchResults.length > searchShown && (
+              <div className="text-center">
+                <button
+                  onClick={() => setSearchShown((n) => n + SEARCH_PAGE)}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Show more ({searchResults.length - searchShown} left)
+                </button>
+              </div>
+            )}
+          </>
+        )
+      ) : needsSignIn ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Connect with Nostr to see{" "}

@@ -1,8 +1,15 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import DraftableShell from "@/components/draftable/DraftableShell";
 import DraftablePack from "@/components/draftable/DraftablePack";
-import { conscriptCount, resolvePubkey } from "@/lib/draftable/pack";
+import {
+  cleanRelayHints,
+  conscriptCount,
+  parsePackReference,
+  referencePath,
+  resolvePubkey,
+} from "@/lib/draftable/pack";
 import { fetchPackForPreview } from "@/lib/draftable/server";
 
 interface Props {
@@ -18,6 +25,13 @@ function decodeId(raw: string): string {
   }
 }
 
+/** `/draftable/d/naddr1…` is a pasted naddr: send it to the pack's URL. */
+function redirectIfNaddr(dTag: string) {
+  if (!/^(nostr:)?naddr1/i.test(dTag)) return;
+  const ref = parsePackReference(dTag);
+  if (ref) redirect(referencePath(ref));
+}
+
 function clean(text: string, max: number): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
   return collapsed.length > max ? `${collapsed.slice(0, max - 1)}…` : collapsed;
@@ -28,6 +42,7 @@ export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const dTag = decodeId((await params).id);
+  redirectIfNaddr(dTag);
   const query = await searchParams;
   const author = resolvePubkey(typeof query.p === "string" ? query.p : null);
 
@@ -64,8 +79,12 @@ export async function generateMetadata({
 
 export default async function DraftablePackPage({ params, searchParams }: Props) {
   const dTag = decodeId((await params).id);
+  redirectIfNaddr(dTag);
   const query = await searchParams;
   const author = resolvePubkey(typeof query.p === "string" ? query.p : null);
+  // Relay hints from an naddr. Only the browser follows them; the server-side
+  // preview fetch sticks to its own relays.
+  const relayHints = cleanRelayHints([query.r ?? []].flat());
 
   return (
     <Suspense
@@ -77,6 +96,7 @@ export default async function DraftablePackPage({ params, searchParams }: Props)
         <DraftablePack
           dTag={dTag}
           author={author ?? undefined}
+          relayHints={relayHints}
           justPublished={query.published === "1"}
         />
       </DraftableShell>

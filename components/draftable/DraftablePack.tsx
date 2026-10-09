@@ -60,10 +60,13 @@ const MISSING_FOLLOW_LIST_PROMPT =
 export default function DraftablePack({
   dTag,
   author,
+  relayHints = [],
   justPublished = false,
 }: {
   dTag: string;
   author?: string;
+  /** Relays named in the naddr this pack was opened from. */
+  relayHints?: string[];
   /** Arrived from the editor right after publishing a new pack. */
   justPublished?: boolean;
 }) {
@@ -86,9 +89,10 @@ export default function DraftablePack({
   const [shareOpen, setShareOpen] = useState(false);
   const [showPublished, setShowPublished] = useState(justPublished);
 
+  const hintKey = relayHints.join(",");
   const relays = useMemo(
-    () => draftableRelays(session?.relays),
-    [session?.relays],
+    () => draftableRelays(session?.relays, hintKey ? hintKey.split(",") : []),
+    [session?.relays, hintKey],
   );
 
   useEffect(() => {
@@ -353,7 +357,7 @@ export default function DraftablePack({
             size={22}
             className="hidden sm:block text-[#4b5320] dark:text-[#c8d18e] flex-shrink-0"
           />
-          <p className="flex-1 text-sm text-[#33391a] dark:text-[#e6ead0]">
+          <p className="flex-1 text-sm text-balance text-[#33391a] dark:text-[#e6ead0]">
             <span className="font-bold">Your pack is live.</span> Share it so
             people can follow everyone in it with one click.
           </p>

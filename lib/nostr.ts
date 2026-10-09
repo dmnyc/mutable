@@ -1805,6 +1805,7 @@ export async function searchProfiles(
           about: p.about,
           picture: p.picture,
           nip05: p.nip05,
+          follower_count: p.follower_count,
         });
       }
       if (profiles.length > 0) return profiles;

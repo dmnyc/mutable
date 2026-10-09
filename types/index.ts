@@ -144,6 +144,8 @@ export interface Profile {
   nip05?: string;
   lud16?: string;
   website?: string;
+  /** From nostrarchives search results, when it has one. Not part of kind:0. */
+  follower_count?: number;
 }
 
 export const PROFILE_KIND = 0;

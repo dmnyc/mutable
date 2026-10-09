@@ -73,14 +73,15 @@ Analyze public NIP-04 DM metadata to see who someone talks to most (without decr
 Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://following.space) app rebuilt inside Mutable. **Nobody can leave a follow pack.** A pack is a public list signed by its author: the people in it are never asked, never notified, and have no way to remove themselves. Only the author can take someone out. Draftable says so everywhere it matters.
 
 - **Browse**: All packs, packs from people you follow, packs you've been drafted into, and packs you made, with "Discover more" paging
+- **Find a Pack**: Search every pack on Draftable's relays by name or description, or paste a following.space link, Draftable link, or `naddr` to open it
 - **Drafted Into**: See every pack you (or any npub, no login required) have been conscripted into, with a reminder that there's no way out
 - **Pack Pages**: Cover, description, every conscript with Follow/Unfollow, a Posts tab of their recent notes, Follow All, copy link and `nostr:naddr`
 - **Recourse**: On a pack you're in, ask the author to release you or mute them in one click (muting hides them; it doesn't get you out)
-- **Create & Edit**: Name, cover image (URL or Blossom upload), description, search-to-draft by name/NIP-05/npub/nprofile, reorder, release, delete (NIP-09)
+- **Create & Edit**: Name, cover image (URL or Blossom upload), description, optional custom pack ID for a readable link, search-to-draft by name/NIP-05/npub/nprofile with follower counts, reorder, release, delete (NIP-09)
 - **Safe Following**: Follow All re-reads your newest follow list, keeps every existing tag, saves a backup to Backups first, and refuses to overwrite a follow list it can't find
 - **Share**: Post or copy a ready-made note for a pack, for the packs you (or anyone) have been drafted into, or for a pack you just published
-- **Link Previews**: Per-pack social cards (`/draftable/card`) with the pack name, faces, and conscript count
-- **Compatible**: Reads and writes the same events as following.space; paste a following.space link or naddr to open any pack
+- **Link Previews**: Per-pack social cards (`/draftable/card`) on the woodland camo with the pack name, faces, and conscript count
+- **Compatible**: Reads and writes the same events as following.space. Pack links work at `mutable.top/draftable/d/<id>?p=<pubkey>` and `mutable.top/draftable/naddr1…`, and an `naddr`'s relay hints are used to find the pack
 
 ### Authentication
 - **NIP-07**: Connect using browser extensions (Alby, nos2x)

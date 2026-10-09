@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import {
   FollowPack,
@@ -16,18 +18,87 @@ export const runtime = "nodejs";
 const WIDTH = 1200;
 const HEIGHT = 630;
 const MAX_AVATARS = 7;
-const AVATAR_SIZE = 112;
+const AVATAR_SIZE = 92;
 const MAX_AVATAR_BYTES = 400_000;
-const MAX_COVER_BYTES = 1_500_000;
-const MAX_DESCRIPTION_CHARS = 120;
 const IMAGE_TIMEOUT_MS = 2500;
 
-const OD = "#4b5320";
-const OD_DARK = "#232b10";
-const OD_MID = "#5f6b34";
-const TAN = "#8a7f4a";
-const KHAKI = "#d8cba0";
+const KHAKI_LIGHT = "#ece4c4";
 const STAMP = "#e3d9a8";
+const RING = "#1c2112";
+const FONT = "Montserrat";
+// The camo tile repeats at this size, about the scale of the static card.
+const CAMO_TILE = 1000;
+
+/**
+ * Read an SVG from /public once per server instance, as a data URI. Each
+ * read uses a literal path so the build bundles only these three files.
+ */
+function svgAsset(read: () => Promise<Buffer>): () => Promise<string | null> {
+  let asset: Promise<string | null> | null = null;
+  return () => {
+    asset ??= read()
+      .then((data) => `data:image/svg+xml;base64,${data.toString("base64")}`)
+      .catch(() => null);
+    return asset;
+  };
+}
+const camoSvg = svgAsset(() =>
+  readFile(join(process.cwd(), "public/draftable_camo.svg")),
+);
+const logoSvg = svgAsset(() =>
+  readFile(join(process.cwd(), "public/mutable_logo.svg")),
+);
+const wordmarkSvg = svgAsset(() =>
+  readFile(join(process.cwd(), "public/mutable_text.svg")),
+);
+
+/**
+ * Montserrat from Google Fonts, once per server instance. The renderer
+ * already fetches emoji and non-Latin glyphs from the web at draw time;
+ * if this fails the card falls back to the renderer's built-in font.
+ */
+let fontsPromise: Promise<FontOptions[] | undefined> | null = null;
+type FontOptions = {
+  name: string;
+  data: ArrayBuffer;
+  weight: 500 | 800;
+  style: "normal";
+};
+function loadFonts(): Promise<FontOptions[] | undefined> {
+  if (!fontsPromise) {
+    fontsPromise = (async () => {
+      const css = await fetch(
+        "https://fonts.googleapis.com/css2?family=Montserrat:wght@500;800",
+        { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) },
+      ).then((res) => (res.ok ? res.text() : ""));
+      const faces = [
+        ...css.matchAll(
+          /font-weight:\s*(\d+);[^}]*?src:\s*url\(([^)]+)\)\s*format\('(?:truetype|opentype)'\)/g,
+        ),
+      ];
+      const fonts = await Promise.all(
+        faces.map(async ([, weight, url]) => {
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+          });
+          if (!res.ok) throw new Error(`font ${res.status}`);
+          return {
+            name: FONT,
+            data: await res.arrayBuffer(),
+            weight: Number(weight) as 500 | 800,
+            style: "normal" as const,
+          };
+        }),
+      );
+      if (fonts.length < 2) throw new Error("Montserrat not found");
+      return fonts;
+    })().catch(() => {
+      fontsPromise = null; // try again on the next card
+      return undefined;
+    });
+  }
+  return fontsPromise;
+}
 
 /**
  * Only fetch avatars from public https hosts — profile pictures are
@@ -99,159 +170,156 @@ function Stamp() {
         display: "flex",
         border: `6px solid ${STAMP}`,
         color: STAMP,
-        padding: "6px 22px",
-        fontSize: 40,
-        fontWeight: 700,
-        letterSpacing: 6,
+        padding: "4px 26px",
+        fontSize: 46,
+        fontWeight: 800,
+        letterSpacing: 8,
         borderRadius: 12,
         transform: "rotate(-6deg)",
-        background: "rgba(35, 43, 16, 0.65)",
+        background: "rgba(20, 24, 12, 0.7)",
         flexShrink: 0,
         whiteSpace: "nowrap",
       }}
     >
-      NO WAY OUT
+      DRAFTED
     </div>
   );
 }
 
-/** Irregular rounded blob — the card renderer can't do radial-gradient
- * camo, so overlapping shapes stand in for it. */
-function Blob({
-  width,
-  height,
-  top,
-  left,
-  color,
-  opacity,
-  radius,
-}: {
-  width: number;
-  height: number;
-  top: number;
-  left: number;
-  color: string;
-  opacity: number;
-  radius: string;
-}) {
+/** "by [logo] mutable", as on the static Draftable card. */
+function MutableLockup({ logo, wordmark }: Branding) {
   return (
     <div
       style={{
         display: "flex",
-        position: "absolute",
-        width,
-        height,
-        top,
-        left,
-        background: color,
-        opacity,
-        borderRadius: radius,
+        alignItems: "center",
+        gap: 16,
+        fontSize: 40,
+        fontWeight: 800,
+        color: "white",
       }}
-    />
+    >
+      <div style={{ display: "flex" }}>Draftable by</div>
+      {logo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="" width={68} height={68} />
+      )}
+      {wordmark ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={wordmark} alt="" width={244} height={46} />
+      ) : (
+        <div style={{ display: "flex" }}>Mutable</div>
+      )}
+    </div>
   );
 }
 
-function Frame({ children }: { children: React.ReactNode }) {
+function Frame({
+  camo,
+  children,
+}: {
+  camo: string | null;
+  children: React.ReactNode;
+}) {
   return (
     <div
       style={{
         width: WIDTH,
         height: HEIGHT,
         display: "flex",
-        flexDirection: "column",
-        padding: "56px 64px",
+        position: "relative",
+        fontFamily: FONT,
         color: "white",
-        background: `linear-gradient(135deg, ${OD} 0%, ${OD_DARK} 100%)`,
+        background: "#3d3b2c",
         overflow: "hidden",
       }}
     >
-      <Blob
-        width={460}
-        height={360}
-        top={-130}
-        left={-110}
-        color={OD_MID}
-        opacity={0.5}
-        radius="60% 40% 55% 45% / 55% 60% 40% 45%"
+      {camo &&
+        [0, CAMO_TILE].map((left) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={left}
+            src={camo}
+            alt=""
+            width={CAMO_TILE}
+            height={CAMO_TILE}
+            style={{ position: "absolute", top: -120, left: left - 140 }}
+          />
+        ))}
+      {/* Half-darken the camo, the same as the static card. */}
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: WIDTH,
+          height: HEIGHT,
+          background: "rgba(0, 0, 0, 0.5)",
+        }}
       />
-      <Blob
-        width={340}
-        height={300}
-        top={-90}
-        left={880}
-        color={TAN}
-        opacity={0.35}
-        radius="45% 55% 40% 60% / 60% 40% 55% 45%"
-      />
-      <Blob
-        width={520}
-        height={380}
-        top={380}
-        left={-140}
-        color="#2a3016"
-        opacity={0.6}
-        radius="55% 45% 60% 40% / 40% 60% 45% 55%"
-      />
-      <Blob
-        width={400}
-        height={320}
-        top={330}
-        left={820}
-        color={OD_MID}
-        opacity={0.45}
-        radius="50% 50% 45% 55% / 55% 45% 50% 50%"
-      />
-      <Blob
-        width={280}
-        height={240}
-        top={180}
-        left={520}
-        color={TAN}
-        opacity={0.22}
-        radius="55% 45% 50% 50% / 45% 55% 45% 55%"
-      />
-      {children}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          width: WIDTH,
+          height: HEIGHT,
+          padding: "48px 64px 46px",
+          textShadow: "0 2px 10px rgba(0, 0, 0, 0.7)",
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
-interface CardData {
+interface Branding {
+  logo: string | null;
+  wordmark: string | null;
+}
+
+interface Avatar {
+  src: string | null;
+  /** Shown when the picture can't be fetched; blank if there's no name. */
+  initial: string;
+}
+
+interface CardData extends Branding {
+  camo: string | null;
   name: string;
-  authorName: string;
   count: number;
-  avatars: (string | null)[];
+  avatars: Avatar[];
   extra: number;
-  cover: string | null;
-  description: string | null;
 }
 
 async function loadCardData(pack: FollowPack): Promise<CardData> {
   const shown = pack.members.slice(0, MAX_AVATARS).map((m) => m.pubkey);
-  const [profiles, cover] = await Promise.all([
-    fetchPreviewProfiles([pack.author, ...shown]),
-    imageDataUri(pack.image, MAX_COVER_BYTES),
+  const [profiles, camo, logo, wordmark] = await Promise.all([
+    fetchPreviewProfiles(shown),
+    camoSvg(),
+    logoSvg(),
+    wordmarkSvg(),
   ]);
   const avatars = await Promise.all(
-    shown.map((pubkey) =>
-      imageDataUri(profiles.get(pubkey)?.picture, MAX_AVATAR_BYTES),
-    ),
+    shown.map(async (pubkey) => {
+      const profile = profiles.get(pubkey);
+      const name = previewName(profile);
+      return {
+        src: await imageDataUri(profile?.picture, MAX_AVATAR_BYTES),
+        initial: name ? Array.from(name)[0].toUpperCase() : "",
+      };
+    }),
   );
-  const description = pack.description
-    ?.replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_DESCRIPTION_CHARS);
   return {
+    camo,
+    logo,
+    wordmark,
     name: pack.name.length > 70 ? `${pack.name.slice(0, 69)}…` : pack.name,
-    authorName: previewName(profiles.get(pack.author)) ?? "its author",
     count: pack.members.length,
     avatars,
     extra: pack.members.length - shown.length,
-    cover,
-    description: description
-      ? pack.description.length > MAX_DESCRIPTION_CHARS
-        ? `${description}…`
-        : description
-      : null,
   };
 }
 
@@ -268,142 +336,80 @@ function latinOnly(text: string, fallback: string): string {
   return stripped || fallback;
 }
 
+/**
+ * No orphans: join the last two words so a line never holds one word alone.
+ * (The card renderer can't balance text the way CSS text-wrap can.)
+ */
+function noOrphan(text: string): string {
+  const words = text.trim().split(/\s+/);
+  if (words.length < 3) return text;
+  const last = words.pop();
+  return `${words.join(" ")}\u00A0${last}`;
+}
+
+const TITLE_SIZES = [112, 100, 88, 76, 64, 56];
+
+/** Rough advance width in em for Montserrat ExtraBold; errs wide. */
+function charWidth(char: string): number {
+  if (/[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/.test(char)) return 1;
+  if (/\p{Extended_Pictographic}/u.test(char)) return 1.15;
+  if (/[A-Z0-9]/.test(char)) return 0.76;
+  if (/[il.,'!:;|]/.test(char)) return 0.32;
+  return 0.64;
+}
+
+/**
+ * The biggest title size that fits in two lines of `width` pixels, by
+ * greedy word wrap on estimated widths. Text without spaces (CJK) wraps
+ * anywhere, so it's measured per character.
+ */
+function titleSize(name: string, width: number): number {
+  const text = noOrphan(name);
+  const words = /\s/.test(text) ? text.split(" ") : Array.from(text);
+  const joiner = /\s/.test(text) ? 0.28 : 0;
+  for (const size of TITLE_SIZES) {
+    let lines = 1;
+    let line = 0;
+    let fits = true;
+    for (const word of words) {
+      const w = Array.from(word).reduce((sum, c) => sum + charWidth(c), 0);
+      if (w * size > width) {
+        fits = false;
+        break;
+      }
+      const next = line === 0 ? w : line + joiner + w;
+      if (next * size > width) {
+        lines++;
+        line = w;
+      } else {
+        line = next;
+      }
+    }
+    if (fits && lines <= 2) return size;
+  }
+  return TITLE_SIZES[TITLE_SIZES.length - 1];
+}
+
 function packCard({
+  camo,
+  logo,
+  wordmark,
   name,
-  authorName,
   count,
   avatars,
   extra,
-  cover,
-  description,
 }: CardData) {
+  const titleWidth = WIDTH - 128;
   return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 26,
-          letterSpacing: 3,
-          color: KHAKI,
-        }}
-      >
-        <div style={{ display: "flex" }}>NOSTR FOLLOW PACK</div>
-        <div style={{ display: "flex", letterSpacing: 0 }}>
-          Draftable by Mutable
-        </div>
-      </div>
+    <Frame camo={camo}>
+      <MutableLockup logo={logo} wordmark={wordmark} />
 
       <div
         style={{
           display: "flex",
+          flex: 1,
           alignItems: "center",
-          gap: 28,
-          marginTop: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              fontSize: name.length > 36 ? 64 : 84,
-              fontWeight: 700,
-              lineHeight: 1.1,
-            }}
-          >
-            {name}
-          </div>
-          {description && (
-            <div
-              style={{
-                display: "flex",
-                fontSize: 22,
-                lineHeight: 1.3,
-                marginTop: 10,
-                color: KHAKI,
-                maxWidth: 780,
-              }}
-            >
-              {description}
-            </div>
-          )}
-        </div>
-        {cover && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cover}
-            alt=""
-            width={190}
-            height={190}
-            style={{
-              borderRadius: 24,
-              border: `6px solid ${OD_DARK}`,
-              objectFit: "cover",
-              flexShrink: 0,
-            }}
-          />
-        )}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", marginTop: 20 }}>
-        {avatars.map((src, i) =>
-          src ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={i}
-              src={src}
-              alt=""
-              width={AVATAR_SIZE}
-              height={AVATAR_SIZE}
-              style={{
-                borderRadius: AVATAR_SIZE / 2,
-                border: `6px solid ${OD_DARK}`,
-                marginLeft: i === 0 ? 0 : -26,
-                objectFit: "cover",
-              }}
-            />
-          ) : (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                width: AVATAR_SIZE,
-                height: AVATAR_SIZE,
-                borderRadius: AVATAR_SIZE / 2,
-                border: `6px solid ${OD_DARK}`,
-                marginLeft: i === 0 ? 0 : -26,
-                background: OD_MID,
-              }}
-            />
-          ),
-        )}
-        {extra > 0 && (
-          <div
-            style={{
-              display: "flex",
-              marginLeft: 24,
-              fontSize: 40,
-              color: KHAKI,
-            }}
-          >
-            +{extra}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          marginTop: "auto",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          gap: 40,
+          gap: 48,
         }}
       >
         <div
@@ -414,11 +420,94 @@ function packCard({
             minWidth: 0,
           }}
         >
-          <div style={{ display: "flex", fontSize: 36, fontWeight: 700 }}>
+          <div
+            style={{
+              display: "block",
+              fontSize: titleSize(name, titleWidth),
+              fontWeight: 800,
+              lineHeight: 1.04,
+              lineClamp: 2,
+            }}
+          >
+            {noOrphan(name)}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", marginTop: 30 }}>
+            {avatars.map(({ src, initial }, i) =>
+              src ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  width={AVATAR_SIZE}
+                  height={AVATAR_SIZE}
+                  style={{
+                    borderRadius: AVATAR_SIZE / 2,
+                    border: `5px solid ${RING}`,
+                    marginLeft: i === 0 ? 0 : -22,
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    width: AVATAR_SIZE,
+                    height: AVATAR_SIZE,
+                    borderRadius: AVATAR_SIZE / 2,
+                    border: `5px solid ${RING}`,
+                    marginLeft: i === 0 ? 0 : -22,
+                    background: "#4d704d",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 38,
+                    fontWeight: 800,
+                    color: KHAKI_LIGHT,
+                  }}
+                >
+                  {initial}
+                </div>
+              ),
+            )}
+            {extra > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  marginLeft: 20,
+                  fontSize: 40,
+                  fontWeight: 800,
+                  color: KHAKI_LIGHT,
+                }}
+              >
+                +{extra}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: 40,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", fontSize: 40, fontWeight: 800 }}>
             {conscriptCount(count)}
           </div>
-          <div style={{ display: "flex", fontSize: 28, color: KHAKI }}>
-            {`drafted by ${authorName}. None of them can leave.`}
+          <div
+            style={{
+              display: "flex",
+              fontSize: 30,
+              fontWeight: 800,
+              color: KHAKI_LIGHT,
+            }}
+          >
+            {count === 1 ? "They can't leave." : "None of them can leave."}
           </div>
         </div>
         <Stamp />
@@ -435,7 +524,11 @@ async function renderPng(
   element: React.ReactElement,
   cacheControl: string,
 ): Promise<Response> {
-  const image = new ImageResponse(element, { width: WIDTH, height: HEIGHT });
+  const image = new ImageResponse(element, {
+    width: WIDTH,
+    height: HEIGHT,
+    fonts: await loadFonts(),
+  });
   const body = await image.arrayBuffer();
   return new Response(body, {
     headers: { "Content-Type": "image/png", "Cache-Control": cacheControl },
@@ -463,10 +556,10 @@ export async function GET(request: Request) {
           packCard({
             ...data,
             name: latinOnly(data.name, "Follow pack"),
-            authorName: latinOnly(data.authorName, "its author"),
-            description: data.description
-              ? latinOnly(data.description, "") || null
-              : null,
+            avatars: data.avatars.map((a) => ({
+              ...a,
+              initial: latinOnly(a.initial, ""),
+            })),
           }),
           cache,
         );

@@ -181,6 +181,69 @@ export function packPath(pack: Pick<FollowPack, "author" | "dTag">): string {
   return `/draftable/d/${encodeURIComponent(pack.dTag)}?p=${pack.author}`;
 }
 
+/** In-app path for a pasted or linked reference, keeping relay hints. */
+export function referencePath(ref: PackReference): string {
+  const params = new URLSearchParams();
+  if (ref.author) params.set("p", ref.author);
+  for (const relay of ref.relays ?? []) params.append("r", relay);
+  const query = params.toString();
+  return `/draftable/d/${encodeURIComponent(ref.dTag)}${query ? `?${query}` : ""}`;
+}
+
+export const PACK_ID_MIN = 3;
+export const PACK_ID_MAX = 64;
+
+/**
+ * Why a custom pack ID (the `d` tag) can't be used, or null if it can.
+ * Kept to lowercase letters, digits, and hyphens so links stay readable.
+ */
+export function packIdError(id: string): string | null {
+  if (id.length < PACK_ID_MIN || id.length > PACK_ID_MAX) {
+    return `Use ${PACK_ID_MIN} to ${PACK_ID_MAX} characters.`;
+  }
+  if (!/^[a-z0-9-]+$/.test(id)) {
+    return "Use only lowercase letters, numbers, and hyphens.";
+  }
+  if (id.startsWith("-") || id.endsWith("-")) {
+    return "Don't start or end with a hyphen.";
+  }
+  return null;
+}
+
+/** Lowercase and strip accents so "cafe" finds "Café". */
+function foldText(text: string): string {
+  return text.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+/**
+ * Packs whose name or description contains `term`, best first: exact name,
+ * name prefix, a word in the name, anywhere in the name, then description;
+ * newest first within each. An npub, nprofile, or hex pubkey matches that
+ * author's packs instead.
+ */
+export function matchPacks(packs: FollowPack[], term: string): FollowPack[] {
+  const author = resolvePubkey(term);
+  if (author) return packs.filter((pack) => pack.author === author);
+
+  const query = foldText(term.trim());
+  if (!query) return [];
+  const ranked: { pack: FollowPack; rank: number }[] = [];
+  for (const pack of packs) {
+    const name = foldText(pack.name);
+    let rank = -1;
+    if (name === query) rank = 0;
+    else if (name.startsWith(query)) rank = 1;
+    else if (name.split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith(query))) {
+      rank = 2;
+    } else if (name.includes(query)) rank = 3;
+    else if (foldText(pack.description).includes(query)) rank = 4;
+    if (rank >= 0) ranked.push({ pack, rank });
+  }
+  return ranked
+    .sort((a, b) => a.rank - b.rank || b.pack.createdAt - a.pack.createdAt)
+    .map((r) => r.pack);
+}
+
 /** Accept a hex pubkey, npub, or nprofile; return lowercase hex or null. */
 export function resolvePubkey(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -201,6 +264,26 @@ export function resolvePubkey(value: string | null | undefined): string | null {
 export interface PackReference {
   dTag: string;
   author?: string;
+  /** Relay hints from an naddr: where the author says the pack lives. */
+  relays?: string[];
+}
+
+/** Hints are only worth following if they're secure websocket URLs. */
+export function cleanRelayHints(hints: unknown[], max = 3): string[] {
+  const out: string[] = [];
+  for (const hint of hints) {
+    if (typeof hint !== "string") continue;
+    try {
+      const url = new URL(hint.trim());
+      if (url.protocol !== "wss:") continue;
+      const normalized = url.toString().replace(/\/$/, "");
+      if (!out.includes(normalized)) out.push(normalized);
+    } catch {
+      // not a URL
+    }
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 /**
@@ -216,7 +299,12 @@ export function parsePackReference(input: string): PackReference | null {
     try {
       const decoded = nip19.decode(naddrMatch[0].toLowerCase());
       if (decoded.type === "naddr" && decoded.data.kind === DRAFTABLE_KIND) {
-        return { dTag: decoded.data.identifier, author: decoded.data.pubkey };
+        const relays = cleanRelayHints(decoded.data.relays ?? []);
+        return {
+          dTag: decoded.data.identifier,
+          author: decoded.data.pubkey,
+          ...(relays.length > 0 ? { relays } : {}),
+        };
       }
     } catch {
       // fall through to URL parsing

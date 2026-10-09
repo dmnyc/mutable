@@ -37,9 +37,16 @@ const QUERY_MAX_WAIT_MS = 8000;
 // follow) are split across several queries.
 const AUTHOR_CHUNK = 250;
 
-/** Mutable's defaults + the user's relays + where following.space published. */
-export function draftableRelays(userRelays: string[] = []): string[] {
+/**
+ * Mutable's defaults + the user's relays + where following.space published.
+ * `hints` (from an naddr) go first so a copied naddr keeps them.
+ */
+export function draftableRelays(
+  userRelays: string[] = [],
+  hints: string[] = [],
+): string[] {
   return normalizeRelayList([
+    ...hints,
     ...getExpandedRelayList(userRelays),
     ...PACK_RELAYS,
   ]);
@@ -101,6 +108,55 @@ export async function fetchPacks(
   return { packs: packs.slice(0, limit), hasMore: packs.length >= limit };
 }
 
+// Name search reads every pack relays will give us. Relays cap a request at
+// around 500 events, so each relay is paged separately with `until`.
+const INDEX_PAGE = 500;
+const INDEX_MAX_PAGES = 4;
+const INDEX_TTL_MS = 5 * 60_000;
+
+let packIndex: {
+  key: string;
+  at: number;
+  packs: Promise<FollowPack[]>;
+} | null = null;
+
+async function scanRelay(relay: string): Promise<Event[]> {
+  const events: Event[] = [];
+  let until: number | undefined;
+  for (let page = 0; page < INDEX_MAX_PAGES; page++) {
+    const filter: Filter = { kinds: [DRAFTABLE_KIND], limit: INDEX_PAGE };
+    if (until !== undefined) filter.until = until;
+    const batch = await query([relay], filter);
+    events.push(...batch);
+    if (batch.length < INDEX_PAGE) break;
+    const oldest = Math.min(...batch.map((e) => e.created_at));
+    // `until` is inclusive; stop if a page brought nothing older.
+    if (until !== undefined && oldest >= until) break;
+    until = oldest;
+  }
+  return events;
+}
+
+/**
+ * Every pack on these relays, newest version of each, newest first. Cached
+ * for a few minutes so each keystroke of a search doesn't refetch.
+ */
+export function fetchAllPacks(relays: string[]): Promise<FollowPack[]> {
+  const key = relays.join(",");
+  if (packIndex?.key === key && Date.now() - packIndex.at < INDEX_TTL_MS) {
+    return packIndex.packs;
+  }
+  const packs = Promise.all(relays.map(scanRelay)).then((batches) =>
+    latestPacks([...batches.flat(), ...recentlyPublished.values()]),
+  );
+  packIndex = { key, at: Date.now(), packs };
+  // A failed scan shouldn't stick around for the whole TTL.
+  packs.catch(() => {
+    if (packIndex?.packs === packs) packIndex = null;
+  });
+  return packs;
+}
+
 /** Fetch the newest version of one pack by d-tag (and author, if known). */
 export async function fetchPack(
   dTag: string,
@@ -144,6 +200,7 @@ export async function publishPack(
   const pack = parsePackEvent(signed);
   if (!pack) throw new Error("Published pack could not be read back");
   recentlyPublished.set(packAddress(pack), signed);
+  packIndex = null;
   return pack;
 }
 
@@ -168,6 +225,7 @@ export async function deletePack(
   const signed = await signEvent(template);
   await publishToRelays(getPool(), relays, signed);
   recentlyPublished.delete(packAddress(pack));
+  packIndex = null;
 }
 
 /** Top-level notes (no replies) from the people in a pack, newest first. */
