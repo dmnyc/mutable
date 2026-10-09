@@ -29,9 +29,9 @@ interface DashboardNavProps {
 }
 
 // Tools that go in the "Other Stuff" dropdown. app/dashboard/page.tsx has
-// its own copy of this menu (desktop and mobile); keep the order in sync.
+// its own copy of this menu and of primaryPages below (desktop and mobile);
+// keep the order in sync.
 const toolPages: ActivePage[] = [
-  "draftable",
   "noteNuke",
   "domainPurge",
   "purgatory",
@@ -101,6 +101,7 @@ export default function DashboardNav({ activePage }: DashboardNavProps) {
     "reciprocals",
     "muteOScope",
     "snoopable",
+    "draftable",
     "backups",
   ];
 
