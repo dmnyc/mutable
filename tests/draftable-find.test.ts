@@ -3,11 +3,14 @@ import { nip19 } from "nostr-tools";
 import {
   DRAFTABLE_KIND,
   cleanRelayHints,
+  ABANDONED_AFTER_DAYS,
+  UNTITLED_PACK,
   generatePackId,
   matchPacks,
   packIdError,
   parsePackReference,
   referencePath,
+  testPackReason,
   type FollowPack,
 } from "@/lib/draftable/pack";
 
@@ -141,5 +144,73 @@ describe("matchPacks", () => {
 
   it("returns nothing for a blank term", () => {
     expect(matchPacks(packs, "  ")).toEqual([]);
+  });
+});
+
+describe("testPackReason", () => {
+  const NOW = 1_800_000_000;
+  const DAY = 86_400;
+  const pack = (extra: Partial<FollowPack> = {}): FollowPack => ({
+    dTag: "x",
+    eventId: "e".repeat(64),
+    author: AUTHOR,
+    name: "Bitcoin Builders",
+    description: "",
+    image: "",
+    members: [{ pubkey: OTHER }, { pubkey: "c".repeat(64) }],
+    createdAt: NOW - DAY,
+    ...extra,
+  });
+  const reason = (extra: Partial<FollowPack> = {}) =>
+    testPackReason(pack(extra), OTHER, NOW);
+
+  it("keeps an ordinary pack", () => {
+    expect(reason()).toBeNull();
+  });
+
+  it("never flags the viewer's own packs", () => {
+    expect(testPackReason(pack({ members: [] }), AUTHOR, NOW)).toBeNull();
+  });
+
+  it("flags packs with one person or nobody", () => {
+    expect(reason({ members: [{ pubkey: OTHER }] })).toBe("single-user");
+    expect(reason({ members: [] })).toBe("single-user");
+  });
+
+  it("flags untitled packs", () => {
+    expect(reason({ name: UNTITLED_PACK })).toBe("untitled");
+    expect(reason({ name: "  " })).toBe("untitled");
+  });
+
+  it("flags test-style names", () => {
+    for (const name of [
+      "Test List",
+      "jim test",
+      "IT32 Pack 1790722839012",
+      "DBG21 1790722611885",
+      "Dbg Pack",
+      "asdf",
+      "my pack",
+      "xxx",
+      "🫡🫡",
+    ]) {
+      expect(reason({ name })).toBe("test name");
+    }
+  });
+
+  it("doesn't mistake real names that contain test-like letters", () => {
+    for (const name of ["Contest Winners", "Testnet Devs", "Beta Testers"]) {
+      expect(reason({ name })).toBeNull();
+    }
+  });
+
+  it("flags small packs nobody has touched in six months", () => {
+    const old = NOW - (ABANDONED_AFTER_DAYS + 1) * DAY;
+    expect(reason({ createdAt: old })).toBe("abandoned");
+    const four = ["c", "d", "e", "f"].map((c) => ({ pubkey: c.repeat(64) }));
+    expect(reason({ createdAt: old, members: four })).toBeNull();
+    expect(
+      reason({ createdAt: NOW - (ABANDONED_AFTER_DAYS - 1) * DAY }),
+    ).toBeNull();
   });
 });

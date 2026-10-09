@@ -354,6 +354,55 @@ export function latestPacks(events: Event[]): FollowPack[] {
   );
 }
 
+/** Why a pack made by someone else looks like a test or was abandoned. */
+export type TestPackReason =
+  "single-user" | "untitled" | "test name" | "abandoned";
+
+// Words people (and test scripts) put in throwaway packs, as whole words so
+// "Contest" and "Testnet" don't count.
+const TEST_WORDS =
+  /\b(test|tests|testing|asdf|qwerty|foo|foobar|lorem|ipsum|dummy|debug|dbg|tmp)\b/i;
+// Automated test runs stamp names with a Unix time ("IT32 Pack 1790722839012").
+const TIMESTAMP = /\d{10,}/;
+const PLACEHOLDER_NAMES =
+  /^(new pack|my pack|my follow pack|follow pack|new list|my list|hello world)$/i;
+
+export const ABANDONED_MAX_PEOPLE = 3;
+export const ABANDONED_AFTER_DAYS = 180;
+
+/**
+ * Whether a pack made by someone other than the viewer looks like a test or
+ * was abandoned, and why: one person or nobody in it, no name, a test-style
+ * name, or a few people and no update in six months. Browsing and search hide
+ * these by default. The viewer's own packs never count.
+ */
+export function testPackReason(
+  pack: Pick<FollowPack, "author" | "members" | "name" | "createdAt">,
+  viewerPubkey?: string | null,
+  now: number = Math.floor(Date.now() / 1000),
+): TestPackReason | null {
+  if (pack.author === viewerPubkey) return null;
+  if (pack.members.length <= 1) return "single-user";
+  const name = pack.name.trim();
+  if (!name || name === UNTITLED_PACK) return "untitled";
+  if (
+    TEST_WORDS.test(name) ||
+    TIMESTAMP.test(name) ||
+    PLACEHOLDER_NAMES.test(name) ||
+    /^(.)\1*$/u.test(name) || // "a", "xxx"
+    !/[\p{L}\p{N}]/u.test(name) // only punctuation or emoji
+  ) {
+    return "test name";
+  }
+  if (
+    pack.members.length <= ABANDONED_MAX_PEOPLE &&
+    now - pack.createdAt > ABANDONED_AFTER_DAYS * 86_400
+  ) {
+    return "abandoned";
+  }
+  return null;
+}
+
 export function isDrafted(
   pack: Pick<FollowPack, "members">,
   pubkey: string | null | undefined,

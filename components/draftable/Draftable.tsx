@@ -21,11 +21,13 @@ import { hexToNpub } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage, truncateNpub } from "@/lib/utils/format";
 import {
   FollowPack,
+  TestPackReason,
   matchPacks,
   packAddress,
   parsePackReference,
   referencePath,
   resolvePubkey,
+  testPackReason,
 } from "@/lib/draftable/pack";
 import {
   draftableRelays,
@@ -47,6 +49,15 @@ type View = "all" | "follows" | "drafted" | "mine";
 const VIEWS: View[] = ["all", "follows", "drafted", "mine"];
 const SIGNED_IN_VIEWS: View[] = ["follows", "drafted", "mine"];
 const VIEW_STORAGE_KEY = "draftable-view";
+const SHOW_TESTS_STORAGE_KEY = "draftable-show-test-packs";
+// How each hidden reason reads in "Hiding N … (3 single-user, 2 abandoned)".
+const REASON_LABELS: [TestPackReason, string, string][] = [
+  ["single-user", "single-user", "single-user"],
+  ["untitled", "untitled", "untitled"],
+  ["test name", "test name", "test names"],
+  ["abandoned", "abandoned", "abandoned"],
+];
+
 // The grid runs 1, 2, or 3 columns; any multiple of 6 fills every row.
 const ROW_MULTIPLE = 6;
 // Search results shown per "Show more", a multiple of ROW_MULTIPLE.
@@ -105,6 +116,7 @@ export default function Draftable() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchShown, setSearchShown] = useState(SEARCH_PAGE);
+  const [showTestPacks, setShowTestPacks] = useState(false);
   const requestId = useRef(0);
   const followsCache = useRef<{ pubkey: string; follows: string[] } | null>(
     null,
@@ -127,6 +139,25 @@ export default function Draftable() {
     // only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Remember whether this device shows one-person test packs.
+  useEffect(() => {
+    try {
+      setShowTestPacks(localStorage.getItem(SHOW_TESTS_STORAGE_KEY) === "1");
+    } catch {
+      // storage unavailable — keep them hidden
+    }
+  }, []);
+
+  const toggleTestPacks = (show: boolean) => {
+    setShowTestPacks(show);
+    try {
+      if (show) localStorage.setItem(SHOW_TESTS_STORAGE_KEY, "1");
+      else localStorage.removeItem(SHOW_TESTS_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
 
   // Follow in-app links that change ?view= while this page stays mounted.
   useEffect(() => {
@@ -287,13 +318,43 @@ export default function Draftable() {
     router.replace(`/draftable?${params.toString()}`, { scroll: false });
   };
 
+  // Test and abandoned packs by other people: hide them while browsing and
+  // searching, but not in someone's drafted-into record, a person's own
+  // packs, or a search for an npub.
+  const testFilterApplies = searchActive
+    ? !resolvePubkey(searchTerm)
+    : effectiveView === "all" || effectiveView === "follows";
+  const reasonFor = (pack: FollowPack) =>
+    testFilterApplies ? testPackReason(pack, session?.pubkey) : null;
+  const reasonCounts = new Map<TestPackReason, number>();
+  for (const pack of searchActive ? searchResults : packs) {
+    const reason = reasonFor(pack);
+    if (reason) reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+  }
+  const testPackCount = Array.from(reasonCounts.values()).reduce(
+    (sum, n) => sum + n,
+    0,
+  );
+  const reasonSummary = REASON_LABELS.filter(([r]) => reasonCounts.has(r))
+    .map(([r, one, many]) => {
+      const n = reasonCounts.get(r) ?? 0;
+      return `${n} ${n === 1 ? one : many}`;
+    })
+    .join(", ");
+  const keep = (pack: FollowPack) => showTestPacks || !reasonFor(pack);
+  const browsePacks = packs.filter(keep);
+  const matchingPacks = searchResults.filter(keep);
+
   // While more pages remain, hold back the leftovers so the last row is
   // full. They're still loaded and lead the next page.
   const visiblePacks =
-    hasMore && packs.length > ROW_MULTIPLE
-      ? packs.slice(0, packs.length - (packs.length % ROW_MULTIPLE))
-      : packs;
-  const shownResults = searchResults.slice(0, searchShown);
+    hasMore && browsePacks.length > ROW_MULTIPLE
+      ? browsePacks.slice(
+          0,
+          browsePacks.length - (browsePacks.length % ROW_MULTIPLE),
+        )
+      : browsePacks;
+  const shownResults = matchingPacks.slice(0, searchShown);
   const displayedPacks = searchActive ? shownResults : visiblePacks;
 
   const profilePubkeys = useMemo(() => {
@@ -324,8 +385,11 @@ export default function Draftable() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="flex items-start gap-4 flex-1">
-            <div className="flex-shrink-0 mt-1 w-10 h-10 rounded-lg bg-[#4b5320] flex items-center justify-center">
-              <Medal className="text-white" size={22} />
+            <div className="camo [--camo-size:160px] [--camo-x:-30px] [--camo-y:-70px] flex-shrink-0 mt-1 w-10 h-10 rounded-lg ring-1 ring-black/20 flex items-center justify-center">
+              <Medal
+                className="text-white drop-shadow-[0_1px_1px_rgb(0_0_0/0.8)]"
+                size={22}
+              />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -342,9 +406,12 @@ export default function Draftable() {
             onClick={() =>
               session ? router.push("/draftable/create") : requestSignIn()
             }
-            className="flex-shrink-0 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium flex items-center justify-center gap-2"
+            className="camo [--camo-size:240px] [--camo-x:-120px] [--camo-y:-40px] hover:[--camo-shade:0.62] flex-shrink-0 px-4 py-2 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-2 [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
           >
-            <Plus size={18} />
+            <Plus
+              size={18}
+              className="drop-shadow-[0_1px_1px_rgb(0_0_0/0.8)]"
+            />
             Draft a new pack
           </button>
         </div>
@@ -484,6 +551,21 @@ export default function Draftable() {
         </button>
       </div>
 
+      {testPackCount > 0 && (searchActive ? !!allPacks : !loading) && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {showTestPacks ? "Showing" : "Hiding"}{" "}
+          {testPackCount === 1
+            ? `1 test or abandoned pack created by another user (${reasonSummary}).`
+            : `${testPackCount} test or abandoned packs created by other users (${reasonSummary}).`}{" "}
+          <button
+            onClick={() => toggleTestPacks(!showTestPacks)}
+            className="font-medium text-[#4b5320] dark:text-[#b9cc7f] hover:underline"
+          >
+            {showTestPacks ? "Hide them" : "Show them"}
+          </button>
+        </p>
+      )}
+
       {/* Drafted-into summary: the point of the whole tool */}
       {!searchActive &&
         effectiveView === "drafted" &&
@@ -531,19 +613,20 @@ export default function Draftable() {
             </p>
             <PackGridSkeleton />
           </div>
-        ) : searchResults.length === 0 ? (
+        ) : matchingPacks.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-600 dark:text-gray-400">
-            No packs match &ldquo;{searchTerm}&rdquo;. Searched the names and
-            descriptions of {allPacks.length} packs.
+            No packs match &ldquo;{searchTerm}&rdquo;
+            {testPackCount > 0 ? ", apart from test or abandoned packs" : ""}.
+            Searched the names and descriptions of {allPacks.length} packs.
           </div>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
               <span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {searchResults.length}
+                  {matchingPacks.length}
                 </span>{" "}
-                {searchResults.length === 1 ? "pack matches" : "packs match"}{" "}
+                {matchingPacks.length === 1 ? "pack matches" : "packs match"}{" "}
                 &ldquo;{searchTerm}&rdquo;, out of {allPacks.length}
               </span>
               {searching && <Loader2 size={14} className="animate-spin" />}
@@ -564,13 +647,13 @@ export default function Draftable() {
                 />
               ))}
             </div>
-            {searchResults.length > searchShown && (
+            {matchingPacks.length > searchShown && (
               <div className="text-center">
                 <button
                   onClick={() => setSearchShown((n) => n + SEARCH_PAGE)}
                   className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  Show more ({searchResults.length - searchShown} left)
+                  Show more ({matchingPacks.length - searchShown} left)
                 </button>
               </div>
             )}
@@ -615,16 +698,22 @@ export default function Draftable() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visiblePacks.map((pack) => (
-              <PackCard
-                key={packAddress(pack)}
-                pack={pack}
-                profiles={profiles}
-                viewerPubkey={session?.pubkey}
-              />
-            ))}
-          </div>
+          {visiblePacks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visiblePacks.map((pack) => (
+                <PackCard
+                  key={packAddress(pack)}
+                  pack={pack}
+                  profiles={profiles}
+                  viewerPubkey={session?.pubkey}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-600 dark:text-gray-400">
+              Every pack loaded so far looks like a test or was abandoned.
+            </div>
+          )}
           {hasMore && (
             <div className="text-center">
               <button

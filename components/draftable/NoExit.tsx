@@ -26,6 +26,18 @@ export function NoExitIntro() {
           notified, and there is no way to remove yourself. Only the pack&apos;s
           author can take someone out.
         </p>
+        <p>
+          Mutable didn&apos;t design how packs work;{" "}
+          <a
+            href="https://following.space"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:no-underline"
+          >
+            following.space
+          </a>{" "}
+          established that, and Draftable just makes it clearer.
+        </p>
       </div>
     </div>
   );
