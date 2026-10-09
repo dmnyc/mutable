@@ -60,6 +60,16 @@ const REASON_LABELS: [TestPackReason, string, string][] = [
 
 // The grid runs 1, 2, or 3 columns; any multiple of 6 fills every row.
 const ROW_MULTIPLE = 6;
+// Visible packs to aim for per load. Hidden test packs can fill whole pages
+// (hundreds of test packs published in a row), so loading keeps paging
+// until this many show, or it has fetched MAX_FILL_PAGES more pages.
+const VISIBLE_PER_LOAD = 18;
+const MAX_FILL_PAGES = 6;
+// Catch-up pages are bigger than the first page, and double (up to the max)
+// after a page that showed nothing new: test packs are tiny, and hundreds of
+// them can sit in a row.
+const FILL_PAGE_SIZE = 100;
+const MAX_FILL_PAGE_SIZE = 400;
 // Search results shown per "Show more", a multiple of ROW_MULTIPLE.
 const SEARCH_PAGE = 24;
 const SEARCH_MIN_CHARS = 2;
@@ -226,14 +236,14 @@ export default function Draftable() {
     !subjectPubkey && SIGNED_IN_VIEWS.includes(effectiveView);
 
   const runQuery = useCallback(
-    async (until?: number) => {
-      if (effectiveView === "all") return fetchPacks({ until }, relays);
+    async (until?: number, limit?: number) => {
+      if (effectiveView === "all") return fetchPacks({ until, limit }, relays);
       if (!subjectPubkey) return { packs: [], hasMore: false };
       if (effectiveView === "drafted") {
-        return fetchPacks({ drafted: subjectPubkey, until }, relays);
+        return fetchPacks({ drafted: subjectPubkey, until, limit }, relays);
       }
       if (effectiveView === "mine") {
-        return fetchPacks({ authors: [subjectPubkey], until }, relays);
+        return fetchPacks({ authors: [subjectPubkey], until, limit }, relays);
       }
       // follows
       if (followsCache.current?.pubkey !== subjectPubkey) {
@@ -247,11 +257,65 @@ export default function Draftable() {
         };
       }
       return fetchPacks(
-        { authors: followsCache.current.follows, until },
+        { authors: followsCache.current.follows, until, limit },
         relays,
       );
     },
     [effectiveView, subjectPubkey, relays, session?.relays],
+  );
+
+  // How many of these packs the grid will show once test packs are hidden.
+  // Read through a ref so toggling Show/Hide doesn't refetch.
+  const showTestPacksRef = useRef(showTestPacks);
+  useEffect(() => {
+    showTestPacksRef.current = showTestPacks;
+  }, [showTestPacks]);
+  const viewerPubkey = session?.pubkey;
+  const visibleCount = useCallback(
+    (list: FollowPack[]) =>
+      showTestPacksRef.current ||
+      (effectiveView !== "all" && effectiveView !== "follows")
+        ? list.length
+        : list.filter((pack) => !testPackReason(pack, viewerPubkey)).length,
+    [effectiveView, viewerPubkey],
+  );
+
+  /**
+   * Page back from the oldest loaded pack until `target` packs would show,
+   * at least once, updating the grid as each page lands.
+   */
+  const fillTo = useCallback(
+    async (start: FollowPack[], target: number, id: number) => {
+      let all = start;
+      let size = FILL_PAGE_SIZE;
+      setLoadingMore(true);
+      try {
+        for (let page = 0; page < MAX_FILL_PAGES; page++) {
+          const shownBefore = visibleCount(all);
+          const result = await runQuery(all[all.length - 1].createdAt, size);
+          if (id !== requestId.current) return;
+          // `until` is inclusive, so a page can repeat what's shown; stop
+          // paging once nothing new comes back.
+          const seen = new Set(all.map(packAddress));
+          const fresh = result.packs.filter((p) => !seen.has(packAddress(p)));
+          all = [...all, ...fresh];
+          const more = result.hasMore && fresh.length > 0;
+          setPacks(all);
+          setHasMore(more);
+          if (!more || visibleCount(all) >= target) break;
+          if (visibleCount(all) === shownBefore) {
+            size = Math.min(size * 2, MAX_FILL_PAGE_SIZE);
+          }
+        }
+      } catch (err) {
+        if (id === requestId.current) {
+          setError(getErrorMessage(err, "Failed to load more packs"));
+        }
+      } finally {
+        if (id === requestId.current) setLoadingMore(false);
+      }
+    },
+    [runQuery, visibleCount],
   );
 
   const load = useCallback(async () => {
@@ -259,47 +323,41 @@ export default function Draftable() {
     setPacks([]);
     setError(null);
     setHasMore(false);
+    setLoadingMore(false);
     if (needsSignIn) {
       setLoading(false);
       return;
     }
     setLoading(true);
+    let first: { packs: FollowPack[]; hasMore: boolean } | null = null;
     try {
-      const result = await runQuery();
+      first = await runQuery();
       if (id !== requestId.current) return;
-      setPacks(result.packs);
-      setHasMore(result.hasMore);
+      setPacks(first.packs);
+      setHasMore(first.hasMore);
     } catch (err) {
       if (id !== requestId.current) return;
       setError(getErrorMessage(err, "Failed to load follow packs"));
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [runQuery, needsSignIn]);
+    // A first page that's mostly hidden test packs keeps going.
+    if (
+      first?.hasMore &&
+      first.packs.length > 0 &&
+      visibleCount(first.packs) < VISIBLE_PER_LOAD
+    ) {
+      await fillTo(first.packs, VISIBLE_PER_LOAD, id);
+    }
+  }, [runQuery, needsSignIn, visibleCount, fillTo]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const loadMore = async () => {
+  const loadMore = () => {
     if (loadingMore || packs.length === 0) return;
-    const id = requestId.current;
-    setLoadingMore(true);
-    try {
-      const until = packs[packs.length - 1].createdAt;
-      const result = await runQuery(until);
-      if (id !== requestId.current) return;
-      // `until` is inclusive, so a page can repeat what's shown; stop paging
-      // once nothing new comes back.
-      const seen = new Set(packs.map(packAddress));
-      const fresh = result.packs.filter((p) => !seen.has(packAddress(p)));
-      setPacks([...packs, ...fresh]);
-      setHasMore(result.hasMore && fresh.length > 0);
-    } catch (err) {
-      setError(getErrorMessage(err, "Failed to load more packs"));
-    } finally {
-      setLoadingMore(false);
-    }
+    fillTo(packs, visibleCount(packs) + VISIBLE_PER_LOAD, requestId.current);
   };
 
   const selectView = (next: View) => {
@@ -698,7 +756,9 @@ export default function Draftable() {
         </div>
       ) : (
         <>
-          {visiblePacks.length > 0 ? (
+          {visiblePacks.length === 0 && loadingMore ? (
+            <PackGridSkeleton />
+          ) : visiblePacks.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {visiblePacks.map((pack) => (
                 <PackCard
@@ -722,7 +782,11 @@ export default function Draftable() {
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 {loadingMore && <Loader2 size={14} className="animate-spin" />}
-                {loadingMore ? "Loading..." : "Discover more"}
+                {loadingMore
+                  ? testPackCount > 0
+                    ? "Skipping test packs..."
+                    : "Loading..."
+                  : "Discover more"}
               </button>
             </div>
           )}
