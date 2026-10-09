@@ -288,6 +288,14 @@ export const useStore = create<AppState>()(
       // Mute list CRUD operations
       addMutedItem: (item, category) =>
         set((state) => {
+          // Nobody gets to mute themselves, from any tool.
+          if (
+            category === "pubkeys" &&
+            state.session?.pubkey &&
+            item.value.toLowerCase() === state.session.pubkey.toLowerCase()
+          ) {
+            return state;
+          }
           const newList = { ...state.muteList };
           // Apply default privacy if not explicitly set
           const itemWithPrivacy =

@@ -3,8 +3,12 @@ import { nip19 } from "nostr-tools";
 import type { FollowPack } from "@/lib/draftable/pack";
 import {
   draftedShareMessage,
+  profileRefs,
+  noteSegments,
+  noteTags,
   packShareMessage,
   packShareUrl,
+  releaseRequestMessage,
   shareContent,
   shareMentions,
 } from "@/lib/draftable/share";
@@ -135,5 +139,65 @@ describe("draftedShareMessage", () => {
     );
     expect(text).toContain("1 follow pack on Nostr, and you can't leave it");
     expect(text).toContain("See it on Draftable");
+  });
+});
+
+describe("releaseRequestMessage", () => {
+  it("mentions the author, names the pack, and links to it", () => {
+    const parts = releaseRequestMessage(pack(3), "Alice");
+    expect(shareMentions(parts)).toEqual([AUTHOR]);
+    const text = shareContent(parts);
+    expect(text).toMatch(/^Hi nostr:npub1\w+, you drafted me into/);
+    expect(text).toContain("“Plebs”");
+    expect(text).toContain("I never asked to be in it");
+    expect(text).toContain("Draftable by #Mutable");
+    expect(text).toContain(packShareUrl(pack(3)));
+  });
+});
+
+describe("noteSegments / noteTags", () => {
+  const npub = nip19.npubEncode(AUTHOR);
+  const text = `Hi nostr:${npub}, see https://mutable.top/draftable/d/x?p=1. #Mutable rocks`;
+
+  it("splits mentions, links, and hashtags the way clients render them", () => {
+    expect(noteSegments(text)).toEqual([
+      { type: "text", value: "Hi " },
+      { type: "mention", value: `nostr:${npub}`, pubkey: AUTHOR },
+      { type: "text", value: ", see " },
+      { type: "url", value: "https://mutable.top/draftable/d/x?p=1" },
+      { type: "text", value: ". " },
+      { type: "hashtag", value: "#Mutable" },
+      { type: "text", value: " rocks" },
+    ]);
+  });
+
+  it("leaves a malformed nostr: reference as text", () => {
+    expect(noteSegments("nostr:npub1notreal")).toEqual([
+      { type: "text", value: "nostr:npub1notreal" },
+    ]);
+  });
+
+  it("builds p, t, and client tags from the edited text", () => {
+    expect(noteTags(text)).toEqual([
+      ["p", AUTHOR],
+      ["t", "Draftable"],
+      ["t", "Mutable"],
+      ["client", "Mutable"],
+    ]);
+    // Deleting the mention drops the p tag.
+    expect(noteTags("just #Draftable")).toEqual([
+      ["t", "Draftable"],
+      ["client", "Mutable"],
+    ]);
+  });
+});
+
+describe("profileRefs", () => {
+  it("finds pasted npubs with or without nostr:", () => {
+    const npub = nip19.npubEncode(AUTHOR);
+    expect(profileRefs(`hey ${npub} and nostr:${npub}`)).toEqual([
+      { ref: npub, pubkey: AUTHOR },
+      { ref: `nostr:${npub}`, pubkey: AUTHOR },
+    ]);
   });
 });

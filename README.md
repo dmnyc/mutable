@@ -76,8 +76,8 @@ Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://follo
 - **Find a Pack**: Search every pack on Draftable's relays by name or description, or paste a following.space link, Draftable link, or `naddr` to open it
 - **Drafted Into**: See every pack you (or any npub, no login required) have been conscripted into, with a reminder that there's no way out
 - **Pack Pages**: Cover, description, every conscript with Follow/Unfollow, a Posts tab of their recent notes, Follow All, copy link and `nostr:naddr`
-- **Recourse**: On a pack you're in, ask the author to release you or mute them in one click (muting hides them; it doesn't get you out)
-- **Create & Edit**: Name, cover image (URL or Blossom upload), description, optional custom pack ID for a readable link, search-to-draft by name/NIP-05/npub/nprofile with follower counts, reorder, release, delete (NIP-09)
+- **Recourse**: On a pack you're in, ask the author to release you with an editable public note (or open their profile), or mute them in one click (muting hides them; it doesn't get you out)
+- **Create & Edit**: Name, cover image (URL or Blossom upload), description, optional custom pack ID for a readable link, search-to-draft by name/NIP-05/npub/nprofile with follower counts, a "Not published yet" list of who you're adding or releasing, release, delete (NIP-09), and a publish bar that stays on screen
 - **Safe Following**: Follow All re-reads your newest follow list, keeps every existing tag, saves a backup to Backups first, and refuses to overwrite a follow list it can't find
 - **Share**: Post or copy a ready-made note for a pack, for the packs you (or anyone) have been drafted into, or for a pack you just published
 - **Link Previews**: Per-pack social cards (`/draftable/card`) on the woodland camo with the pack name, faces, and conscript count

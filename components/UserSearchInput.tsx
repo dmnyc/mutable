@@ -236,10 +236,11 @@ export default function UserSearchInput({
           size={16}
         />
         {loading && (
-          <Loader2
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 animate-spin"
-            size={16}
-          />
+          // Center the wrapper and spin only the icon: animate-spin sets
+          // transform, which would override -translate-y-1/2 on the icon.
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex">
+            <Loader2 className="text-gray-400 animate-spin" size={16} />
+          </div>
         )}
       </div>
 

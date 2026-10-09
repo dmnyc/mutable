@@ -65,6 +65,26 @@ body {
       var(--camo-x, 0) var(--camo-y, 0);
     background-repeat: repeat;
   }
+
+  /* Draftable's primary buttons: camo with a border that holds up on light
+     and dark backgrounds. Use with .camo. */
+  .camo-button {
+    --camo-size: 240px;
+    color: white;
+    border: 2px solid #2a3016;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+    transition: box-shadow 150ms;
+  }
+  .dark .camo-button {
+    border-color: #cfc58e;
+  }
+  .camo-button:hover:not(:disabled) {
+    --camo-shade: 0.62;
+    box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.45);
+  }
+  .camo-button svg {
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.8));
+  }
 }
 
 @keyframes pulse-glow {

@@ -41,7 +41,7 @@ Every following.space feature has a Draftable equivalent except nsec login, whic
 | People / Posts tabs | Conscripts / Posts | `DraftablePack.tsx`, `PackPosts.tsx` |
 | Copy Event (`nevent`) | Copy link, Copy `naddr` | `DraftablePack.tsx` |
 | (not in upstream) | Share as a note (copy, or post when signed in) from a pack page, the drafted-into summary, and a pack you just published | `ShareModal.tsx`, wording in `lib/draftable/share.ts` |
-| Create, edit, delete; search by name, npub, nprofile; reorder; remove all | Same, plus NIP-05 search with follower counts (from nostrarchives), Blossom cover upload, and an optional custom pack ID on create (upstream issue #23). A custom ID that matches one of your existing packs is refused rather than overwriting it | `/draftable/create`, `?edit=<d>`, `DraftableEditor.tsx`, `packIdError` |
+| Create, edit, delete; search by name, npub, nprofile; reorder; remove all | Same minus reordering, plus a "Not published yet" panel of who's being drafted or released (with undo) and a fixed publish strip, NIP-05 search with follower counts (from nostrarchives), Blossom cover upload, and an optional custom pack ID on create (upstream issue #23). A custom ID that matches one of your existing packs is refused rather than overwriting it | `/draftable/create`, `?edit=<d>`, `DraftableEditor.tsx`, `packIdError` |
 | Settings: follow snapshots, export, restore | Mutable's Backups tab; every follow change saves a backup first | `lib/backupService.ts` (existing) |
 | Server-drawn link preview (node-canvas) | `next/og` social card on the camo: Draftable by Mutable logo, pack name, conscript avatars and count, "None of them can leave.", and a DRAFTED stamp. No cover or description; link previews show the description already | `app/draftable/card/route.tsx`, `lib/draftable/server.ts` |
 | Login: NIP-07, nsec, bunker, nostrconnect | Mutable's existing NIP-07 and NIP-46 | `hooks/useAuth.ts` (existing) |
@@ -119,7 +119,7 @@ The point of the name: people in a follow pack are never asked and can't remove 
 | Browse page header | Everyone | "Nobody can leave a follow pack. Once you're drafted, you're in." | `NoExitIntro` in `NoExit.tsx` |
 | "Drafted into" view | You, or the looked-up npub | "You've been drafted into N packs so far. You can't leave any of them." | `Draftable.tsx` |
 | Pack card | A viewer who is in the pack | "You're in this one" badge | `PackCard.tsx` |
-| Pack page | A viewer who is in the pack | "You've been drafted into this pack, and you can't leave." with Ask to release and Mute buttons | `DraftedNotice` |
+| Pack page | A viewer who is in the pack (but not its author) | "You've been drafted into this pack, and you can't leave." Ask to release opens an editable public note to the author (or their profile); Mute adds them to the mute list. Authors in their own pack get the author notice, and nobody can mute themselves anywhere in Mutable | `DraftedNotice`, `releaseRequestMessage` |
 | Conscript list | A viewer who is in the pack | Their own row tagged "You · no exit" | `DraftablePack.tsx` |
 | Pack page | The author | "You drafted everyone here." Only they can release people | `AuthorNotice` |
 | Pack page | Everyone else | "They weren't asked, and they can't leave." | `BystanderNotice` |

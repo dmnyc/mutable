@@ -596,7 +596,7 @@ export default function UserProfileModal({
                   <UserCheck size={16} />
                   <span>Unmute User</span>
                 </button>
-              ) : (
+              ) : profile.pubkey === session.pubkey ? null : (
                 <button
                   onClick={() => setShowReasonInput(true)} // Show reason input
                   className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"

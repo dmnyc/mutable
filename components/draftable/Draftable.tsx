@@ -35,7 +35,7 @@ import {
   fetchFollowing,
   fetchPacks,
 } from "@/lib/draftable/service";
-import { draftedShareMessage } from "@/lib/draftable/share";
+import { draftedShareMessage, draftedShareUrl } from "@/lib/draftable/share";
 import ProfileAvatar from "../ProfileAvatar";
 import UserSearchInput from "../UserSearchInput";
 import { useRequestSignIn } from "./DraftableShell";
@@ -495,12 +495,9 @@ export default function Draftable() {
             onClick={() =>
               session ? router.push("/draftable/create") : requestSignIn()
             }
-            className="camo [--camo-size:240px] [--camo-x:-120px] [--camo-y:-40px] hover:[--camo-shade:0.62] flex-shrink-0 px-4 py-2 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-2 [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
+            className="camo camo-button [--camo-x:-120px] [--camo-y:-40px] flex-shrink-0 px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2"
           >
-            <Plus
-              size={18}
-              className="drop-shadow-[0_1px_1px_rgb(0_0_0/0.8)]"
-            />
+            <Plus size={18} />
             Draft a new pack
           </button>
         </div>
@@ -836,6 +833,14 @@ export default function Draftable() {
               ? "Let them know where they've been drafted."
               : "Let people know where you've been drafted."
           }
+          preview={{
+            url: draftedShareUrl(subjectPubkey),
+            image: "/draftable_social_card.png",
+            title: `Follow packs ${getDisplayName(
+              profiles.get(subjectPubkey),
+              "this person",
+            )} has been drafted into — Draftable`,
+          }}
           message={draftedShareMessage({
             pubkey: subjectPubkey,
             name: lookupName ?? "",
