@@ -220,8 +220,10 @@ export function noteTags(text: string): string[][] {
   ];
 }
 
+// A pasted npub on its own, not one inside a link like a drafted-into
+// lookup's ?npub=…, which must stay as text.
 const PROFILE_REF =
-  /(?:nostr:)?(?:npub1[02-9ac-hj-np-z]{58}|nprofile1[02-9ac-hj-np-z]+)/gi;
+  /(?<=^|[\s(])(?:nostr:)?(?:npub1[02-9ac-hj-np-z]{58}|nprofile1[02-9ac-hj-np-z]+)/gi;
 
 /** npubs and nprofiles pasted into the editor, with or without nostr:. */
 export function profileRefs(text: string): { ref: string; pubkey: string }[] {
