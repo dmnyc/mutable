@@ -43,12 +43,12 @@ function PitchforkIcon({
 import { ClientFilterResult, HellthreadResult, Profile } from "@/types";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { getEventLink, getProfileLink } from "@/lib/utils/links";
 import UserProfileModal from "./UserProfileModal";
 import {
   findFollowsUsingClient,
   findFollowsPostingHellthreads,
   hexToNpub,
-  hexToNevent,
 } from "@/lib/nostr";
 import { protectionService } from "@/lib/protectionService";
 
@@ -810,11 +810,11 @@ function ClientResultCard({
           </button>
 
           <a
-            href={`https://njump.me/${npub}`}
+            href={getProfileLink(result.pubkey)}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-            title="View on njump"
+            title="View on Nostr Archives"
           >
             <ExternalLink size={18} />
           </a>
@@ -863,7 +863,6 @@ function HellthreadResultCard({
   formatLastSeen: (ts: number) => string;
 }) {
   const npub = hexToNpub(result.pubkey);
-  const nevent = hexToNevent(result.worstEventId);
 
   return (
     <div
@@ -978,11 +977,11 @@ function HellthreadResultCard({
 
           {/* View worst hellthread */}
           <a
-            href={`https://njump.me/${nevent}`}
+            href={getEventLink(result.worstEventId)}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors"
-            title="View worst hellthread on njump"
+            title="View worst hellthread on Nostr Archives"
           >
             <ExternalLink size={18} />
           </a>

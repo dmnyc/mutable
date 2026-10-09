@@ -686,12 +686,12 @@ export default function MuteListCategory({
                               )}
                             </button>
                             <a
-                              href={`https://jumble.social/notes/${safeHexToNote(item.value)}`}
+                              href={getEventLink(item.value)}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                              title="View note in Jumble"
+                              title="View note on Nostr Archives"
                             >
                               <ExternalLink size={16} />
                             </a>

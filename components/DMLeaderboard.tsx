@@ -16,6 +16,7 @@ import { DMContact } from "@/types";
 import { hexToNpub } from "@/lib/nostr";
 import { getDisplayName } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { getProfileLink } from "@/lib/utils/links";
 
 interface DMLeaderboardProps {
   contacts: DMContact[];
@@ -221,12 +222,12 @@ export default function DMLeaderboard({
                 </button>
 
                 <a
-                  href={`https://njump.me/${npub}`}
+                  href={getProfileLink(contact.pubkey)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  title="View on njump"
+                  title="View on Nostr Archives"
                 >
                   <ExternalLink size={18} />
                 </a>

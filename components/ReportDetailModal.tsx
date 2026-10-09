@@ -254,7 +254,7 @@ function TextWithSensitiveImages({
 /**
  * Live preview of the note a report targets, fetched from the relays so
  * the reader can judge the report against the reported material without
- * leaving Mutable. Falls back to a Jumble link when no relay still has it.
+ * leaving Mutable. Falls back to a Nostr Archives link when no relay still has it.
  */
 function ReportedNoteEmbed({ eventId }: { eventId: string }) {
   const [note, setNote] = useState<Event | null>(null);
@@ -628,7 +628,7 @@ export default function ReportDetailModal({
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Open reported note on Jumble <ExternalLink size={14} />
+                Open reported note on Nostr Archives <ExternalLink size={14} />
               </a>
             </section>
           )}

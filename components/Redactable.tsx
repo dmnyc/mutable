@@ -54,7 +54,6 @@ import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
 import {
   getDeletionEventLink,
   getAddressLink,
-  getEventLink,
   getProfileLink,
 } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
@@ -558,7 +557,7 @@ function DeletionRow({
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
       {showRequester ? (
-        // Client-feed header — avatar, name linking out to npub.world, a
+        // Client-feed header — avatar, name linking out to Nostr Archives, a
         // copyable npub beside it, and the timestamp on the right, the
         // way a Nostr client lays out a note author.
         <div className="flex items-start gap-3">
@@ -688,15 +687,6 @@ function DeletionRow({
                 )}
                 <p className="px-3 pb-2.5 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-3">
                   <span>posted {formatRelativeDate(note.createdAt)}</span>
-                  <a
-                    href={getEventLink(note.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-0.5 hover:underline"
-                  >
-                    jumble
-                    <ExternalLink size={10} />
-                  </a>
                   <a
                     href={getDeletionEventLink(note.id)}
                     target="_blank"
