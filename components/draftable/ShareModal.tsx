@@ -19,6 +19,7 @@ import { useStore } from "@/lib/store";
 import { publishTextNote } from "@/lib/nostr";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { getEventLink } from "@/lib/utils/links";
 import { draftableRelays } from "@/lib/draftable/service";
 import {
   SharePart,
@@ -82,6 +83,8 @@ export default function ShareModal({
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  // Where to open the note once it's posted.
+  const [postedLink, setPostedLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const segments = useMemo(() => noteSegments(content), [content]);
@@ -124,7 +127,14 @@ export default function ShareModal({
       );
       if (!result.success) throw new Error(result.error);
       setPosted(true);
-      setTimeout(onClose, 2000);
+      if (result.event) {
+        setPostedLink(
+          getEventLink(result.event.id, {
+            relays: session.relays,
+            author: result.event.pubkey,
+          }),
+        );
+      }
     } catch (err) {
       setError(getErrorMessage(err, "Failed to publish note"));
     } finally {
@@ -297,8 +307,19 @@ export default function ShareModal({
             </div>
           )}
           {posted && (
-            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-800 dark:text-green-300">
-              Posted to Nostr.
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-800 dark:text-green-300">
+              <span>Posted to Nostr.</span>
+              {postedLink && (
+                <a
+                  href={postedLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-semibold underline hover:no-underline"
+                >
+                  <ExternalLink size={14} />
+                  Open in Jumble
+                </a>
+              )}
             </div>
           )}
         </div>

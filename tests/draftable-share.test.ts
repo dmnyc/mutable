@@ -58,7 +58,7 @@ describe("packShareMessage", () => {
     expect(shareMentions(parts)).toEqual([]);
     const text = shareContent(parts);
     expect(text).toContain("I drafted 3 people into my follow pack “Plebs”");
-    expect(text).toContain("none of them can leave");
+    expect(text).toContain("none of them can leave. Unless they ask me. 🎖️");
     expect(text).toContain(packShareUrl(pack(3)));
   });
 
@@ -66,7 +66,7 @@ describe("packShareMessage", () => {
     const text = shareContent(packShareMessage(pack(1), "author", "Alice"));
     expect(text).toContain("I drafted 1 person");
     expect(text).toContain("Follow them in one click");
-    expect(text).toContain("they can't leave");
+    expect(text).toContain("they can't leave. Unless they ask me.");
   });
 
   it("mentions the author when a conscript shares", () => {

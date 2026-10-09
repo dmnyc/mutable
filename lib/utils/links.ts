@@ -1,11 +1,24 @@
 import { nip19 } from "nostr-tools";
 import { hexToNote, hexToNpub } from "@/lib/nostr";
 
-/** Generate a link to view a Nostr event on Jumble. */
-export function getEventLink(eventId: string): string {
+/**
+ * Generate a link to view a Nostr event on Jumble. Pass the relays a note
+ * was just published to (and its author) so Jumble can find it before it
+ * spreads.
+ */
+export function getEventLink(
+  eventId: string,
+  hints?: { relays?: string[]; author?: string },
+): string {
   try {
-    const note = hexToNote(eventId);
-    return `https://jumble.social/notes/${note}`;
+    const id = hints
+      ? nip19.neventEncode({
+          id: eventId,
+          relays: hints.relays?.slice(0, 3),
+          author: hints.author,
+        })
+      : hexToNote(eventId);
+    return `https://jumble.social/notes/${id}`;
   } catch {
     return "#";
   }
