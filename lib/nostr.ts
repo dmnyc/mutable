@@ -4270,20 +4270,39 @@ export async function massMuteAndUnfollowDomain(
   return { muteEvent, followEvent };
 }
 
-// Check reciprocal follows - find users you follow who don't follow you back
+/** The user's own follow list couldn't be found on any relay we asked. */
+export class FollowListUnavailableError extends Error {
+  constructor() {
+    super(
+      "Couldn't load your follow list from your relays. Check your connection and try again.",
+    );
+    this.name = "FollowListUnavailableError";
+  }
+}
+
+// Check reciprocal follows - find users you follow who don't follow you back.
+// Returns who doesn't follow back and how many people the user follows, so
+// "everyone follows you back" and "you follow nobody" can't be confused with a
+// follow list that never loaded (that throws FollowListUnavailableError).
 export async function checkReciprocalFollows(
   userPubkey: string,
   relays: string[] = DEFAULT_RELAYS,
   onProgress?: (current: number, total: number) => void,
   abortSignal?: AbortSignal,
-): Promise<string[]> {
+): Promise<{ nonReciprocal: string[]; followCount: number }> {
   const pool = getPool();
 
-  // Step 1: Get the user's follow list (who they follow)
-  const userFollowList = await fetchFollowList(userPubkey, relays);
+  // Step 1: Get the user's follow list (who they follow). Ask their relays
+  // plus Mutable's defaults, with a retry: their own relays alone can all
+  // miss it, and an empty answer must not read as "everyone follows back".
+  const userFollowList = await fetchFollowList(
+    userPubkey,
+    getExpandedRelayList(relays),
+    1,
+  );
 
   if (!userFollowList) {
-    return []; // User follows nobody or follow list couldn't be fetched
+    throw new FollowListUnavailableError();
   }
 
   // Extract all followed pubkeys
@@ -4291,8 +4310,9 @@ export async function checkReciprocalFollows(
     .filter((tag) => tag[0] === "p" && tag[1])
     .map((tag) => tag[1]);
 
+  const followCount = new Set(followedPubkeys).size;
   if (followedPubkeys.length === 0) {
-    return []; // User follows nobody
+    return { nonReciprocal: [], followCount: 0 }; // User follows nobody
   }
 
   const totalToCheck = followedPubkeys.length;
@@ -4306,7 +4326,7 @@ export async function checkReciprocalFollows(
   for (let i = 0; i < followedPubkeys.length; i += CHUNK_SIZE) {
     // Check for abort
     if (abortSignal?.aborted) {
-      return [];
+      return { nonReciprocal: [], followCount };
     }
 
     const chunk = followedPubkeys.slice(i, i + CHUNK_SIZE);
@@ -4339,7 +4359,7 @@ export async function checkReciprocalFollows(
 
   // Check for abort
   if (abortSignal?.aborted) {
-    return [];
+    return { nonReciprocal: [], followCount };
   }
 
   // Step 3: Deduplicate events - keep only the newest event per author
@@ -4492,7 +4512,7 @@ export async function checkReciprocalFollows(
     onProgress(checked, totalToCheck);
   }
 
-  return nonReciprocalFollows;
+  return { nonReciprocal: nonReciprocalFollows, followCount };
 }
 
 // Check if a specific user follows you back
