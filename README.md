@@ -72,7 +72,7 @@ Analyze public NIP-04 DM metadata to see who someone talks to most (without decr
 
 Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://following.space) app rebuilt inside Mutable. **Nobody can leave a follow pack.** A pack is a public list signed by its author: the people in it are never asked, never notified, and have no way to remove themselves. Only the author can take someone out. Draftable says so everywhere it matters.
 
-- **Browse**: All packs, packs from people you follow, packs you've been drafted into, and packs you made, with "Discover more" paging
+- **Browse**: All packs, packs from people you follow, packs you've been drafted into, and packs you made, with "Discover more" paging. Test and abandoned packs created by other users (one person or nobody, no name, a test-style or timestamped name, or three people or fewer and untouched for six months) are hidden from browsing and search until you choose to show them
 - **Find a Pack**: Search every pack on Draftable's relays by name or description, or paste a following.space link, Draftable link, or `naddr` to open it
 - **Drafted Into**: See every pack you (or any npub, no login required) have been conscripted into, with a reminder that there's no way out
 - **Pack Pages**: Cover, description, every conscript with Follow/Unfollow, a Posts tab of their recent notes, Follow All, copy link and `nostr:naddr`

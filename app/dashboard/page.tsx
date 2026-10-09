@@ -632,8 +632,16 @@ function DashboardContent() {
                 />
               </button>
 
+              {/* Same order as toolPages in components/DashboardNav.tsx */}
               {toolsDropdownOpen && (
                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-[180px] z-50">
+                  <Link
+                    href="/draftable"
+                    onClick={() => setToolsDropdownOpen(false)}
+                    className="block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Draftable
+                  </Link>
                   <button
                     onClick={() => {
                       changeTab("noteNuke");
@@ -883,13 +891,21 @@ function DashboardContent() {
                     Backups
                   </button>
 
-                  {/* Other Stuff — category heading, tools continue below */}
+                  {/* Other Stuff — category heading, tools continue below.
+                      Same order as toolPages in components/DashboardNav.tsx */}
                   <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
                     <p className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                       Other Stuff
                     </p>
 
                     <div className="space-y-1">
+                      <Link
+                        href="/draftable"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        Draftable
+                      </Link>
                       <button
                         onClick={() => {
                           changeTab("noteNuke");

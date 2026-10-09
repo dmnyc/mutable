@@ -28,7 +28,8 @@ interface DashboardNavProps {
   activePage: ActivePage;
 }
 
-// Tools that go in the "Other Stuff" dropdown
+// Tools that go in the "Other Stuff" dropdown. app/dashboard/page.tsx has
+// its own copy of this menu (desktop and mobile); keep the order in sync.
 const toolPages: ActivePage[] = [
   "draftable",
   "noteNuke",
