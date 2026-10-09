@@ -601,6 +601,12 @@ function DashboardContent() {
             >
               Snoopable
             </Link>
+            <Link
+              href="/draftable"
+              className="py-4 px-1 border-b-2 font-semibold text-base transition-colors border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+            >
+              Draftable
+            </Link>
             <button
               onClick={() => changeTab("backups")}
               className={`py-4 px-1 border-b-2 font-semibold text-base transition-colors ${
@@ -635,13 +641,6 @@ function DashboardContent() {
               {/* Same order as toolPages in components/DashboardNav.tsx */}
               {toolsDropdownOpen && (
                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-[180px] z-50">
-                  <Link
-                    href="/draftable"
-                    onClick={() => setToolsDropdownOpen(false)}
-                    className="block w-full text-left px-4 py-2.5 text-base font-semibold transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    Draftable
-                  </Link>
                   <button
                     onClick={() => {
                       changeTab("noteNuke");
@@ -877,6 +876,13 @@ function DashboardContent() {
                   >
                     Snoopable
                   </Link>
+                  <Link
+                    href="/draftable"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Draftable
+                  </Link>
                   <button
                     onClick={() => {
                       changeTab("backups");
@@ -899,13 +905,6 @@ function DashboardContent() {
                     </p>
 
                     <div className="space-y-1">
-                      <Link
-                        href="/draftable"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="block w-full text-left py-2.5 px-4 rounded-lg font-medium text-sm transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        Draftable
-                      </Link>
                       <button
                         onClick={() => {
                           changeTab("noteNuke");

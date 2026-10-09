@@ -24,7 +24,7 @@ The code is done and passes every local check; what's left is the click-through 
 - [ ] Click through a Vercel preview against live relays: browse, "drafted into", Follow All, create, edit, delete, share, and post a share note
 - [ ] Paste a `/draftable/d/...` link into a Nostr client or card validator to check the link preview
 - [x] Bump the version in its own commit, as the repo usually does
-- [ ] Decide whether Draftable stays under Other Stuff or moves to the primary nav
+- [x] Move Draftable to the primary nav, between Snoopable and Backups
 
 ## Feature map
 

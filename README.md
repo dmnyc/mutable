@@ -222,7 +222,7 @@ mutable/
 5. **Reason**: Optionally add a reason for the deletion
 
 ### Draftable
-1. **Browse**: Open Draftable from Other Stuff (or the home page lookup) to see recent follow packs
+1. **Browse**: Open Draftable from the main navigation (or the home page) to see recent follow packs
 2. **Check Your Drafts**: Pick "Packs I've been drafted into" to see every pack you're in. You can't leave any of them
 3. **Follow**: Open a pack and Follow All, or follow people one by one. Your previous follow list is saved to Backups first
 4. **Draft**: Click "Draft a new pack", name it, search for people, and publish. They won't be asked
