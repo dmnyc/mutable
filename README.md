@@ -118,7 +118,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3100](http://localhost:3100) in your browser. The dev server uses port 3100 so it doesn't collide with other projects on 3000.
 
 ### Build for Production
 
