@@ -78,6 +78,7 @@ Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://follo
 - **Recourse**: On a pack you're in, ask the author to release you or mute them in one click (muting hides them; it doesn't get you out)
 - **Create & Edit**: Name, cover image (URL or Blossom upload), description, search-to-draft by name/NIP-05/npub/nprofile, reorder, release, delete (NIP-09)
 - **Safe Following**: Follow All re-reads your newest follow list, keeps every existing tag, saves a backup to Backups first, and refuses to overwrite a follow list it can't find
+- **Share**: Post or copy a ready-made note for a pack, for the packs you (or anyone) have been drafted into, or for a pack you just published
 - **Link Previews**: Per-pack social cards (`/draftable/card`) with the pack name, faces, and conscript count
 - **Compatible**: Reads and writes the same events as following.space; paste a following.space link or naddr to open any pack
 

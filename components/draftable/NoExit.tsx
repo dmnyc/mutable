@@ -10,12 +10,12 @@ import { DoorClosed, LockKeyhole } from "lucide-react";
 
 export function NoExitIntro() {
   return (
-    <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+    <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#b3a869] dark:border-[#6b6237] bg-[#f4f2e0] dark:bg-[#6b6237]/20">
       <DoorClosed
         size={22}
-        className="text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5"
+        className="text-[#6b6237] dark:text-[#cfc58e] flex-shrink-0 mt-0.5"
       />
-      <div className="text-sm text-amber-900 dark:text-amber-200 space-y-1.5">
+      <div className="text-sm text-[#4f4826] dark:text-[#e2dab0] space-y-1.5">
         <p className="font-bold text-base">
           Nobody can leave a follow pack. Once you&apos;re drafted, you&apos;re
           in.
@@ -39,13 +39,13 @@ export function DraftedNotice({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="p-4 sm:p-5 rounded-lg border-2 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+    <div className="p-4 sm:p-5 rounded-lg border-2 border-[#4b5320] bg-[#f0f0dc] dark:bg-[#4b5320]/25">
       <div className="flex items-start gap-3">
         <LockKeyhole
           size={22}
-          className="text-red-700 dark:text-red-400 flex-shrink-0 mt-0.5"
+          className="text-[#4b5320] dark:text-[#c8d18e] flex-shrink-0 mt-0.5"
         />
-        <div className="flex-1 text-sm text-red-900 dark:text-red-200 space-y-1.5">
+        <div className="flex-1 text-sm text-[#33391a] dark:text-[#e6ead0] space-y-1.5">
           <p className="font-bold text-base">
             You&apos;ve been drafted into this pack, and you can&apos;t leave.
           </p>
@@ -66,12 +66,12 @@ export function DraftedNotice({
 
 export function AuthorNotice({ count }: { count: number }) {
   return (
-    <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+    <div className="flex items-start gap-3 p-4 rounded-lg border border-[#b3a869] dark:border-[#6b6237] bg-[#f4f2e0] dark:bg-[#6b6237]/20">
       <DoorClosed
         size={20}
-        className="text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5"
+        className="text-[#6b6237] dark:text-[#cfc58e] flex-shrink-0 mt-0.5"
       />
-      <p className="text-sm text-amber-900 dark:text-amber-200">
+      <p className="text-sm text-[#4f4826] dark:text-[#e2dab0]">
         <span className="font-semibold">You drafted everyone here.</span> None
         of {count === 1 ? "this person" : `these ${count} people`} agreed to
         be in this pack, and none of them can leave it. You&apos;re the only
@@ -99,12 +99,12 @@ export function BystanderNotice({ authorName }: { authorName: string }) {
 
 export function EditorNotice() {
   return (
-    <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+    <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#b3a869] dark:border-[#6b6237] bg-[#f4f2e0] dark:bg-[#6b6237]/20">
       <DoorClosed
         size={22}
-        className="text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5"
+        className="text-[#6b6237] dark:text-[#cfc58e] flex-shrink-0 mt-0.5"
       />
-      <div className="text-sm text-amber-900 dark:text-amber-200 space-y-1.5">
+      <div className="text-sm text-[#4f4826] dark:text-[#e2dab0] space-y-1.5">
         <p className="font-bold text-base">You&apos;re drafting people.</p>
         <p>
           The people you add won&apos;t be asked and can&apos;t remove

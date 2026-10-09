@@ -10,6 +10,8 @@ import {
   Link2,
   Loader2,
   Pencil,
+  PartyPopper,
+  Share2,
   UserCheck,
   UserPlus,
   UsersRound,
@@ -38,11 +40,13 @@ import {
   followPubkeys,
   unfollowPubkeys,
 } from "@/lib/draftable/service";
+import { PackShareRole, packShareMessage } from "@/lib/draftable/share";
 import ProfileAvatar from "../ProfileAvatar";
 import UserProfileModal from "../UserProfileModal";
 import { useRequestSignIn } from "./DraftableShell";
 import { AuthorNotice, BystanderNotice, DraftedNotice } from "./NoExit";
 import PackPosts from "./PackPosts";
+import ShareModal from "./ShareModal";
 import { useProfiles } from "./useProfiles";
 
 type Tab = "conscripts" | "posts";
@@ -56,9 +60,12 @@ const MISSING_FOLLOW_LIST_PROMPT =
 export default function DraftablePack({
   dTag,
   author,
+  justPublished = false,
 }: {
   dTag: string;
   author?: string;
+  /** Arrived from the editor right after publishing a new pack. */
+  justPublished?: boolean;
 }) {
   const { session } = useAuth();
   const { muteList, addMutedItem } = useStore();
@@ -76,6 +83,8 @@ export default function DraftablePack({
   } | null>(null);
   const [copied, setCopied] = useState<"link" | "naddr" | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [showPublished, setShowPublished] = useState(justPublished);
 
   const relays = useMemo(
     () => draftableRelays(session?.relays),
@@ -96,6 +105,14 @@ export default function DraftablePack({
       cancelled = true;
     };
   }, [dTag, author, relays]);
+
+  // Drop ?published=1 so a reload or a copied URL doesn't repeat the prompt.
+  useEffect(() => {
+    if (!justPublished) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("published");
+    window.history.replaceState(window.history.state, "", url);
+  }, [justPublished]);
 
   useEffect(() => {
     if (!session) {
@@ -192,7 +209,7 @@ export default function DraftablePack({
         </p>
         <Link
           href="/draftable"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium"
         >
           <ArrowLeft size={16} />
           Browse follow packs
@@ -208,6 +225,11 @@ export default function DraftablePack({
   );
   const isAuthor = session?.pubkey === pack.author;
   const drafted = isDrafted(pack, session?.pubkey);
+  const shareRole: PackShareRole = isAuthor
+    ? "author"
+    : drafted
+      ? "drafted"
+      : "bystander";
   const authorMuted = muteList.pubkeys.some((p) => p.value === pack.author);
   const toFollow = pack.members
     .map((m) => m.pubkey)
@@ -299,7 +321,7 @@ export default function DraftablePack({
         className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
           isFollowing
             ? "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-300 hover:text-red-600 dark:hover:text-red-400"
-            : "bg-green-700 text-white hover:bg-green-800"
+            : "bg-[#4b5320] text-white hover:bg-[#3c4419]"
         }`}
         title={isFollowing ? "Unfollow" : "Follow"}
       >
@@ -325,10 +347,41 @@ export default function DraftablePack({
         All follow packs
       </Link>
 
+      {showPublished && isAuthor && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-lg border-2 border-[#4b5320] bg-[#f0f0dc] dark:bg-[#4b5320]/25">
+          <PartyPopper
+            size={22}
+            className="hidden sm:block text-[#4b5320] dark:text-[#c8d18e] flex-shrink-0"
+          />
+          <p className="flex-1 text-sm text-[#33391a] dark:text-[#e6ead0]">
+            <span className="font-bold">Your pack is live.</span> Share it so
+            people can follow everyone in it with one click.
+          </p>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => {
+                setShowPublished(false);
+                setShareOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors text-sm font-medium"
+            >
+              <Share2 size={14} />
+              Share your pack
+            </button>
+            <button
+              onClick={() => setShowPublished(false)}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-[#33391a] dark:text-[#e6ead0] hover:bg-[#4b5320]/10 dark:hover:bg-[#4b5320]/40 transition-colors"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {pack.image && (
-          <div className="h-48 sm:h-60 bg-gradient-to-br from-green-700 to-green-950">
+          <div className="h-48 sm:h-60 camo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={pack.image}
@@ -369,7 +422,7 @@ export default function DraftablePack({
               <button
                 onClick={handleFollowAll}
                 disabled={busy !== null || (!!session && following === null)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium disabled:opacity-50"
               >
                 {busy === "all" ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -401,6 +454,13 @@ export default function DraftablePack({
           )}
 
           <div className="flex flex-wrap gap-2 mt-4">
+            <button
+              onClick={() => setShareOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#4b5320] text-white hover:bg-[#3c4419] transition-colors"
+            >
+              <Share2 size={12} />
+              Share
+            </button>
             <button
               onClick={() => handleCopy("link")}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -447,7 +507,7 @@ export default function DraftablePack({
             href={getProfileLink(pack.author)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-[#4b5320]/50 dark:border-[#4b5320] text-[#33391a] dark:text-[#c8d18e] text-sm font-medium hover:bg-[#4b5320]/10 dark:hover:bg-[#4b5320]/40 transition-colors"
           >
             <ExternalLink size={14} />
             Ask {authorName} to release you
@@ -476,7 +536,7 @@ export default function DraftablePack({
               onClick={() => setTab(option)}
               className={`py-3 text-center font-medium transition-colors ${
                 tab === option
-                  ? "text-green-700 dark:text-green-400 border-b-2 border-green-700 dark:border-green-400"
+                  ? "text-[#4b5320] dark:text-[#b9cc7f] border-b-2 border-[#4b5320] dark:border-[#b9cc7f]"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
@@ -501,7 +561,7 @@ export default function DraftablePack({
                 return (
                   <li
                     key={member.pubkey}
-                    className={`p-4 sm:px-6 flex items-start gap-3 ${isViewer ? "bg-red-50/60 dark:bg-red-900/10" : ""}`}
+                    className={`p-4 sm:px-6 flex items-start gap-3 ${isViewer ? "bg-[#4b5320]/10 dark:bg-[#4b5320]/20" : ""}`}
                   >
                     <button onClick={() => openProfile(member.pubkey)}>
                       <ProfileAvatar
@@ -521,7 +581,7 @@ export default function DraftablePack({
                           )}
                         </button>
                         {isViewer && (
-                          <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide">
+                          <span className="px-1.5 py-0.5 rounded bg-[#4b5320] text-white text-[10px] font-bold uppercase tracking-wide">
                             You · no exit
                           </span>
                         )}
@@ -565,6 +625,19 @@ export default function DraftablePack({
         <UserProfileModal
           profile={selectedProfile}
           onClose={() => setSelectedProfile(null)}
+        />
+      )}
+
+      {shareOpen && (
+        <ShareModal
+          title={isAuthor ? "Share your pack" : "Share this pack"}
+          subtitle={
+            shareRole === "drafted"
+              ? "Let people know you've been drafted."
+              : "Post it to Nostr or copy it anywhere."
+          }
+          message={packShareMessage(pack, shareRole, authorName)}
+          onClose={() => setShareOpen(false)}
         />
       )}
     </div>

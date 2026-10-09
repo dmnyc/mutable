@@ -28,6 +28,27 @@ body {
   .animate-pulse-glow {
     animation: pulse-glow 2s ease-in-out infinite;
   }
+
+  /* Draftable's woodland camo. public/draftable_camo.svg is a seamless
+     1000×1000 tile, so it repeats at a fixed scale instead of stretching.
+     Tune per surface with --camo-size, --camo-x/--camo-y (which patch of
+     the tile shows), and --camo-shade (black overlay for text on top). */
+  .camo {
+    background-color: #4d704d;
+    background-image:
+      linear-gradient(
+        rgb(0 0 0 / var(--camo-shade, 0)),
+        rgb(0 0 0 / var(--camo-shade, 0))
+      ),
+      url("/draftable_camo.svg");
+    background-size:
+      auto,
+      var(--camo-size, 400px) var(--camo-size, 400px);
+    background-position:
+      0 0,
+      var(--camo-x, 0) var(--camo-y, 0);
+    background-repeat: repeat;
+  }
 }
 
 @keyframes pulse-glow {

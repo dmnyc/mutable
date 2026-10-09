@@ -74,7 +74,11 @@ export default async function DraftablePackPage({ params, searchParams }: Props)
       }
     >
       <DraftableShell>
-        <DraftablePack dTag={dTag} author={author ?? undefined} />
+        <DraftablePack
+          dTag={dTag}
+          author={author ?? undefined}
+          justPublished={query.published === "1"}
+        />
       </DraftableShell>
     </Suspense>
   );

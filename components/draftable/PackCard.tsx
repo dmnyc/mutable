@@ -8,12 +8,25 @@ import {
   FollowPack,
   conscriptCount,
   isDrafted,
+  packAddress,
   packPath,
   relativeTime,
 } from "@/lib/draftable/pack";
 import ProfileAvatar from "../ProfileAvatar";
 
 export const PREVIEW_MEMBERS = 5;
+
+/** Same pack, same patch of camo: pick a tile offset from the address. */
+function camoOffset(seed: string): React.CSSProperties {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return {
+    "--camo-x": `${-(hash & 0x3ff) % 400}px`,
+    "--camo-y": `${-((hash >>> 10) & 0x3ff) % 400}px`,
+  } as React.CSSProperties;
+}
 
 export default function PackCard({
   pack,
@@ -33,9 +46,11 @@ export default function PackCard({
       href={packPath(pack)}
       className="group block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
     >
-      <div className="relative h-32 bg-gradient-to-br from-green-700 to-green-950">
-        <div className="absolute inset-0 flex items-center justify-center text-white/40">
-          <UsersRound size={40} />
+      <div className="relative h-32 camo" style={camoOffset(packAddress(pack))}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="w-14 h-14 rounded-full bg-black/45 ring-1 ring-white/20 flex items-center justify-center text-white/90">
+            <UsersRound size={28} />
+          </span>
         </div>
         {pack.image && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -50,7 +65,7 @@ export default function PackCard({
           />
         )}
         {drafted && (
-          <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-600 text-white text-xs font-semibold shadow">
+          <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#d9cfa0] text-[#33391a] text-xs font-semibold shadow">
             <LockKeyhole size={12} />
             You&apos;re in this one
           </span>
@@ -58,7 +73,7 @@ export default function PackCard({
       </div>
 
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors">
+        <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-[#4b5320] dark:group-hover:text-[#b9cc7f] transition-colors">
           {pack.name}
         </h3>
 

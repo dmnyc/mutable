@@ -19,7 +19,7 @@ function metadataFor(title: string, description: string): Metadata {
       description,
       images: [
         {
-          url: "/draftable/card",
+          url: "/draftable_social_card.png",
           width: 1200,
           height: 630,
           alt: "Draftable by Mutable",
@@ -30,7 +30,7 @@ function metadataFor(title: string, description: string): Metadata {
       card: "summary_large_image",
       title,
       description,
-      images: ["/draftable/card"],
+      images: ["/draftable_social_card.png"],
     },
   };
 }

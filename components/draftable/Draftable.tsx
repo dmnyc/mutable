@@ -5,12 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertCircle,
-  Link2,
   Loader2,
   LockKeyhole,
   Medal,
   Plus,
   RefreshCw,
+  Share2,
   Search,
   User,
 } from "lucide-react";
@@ -20,7 +20,6 @@ import { getDisplayName, getErrorMessage, truncateNpub } from "@/lib/utils/forma
 import {
   FollowPack,
   packAddress,
-  parsePackReference,
   resolvePubkey,
 } from "@/lib/draftable/pack";
 import {
@@ -28,11 +27,13 @@ import {
   fetchFollowing,
   fetchPacks,
 } from "@/lib/draftable/service";
+import { draftedShareMessage } from "@/lib/draftable/share";
 import ProfileAvatar from "../ProfileAvatar";
 import UserSearchInput from "../UserSearchInput";
 import { useRequestSignIn } from "./DraftableShell";
 import { NoExitIntro } from "./NoExit";
 import PackCard, { PackGridSkeleton, PREVIEW_MEMBERS } from "./PackCard";
+import ShareModal from "./ShareModal";
 import { useProfiles } from "./useProfiles";
 
 type View = "all" | "follows" | "drafted" | "mine";
@@ -40,6 +41,8 @@ type View = "all" | "follows" | "drafted" | "mine";
 const VIEWS: View[] = ["all", "follows", "drafted", "mine"];
 const SIGNED_IN_VIEWS: View[] = ["follows", "drafted", "mine"];
 const VIEW_STORAGE_KEY = "draftable-view";
+// The grid runs 1, 2, or 3 columns; any multiple of 6 fills every row.
+const ROW_MULTIPLE = 6;
 
 function viewLabel(view: View, lookupName: string | null): string {
   if (lookupName) {
@@ -81,8 +84,7 @@ export default function Draftable() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [packLink, setPackLink] = useState("");
-  const [packLinkError, setPackLinkError] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const requestId = useRef(0);
   const followsCache = useRef<{ pubkey: string; follows: string[] } | null>(
     null,
@@ -225,20 +227,14 @@ export default function Draftable() {
     ? getDisplayName(lookupProfile, truncateNpub(lookupPubkey, 12, 4))
     : null;
 
-  const openPack = () => {
-    const ref = parsePackReference(packLink);
-    if (!ref) {
-      setPackLinkError(
-        "Paste a following.space or Draftable link, or a nostr:naddr for a follow pack.",
-      );
-      return;
-    }
-    setPackLinkError(null);
-    const base = `/draftable/d/${encodeURIComponent(ref.dTag)}`;
-    router.push(ref.author ? `${base}?p=${ref.author}` : base);
-  };
-
   const availableViews: View[] = lookupPubkey ? ["drafted", "mine"] : VIEWS;
+
+  // While more pages remain, hold back the leftovers so the last row is
+  // full. They're still loaded and lead the next page.
+  const visiblePacks =
+    hasMore && packs.length > ROW_MULTIPLE
+      ? packs.slice(0, packs.length - (packs.length % ROW_MULTIPLE))
+      : packs;
 
   return (
     <div className="space-y-6">
@@ -246,7 +242,7 @@ export default function Draftable() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="flex items-start gap-4 flex-1">
-            <div className="flex-shrink-0 mt-1 w-10 h-10 rounded-lg bg-green-700 flex items-center justify-center">
+            <div className="flex-shrink-0 mt-1 w-10 h-10 rounded-lg bg-[#4b5320] flex items-center justify-center">
               <Medal className="text-white" size={22} />
             </div>
             <div>
@@ -264,7 +260,7 @@ export default function Draftable() {
             onClick={() =>
               session ? router.push("/draftable/create") : requestSignIn()
             }
-            className="flex-shrink-0 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium flex items-center justify-center gap-2"
+            className="flex-shrink-0 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium flex items-center justify-center gap-2"
           >
             <Plus size={18} />
             Draft a new pack
@@ -275,52 +271,19 @@ export default function Draftable() {
           <NoExitIntro />
         </div>
 
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <Search size={14} />
-              See which packs someone has been drafted into
-            </label>
-            <UserSearchInput
-              placeholder="Name, NIP-05, or npub"
-              onSelect={(profile) =>
-                router.push(
-                  `/draftable?npub=${encodeURIComponent(hexToNpub(profile.pubkey))}&view=drafted`,
-                )
-              }
-            />
-          </div>
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <Link2 size={14} />
-              Open a pack link
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={packLink}
-                onChange={(e) => {
-                  setPackLink(e.target.value);
-                  setPackLinkError(null);
-                }}
-                onKeyDown={(e) => e.key === "Enter" && openPack()}
-                placeholder="following.space/d/… or naddr1…"
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-600 focus:border-transparent"
-              />
-              <button
-                onClick={openPack}
-                disabled={!packLink.trim()}
-                className="px-4 py-2 bg-gray-800 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-900 dark:hover:bg-gray-500 transition-colors text-sm font-medium disabled:opacity-50"
-              >
-                Open
-              </button>
-            </div>
-            {packLinkError && (
-              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
-                {packLinkError}
-              </p>
-            )}
-          </div>
+        <div className="mt-5">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <Search size={14} />
+            See which packs someone has been drafted into
+          </label>
+          <UserSearchInput
+            placeholder="Name, NIP-05, or npub"
+            onSelect={(profile) =>
+              router.push(
+                `/draftable?npub=${encodeURIComponent(hexToNpub(profile.pubkey))}&view=drafted`,
+              )
+            }
+          />
         </div>
       </div>
 
@@ -349,7 +312,7 @@ export default function Draftable() {
             {session && (
               <Link
                 href="/draftable?view=drafted"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4b5320] text-white rounded-lg text-xs font-medium hover:bg-[#3c4419] transition-colors"
               >
                 <User size={12} />
                 Look up yourself
@@ -373,7 +336,7 @@ export default function Draftable() {
             onClick={() => selectView(option)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               effectiveView === option
-                ? "bg-green-700 text-white"
+                ? "bg-[#4b5320] text-white"
                 : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
@@ -392,12 +355,12 @@ export default function Draftable() {
 
       {/* Drafted-into summary: the point of the whole tool */}
       {effectiveView === "drafted" && !loading && packs.length > 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+        <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#4b5320] bg-[#f0f0dc] dark:bg-[#4b5320]/25">
           <LockKeyhole
             size={20}
-            className="text-red-700 dark:text-red-400 flex-shrink-0 mt-0.5"
+            className="text-[#4b5320] dark:text-[#c8d18e] flex-shrink-0 mt-0.5"
           />
-          <p className="text-sm text-red-900 dark:text-red-200">
+          <p className="flex-1 text-sm text-[#33391a] dark:text-[#e6ead0]">
             <span className="font-bold">
               {lookupName ? `${lookupName} has` : "You've"} been drafted into{" "}
               {packs.length}
@@ -407,6 +370,13 @@ export default function Draftable() {
             {lookupName ? "They" : "You"} can&apos;t leave any of them. Only
             each pack&apos;s author can take {lookupName ? "them" : "you"} out.
           </p>
+          <button
+            onClick={() => setShareOpen(true)}
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4b5320] text-white rounded-lg text-xs font-medium hover:bg-[#3c4419] transition-colors"
+          >
+            <Share2 size={12} />
+            Share
+          </button>
         </div>
       )}
 
@@ -451,7 +421,7 @@ export default function Draftable() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {packs.map((pack) => (
+            {visiblePacks.map((pack) => (
               <PackCard
                 key={packAddress(pack)}
                 pack={pack}
@@ -473,6 +443,29 @@ export default function Draftable() {
             </div>
           )}
         </>
+      )}
+
+      {shareOpen && subjectPubkey && (
+        <ShareModal
+          title={
+            lookupName
+              ? `Share ${lookupName}'s draft record`
+              : "Share your draft record"
+          }
+          subtitle={
+            lookupName
+              ? "Let them know where they've been drafted."
+              : "Let people know where you've been drafted."
+          }
+          message={draftedShareMessage({
+            pubkey: subjectPubkey,
+            name: lookupName ?? "",
+            self: !lookupPubkey,
+            count: packs.length,
+            more: hasMore,
+          })}
+          onClose={() => setShareOpen(false)}
+        />
       )}
     </div>
   );

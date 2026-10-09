@@ -30,6 +30,7 @@ interface DashboardNavProps {
 
 // Tools that go in the "Other Stuff" dropdown
 const toolPages: ActivePage[] = [
+  "draftable",
   "noteNuke",
   "domainPurge",
   "purgatory",
@@ -39,7 +40,6 @@ const toolPages: ActivePage[] = [
   "muggable",
   "listCleaner",
   "clonable",
-  "draftable",
 ];
 
 // Map page IDs to display names
