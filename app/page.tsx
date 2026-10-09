@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
+import Footer from "@/components/Footer";
 import SnoopableGlasses from "@/components/SnoopableGlasses";
 import {
   Lock,
@@ -172,331 +173,340 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 px-4">
-        <div className="text-center w-full max-w-2xl">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/mutable_logo.svg"
-              alt="Mutable Logo"
-              width={150}
-              height={150}
-              priority
-            />
-          </div>
-          <div className="flex justify-center mb-4">
-            {/* Light mode: dark text, Dark mode: white text with shadow */}
-            <Image
-              src="/mutable_text_dark.svg"
-              alt="Mutable"
-              width={300}
-              height={60}
-              priority
-              className="block dark:hidden"
-            />
-            <Image
-              src="/mutable_text.svg"
-              alt="Mutable"
-              width={300}
-              height={60}
-              priority
-              className="hidden dark:block"
-            />
-          </div>
-          <p className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-8">
-            Your Nostr Mute List Manager
-          </p>
-
-          {/* Main Action Buttons */}
-          <div className="max-w-md mx-auto w-full mb-8">
-            <div className="flex flex-col gap-4 justify-center items-stretch">
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="w-full px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Lock size={20} />
-                Connect with Nostr
-              </button>
-            </div>
-          </div>
-
-          {/* Universal No-Sign-In Lookup — one field feeds every anonymous
-              tool: resolve a name, NIP-05, or npub once, then pick the lens
-              to open it in. */}
-          <div className="max-w-md mx-auto w-full mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-            <div className="flex items-start gap-3 mb-4">
-              <Search
-                size={24}
-                className="text-red-600 dark:text-red-400 flex-shrink-0 mt-1"
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-red-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="text-center w-full max-w-2xl">
+            <div className="flex justify-center mb-6">
+              <Image
+                src="/mutable_logo.svg"
+                alt="Mutable Logo"
+                width={150}
+                height={150}
+                priority
               />
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  Look Up Any User - No Login Required
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Enter a username, NIP-05, or npub and pick a lens — or open
-                  any lens directly to explore.
-                </p>
+            </div>
+            <div className="flex justify-center mb-4">
+              {/* Light mode: dark text, Dark mode: white text with shadow */}
+              <Image
+                src="/mutable_text_dark.svg"
+                alt="Mutable"
+                width={300}
+                height={60}
+                priority
+                className="block dark:hidden"
+              />
+              <Image
+                src="/mutable_text.svg"
+                alt="Mutable"
+                width={300}
+                height={60}
+                priority
+                className="hidden dark:block"
+              />
+            </div>
+            <p className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-8">
+              Your Nostr Mute List Manager
+            </p>
+
+            {/* Main Action Buttons */}
+            <div className="max-w-md mx-auto w-full mb-8">
+              <div className="flex flex-col gap-4 justify-center items-stretch">
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                >
+                  <Lock size={20} />
+                  Connect with Nostr
+                </button>
               </div>
             </div>
 
-            <div className="relative" ref={searchDropdownRef}>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setResolvedPubkey(null);
-                    setLookupError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      setShowProfileResults(false);
-                      handleToolSearch("/mute-o-scope");
-                    }
-                  }}
-                  onFocus={() => {
-                    if (profileSearchResults.length > 0) {
-                      setShowProfileResults(true);
-                    }
-                  }}
-                  placeholder="Enter npub, NIP-05, or username..."
-                  className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+            {/* Universal No-Sign-In Lookup — one field feeds every anonymous
+              tool: resolve a name, NIP-05, or npub once, then pick the lens
+              to open it in. */}
+            <div className="max-w-md mx-auto w-full mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+              <div className="flex items-start gap-3 mb-4">
+                <Search
+                  size={24}
+                  className="text-red-600 dark:text-red-400 flex-shrink-0 mt-1"
                 />
-                {(resolving || isSearchingProfiles) && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 size={16} className="animate-spin text-gray-400" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                    Look Up Any User - No Login Required
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Enter a username, NIP-05, or npub and pick a lens — or open
+                    any lens directly to explore.
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative" ref={searchDropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setResolvedPubkey(null);
+                      setLookupError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setShowProfileResults(false);
+                        handleToolSearch("/mute-o-scope");
+                      }
+                    }}
+                    onFocus={() => {
+                      if (profileSearchResults.length > 0) {
+                        setShowProfileResults(true);
+                      }
+                    }}
+                    placeholder="Enter npub, NIP-05, or username..."
+                    className="w-full px-4 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
+                  />
+                  {(resolving || isSearchingProfiles) && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Profile search results dropdown */}
+                {showProfileResults && profileSearchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                    {profileSearchResults.map((profile) => (
+                      <button
+                        key={profile.pubkey}
+                        onClick={() => handleSelectProfile(profile)}
+                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                      >
+                        {profile.picture ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={profile.picture}
+                            alt={profile.display_name || profile.name || "User"}
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                            <User
+                              size={20}
+                              className="text-gray-600 dark:text-gray-300"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-white truncate">
+                            {profile.display_name ||
+                              profile.name ||
+                              "Anonymous"}
+                          </p>
+                          {profile.nip05 && (
+                            <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                              ✓ {profile.nip05}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Profile search results dropdown */}
-              {showProfileResults && profileSearchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
-                  {profileSearchResults.map((profile) => (
-                    <button
-                      key={profile.pubkey}
-                      onClick={() => handleSelectProfile(profile)}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                    >
-                      {profile.picture ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={profile.picture}
-                          alt={profile.display_name || profile.name || "User"}
-                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                          <User
-                            size={20}
-                            className="text-gray-600 dark:text-gray-300"
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 dark:text-white truncate">
-                          {profile.display_name || profile.name || "Anonymous"}
-                        </p>
-                        {profile.nip05 && (
-                          <p className="text-xs text-green-600 dark:text-green-400 truncate">
-                            ✓ {profile.nip05}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              {/* Lens buttons — NEW stays on both Reportable and Redactable */}
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button
+                  onClick={() => handleToolSearch("/mute-o-scope")}
+                  title="Who is publicly muting them"
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
+                >
+                  <Image
+                    src="/mute_o_scope_icon_white.svg"
+                    alt=""
+                    width={16}
+                    height={16}
+                  />
+                  Mute-o-Scope
+                </button>
+                <button
+                  onClick={() => handleToolSearch("/snoopable")}
+                  title="How public their activity really is"
+                  className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
+                >
+                  <SnoopableGlasses className="flex-shrink-0" />
+                  Snoopable
+                </button>
+                <button
+                  onClick={() => handleToolSearch("/reportable")}
+                  title="Public reports filed about them — and by them"
+                  className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
+                >
+                  <Flag size={16} />
+                  Reportable
+                  <span className="text-[10px] font-bold px-1 py-px bg-orange-800 rounded">
+                    NEW
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleToolSearch("/redactable")}
+                  title="Their deletion requests and deleted posts"
+                  className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 dark:ring-1 dark:ring-gray-600 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
+                >
+                  <Trash2 size={16} />
+                  Redactable
+                  <span className="text-[10px] font-bold px-1 py-px bg-gray-800 rounded">
+                    NEW
+                  </span>
+                </button>
+              </div>
+
+              {lookupError && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                  {lookupError}
+                </p>
               )}
             </div>
 
-            {/* Lens buttons — NEW stays on both Reportable and Redactable */}
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <button
-                onClick={() => handleToolSearch("/mute-o-scope")}
-                title="Who is publicly muting them"
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
-              >
-                <Image
-                  src="/mute_o_scope_icon_white.svg"
-                  alt=""
-                  width={16}
-                  height={16}
-                />
-                Mute-o-Scope
-              </button>
-              <button
-                onClick={() => handleToolSearch("/snoopable")}
-                title="How public their activity really is"
-                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
-              >
-                <SnoopableGlasses className="flex-shrink-0" />
-                Snoopable
-              </button>
-              <button
-                onClick={() => handleToolSearch("/reportable")}
-                title="Public reports filed about them — and by them"
-                className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
-              >
-                <Flag size={16} />
-                Reportable
-                <span className="text-[10px] font-bold px-1 py-px bg-orange-800 rounded">
-                  NEW
-                </span>
-              </button>
-              <button
-                onClick={() => handleToolSearch("/redactable")}
-                title="Their deletion requests and deleted posts"
-                className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 dark:ring-1 dark:ring-gray-600 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
-              >
-                <Trash2 size={16} />
-                Redactable
-                <span className="text-[10px] font-bold px-1 py-px bg-gray-800 rounded">
-                  NEW
-                </span>
-              </button>
-            </div>
-
-            {lookupError && (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                {lookupError}
-              </p>
-            )}
-          </div>
-
-          {/* More from Mutable — Draftable up top, then the tools that
+            {/* More from Mutable — Draftable up top, then the tools that
               live under Other Stuff. Rows that need sign-in say so. */}
-          <div className="max-w-md mx-auto w-full mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-            <div className="flex items-start gap-3 mb-4">
-              <Sparkles
-                size={24}
-                className="text-red-600 dark:text-red-400 flex-shrink-0 mt-1"
-              />
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  More from Mutable
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Explore more tools in the shed.
-                </p>
+            <div className="max-w-md mx-auto w-full mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+              <div className="flex items-start gap-3 mb-4">
+                <Sparkles
+                  size={24}
+                  className="text-red-600 dark:text-red-400 flex-shrink-0 mt-1"
+                />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                    More from Mutable
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Explore more tools in the shed.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleToolSearch("/draftable")}
+                title="Follow packs they've been drafted into (and can't leave)"
+                className="camo [--camo-size:240px] [--camo-x:-60px] [--camo-y:-110px] hover:[--camo-shade:0.62] w-full px-3 py-2.5 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-1.5 text-sm [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
+              >
+                <Medal
+                  size={16}
+                  className="drop-shadow-[0_1px_1px_rgb(0_0_0/0.8)]"
+                />
+                Draftable
+                <span className="text-[10px] font-bold px-1 py-px bg-[#2a3016] rounded [text-shadow:none]">
+                  NEW
+                </span>
+              </button>
+
+              <div className="mt-3 space-y-2">
+                <Link
+                  href="/muggable"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
+                    <Wrench size={16} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Muggable
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Check whether a Nostr key is holding Bitcoin on-chain
+                    </p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/note-nuke"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-red-700 flex items-center justify-center flex-shrink-0">
+                    <Radiation size={16} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Note Nuke
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Ask every relay we can reach to delete a note
+                    </p>
+                  </div>
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    <Lock size={10} />
+                    Login
+                  </span>
+                </Link>
+
+                <Link
+                  href="/decimator"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Skull size={16} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Decimator
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Trim your follow list by percentage or count
+                    </p>
+                  </div>
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    <Lock size={10} />
+                    Login
+                  </span>
+                </Link>
               </div>
             </div>
 
-            <button
-              onClick={() => handleToolSearch("/draftable")}
-              title="Follow packs they've been drafted into (and can't leave)"
-              className="camo [--camo-size:240px] [--camo-x:-60px] [--camo-y:-110px] hover:[--camo-shade:0.62] w-full px-3 py-2.5 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-1.5 text-sm [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
-            >
-              <Medal
-                size={16}
-                className="drop-shadow-[0_1px_1px_rgb(0_0_0/0.8)]"
-              />
-              Draftable
-              <span className="text-[10px] font-bold px-1 py-px bg-[#2a3016] rounded [text-shadow:none]">
-                NEW
-              </span>
-            </button>
-
-            <div className="mt-3 space-y-2">
-              <Link
-                href="/muggable"
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            {/* Creator credits */}
+            <div className="max-w-md mx-auto w-full mt-4 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+              <span className="whitespace-nowrap">From the creator of</span>
+              <a
+                href="https://plebsvszombies.cc"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 whitespace-nowrap hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
               >
-                <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-                  <Wrench size={16} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Muggable
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Check whether a Nostr key is holding Bitcoin on-chain
-                  </p>
-                </div>
-              </Link>
-
-              <Link
-                href="/note-nuke"
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                <Image
+                  src="/plebs_vs_zombies_logo.svg"
+                  alt="Plebs vs. Zombies"
+                  width={20}
+                  height={20}
+                />
+                Plebs vs. Zombies
+              </a>
+              <span>and</span>
+              <a
+                href="https://sidecar.top"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 whitespace-nowrap hover:text-red-600 dark:hover:text-red-400 transition-colors font-medium"
               >
-                <div className="w-8 h-8 rounded-lg bg-red-700 flex items-center justify-center flex-shrink-0">
-                  <Radiation size={16} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Note Nuke
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Ask every relay we can reach to delete a note
-                  </p>
-                </div>
-                <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 flex-shrink-0">
-                  <Lock size={10} />
-                  Login
-                </span>
-              </Link>
-
-              <Link
-                href="/decimator"
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
-                  <Skull size={16} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Decimator
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Trim your follow list by percentage or count
-                  </p>
-                </div>
-                <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 flex-shrink-0">
-                  <Lock size={10} />
-                  Login
-                </span>
-              </Link>
+                <Image
+                  src="/sidecar_icon.svg"
+                  alt="Sidecar"
+                  width={18}
+                  height={20}
+                />
+                Sidecar
+              </a>
             </div>
           </div>
-
-          {/* Creator credits */}
-          <div className="max-w-md mx-auto w-full mt-4 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
-            <span className="whitespace-nowrap">From the creator of</span>
-            <a
-              href="https://plebsvszombies.cc"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 whitespace-nowrap hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
-            >
-              <Image
-                src="/plebs_vs_zombies_logo.svg"
-                alt="Plebs vs. Zombies"
-                width={20}
-                height={20}
-              />
-              Plebs vs. Zombies
-            </a>
-            <span>and</span>
-            <a
-              href="https://sidecar.top"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 whitespace-nowrap hover:text-red-600 dark:hover:text-red-400 transition-colors font-medium"
-            >
-              <Image
-                src="/sidecar_icon.svg"
-                alt="Sidecar"
-                width={18}
-                height={20}
-              />
-              Sidecar
-            </a>
-          </div>
         </div>
+
+        <Footer />
       </div>
 
       <AuthModal
