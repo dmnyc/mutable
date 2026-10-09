@@ -4,7 +4,12 @@
  */
 
 import { nip19 } from "nostr-tools";
-import { FollowPack, packPath, resolvePubkey } from "./pack";
+import {
+  AUTHOR_PREFIX_LENGTH,
+  FollowPack,
+  packPath,
+  resolvePubkey,
+} from "./pack";
 
 /** Shared links always point at production, like Mutable's other tools. */
 export const SHARE_ORIGIN = "https://mutable.top";
@@ -51,7 +56,7 @@ export function packShareUrl(pack: Pick<FollowPack, "author" | "dTag">) {
 
 /** The card a pack link unfurls to (served by this app's card route). */
 export function packCardPath(pack: Pick<FollowPack, "author" | "dTag">) {
-  return `/draftable/card?d=${encodeURIComponent(pack.dTag)}&p=${pack.author}`;
+  return `/draftable/card?d=${encodeURIComponent(pack.dTag)}&p=${pack.author.slice(0, AUTHOR_PREFIX_LENGTH)}`;
 }
 
 /** Someone's drafted-into lookup, the page a drafted share links to. */

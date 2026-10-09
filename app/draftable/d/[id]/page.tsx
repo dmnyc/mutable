@@ -6,10 +6,11 @@ import DraftablePack from "@/components/draftable/DraftablePack";
 import {
   cleanRelayHints,
   conscriptCount,
+  parseAuthorParam,
   parsePackReference,
   referencePath,
-  resolvePubkey,
 } from "@/lib/draftable/pack";
+import { packCardPath } from "@/lib/draftable/share";
 import { fetchPackForPreview } from "@/lib/draftable/server";
 
 interface Props {
@@ -44,12 +45,12 @@ export async function generateMetadata({
   const dTag = decodeId((await params).id);
   redirectIfNaddr(dTag);
   const query = await searchParams;
-  const author = resolvePubkey(typeof query.p === "string" ? query.p : null);
+  const author = parseAuthorParam(typeof query.p === "string" ? query.p : null);
 
   const pack = await fetchPackForPreview(dTag, author ?? undefined);
-  const card = `/draftable/card?d=${encodeURIComponent(dTag)}${
-    author ? `&p=${author}` : ""
-  }`;
+  const card = pack
+    ? packCardPath(pack)
+    : `/draftable/card?d=${encodeURIComponent(dTag)}${author ? `&p=${author}` : ""}`;
 
   const title = pack
     ? `${clean(pack.name, 80)} — a follow pack on Draftable`
@@ -77,11 +78,14 @@ export async function generateMetadata({
   };
 }
 
-export default async function DraftablePackPage({ params, searchParams }: Props) {
+export default async function DraftablePackPage({
+  params,
+  searchParams,
+}: Props) {
   const dTag = decodeId((await params).id);
   redirectIfNaddr(dTag);
   const query = await searchParams;
-  const author = resolvePubkey(typeof query.p === "string" ? query.p : null);
+  const author = parseAuthorParam(typeof query.p === "string" ? query.p : null);
   // Relay hints from an naddr. Only the browser follows them; the server-side
   // preview fetch sticks to its own relays.
   const relayHints = cleanRelayHints([query.r ?? []].flat());

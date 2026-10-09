@@ -8,7 +8,13 @@
 
 import { verifyEvent, type Event, type Filter } from "nostr-tools";
 import { naMetadata, type NaProfile } from "@/lib/nostrArchives";
-import { DRAFTABLE_KIND, FollowPack, parsePackEvent } from "./pack";
+import {
+  DRAFTABLE_KIND,
+  FollowPack,
+  isFullPubkey,
+  matchesAuthor,
+  parsePackEvent,
+} from "./pack";
 
 const PREVIEW_RELAYS = [
   "wss://nos.lol",
@@ -71,8 +77,15 @@ export async function fetchPackForPreview(
   author?: string,
   timeoutMs: number = 2500,
 ): Promise<FollowPack | null> {
-  const filter: Filter = { kinds: [DRAFTABLE_KIND], "#d": [dTag], limit: 5 };
-  if (author) filter.authors = [author];
+  // A short link's author prefix can't go in the filter, so fetch every
+  // author's pack with this ID and match the prefix afterwards.
+  const fullAuthor = author && isFullPubkey(author);
+  const filter: Filter = {
+    kinds: [DRAFTABLE_KIND],
+    "#d": [dTag],
+    limit: fullAuthor ? 5 : 20,
+  };
+  if (fullAuthor) filter.authors = [author];
 
   try {
     const results = await Promise.all(
@@ -83,7 +96,7 @@ export async function fetchPackForPreview(
       .filter(
         (event) =>
           event.kind === DRAFTABLE_KIND &&
-          (!author || event.pubkey === author) &&
+          (!author || matchesAuthor(event.pubkey, author)) &&
           verifyEvent(event),
       )
       .map(parsePackEvent)

@@ -176,15 +176,46 @@ export function packNaddr(
   });
 }
 
+/**
+ * Pack links carry only the start of the author's hex pubkey. A pack's ID is
+ * only unique per author, and 8 hex characters tell authors apart (two
+ * sharing an ID and a prefix is a one-in-four-billion accident) while
+ * keeping links short.
+ */
+export const AUTHOR_PREFIX_LENGTH = 8;
+
+/**
+ * A pack link's `p`: a full pubkey (hex, npub, or nprofile, as
+ * following.space links use) or a hex prefix of at least 8 characters, as
+ * Draftable's own links use. Lowercase hex, or null.
+ */
+export function parseAuthorParam(
+  value: string | null | undefined,
+): string | null {
+  const full = resolvePubkey(value);
+  if (full) return full;
+  const trimmed = value?.trim().toLowerCase() ?? "";
+  return /^[0-9a-f]{8,63}$/.test(trimmed) ? trimmed : null;
+}
+
+/** A full pubkey can go in a relay filter; a prefix is matched afterwards. */
+export function isFullPubkey(author: string): boolean {
+  return HEX64.test(author);
+}
+
+export function matchesAuthor(pubkey: string, author: string): boolean {
+  return pubkey.startsWith(author);
+}
+
 /** In-app path to a pack. Mirrors following.space's `/d/<id>?p=<pubkey>`. */
 export function packPath(pack: Pick<FollowPack, "author" | "dTag">): string {
-  return `/draftable/d/${encodeURIComponent(pack.dTag)}?p=${pack.author}`;
+  return `/draftable/d/${encodeURIComponent(pack.dTag)}?p=${pack.author.slice(0, AUTHOR_PREFIX_LENGTH)}`;
 }
 
 /** In-app path for a pasted or linked reference, keeping relay hints. */
 export function referencePath(ref: PackReference): string {
   const params = new URLSearchParams();
-  if (ref.author) params.set("p", ref.author);
+  if (ref.author) params.set("p", ref.author.slice(0, AUTHOR_PREFIX_LENGTH));
   for (const relay of ref.relays ?? []) params.append("r", relay);
   const query = params.toString();
   return `/draftable/d/${encodeURIComponent(ref.dTag)}${query ? `?${query}` : ""}`;
@@ -263,6 +294,7 @@ export function resolvePubkey(value: string | null | undefined): string | null {
 
 export interface PackReference {
   dTag: string;
+  /** Lowercase hex: the full pubkey, or a prefix from a short link. */
   author?: string;
   /** Relay hints from an naddr: where the author says the pack lives. */
   relays?: string[];
@@ -314,7 +346,9 @@ export function parsePackReference(input: string): PackReference | null {
 
   let url: URL;
   try {
-    url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    url = new URL(
+      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
+    );
   } catch {
     return null;
   }
@@ -328,7 +362,7 @@ export function parsePackReference(input: string): PackReference | null {
     return null;
   }
   if (!dTag) return null;
-  const author = resolvePubkey(url.searchParams.get("p"));
+  const author = parseAuthorParam(url.searchParams.get("p"));
   return author ? { dTag, author } : { dTag };
 }
 
