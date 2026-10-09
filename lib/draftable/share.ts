@@ -72,7 +72,7 @@ export function packShareMessage(
     return [
       `I drafted ${people(count)} into my follow pack “${pack.name}”. ` +
         `Follow ${count === 1 ? "them" : "them all"} in one click. ` +
-        `${noExit(count)} 🎖️\n\n` +
+        `${noExit(count)} Unless they ask me. 🎖️\n\n` +
         `Drafted with Draftable by #Mutable:\n${url}`,
     ];
   }
