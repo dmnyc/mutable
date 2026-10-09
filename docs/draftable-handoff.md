@@ -2,20 +2,20 @@
 
 2026-10-09 · The Daniel
 
-Draftable, the following.space follow-pack app rebuilt inside Mutable, is code-complete on branch `feat/draftable` and up for review as a PR into `main`. It has been checked against live relays locally but not yet on a preview deploy.
+Draftable, the following.space follow-pack app rebuilt inside Mutable, shipped in dmnyc/mutable#51; search, `naddr` links, custom pack IDs, follower counts, and the new share card followed in `feat/draftable-improvements`. Publishing a pack and its link preview have been tried for real; the checklist below covers the rest.
 
 ## Status and open items
 
-The code is done and passes every local check; what's left is testing on a preview deploy.
+The code is done and passes every local check; what's left is the click-through below.
 
 | Item | State |
 | --- | --- |
-| Branch | `feat/draftable` on top of `main` (`107c79e`), authored as The Daniel |
-| Pull request | Open against `main` |
+| Branches | `feat/draftable` (merged in dmnyc/mutable#51), then `feat/draftable-improvements` |
+| Pull requests | dmnyc/mutable#51 merged; the improvements have their own PR |
 | Old branch | `claude/clever-gates-x9s7bi` is gone from GitHub |
 | Typecheck | `npx tsc --noEmit` passes |
-| Build | `npm run build` passes; new routes `/draftable`, `/draftable/create`, `/draftable/d/[id]`, `/draftable/card` |
-| Unit tests | 227 pass (46 new, in `tests/draftable-pack.test.ts`, `tests/draftable-service.test.ts`, and `tests/draftable-share.test.ts`) |
+| Build | `npm run build` passes; new routes `/draftable`, `/draftable/[ref]` (naddr redirects), `/draftable/create`, `/draftable/d/[id]`, `/draftable/card` |
+| Unit tests | 237 pass (56 new, in `tests/draftable-pack.test.ts`, `tests/draftable-service.test.ts`, `tests/draftable-share.test.ts`, and `tests/draftable-find.test.ts`) |
 | Lint | `npm run lint` fails repo-wide: Next 16 removed `next lint`. Not caused by this branch |
 | Version | 1.10.0, bumped in its own commit |
 
@@ -34,14 +34,16 @@ Every following.space feature has a Draftable equivalent except nsec login, whic
 | --- | --- | --- |
 | Browse packs: all, from follows, packs I'm in, my packs, "Discover more" | Same four views ("Packs I've been drafted into", "Packs I made"); last view remembered per device | `/draftable`, `components/draftable/Draftable.tsx` |
 | (not in upstream) | Look up which packs any npub is in, no login | `/draftable?npub=...`, home-page Draftable button |
+| Search by name or creator npub (unmerged upstream PR #13) | "Find a pack" searches the names and descriptions of every pack on Draftable's relays (fetched once, cached 5 minutes); an npub lists that author's packs; a pasted link or `naddr` opens the pack. The term stays in `?q=` | `matchPacks` in `pack.ts`, `fetchAllPacks` in `service.ts`, `Draftable.tsx` |
+| `naddr` routes (unmerged upstream PR #24) | `/draftable/naddr1…` and `/draftable/d/naddr1…` redirect to the pack page, carrying up to three `wss://` relay hints as `?r=`. Only the browser follows hints; the server preview doesn't, to avoid SSRF | `app/draftable/[ref]/page.tsx`, `app/draftable/d/[id]/page.tsx`, `referencePath` |
 | Pack page `/d/<id>?p=<pubkey>` | Same URL shape under `/draftable`; `p` takes hex or npub | `/draftable/d/[id]`, `components/draftable/DraftablePack.tsx` |
 | Follow All, per-person Follow/Unfollow | Same, with re-read, backup, and overwrite guard | `lib/draftable/service.ts` |
 | People / Posts tabs | Conscripts / Posts | `DraftablePack.tsx`, `PackPosts.tsx` |
 | Copy Event (`nevent`) | Copy link, Copy `naddr` | `DraftablePack.tsx` |
 | (not in upstream) | Share as a note (copy, or post when signed in) from a pack page, the drafted-into summary, and a pack you just published | `ShareModal.tsx`, wording in `lib/draftable/share.ts` |
-| Create, edit, delete; search by name, npub, nprofile; reorder; remove all | Same, plus NIP-05 search and Blossom cover upload | `/draftable/create`, `?edit=<d>`, `DraftableEditor.tsx` |
+| Create, edit, delete; search by name, npub, nprofile; reorder; remove all | Same, plus NIP-05 search with follower counts (from nostrarchives), Blossom cover upload, and an optional custom pack ID on create (upstream issue #23). A custom ID that matches one of your existing packs is refused rather than overwriting it | `/draftable/create`, `?edit=<d>`, `DraftableEditor.tsx`, `packIdError` |
 | Settings: follow snapshots, export, restore | Mutable's Backups tab; every follow change saves a backup first | `lib/backupService.ts` (existing) |
-| Server-drawn link preview (node-canvas) | `next/og` social card with the pack's cover image, description, and conscript avatars | `app/draftable/card/route.tsx`, `lib/draftable/server.ts` |
+| Server-drawn link preview (node-canvas) | `next/og` social card on the camo: Draftable by Mutable logo, pack name, conscript avatars and count, "None of them can leave.", and a DRAFTED stamp. No cover or description; link previews show the description already | `app/draftable/card/route.tsx`, `lib/draftable/server.ts` |
 | Login: NIP-07, nsec, bunker, nostrconnect | Mutable's existing NIP-07 and NIP-46 | `hooks/useAuth.ts` (existing) |
 | Hide one spam author | Same pubkey hidden | `BLOCKED_PACK_AUTHORS` in `lib/draftable/pack.ts` |
 
@@ -123,7 +125,7 @@ The point of the name: people in a follow pack are never asked and can't remove 
 | Pack page | Everyone else | "They weren't asked, and they can't leave." | `BystanderNotice` |
 | Editor | Whoever is drafting | "You're drafting people." Under Publish: "Drafts N people into a public pack they can't leave." | `EditorNotice`, `DraftableEditor.tsx` |
 | Delete dialog | The author | Deleting only asks relays to drop the pack; copies may survive | `DraftableEditor.tsx` |
-| Social card | Anyone seeing a shared link | "None of them can leave." and a NO WAY OUT stamp | `app/draftable/card/route.tsx` |
+| Social card | Anyone seeing a shared link | "None of them can leave." and a DRAFTED stamp | `app/draftable/card/route.tsx` |
 
 - **Vocabulary:** members are "conscripts", packs are "drafted by" their author, and removing someone is "Release".
 - **Mute the author** adds them to the local mute list with the reason "Drafted me into a follow pack". Like Reciprocals, it still has to be published from My Mutes. The notice says muting doesn't get you out of the pack.
@@ -145,7 +147,7 @@ Four following.space bugs were fixed in the port rather than copied; the rest ar
 - **Relays:** queries and publishes use Mutable's defaults, the user's relays, and `PACK_RELAYS` (damus, wellorder, oxtr, 8333), where upstream published. Damus stays here even though Mutable's defaults drop it, because older packs live there.
 - **Profiles:** one module-level cache in `useProfiles.ts` shared by every Draftable view. It asks nostrarchives in bulk, then relays 6 at a time.
 - **Fresh packs:** a just-published pack is kept in memory (`recentlyPublished`) so its page renders before relays catch up.
-- **Social card:** rendered to a buffer before responding, retried with Latin-only text, then redirected to the static card (`public/draftable_social_card.png`), which `/draftable` also uses. Avatars are fetched only from public `https` hosts, with each redirect re-checked, as PNG, JPEG, or GIF up to 400 KB.
+- **Social card:** drawn on the real camo tile with the same 50% darkening as the static card, in Montserrat (fetched from Google Fonts once per server instance, falling back to the renderer's built-in font), with the Mutable logo and wordmark. The camo and logo files are read from `public/` and listed in `outputFileTracingIncludes` in `next.config.js` so Vercel bundles them. Rendered to a buffer before responding, retried with Latin-only text, then redirected to the static card (`public/draftable_social_card.png`), which `/draftable` also uses. Avatars are fetched only from public `https` hosts, with each redirect re-checked, as PNG, JPEG, or GIF up to 400 KB.
 - **Link previews:** the server fetches the pack over the runtime's WebSocket with a 2.5 to 3 second timeout and verifies its signature.
 - **Existing code touched:** `publishToRelays` in `lib/nostr.ts` is now exported; `DashboardNav.tsx`, `app/page.tsx`, and `README.md` gained Draftable entries. Nothing else outside the new folders changed.
 

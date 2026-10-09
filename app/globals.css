@@ -20,6 +20,21 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* No orphans: don't let a block of text end on a lone word. Browsers
+   without text-wrap: pretty just wrap normally. */
+@layer base {
+  p,
+  li,
+  h1,
+  h2,
+  h3,
+  h4,
+  blockquote,
+  figcaption {
+    text-wrap: pretty;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -32,13 +47,14 @@ body {
   /* Draftable's woodland camo. public/draftable_camo.svg is a seamless
      1000×1000 tile, so it repeats at a fixed scale instead of stretching.
      Tune per surface with --camo-size, --camo-x/--camo-y (which patch of
-     the tile shows), and --camo-shade (black overlay for text on top). */
+     the tile shows), and --camo-shade (black overlay). The default 50%
+     matches the static and generated Draftable social cards. */
   .camo {
     background-color: #4d704d;
     background-image:
       linear-gradient(
-        rgb(0 0 0 / var(--camo-shade, 0)),
-        rgb(0 0 0 / var(--camo-shade, 0))
+        rgb(0 0 0 / var(--camo-shade, 0.5)),
+        rgb(0 0 0 / var(--camo-shade, 0.5))
       ),
       url("/draftable_camo.svg");
     background-size:

@@ -21,9 +21,12 @@ import { uploadImageToBlossom } from "@/lib/imageUpload";
 import { getDisplayName, getErrorMessage, truncateNpub } from "@/lib/utils/format";
 import {
   FollowPack,
+  PACK_ID_MAX,
+  PACK_ID_MIN,
   PackMember,
   conscriptCount,
   generatePackId,
+  packIdError,
   packPath,
 } from "@/lib/draftable/pack";
 import {
@@ -56,6 +59,7 @@ export default function DraftableEditor() {
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [description, setDescription] = useState("");
+  const [packId, setPackId] = useState("");
   const [members, setMembers] = useState<PackMember[]>([]);
   const [searchKey, setSearchKey] = useState(0); // remounts the search box
   const [searchNotice, setSearchNotice] = useState<string | null>(null);
@@ -153,6 +157,10 @@ export default function DraftableEditor() {
   const editing = !!existing;
   const nameInvalid = submitted && !name.trim();
   const membersInvalid = submitted && members.length === 0;
+  // A custom ID only applies to new packs; blank means a random one.
+  const packIdProblem = !editing && packId ? packIdError(packId) : null;
+  const showPackIdProblem =
+    !!packIdProblem && (submitted || packId.length >= PACK_ID_MIN);
 
   const draftPerson = (profile: Profile) => {
     if (members.some((m) => m.pubkey === profile.pubkey)) {
@@ -218,12 +226,26 @@ export default function DraftableEditor() {
       setError("Give the pack a name and draft at least one person.");
       return;
     }
+    if (packIdProblem) return; // shown under the field
+    const customId = !existing && packId ? packId : null;
     setPublishing(true);
     setError(null);
     try {
+      // Same author + same ID is the same pack, so publishing would replace it.
+      if (
+        customId &&
+        session &&
+        (await fetchPack(customId, session.pubkey, relays))
+      ) {
+        setError(
+          `You already have a pack with the ID "${customId}". Publishing would replace it, so pick another ID or edit that pack instead.`,
+        );
+        setPublishing(false);
+        return;
+      }
       const pack = await publishPack(
         {
-          dTag: existing?.dTag ?? generatePackId(),
+          dTag: existing?.dTag ?? customId ?? generatePackId(),
           name,
           description,
           image,
@@ -374,6 +396,53 @@ export default function DraftableEditor() {
             className={`${inputClass} border-gray-300 dark:border-gray-600`}
           />
         </div>
+
+        <div>
+          <label
+            htmlFor="pack-id"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Pack ID
+          </label>
+          {existing ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-mono text-gray-900 dark:text-white">
+                {existing.dTag}
+              </span>
+              . A pack&apos;s ID can&apos;t change; a new ID would make a new
+              pack.
+            </p>
+          ) : (
+            <>
+              <input
+                id="pack-id"
+                type="text"
+                value={packId}
+                onChange={(e) =>
+                  setPackId(e.target.value.toLowerCase().replace(/\s+/g, "-"))
+                }
+                maxLength={PACK_ID_MAX}
+                placeholder="Leave blank for a random ID"
+                spellCheck={false}
+                autoCapitalize="none"
+                autoComplete="off"
+                className={`${inputClass} font-mono ${showPackIdProblem ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
+              />
+              {showPackIdProblem ? (
+                <p className="mt-1 text-sm text-red-600">{packIdProblem}</p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Optional. Sets the end of the pack&apos;s link,{" "}
+                  <span className="font-mono">
+                    /draftable/d/{packId || "…"}
+                  </span>
+                  . Lowercase letters, numbers, and hyphens. It can&apos;t be
+                  changed later.
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </section>
 
       {/* Conscripts */}
@@ -391,6 +460,7 @@ export default function DraftableEditor() {
           key={searchKey}
           onSelect={draftPerson}
           placeholder="Name, NIP-05, npub, or nprofile"
+          showFollowerCount
         />
         {searchNotice && (
           <p className="text-sm text-[#6b6237] dark:text-[#cfc58e]">

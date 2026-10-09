@@ -11,12 +11,24 @@ interface UserSearchInputProps {
   onSelect: (profile: Profile) => void;
   onCancel?: () => void;
   placeholder?: string;
+  /** Show each result's follower count, when search returned one. */
+  showFollowerCount?: boolean;
+}
+
+const compactNumber = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function followerLabel(count: number): string {
+  return `${compactNumber.format(count)} ${count === 1 ? "follower" : "followers"}`;
 }
 
 export default function UserSearchInput({
   onSelect,
   onCancel,
   placeholder = "Search by name, npub, or NIP-05",
+  showFollowerCount = false,
 }: UserSearchInputProps) {
   const { session } = useAuth();
   const [query, setQuery] = useState("");
@@ -274,8 +286,14 @@ export default function UserSearchInput({
                     {profile.nip05}
                   </p>
                 )}
-                <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                  {getTruncatedPubkey(profile.pubkey)}
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="font-mono">
+                    {getTruncatedPubkey(profile.pubkey)}
+                  </span>
+                  {showFollowerCount &&
+                    typeof profile.follower_count === "number" && (
+                      <span> · {followerLabel(profile.follower_count)}</span>
+                    )}
                 </p>
               </div>
             </button>
