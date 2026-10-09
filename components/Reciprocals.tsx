@@ -41,6 +41,11 @@ export default function Reciprocals() {
   const { muteList, addMutedItem } = useStore();
   const [checking, setChecking] = useState(false);
   const [allResults, setAllResults] = useState<ReciprocalResult[]>([]);
+  // How many people the user follows, as of the last completed check; null
+  // until a check has loaded their follow list.
+  const [checkedFollowCount, setCheckedFollowCount] = useState<number | null>(
+    null,
+  );
   const [displayedResults, setDisplayedResults] = useState<ReciprocalResult[]>(
     [],
   );
@@ -76,27 +81,29 @@ export default function Reciprocals() {
       setAllResults([]);
       setDisplayedResults([]);
       setSearchResult(null);
+      setCheckedFollowCount(null);
       setProgress("Fetching your follow list...");
 
       // Get list of non-reciprocal follows (pubkeys only)
-      const nonReciprocalPubkeys = await checkReciprocalFollows(
-        session.pubkey,
-        session.relays,
-        (current, total) => {
-          const percent = Math.round((current / total) * 100);
-          // If current is much smaller than total at this point, we're in second pass
-          if (total < 100 && current < total) {
-            setProgress(
-              `Second pass: Checking user relay preferences... ${current}/${total}`,
-            );
-          } else {
-            setProgress(
-              `Checking ${current} of ${total} follows... (${percent}%)`,
-            );
-          }
-        },
-        abortControllerRef.current?.signal,
-      );
+      const { nonReciprocal: nonReciprocalPubkeys, followCount } =
+        await checkReciprocalFollows(
+          session.pubkey,
+          session.relays,
+          (current, total) => {
+            const percent = Math.round((current / total) * 100);
+            // If current is much smaller than total at this point, we're in second pass
+            if (total < 100 && current < total) {
+              setProgress(
+                `Second pass: Checking user relay preferences... ${current}/${total}`,
+              );
+            } else {
+              setProgress(
+                `Checking ${current} of ${total} follows... (${percent}%)`,
+              );
+            }
+          },
+          abortControllerRef.current?.signal,
+        );
 
       // Check for abort
       if (abortControllerRef.current?.signal.aborted) {
@@ -105,6 +112,7 @@ export default function Reciprocals() {
         return;
       }
 
+      setCheckedFollowCount(followCount);
       if (nonReciprocalPubkeys.length === 0) {
         setAllResults([]);
         setDisplayedResults([]);
@@ -841,13 +849,23 @@ export default function Reciprocals() {
         allResults.length === 0 &&
         (displayedResults.length > 0 || !error) && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <Users className="mx-auto mb-3 text-green-500" size={48} />
+            <Users
+              className={`mx-auto mb-3 ${checkedFollowCount ? "text-green-500" : "text-gray-400"}`}
+              size={48}
+            />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              All Clear!
+              {checkedFollowCount === null
+                ? "Check your follows"
+                : checkedFollowCount === 0
+                  ? "You don't follow anyone yet"
+                  : "All Clear!"}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Everyone you follow follows you back, or you haven&apos;t run a
-              check yet.
+              {checkedFollowCount === null
+                ? "Run a check to see who you follow that doesn't follow you back."
+                : checkedFollowCount === 0
+                  ? "Follow some people, then check again."
+                  : `All ${checkedFollowCount.toLocaleString("en-US")} ${checkedFollowCount === 1 ? "person you follow follows" : "people you follow follow"} you back.`}
             </p>
           </div>
         )}
