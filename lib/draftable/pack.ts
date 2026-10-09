@@ -1,0 +1,369 @@
+/**
+ * Draftable — follow packs (NIP-51 kind:39089), ported from following.space.
+ *
+ * A follow pack is a parameterized replaceable event signed by its author: a
+ * title, an optional image and description, and one `p` tag per person in it.
+ * Nothing in the format involves the people listed. They are not asked, not
+ * notified, and have no way to take themselves out — only the author can
+ * publish a new version without them. Hence "Draftable": once you're drafted,
+ * you're in until the author says otherwise.
+ *
+ * This module is pure (no relay I/O) so it can be shared by the client
+ * service, the server-side metadata/OG card code, and the tests.
+ *
+ * Event layout (compatible with following.space):
+ *   kind: 39089
+ *   tags: ["d", id] ["title", name] ["image", url]? ["description", text]?
+ *         ["p", pubkey, relay?]...
+ *   content: ""
+ */
+
+import { nip19 } from "nostr-tools";
+import type { Event } from "nostr-tools";
+
+export const DRAFTABLE_KIND = 39089;
+
+/**
+ * Relays following.space published packs to, beyond Mutable's defaults.
+ * Added to discovery queries so packs made there show up here.
+ */
+export const PACK_RELAYS = [
+  "wss://relay.damus.io",
+  "wss://nostr-pub.wellorder.net",
+  "wss://nostr.oxtr.dev",
+  "wss://relay.8333.space",
+];
+
+/** Authors whose packs following.space hides from discovery (spam). */
+export const BLOCKED_PACK_AUTHORS = new Set([
+  "414f438fe851a53ee2dc94883300d04f04165337141fc97563a5ee6542637660",
+]);
+
+export const UNTITLED_PACK = "Untitled Follow Pack";
+
+const HEX64 = /^[0-9a-f]{64}$/i;
+
+export interface PackMember {
+  pubkey: string; // hex
+  relay?: string;
+}
+
+export interface FollowPack {
+  dTag: string;
+  eventId: string;
+  author: string; // hex pubkey of the only person who can change the pack
+  name: string;
+  description: string;
+  image: string;
+  members: PackMember[];
+  createdAt: number;
+}
+
+export interface PackDraft {
+  dTag: string;
+  name: string;
+  description?: string;
+  image?: string;
+  members: PackMember[];
+}
+
+function tagValue(tags: string[][], name: string): string | undefined {
+  const value = tags.find((tag) => tag[0] === name)?.[1];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+/**
+ * Parse a kind:39089 event. Keeps following.space's back-compat paths: the
+ * old `n` tag for the title and a JSON `{description}` content body.
+ * Member pubkeys are validated and de-duplicated (first occurrence wins).
+ */
+export function parsePackEvent(event: Event): FollowPack | null {
+  if (!event || event.kind !== DRAFTABLE_KIND || !Array.isArray(event.tags)) {
+    return null;
+  }
+
+  const tags = event.tags;
+  const name = (
+    tagValue(tags, "title") ??
+    tagValue(tags, "n") ??
+    tagValue(tags, "name") ??
+    UNTITLED_PACK
+  ).trim();
+
+  let description = tagValue(tags, "description") ?? "";
+  if (!description && event.content) {
+    try {
+      const parsed = JSON.parse(event.content);
+      if (parsed && typeof parsed.description === "string") {
+        description = parsed.description;
+      }
+    } catch {
+      // content isn't JSON — ignore
+    }
+  }
+
+  const seen = new Set<string>();
+  const members: PackMember[] = [];
+  for (const tag of tags) {
+    if (tag[0] !== "p" || typeof tag[1] !== "string" || !HEX64.test(tag[1])) {
+      continue;
+    }
+    const pubkey = tag[1].toLowerCase();
+    if (seen.has(pubkey)) continue;
+    seen.add(pubkey);
+    members.push(tag[2] ? { pubkey, relay: tag[2] } : { pubkey });
+  }
+
+  return {
+    dTag: tagValue(tags, "d") ?? event.id,
+    eventId: event.id,
+    author: event.pubkey,
+    name,
+    description: description.trim(),
+    image: tagValue(tags, "image")?.trim() ?? "",
+    members,
+    createdAt: event.created_at || 0,
+  };
+}
+
+/** Build the tag list for a pack event. */
+export function buildPackTags(draft: PackDraft): string[][] {
+  const name = draft.name.trim() || UNTITLED_PACK;
+  const tags: string[][] = [
+    ["d", draft.dTag],
+    ["title", name],
+  ];
+  const image = draft.image?.trim();
+  if (image) tags.push(["image", image]);
+  const description = draft.description?.trim();
+  if (description) tags.push(["description", description]);
+
+  const seen = new Set<string>();
+  for (const member of draft.members) {
+    const pubkey = member.pubkey.toLowerCase();
+    if (!HEX64.test(pubkey) || seen.has(pubkey)) continue;
+    seen.add(pubkey);
+    tags.push(member.relay ? ["p", pubkey, member.relay] : ["p", pubkey]);
+  }
+
+  // NIP-31 fallback text for clients that don't know kind:39089.
+  tags.push(["alt", `Follow pack: ${name}`]);
+  return tags;
+}
+
+/** Random 12-char [a-z0-9] identifier, the same shape following.space uses. */
+export function generatePackId(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
+/** The NIP-01 address of a pack: `39089:<author>:<d>`. */
+export function packAddress(pack: Pick<FollowPack, "author" | "dTag">): string {
+  return `${DRAFTABLE_KIND}:${pack.author}:${pack.dTag}`;
+}
+
+export function packNaddr(
+  pack: Pick<FollowPack, "author" | "dTag">,
+  relays: string[] = [],
+): string {
+  return nip19.naddrEncode({
+    kind: DRAFTABLE_KIND,
+    pubkey: pack.author,
+    identifier: pack.dTag,
+    relays: relays.slice(0, 3),
+  });
+}
+
+/** In-app path to a pack. Mirrors following.space's `/d/<id>?p=<pubkey>`. */
+export function packPath(pack: Pick<FollowPack, "author" | "dTag">): string {
+  return `/draftable/d/${encodeURIComponent(pack.dTag)}?p=${pack.author}`;
+}
+
+/** Accept a hex pubkey, npub, or nprofile; return lowercase hex or null. */
+export function resolvePubkey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim().replace(/^nostr:/i, "");
+  if (HEX64.test(trimmed)) return trimmed.toLowerCase();
+  try {
+    const decoded = nip19.decode(trimmed);
+    if (decoded.type === "npub") return decoded.data as string;
+    if (decoded.type === "nprofile") {
+      return (decoded.data as { pubkey: string }).pubkey;
+    }
+  } catch {
+    // not bech32
+  }
+  return null;
+}
+
+export interface PackReference {
+  dTag: string;
+  author?: string;
+}
+
+/**
+ * Turn something a user pasted into a pack reference: an naddr (with or
+ * without `nostr:`), a following.space link, or a Draftable link.
+ */
+export function parsePackReference(input: string): PackReference | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const naddrMatch = trimmed.match(/naddr1[0-9a-z]+/i);
+  if (naddrMatch) {
+    try {
+      const decoded = nip19.decode(naddrMatch[0].toLowerCase());
+      if (decoded.type === "naddr" && decoded.data.kind === DRAFTABLE_KIND) {
+        return { dTag: decoded.data.identifier, author: decoded.data.pubkey };
+      }
+    } catch {
+      // fall through to URL parsing
+    }
+    return null;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  const pathMatch = url.pathname.match(/\/d\/([^/]+)\/?$/);
+  if (!pathMatch) return null;
+
+  let dTag: string;
+  try {
+    dTag = decodeURIComponent(pathMatch[1]);
+  } catch {
+    return null;
+  }
+  if (!dTag) return null;
+  const author = resolvePubkey(url.searchParams.get("p"));
+  return author ? { dTag, author } : { dTag };
+}
+
+/**
+ * Collapse a batch of events to the newest version of each pack (relays may
+ * return stale copies of replaceable events), drop blocked authors, and sort
+ * newest first.
+ */
+export function latestPacks(events: Event[]): FollowPack[] {
+  const byAddress = new Map<string, FollowPack>();
+  for (const event of events) {
+    if (BLOCKED_PACK_AUTHORS.has(event.pubkey)) continue;
+    const pack = parsePackEvent(event);
+    if (!pack) continue;
+    const key = packAddress(pack);
+    const existing = byAddress.get(key);
+    if (!existing || pack.createdAt > existing.createdAt) {
+      byAddress.set(key, pack);
+    }
+  }
+  return Array.from(byAddress.values()).sort(
+    (a, b) => b.createdAt - a.createdAt,
+  );
+}
+
+export function isDrafted(
+  pack: Pick<FollowPack, "members">,
+  pubkey: string | null | undefined,
+): boolean {
+  if (!pubkey) return false;
+  const target = pubkey.toLowerCase();
+  return pack.members.some((member) => member.pubkey === target);
+}
+
+/**
+ * Add pubkeys to a kind:3 tag list. Every existing tag is kept as-is (petnames,
+ * relay hints, non-`p` tags); new follows are appended once each.
+ */
+export function addFollowTags(
+  existing: string[][],
+  pubkeys: string[],
+): { tags: string[][]; added: string[] } {
+  const following = new Set(
+    existing.filter((tag) => tag[0] === "p").map((tag) => tag[1]),
+  );
+  const tags = existing.map((tag) => [...tag]);
+  const added: string[] = [];
+  for (const raw of pubkeys) {
+    const pubkey = raw.toLowerCase();
+    if (!HEX64.test(pubkey) || following.has(pubkey)) continue;
+    following.add(pubkey);
+    tags.push(["p", pubkey]);
+    added.push(pubkey);
+  }
+  return { tags, added };
+}
+
+/** Remove pubkeys from a kind:3 tag list, keeping every other tag. */
+export function removeFollowTags(
+  existing: string[][],
+  pubkeys: string[],
+): { tags: string[][]; removed: string[] } {
+  const targets = new Set(pubkeys.map((p) => p.toLowerCase()));
+  const removed = new Set<string>();
+  const tags = existing.filter((tag) => {
+    if (tag[0] === "p" && targets.has(tag[1])) {
+      removed.add(tag[1]);
+      return false;
+    }
+    return true;
+  });
+  return { tags: tags.map((tag) => [...tag]), removed: Array.from(removed) };
+}
+
+export type ContentSegment =
+  | { type: "text"; value: string }
+  | { type: "link"; url: string }
+  | { type: "image"; url: string };
+
+const URL_PATTERN = /https?:\/\/[^\s<>"]+/gi;
+const IMAGE_PATTERN = /\.(jpe?g|gif|png|webp|avif)(\?[^\s]*)?$/i;
+
+/**
+ * Split note content into text, link, and image segments so it can be
+ * rendered as React nodes — never as HTML. Only http(s) URLs become links.
+ */
+export function segmentContent(content: string): ContentSegment[] {
+  const segments: ContentSegment[] = [];
+  let lastIndex = 0;
+  for (const match of content.matchAll(URL_PATTERN)) {
+    const start = match.index ?? 0;
+    // Trailing punctuation usually belongs to the sentence, not the URL.
+    const url = match[0].replace(/[),.;:!?'\]]+$/, "");
+    if (start > lastIndex) {
+      segments.push({ type: "text", value: content.slice(lastIndex, start) });
+    }
+    segments.push(
+      IMAGE_PATTERN.test(url) ? { type: "image", url } : { type: "link", url },
+    );
+    lastIndex = start + url.length;
+  }
+  if (lastIndex < content.length) {
+    segments.push({ type: "text", value: content.slice(lastIndex) });
+  }
+  return segments;
+}
+
+/** "3 minutes ago"-style label, as following.space shows on cards. */
+export function relativeTime(timestamp: number, now = Date.now()): string {
+  const seconds = Math.max(0, Math.floor(now / 1000) - timestamp);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const plural = (n: number, unit: string) =>
+    `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+  if (days >= 365) return plural(Math.floor(days / 365), "year");
+  if (days > 30) return plural(Math.floor(days / 30), "month");
+  if (days > 0) return plural(days, "day");
+  if (hours > 0) return plural(hours, "hour");
+  if (minutes > 0) return plural(minutes, "minute");
+  return "just now";
+}
+
+export function conscriptCount(count: number): string {
+  return `${count} ${count === 1 ? "conscript" : "conscripts"}`;
+}

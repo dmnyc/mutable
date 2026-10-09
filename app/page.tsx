@@ -7,7 +7,19 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
 import SnoopableGlasses from "@/components/SnoopableGlasses";
-import { Lock, User, Loader2, Flag, Trash2, Search } from "lucide-react";
+import {
+  Lock,
+  User,
+  Loader2,
+  Flag,
+  Trash2,
+  Search,
+  Medal,
+  Sparkles,
+  Wrench,
+  Radiation,
+  Skull,
+} from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -354,6 +366,118 @@ export default function Home() {
                 {lookupError}
               </p>
             )}
+          </div>
+
+          {/* More from Mutable — Draftable up top, then the tools that
+              live under Other Stuff. Rows that need sign-in say so. */}
+          <div className="max-w-md mx-auto w-full mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-3 mb-4">
+              <Sparkles
+                size={24}
+                className="text-red-600 dark:text-red-400 flex-shrink-0 mt-1"
+              />
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  More from Mutable
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Explore more tools in the shed.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleToolSearch("/draftable")}
+              title="Follow packs they've been drafted into (and can't leave)"
+              className="camo [--camo-size:240px] [--camo-x:-60px] [--camo-y:-110px] [--camo-shade:0.35] hover:[--camo-shade:0.5] w-full px-3 py-2.5 text-white rounded-lg ring-1 ring-black/20 transition-shadow hover:shadow-md font-semibold flex items-center justify-center gap-1.5 text-sm [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]"
+            >
+              <Medal
+                size={16}
+                className="drop-shadow-[0_1px_1px_rgb(0_0_0/0.8)]"
+              />
+              Draftable
+              <span className="text-[10px] font-bold px-1 py-px bg-[#2a3016] rounded [text-shadow:none]">
+                NEW
+              </span>
+            </button>
+
+            <div className="mt-3 space-y-2">
+              <Link
+                href="/reportable"
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center flex-shrink-0">
+                  <Flag size={16} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Reportable
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Reports filed by and against anyone, plus a live feed
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/muggable"
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
+                  <Wrench size={16} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Muggable
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Check whether a Nostr key is holding Bitcoin on-chain
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/note-nuke"
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-red-700 flex items-center justify-center flex-shrink-0">
+                  <Radiation size={16} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Note Nuke
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Ask every relay we can reach to delete a note
+                  </p>
+                </div>
+                <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 flex-shrink-0">
+                  <Lock size={10} />
+                  Login
+                </span>
+              </Link>
+
+              <Link
+                href="/decimator"
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                  <Skull size={16} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Decimator
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Trim your follow list by percentage or count
+                  </p>
+                </div>
+                <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 flex-shrink-0">
+                  <Lock size={10} />
+                  Login
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* Creator credits */}
