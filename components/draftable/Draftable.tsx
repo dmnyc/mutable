@@ -113,6 +113,8 @@ export default function Draftable() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  // "All packs" loads every pack at once and reveals them in steps.
+  const [browseShown, setBrowseShown] = useState(VISIBLE_PER_LOAD);
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   // Pack search: what's typed, and the debounced term that's searched.
@@ -318,44 +320,69 @@ export default function Draftable() {
     [runQuery, visibleCount],
   );
 
-  const load = useCallback(async () => {
-    const id = ++requestId.current;
-    setPacks([]);
-    setError(null);
-    setHasMore(false);
-    setLoadingMore(false);
-    if (needsSignIn) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    let first: { packs: FollowPack[]; hasMore: boolean } | null = null;
-    try {
-      first = await runQuery();
-      if (id !== requestId.current) return;
-      setPacks(first.packs);
-      setHasMore(first.hasMore);
-    } catch (err) {
-      if (id !== requestId.current) return;
-      setError(getErrorMessage(err, "Failed to load follow packs"));
-    } finally {
-      if (id === requestId.current) setLoading(false);
-    }
-    // A first page that's mostly hidden test packs keeps going.
-    if (
-      first?.hasMore &&
-      first.packs.length > 0 &&
-      visibleCount(first.packs) < VISIBLE_PER_LOAD
-    ) {
-      await fillTo(first.packs, VISIBLE_PER_LOAD, id);
-    }
-  }, [runQuery, needsSignIn, visibleCount, fillTo]);
+  const load = useCallback(
+    async (fresh = false) => {
+      const id = ++requestId.current;
+      setPacks([]);
+      setError(null);
+      setHasMore(false);
+      setLoadingMore(false);
+      setBrowseShown(VISIBLE_PER_LOAD);
+      if (needsSignIn) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      // "All packs" reads the full, cached pack list that search uses, so
+      // Discover more is instant however many hidden test packs sit between
+      // real ones.
+      if (effectiveView === "all") {
+        try {
+          const all = await fetchAllPacks(relays, { fresh });
+          if (id !== requestId.current) return;
+          setAllPacks(all);
+          setPacks(all);
+        } catch (err) {
+          if (id !== requestId.current) return;
+          setError(getErrorMessage(err, "Failed to load follow packs"));
+        } finally {
+          if (id === requestId.current) setLoading(false);
+        }
+        return;
+      }
+      let first: { packs: FollowPack[]; hasMore: boolean } | null = null;
+      try {
+        first = await runQuery();
+        if (id !== requestId.current) return;
+        setPacks(first.packs);
+        setHasMore(first.hasMore);
+      } catch (err) {
+        if (id !== requestId.current) return;
+        setError(getErrorMessage(err, "Failed to load follow packs"));
+      } finally {
+        if (id === requestId.current) setLoading(false);
+      }
+      // A first page that's mostly hidden test packs keeps going.
+      if (
+        first?.hasMore &&
+        first.packs.length > 0 &&
+        visibleCount(first.packs) < VISIBLE_PER_LOAD
+      ) {
+        await fillTo(first.packs, VISIBLE_PER_LOAD, id);
+      }
+    },
+    [runQuery, needsSignIn, visibleCount, fillTo, effectiveView, relays],
+  );
 
   useEffect(() => {
     load();
   }, [load]);
 
   const loadMore = () => {
+    if (effectiveView === "all") {
+      setBrowseShown((n) => n + VISIBLE_PER_LOAD);
+      return;
+    }
     if (loadingMore || packs.length === 0) return;
     fillTo(packs, visibleCount(packs) + VISIBLE_PER_LOAD, requestId.current);
   };
@@ -403,15 +430,19 @@ export default function Draftable() {
   const browsePacks = packs.filter(keep);
   const matchingPacks = searchResults.filter(keep);
 
-  // While more pages remain, hold back the leftovers so the last row is
-  // full. They're still loaded and lead the next page.
-  const visiblePacks =
-    hasMore && browsePacks.length > ROW_MULTIPLE
+  // "All packs" has everything loaded and shows it in steps of full rows.
+  // Other views page from relays; while more pages remain, hold back the
+  // leftovers so the last row is full. They lead the next page.
+  const browsingAll = effectiveView === "all";
+  const visiblePacks = browsingAll
+    ? browsePacks.slice(0, browseShown)
+    : hasMore && browsePacks.length > ROW_MULTIPLE
       ? browsePacks.slice(
           0,
           browsePacks.length - (browsePacks.length % ROW_MULTIPLE),
         )
       : browsePacks;
+  const canShowMore = browsingAll ? browsePacks.length > browseShown : hasMore;
   const shownResults = matchingPacks.slice(0, searchShown);
   const displayedPacks = searchActive ? shownResults : visiblePacks;
 
@@ -600,7 +631,7 @@ export default function Draftable() {
           </button>
         ))}
         <button
-          onClick={load}
+          onClick={() => load(true)}
           disabled={loading}
           className="ml-auto p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
           title="Refresh"
@@ -774,7 +805,7 @@ export default function Draftable() {
               Every pack loaded so far looks like a test or was abandoned.
             </div>
           )}
-          {hasMore && (
+          {canShowMore && (
             <div className="text-center">
               <button
                 onClick={loadMore}
