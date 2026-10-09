@@ -686,7 +686,7 @@ async function encryptPrivateMutes(
 // Publish an event to relays with a timeout to prevent indefinite hangs.
 // pool.publish() returns promises that may never settle if relay connections
 // fail silently, so we race against a timeout.
-async function publishToRelays(
+export async function publishToRelays(
   pool: SimplePool,
   relays: string[],
   event: Event,

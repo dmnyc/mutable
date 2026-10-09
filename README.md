@@ -68,6 +68,19 @@ Analyze public NIP-04 DM metadata to see who someone talks to most (without decr
 - **Shareable Notes**: Copy a ready-to-post note or publish directly to Nostr
 - **No Login Required**: Analyze any npub using public relay data
 
+### Draftable 🎖️ NEW
+
+Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://following.space) app rebuilt inside Mutable. **Nobody can leave a follow pack.** A pack is a public list signed by its author: the people in it are never asked, never notified, and have no way to remove themselves. Only the author can take someone out. Draftable says so everywhere it matters.
+
+- **Browse**: All packs, packs from people you follow, packs you've been drafted into, and packs you made, with "Discover more" paging
+- **Drafted Into**: See every pack you (or any npub, no login required) have been conscripted into, with a reminder that there's no way out
+- **Pack Pages**: Cover, description, every conscript with Follow/Unfollow, a Posts tab of their recent notes, Follow All, copy link and `nostr:naddr`
+- **Recourse**: On a pack you're in, ask the author to release you or mute them in one click (muting hides them; it doesn't get you out)
+- **Create & Edit**: Name, cover image (URL or Blossom upload), description, search-to-draft by name/NIP-05/npub/nprofile, reorder, release, delete (NIP-09)
+- **Safe Following**: Follow All re-reads your newest follow list, keeps every existing tag, saves a backup to Backups first, and refuses to overwrite a follow list it can't find
+- **Link Previews**: Per-pack social cards (`/draftable/card`) with the pack name, faces, and conscript count
+- **Compatible**: Reads and writes the same events as following.space; paste a following.space link or naddr to open any pack
+
 ### Authentication
 - **NIP-07**: Connect using browser extensions (Alby, nos2x)
 - **NIP-46**: Connect with remote signers like Amber for enhanced key security
@@ -127,12 +140,14 @@ The app is configured for deployment on Vercel:
 mutable/
 ├── app/                    # Next.js app directory
 │   ├── dashboard/         # Dashboard page
+│   ├── draftable/         # Draftable follow packs (browse, create, /d/[id] pack pages, social card)
 │   ├── mute-o-scope/      # Mute-o-Scope standalone page
 │   ├── note-nuke/         # Note Nuke standalone page
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Landing page
 ├── components/            # React components
+│   ├── draftable/         # Draftable views, "no exit" notices, profile loader
 │   ├── AuthModal.tsx      # Authentication modal
 │   ├── BackupRestore.tsx  # Backup/restore functionality
 │   ├── Backups.tsx        # Backup management component
@@ -168,6 +183,7 @@ mutable/
 │   └── useRelaySync.ts   # Relay storage sync hook
 ├── lib/                   # Library code
 │   ├── nostr.ts          # Nostr protocol functions
+│   ├── draftable/        # Follow pack parsing/building, relay service, link-preview fetcher
 │   ├── store.ts          # Zustand state management
 │   ├── relayStorage.ts   # NIP-78 relay storage implementation
 │   ├── syncManager.ts    # Sync coordination service
@@ -203,6 +219,13 @@ mutable/
 4. **Deploy**: Broadcast deletion event to selected relays
 5. **Reason**: Optionally add a reason for the deletion
 
+### Draftable
+1. **Browse**: Open Draftable from Other Stuff (or the home page lookup) to see recent follow packs
+2. **Check Your Drafts**: Pick "Packs I've been drafted into" to see every pack you're in. You can't leave any of them
+3. **Follow**: Open a pack and Follow All, or follow people one by one. Your previous follow list is saved to Backups first
+4. **Draft**: Click "Draft a new pack", name it, search for people, and publish. They won't be asked
+5. **Release**: Edit your pack to remove people, or delete it
+
 ### Personal Mute List Management
 1. **Connect**: Click "Connect with Nostr" and authorize with your NIP-07 extension
 2. **View Your List**: See your current mute list organized by category
@@ -216,6 +239,7 @@ mutable/
 
 - **kind:10000**: Personal mute list (replaceable event)
 - **kind:30001**: Public/categorized mute list (parameterized replaceable event)
+- **kind:39089**: Follow pack (Draftable, compatible with following.space)
 - **kind:30078**: Application-specific data (NIP-78) - used for relay storage sync
 - **kind:5**: Delete event marker (for Note Nuke)
 - **kind:1**: Text note (for sharing Mute-o-Scope results)
@@ -283,6 +307,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Built for the Nostr protocol
 - From the creator of [Plebs vs. Zombies](https://plebsvszombies.cc) and [Ghostr](https://ghostr.org)
+- Draftable is ported from [following.space](https://github.com/callebtc/nostr-follow-packs) by calle (MIT)
 
 ## Author
 

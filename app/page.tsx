@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
 import SnoopableGlasses from "@/components/SnoopableGlasses";
-import { Lock, User, Loader2, Flag, Trash2, Search } from "lucide-react";
+import { Lock, User, Loader2, Flag, Trash2, Search, Medal } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
 
@@ -344,6 +344,17 @@ export default function Home() {
                 <Trash2 size={16} />
                 Redactable
                 <span className="text-[10px] font-bold px-1 py-px bg-gray-800 rounded">
+                  NEW
+                </span>
+              </button>
+              <button
+                onClick={() => handleToolSearch("/draftable")}
+                title="Follow packs they've been drafted into (and can't leave)"
+                className="col-span-2 px-3 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
+              >
+                <Medal size={16} />
+                Draftable
+                <span className="text-[10px] font-bold px-1 py-px bg-green-900 rounded">
                   NEW
                 </span>
               </button>

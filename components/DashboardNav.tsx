@@ -21,6 +21,7 @@ type ActivePage =
   | "muggable"
   | "reportable"
   | "redactable"
+  | "draftable"
   | "settings";
 
 interface DashboardNavProps {
@@ -38,6 +39,7 @@ const toolPages: ActivePage[] = [
   "muggable",
   "listCleaner",
   "clonable",
+  "draftable",
 ];
 
 // Map page IDs to display names
@@ -58,6 +60,7 @@ const pageNames: Record<ActivePage, string> = {
   muggable: "Muggable",
   reportable: "Reportable",
   redactable: "Redactable",
+  draftable: "Draftable",
   settings: "Settings",
 };
 
@@ -79,6 +82,7 @@ const pageUrls: Record<ActivePage, string> = {
   muggable: "/muggable",
   reportable: "/reportable",
   redactable: "/redactable",
+  draftable: "/draftable",
   settings: "/dashboard?tab=settings",
 };
 
