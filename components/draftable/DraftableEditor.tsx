@@ -133,6 +133,15 @@ export default function DraftableEditor() {
   const pendingReleases = (existing?.members ?? []).filter(
     (m) => !members.some((kept) => kept.pubkey === m.pubkey),
   );
+  // Anything that differs from the published pack. Until something does,
+  // there's nothing for "Update pack" to publish.
+  const unsavedChanges =
+    !!existing &&
+    (name.trim() !== existing.name.trim() ||
+      description.trim() !== existing.description.trim() ||
+      image.trim() !== existing.image.trim() ||
+      members.map((m) => m.pubkey).join() !==
+        existing.members.map((m) => m.pubkey).join());
 
   if (!session) {
     return (
@@ -694,7 +703,9 @@ export default function DraftableEditor() {
                       ]
                         .filter(Boolean)
                         .join(" · ") + ", not published yet"
-                    : `Editing “${name.trim() || existing?.name}”`}
+                    : unsavedChanges
+                      ? "Pack details changed, not published yet"
+                      : `Editing “${existing?.name}” · no changes yet`}
               </p>
               {members.length > 0 && (
                 <p className="hidden sm:block text-gray-600 dark:text-gray-400 truncate">
@@ -715,7 +726,12 @@ export default function DraftableEditor() {
             <button
               type="button"
               onClick={handlePublish}
-              disabled={publishing || uploading}
+              disabled={publishing || uploading || (editing && !unsavedChanges)}
+              title={
+                editing && !unsavedChanges
+                  ? "Nothing to update yet: change the pack first"
+                  : undefined
+              }
               className="camo camo-button [--camo-x:-60px] [--camo-y:-150px] inline-flex items-center justify-center gap-2 h-10 px-5 text-sm rounded-lg font-bold disabled:opacity-60"
             >
               {publishing && <Loader2 size={16} className="animate-spin" />}
