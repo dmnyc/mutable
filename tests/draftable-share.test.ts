@@ -201,3 +201,28 @@ describe("profileRefs", () => {
     ]);
   });
 });
+
+describe("profileRefs inside links", () => {
+  it("leaves an npub in a URL alone", () => {
+    const npub = nip19.npubEncode(AUTHOR);
+    expect(
+      profileRefs(
+        `See mine: https://mutable.top/draftable?npub=${npub}&view=drafted`,
+      ),
+    ).toEqual([]);
+    expect(profileRefs(`cc (${npub})`)).toEqual([
+      { ref: npub, pubkey: AUTHOR },
+    ]);
+  });
+
+  it("keeps the drafted-into share link intact end to end", () => {
+    const parts = draftedShareMessage({
+      pubkey: AUTHOR,
+      name: "",
+      self: true,
+      count: 16,
+      more: false,
+    });
+    expect(profileRefs(shareContent(parts))).toEqual([]);
+  });
+});

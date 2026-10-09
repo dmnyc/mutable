@@ -304,17 +304,9 @@ export default function DraftableEditor() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-28">
       <BackToPacks />
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          {editing ? "Edit follow pack" : "Draft a follow pack"}
-        </h1>
-        <Link
-          href={existing ? packPath(existing) : "/draftable"}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        >
-          Cancel
-        </Link>
-      </div>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        {editing ? "Edit follow pack" : "Draft a follow pack"}
+      </h1>
 
       <EditorNotice />
 
@@ -659,6 +651,27 @@ export default function DraftableEditor() {
         )}
       </section>
 
+      {/* Deleting lives apart from Save/Cancel so it's never hit by habit. */}
+      {existing && (
+        <section className="rounded-lg border border-red-200 dark:border-red-900/60 bg-white dark:bg-gray-800 p-6 space-y-3">
+          <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">
+            Delete this pack
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Sends a deletion request to your relays. Relays that honor it drop
+            the pack and release everyone in it; copies elsewhere may survive.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
+          >
+            <Trash2 size={16} />
+            Delete pack
+          </button>
+        </section>
+      )}
+
       {/* A strip across the bottom, like the mute list's unsaved-changes
           banner, so a long pack never needs scrolling to publish. */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#f4f2e0] dark:bg-[#23280f] border-t-2 border-[#4b5320] dark:border-[#8a9a4a] shadow-lg">
@@ -681,7 +694,7 @@ export default function DraftableEditor() {
                       ]
                         .filter(Boolean)
                         .join(" · ") + ", not published yet"
-                    : "No unpublished changes to people"}
+                    : `Editing “${name.trim() || existing?.name}”`}
               </p>
               {members.length > 0 && (
                 <p className="hidden sm:block text-gray-600 dark:text-gray-400 truncate">
@@ -693,17 +706,12 @@ export default function DraftableEditor() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {editing && (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="inline-flex items-center justify-center gap-1.5 h-10 px-3 text-sm text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border-2 border-red-300 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
-                title="Delete pack"
-              >
-                <Trash2 size={16} />
-                <span className="hidden sm:inline">Delete</span>
-              </button>
-            )}
+            <Link
+              href={existing ? packPath(existing) : "/draftable"}
+              className="inline-flex items-center justify-center h-10 px-4 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              Cancel
+            </Link>
             <button
               type="button"
               onClick={handlePublish}
