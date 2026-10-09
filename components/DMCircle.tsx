@@ -15,6 +15,7 @@ import { DMContact, Profile } from "@/types";
 import { hexToNpub, publishTextNote, DEFAULT_RELAYS } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { getPostedNoteLink } from "@/lib/utils/links";
 import { uploadImageToBlossom } from "@/lib/imageUpload";
 import { useStore } from "@/lib/store";
 import { nip19 } from "nostr-tools";
@@ -576,9 +577,7 @@ export default function DMCircle({
 
   const copyNoteLink = async () => {
     if (publishedNoteId) {
-      const success = await copyToClipboard(
-        `https://jumble.social/notes/${publishedNoteId}`,
-      );
+      const success = await copyToClipboard(getPostedNoteLink(publishedNoteId));
       if (success) {
         setCopiedLink(true);
         setTimeout(() => setCopiedLink(false), 2000);
@@ -874,7 +873,7 @@ export default function DMCircle({
             </div>
             <div className="flex items-center gap-2">
               <a
-                href={`https://jumble.social/notes/${publishedNoteId}`}
+                href={getPostedNoteLink(publishedNoteId)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"

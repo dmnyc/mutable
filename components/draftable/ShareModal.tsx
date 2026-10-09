@@ -19,7 +19,7 @@ import { useStore } from "@/lib/store";
 import { publishTextNote } from "@/lib/nostr";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
-import { getEventLink } from "@/lib/utils/links";
+import { getPostedNoteLink } from "@/lib/utils/links";
 import { draftableRelays } from "@/lib/draftable/service";
 import {
   SharePart,
@@ -129,7 +129,7 @@ export default function ShareModal({
       setPosted(true);
       if (result.event) {
         setPostedLink(
-          getEventLink(result.event.id, {
+          getPostedNoteLink(result.event.id, {
             relays: session.relays,
             author: result.event.pubkey,
           }),
