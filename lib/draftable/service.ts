@@ -139,11 +139,19 @@ async function scanRelay(relay: string): Promise<Event[]> {
 
 /**
  * Every pack on these relays, newest version of each, newest first. Cached
- * for a few minutes so each keystroke of a search doesn't refetch.
+ * for a few minutes, shared by "All packs" and search; `fresh` skips the
+ * cache (the Refresh button).
  */
-export function fetchAllPacks(relays: string[]): Promise<FollowPack[]> {
+export function fetchAllPacks(
+  relays: string[],
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<FollowPack[]> {
   const key = relays.join(",");
-  if (packIndex?.key === key && Date.now() - packIndex.at < INDEX_TTL_MS) {
+  if (
+    !fresh &&
+    packIndex?.key === key &&
+    Date.now() - packIndex.at < INDEX_TTL_MS
+  ) {
     return packIndex.packs;
   }
   const packs = Promise.all(relays.map(scanRelay)).then((batches) =>

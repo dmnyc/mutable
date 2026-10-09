@@ -6,9 +6,9 @@ import {
   ArrowLeft,
   Check,
   Copy,
-  ExternalLink,
   Link2,
   Loader2,
+  Megaphone,
   Pencil,
   PartyPopper,
   Share2,
@@ -40,12 +40,19 @@ import {
   followPubkeys,
   unfollowPubkeys,
 } from "@/lib/draftable/service";
-import { PackShareRole, packShareMessage } from "@/lib/draftable/share";
+import {
+  PackShareRole,
+  packCardPath,
+  packShareMessage,
+  packShareUrl,
+  releaseRequestMessage,
+} from "@/lib/draftable/share";
 import ProfileAvatar from "../ProfileAvatar";
 import UserProfileModal from "../UserProfileModal";
 import { useRequestSignIn } from "./DraftableShell";
 import { AuthorNotice, BystanderNotice, DraftedNotice } from "./NoExit";
 import PackPosts from "./PackPosts";
+import BackToPacks from "./BackToPacks";
 import ShareModal from "./ShareModal";
 import { useProfiles } from "./useProfiles";
 
@@ -87,6 +94,7 @@ export default function DraftablePack({
   const [copied, setCopied] = useState<"link" | "naddr" | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const [showPublished, setShowPublished] = useState(justPublished);
 
   const hintKey = relayHints.join(",");
@@ -213,7 +221,7 @@ export default function DraftablePack({
         </p>
         <Link
           href="/draftable"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium"
+          className="camo camo-button inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold"
         >
           <ArrowLeft size={16} />
           Browse follow packs
@@ -229,6 +237,11 @@ export default function DraftablePack({
   );
   const isAuthor = session?.pubkey === pack.author;
   const drafted = isDrafted(pack, session?.pubkey);
+  const packPreview = {
+    url: packShareUrl(pack),
+    image: packCardPath(pack),
+    title: `${pack.name} — a follow pack on Draftable`,
+  };
   const shareRole: PackShareRole = isAuthor
     ? "author"
     : drafted
@@ -287,7 +300,7 @@ export default function DraftablePack({
   };
 
   const handleMuteAuthor = () => {
-    if (authorMuted) return;
+    if (authorMuted || isAuthor) return;
     addMutedItem(
       {
         type: "pubkey",
@@ -343,13 +356,7 @@ export default function DraftablePack({
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Link
-        href="/draftable"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-      >
-        <ArrowLeft size={14} />
-        All follow packs
-      </Link>
+      <BackToPacks />
 
       {showPublished && isAuthor && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-lg border-2 border-[#4b5320] bg-[#f0f0dc] dark:bg-[#4b5320]/25">
@@ -426,7 +433,7 @@ export default function DraftablePack({
               <button
                 onClick={handleFollowAll}
                 disabled={busy !== null || (!!session && following === null)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium disabled:opacity-50"
+                className="camo camo-button [--camo-x:-150px] [--camo-y:-60px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
               >
                 {busy === "all" ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -504,18 +511,19 @@ export default function DraftablePack({
         </div>
       )}
 
-      {/* The rule, stated for whoever is looking */}
-      {drafted ? (
+      {/* The rule, stated for whoever is looking. The author comes first:
+          they can't be drafted against their will, even into their own pack. */}
+      {isAuthor ? (
+        <AuthorNotice count={pack.members.length} />
+      ) : drafted ? (
         <DraftedNotice authorName={authorName}>
-          <a
-            href={getProfileLink(pack.author)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setReleaseOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-[#4b5320]/50 dark:border-[#4b5320] text-[#33391a] dark:text-[#c8d18e] text-sm font-medium hover:bg-[#4b5320]/10 dark:hover:bg-[#4b5320]/40 transition-colors"
           >
-            <ExternalLink size={14} />
+            <Megaphone size={14} />
             Ask {authorName} to release you
-          </a>
+          </button>
           <button
             onClick={handleMuteAuthor}
             disabled={authorMuted}
@@ -525,8 +533,6 @@ export default function DraftablePack({
             {authorMuted ? `${authorName} is muted` : `Mute ${authorName}`}
           </button>
         </DraftedNotice>
-      ) : isAuthor ? (
-        <AuthorNotice count={pack.members.length} />
       ) : (
         <BystanderNotice authorName={authorName} />
       )}
@@ -632,6 +638,20 @@ export default function DraftablePack({
         />
       )}
 
+      {releaseOpen && (
+        <ShareModal
+          title={`Ask ${authorName} to release you`}
+          subtitle="Post a public note asking them to take you out of this pack, or reach them through their profile."
+          message={releaseRequestMessage(pack, authorName)}
+          preview={packPreview}
+          secondaryLink={{
+            href: getProfileLink(pack.author),
+            label: `View ${authorName}'s profile`,
+          }}
+          onClose={() => setReleaseOpen(false)}
+        />
+      )}
+
       {shareOpen && (
         <ShareModal
           title={isAuthor ? "Share your pack" : "Share this pack"}
@@ -641,6 +661,7 @@ export default function DraftablePack({
               : "Post it to Nostr or copy it anywhere."
           }
           message={packShareMessage(pack, shareRole, authorName)}
+          preview={packPreview}
           onClose={() => setShareOpen(false)}
         />
       )}

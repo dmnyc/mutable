@@ -5,14 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertCircle,
-  ArrowDown,
   ArrowLeft,
-  ArrowUp,
   ImageIcon,
   Loader2,
+  Medal,
   Trash2,
+  Undo2,
   Upload,
   UserMinus,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
@@ -38,6 +39,7 @@ import {
 import ProfileAvatar from "../ProfileAvatar";
 import UserSearchInput from "../UserSearchInput";
 import { useRequestSignIn } from "./DraftableShell";
+import BackToPacks from "./BackToPacks";
 import { EditorNotice } from "./NoExit";
 import { useProfiles } from "./useProfiles";
 
@@ -106,9 +108,30 @@ export default function DraftableEditor() {
     };
   }, [editId, session, relays]);
 
+  // Released people still need names, for the "releasing" chips.
   const profiles = useProfiles(
-    useMemo(() => members.map((m) => m.pubkey), [members]),
+    useMemo(
+      () =>
+        Array.from(
+          new Set([
+            ...members.map((m) => m.pubkey),
+            ...(existing?.members.map((m) => m.pubkey) ?? []),
+          ]),
+        ),
+      [members, existing],
+    ),
     relays,
+  );
+
+  // What's changed since the pack was last published. For a new pack,
+  // everyone is still to be drafted.
+  const published = useMemo(
+    () => new Set(existing?.members.map((m) => m.pubkey) ?? []),
+    [existing],
+  );
+  const pendingAdds = members.filter((m) => !published.has(m.pubkey));
+  const pendingReleases = (existing?.members ?? []).filter(
+    (m) => !members.some((kept) => kept.pubkey === m.pubkey),
   );
 
   if (!session) {
@@ -145,7 +168,7 @@ export default function DraftableEditor() {
         <p className="text-gray-700 dark:text-gray-300 mb-6">{loadError}</p>
         <Link
           href="/draftable?view=mine"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-medium"
+          className="camo camo-button inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold"
         >
           <ArrowLeft size={16} />
           Your packs
@@ -174,18 +197,22 @@ export default function DraftableEditor() {
     setSearchKey((k) => k + 1);
   };
 
-  const move = (index: number, delta: -1 | 1) => {
-    setMembers((prev) => {
-      const target = index + delta;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
-
   const release = (pubkey: string) =>
     setMembers((prev) => prev.filter((m) => m.pubkey !== pubkey));
+
+  // Put a released person back where they were in the published pack.
+  const undoRelease = (pubkey: string) => {
+    const order = existing?.members.map((m) => m.pubkey) ?? [];
+    const member = existing?.members.find((m) => m.pubkey === pubkey);
+    if (!member) return;
+    setMembers((prev) =>
+      [...prev, member].sort((a, b) => {
+        const ia = order.indexOf(a.pubkey);
+        const ib = order.indexOf(b.pubkey);
+        return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
+      }),
+    );
+  };
 
   const releaseAll = () => {
     if (confirm(`Release all ${members.length} people from this pack?`)) {
@@ -275,7 +302,8 @@ export default function DraftableEditor() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 pb-28">
+      <BackToPacks />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {editing ? "Edit follow pack" : "Draft a follow pack"}
@@ -468,6 +496,97 @@ export default function DraftableEditor() {
           </p>
         )}
 
+        {/* Changes since the last publish, right under the search box so
+            new additions show even when the list runs off screen. */}
+        {(pendingAdds.length > 0 || pendingReleases.length > 0) && (
+          <div className="p-3 rounded-lg border border-dashed border-[#b3a869] dark:border-[#6b6237] bg-[#f4f2e0] dark:bg-[#6b6237]/20 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6237] dark:text-[#cfc58e]">
+              Not published yet
+            </p>
+            {pendingAdds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-sm text-[#4f4826] dark:text-[#e2dab0] mr-1">
+                  Drafting {pendingAdds.length}:
+                </span>
+                {pendingAdds.slice(-12).map((member) => {
+                  const profile = profiles.get(member.pubkey);
+                  const name = getDisplayName(
+                    profile,
+                    truncateNpub(member.pubkey, 8, 4),
+                  );
+                  return (
+                    <span
+                      key={member.pubkey}
+                      className="inline-flex items-center gap-1.5 pl-1 pr-1.5 py-0.5 rounded-full bg-white dark:bg-gray-800 border border-[#b3a869] dark:border-[#6b6237] text-sm text-gray-900 dark:text-white"
+                    >
+                      <ProfileAvatar
+                        src={profile?.picture}
+                        name={name}
+                        size="sm"
+                        className="!w-5 !h-5"
+                      />
+                      <span className="max-w-[10rem] truncate">{name}</span>
+                      <button
+                        type="button"
+                        onClick={() => release(member.pubkey)}
+                        className="text-gray-400 hover:text-red-600"
+                        title={`Don't draft ${name}`}
+                        aria-label={`Don't draft ${name}`}
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  );
+                })}
+                {pendingAdds.length > 12 && (
+                  <span className="text-sm text-[#4f4826] dark:text-[#e2dab0]">
+                    and {pendingAdds.length - 12} more
+                  </span>
+                )}
+              </div>
+            )}
+            {pendingReleases.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-sm text-[#4f4826] dark:text-[#e2dab0] mr-1">
+                  Releasing {pendingReleases.length}:
+                </span>
+                {pendingReleases.map((member) => {
+                  const profile = profiles.get(member.pubkey);
+                  const name = getDisplayName(
+                    profile,
+                    truncateNpub(member.pubkey, 8, 4),
+                  );
+                  return (
+                    <span
+                      key={member.pubkey}
+                      className="inline-flex items-center gap-1.5 pl-1 pr-1.5 py-0.5 rounded-full bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900 text-sm text-gray-500 dark:text-gray-400"
+                    >
+                      <ProfileAvatar
+                        src={profile?.picture}
+                        name={name}
+                        size="sm"
+                        className="!w-5 !h-5 opacity-60"
+                      />
+                      <span className="max-w-[10rem] truncate line-through">
+                        {name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => undoRelease(member.pubkey)}
+                        className="text-gray-400 hover:text-[#4b5320] dark:hover:text-[#b9cc7f]"
+                        title={`Keep ${name}`}
+                        aria-label={`Keep ${name}`}
+                      >
+                        <Undo2 size={14} />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2">
           <h3 className="font-medium text-gray-900 dark:text-white">
             {conscriptCount(members.length)}
@@ -494,44 +613,35 @@ export default function DraftableEditor() {
           </div>
         ) : (
           <ul className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
-            {members.map((member, index) => {
+            {members.map((member) => {
               const profile = profiles.get(member.pubkey);
+              const isNew = !!existing && !published.has(member.pubkey);
               return (
-                <li key={member.pubkey} className="p-3 flex items-center gap-3">
+                <li
+                  key={member.pubkey}
+                  className={`p-3 flex items-center gap-3 ${isNew ? "bg-[#f4f2e0] dark:bg-[#6b6237]/20" : ""}`}
+                >
                   <ProfileAvatar
                     src={profile?.picture}
                     name={getDisplayName(profile)}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-white truncate">
-                      {getDisplayName(
-                        profile,
-                        truncateNpub(member.pubkey, 12, 4),
+                    <p className="flex items-center gap-2 font-medium text-gray-900 dark:text-white min-w-0">
+                      <span className="truncate">
+                        {getDisplayName(
+                          profile,
+                          truncateNpub(member.pubkey, 12, 4),
+                        )}
+                      </span>
+                      {isNew && (
+                        <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-[#4b5320] text-white text-[10px] font-bold uppercase tracking-wide">
+                          New
+                        </span>
                       )}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {profile?.nip05 || truncateNpub(member.pubkey, 12, 6)}
                     </p>
-                  </div>
-                  <div className="flex flex-col">
-                    <button
-                      type="button"
-                      onClick={() => move(index, -1)}
-                      disabled={index === 0}
-                      className="text-gray-400 hover:text-[#4b5320] disabled:opacity-30 disabled:hover:text-gray-400"
-                      title="Move up"
-                    >
-                      <ArrowUp size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => move(index, 1)}
-                      disabled={index === members.length - 1}
-                      className="text-gray-400 hover:text-[#4b5320] disabled:opacity-30 disabled:hover:text-gray-400"
-                      title="Move down"
-                    >
-                      <ArrowDown size={16} />
-                    </button>
                   </div>
                   <button
                     type="button"
@@ -549,42 +659,67 @@ export default function DraftableEditor() {
         )}
       </section>
 
-      <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
-        {editing ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
-          >
-            <Trash2 size={16} />
-            Delete pack
-          </button>
-        ) : (
-          <span />
-        )}
-        <div className="flex flex-col items-stretch sm:items-end gap-1">
-          <button
-            type="button"
-            onClick={handlePublish}
-            disabled={publishing || uploading}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#4b5320] text-white rounded-lg hover:bg-[#3c4419] transition-colors font-semibold disabled:opacity-60"
-          >
-            {publishing && <Loader2 size={16} className="animate-spin" />}
-            {publishing
-              ? editing
-                ? "Updating..."
-                : "Publishing..."
-              : editing
-                ? "Update pack"
-                : "Publish pack"}
-          </button>
-          {members.length > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center sm:text-right">
-              Drafts {members.length}{" "}
-              {members.length === 1 ? "person" : "people"} into a public pack
-              they can&apos;t leave.
-            </p>
-          )}
+      {/* A strip across the bottom, like the mute list's unsaved-changes
+          banner, so a long pack never needs scrolling to publish. */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#f4f2e0] dark:bg-[#23280f] border-t-2 border-[#4b5320] dark:border-[#8a9a4a] shadow-lg">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Medal
+              size={20}
+              className="flex-shrink-0 text-[#4b5320] dark:text-[#c8d18e]"
+            />
+            <div className="text-sm min-w-0">
+              <p className="font-bold text-gray-900 dark:text-white truncate">
+                {!editing
+                  ? "New pack"
+                  : pendingAdds.length > 0 || pendingReleases.length > 0
+                    ? [
+                        pendingAdds.length > 0 &&
+                          `${pendingAdds.length} to draft`,
+                        pendingReleases.length > 0 &&
+                          `${pendingReleases.length} to release`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") + ", not published yet"
+                    : "No unpublished changes to people"}
+              </p>
+              {members.length > 0 && (
+                <p className="hidden sm:block text-gray-600 dark:text-gray-400 truncate">
+                  Drafts {members.length}{" "}
+                  {members.length === 1 ? "person" : "people"} into a public
+                  pack they can&apos;t leave.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {editing && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center justify-center gap-1.5 h-10 px-3 text-sm text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border-2 border-red-300 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
+                title="Delete pack"
+              >
+                <Trash2 size={16} />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={publishing || uploading}
+              className="camo camo-button [--camo-x:-60px] [--camo-y:-150px] inline-flex items-center justify-center gap-2 h-10 px-5 text-sm rounded-lg font-bold disabled:opacity-60"
+            >
+              {publishing && <Loader2 size={16} className="animate-spin" />}
+              {publishing
+                ? editing
+                  ? "Updating..."
+                  : "Publishing..."
+                : editing
+                  ? "Update pack"
+                  : "Publish pack"}
+            </button>
+          </div>
         </div>
       </div>
 
