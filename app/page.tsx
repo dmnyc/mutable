@@ -403,23 +403,6 @@ export default function Home() {
 
             <div className="mt-3 space-y-2">
               <Link
-                href="/reportable"
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center flex-shrink-0">
-                  <Flag size={16} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Reportable
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Reports filed by and against anyone, plus a live feed
-                  </p>
-                </div>
-              </Link>
-
-              <Link
                 href="/muggable"
                 className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
