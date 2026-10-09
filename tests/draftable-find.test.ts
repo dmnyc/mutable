@@ -6,8 +6,12 @@ import {
   ABANDONED_AFTER_DAYS,
   UNTITLED_PACK,
   generatePackId,
+  isFullPubkey,
   matchPacks,
+  matchesAuthor,
   packIdError,
+  packPath,
+  parseAuthorParam,
   parsePackReference,
   referencePath,
   testPackReason,
@@ -69,7 +73,9 @@ describe("referencePath", () => {
         author: AUTHOR,
         relays: ["wss://relay.example"],
       }),
-    ).toBe(`/draftable/d/my%20pack?p=${AUTHOR}&r=wss%3A%2F%2Frelay.example`);
+    ).toBe(
+      `/draftable/d/my%20pack?p=${AUTHOR.slice(0, 8)}&r=wss%3A%2F%2Frelay.example`,
+    );
     expect(referencePath({ dTag: "abc" })).toBe("/draftable/d/abc");
   });
 });
@@ -212,5 +218,44 @@ describe("testPackReason", () => {
     expect(
       reason({ createdAt: NOW - (ABANDONED_AFTER_DAYS - 1) * DAY }),
     ).toBeNull();
+  });
+});
+
+describe("short pack links", () => {
+  it("carries an 8-character author prefix", () => {
+    const path = packPath({ author: AUTHOR, dTag: "snkwe5ebjvn9" });
+    expect(path).toBe(`/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`);
+    expect(path.length).toBeLessThan(40);
+  });
+
+  it("reads a full key, an npub, or a prefix of 8+ hex characters", () => {
+    expect(parseAuthorParam(AUTHOR)).toBe(AUTHOR);
+    expect(parseAuthorParam(nip19.npubEncode(AUTHOR))).toBe(AUTHOR);
+    expect(parseAuthorParam("EE6EA13A")).toBe("ee6ea13a");
+    expect(parseAuthorParam("ee6ea1")).toBeNull();
+    expect(parseAuthorParam("not-hex!")).toBeNull();
+    expect(parseAuthorParam(null)).toBeNull();
+  });
+
+  it("matches a prefix or a full key, and knows which can go in a filter", () => {
+    expect(matchesAuthor(AUTHOR, AUTHOR.slice(0, 8))).toBe(true);
+    expect(matchesAuthor(AUTHOR, AUTHOR)).toBe(true);
+    expect(matchesAuthor(OTHER, AUTHOR.slice(0, 8))).toBe(false);
+    expect(isFullPubkey(AUTHOR)).toBe(true);
+    expect(isFullPubkey(AUTHOR.slice(0, 8))).toBe(false);
+  });
+
+  it("opens pasted short links, and still opens long and following.space ones", () => {
+    const short = `https://mutable.top/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`;
+    expect(parsePackReference(short)).toEqual({
+      dTag: "snkwe5ebjvn9",
+      author: AUTHOR.slice(0, 8),
+    });
+    expect(
+      parsePackReference(`https://following.space/d/snkwe5ebjvn9?p=${AUTHOR}`),
+    ).toEqual({ dTag: "snkwe5ebjvn9", author: AUTHOR });
+    expect(referencePath({ dTag: "snkwe5ebjvn9", author: AUTHOR })).toBe(
+      `/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`,
+    );
   });
 });

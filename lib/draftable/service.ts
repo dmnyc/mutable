@@ -21,7 +21,9 @@ import {
   PackDraft,
   addFollowTags,
   buildPackTags,
+  isFullPubkey,
   latestPacks,
+  matchesAuthor,
   packAddress,
   parsePackEvent,
   removeFollowTags,
@@ -165,19 +167,24 @@ export function fetchAllPacks(
   return packs;
 }
 
-/** Fetch the newest version of one pack by d-tag (and author, if known). */
+/**
+ * Fetch the newest version of one pack by d-tag, and by author when known:
+ * a full pubkey, or the hex prefix a short link carries (relays can't
+ * filter on a prefix, so that's matched after the fetch).
+ */
 export async function fetchPack(
   dTag: string,
   author: string | undefined,
   relays: string[],
 ): Promise<FollowPack | null> {
   const filter: Filter = { kinds: [DRAFTABLE_KIND], "#d": [dTag] };
-  if (author) filter.authors = [author];
+  if (author && isFullPubkey(author)) filter.authors = [author];
+  const byAuthor = (pubkey: string) => !author || matchesAuthor(pubkey, author);
 
   const events = await query(relays, filter);
   for (const event of recentlyPublished.values()) {
     const pack = parsePackEvent(event);
-    if (pack?.dTag === dTag && (!author || pack.author === author)) {
+    if (pack?.dTag === dTag && byAuthor(pack.author)) {
       events.push(event);
     }
   }
@@ -186,7 +193,7 @@ export async function fetchPack(
     .map(parsePackEvent)
     .filter(
       (pack): pack is FollowPack =>
-        !!pack && pack.dTag === dTag && (!author || pack.author === author),
+        !!pack && pack.dTag === dTag && byAuthor(pack.author),
     )
     .sort((a, b) => b.createdAt - a.createdAt);
   return packs[0] ?? null;

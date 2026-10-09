@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import {
   FollowPack,
   conscriptCount,
-  resolvePubkey,
+  parseAuthorParam,
 } from "@/lib/draftable/pack";
 import {
   fetchPackForPreview,
@@ -538,7 +538,7 @@ async function renderPng(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const dTag = searchParams.get("d");
-  const author = resolvePubkey(searchParams.get("p"));
+  const author = parseAuthorParam(searchParams.get("p"));
 
   const pack = dTag
     ? await fetchPackForPreview(dTag, author ?? undefined, 3000)

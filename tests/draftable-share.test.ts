@@ -49,7 +49,7 @@ describe("shareContent / shareMentions", () => {
 describe("packShareMessage", () => {
   it("links to the production pack page", () => {
     expect(packShareUrl(pack(2))).toBe(
-      `https://mutable.top/draftable/d/abc123?p=${AUTHOR}`,
+      `https://mutable.top/draftable/d/abc123?p=${AUTHOR.slice(0, 8)}`,
     );
   });
 

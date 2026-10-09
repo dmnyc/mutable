@@ -162,7 +162,9 @@ describe("pack identity", () => {
       pubkey: AUTHOR,
       identifier: "my pack",
     });
-    expect(packPath(pack)).toBe(`/draftable/d/my%20pack?p=${AUTHOR}`);
+    expect(packPath(pack)).toBe(
+      `/draftable/d/my%20pack?p=${AUTHOR.slice(0, 8)}`,
+    );
   });
 });
 
