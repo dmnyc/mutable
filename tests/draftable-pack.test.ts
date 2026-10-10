@@ -163,7 +163,7 @@ describe("pack identity", () => {
       identifier: "my pack",
     });
     expect(packPath(pack)).toBe(
-      `/draftable/d/my%20pack?p=${AUTHOR.slice(0, 8)}`,
+      `/draftable/d/my%20pack?p=${AUTHOR.slice(0, 16)}`,
     );
   });
 });

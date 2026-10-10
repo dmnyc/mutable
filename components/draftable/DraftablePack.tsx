@@ -36,7 +36,7 @@ import {
   MissingFollowListError,
   draftableRelays,
   fetchFollowing,
-  fetchPack,
+  lookupPackWithHints,
   followPubkeys,
   unfollowPubkeys,
 } from "@/lib/draftable/service";
@@ -53,6 +53,7 @@ import { useRequestSignIn } from "./DraftableShell";
 import { AuthorNotice, BystanderNotice, DraftedNotice } from "./NoExit";
 import PackPosts from "./PackPosts";
 import BackToPacks from "./BackToPacks";
+import PackCard, { PREVIEW_MEMBERS } from "./PackCard";
 import ShareModal from "./ShareModal";
 import { useProfiles } from "./useProfiles";
 
@@ -82,6 +83,8 @@ export default function DraftablePack({
   const requestSignIn = useRequestSignIn();
 
   const [pack, setPack] = useState<FollowPack | null>(null);
+  // Packs a short link could mean, when it matches more than one author.
+  const [candidates, setCandidates] = useState<FollowPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState<string | null>(null); // pubkey or "all"
@@ -97,18 +100,22 @@ export default function DraftablePack({
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [showPublished, setShowPublished] = useState(justPublished);
 
-  const hintKey = relayHints.join(",");
   const relays = useMemo(
-    () => draftableRelays(session?.relays, hintKey ? hintKey.split(",") : []),
-    [session?.relays, hintKey],
+    () => draftableRelays(session?.relays),
+    [session?.relays],
   );
+  // Relays an naddr named: tried only if the usual relays don't have the pack.
+  const hintKey = relayHints.join(",");
+  const hints = useMemo(() => (hintKey ? hintKey.split(",") : []), [hintKey]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchPack(dTag, author, relays)
+    lookupPackWithHints(dTag, author, relays, hints)
       .then((result) => {
-        if (!cancelled) setPack(result);
+        if (cancelled) return;
+        setPack(result.status === "found" ? result.pack : null);
+        setCandidates(result.status === "ambiguous" ? result.packs : []);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -116,7 +123,7 @@ export default function DraftablePack({
     return () => {
       cancelled = true;
     };
-  }, [dTag, author, relays]);
+  }, [dTag, author, relays, hints]);
 
   // Drop ?published=1 so a reload or a copied URL doesn't repeat the prompt.
   useEffect(() => {
@@ -141,8 +148,14 @@ export default function DraftablePack({
   }, [session]);
 
   const profilePubkeys = useMemo(
-    () => (pack ? [pack.author, ...pack.members.map((m) => m.pubkey)] : []),
-    [pack],
+    () =>
+      pack
+        ? [pack.author, ...pack.members.map((m) => m.pubkey)]
+        : candidates.flatMap((c) => [
+            c.author,
+            ...c.members.slice(0, PREVIEW_MEMBERS).map((m) => m.pubkey),
+          ]),
+    [pack, candidates],
   );
   const profiles = useProfiles(profilePubkeys, relays);
 
@@ -207,6 +220,34 @@ export default function DraftablePack({
   );
 
   if (loading) return <PackSkeleton />;
+
+  if (!pack && candidates.length > 0) {
+    return (
+      <div className="space-y-6">
+        <BackToPacks />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            This link matches {candidates.length} packs
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Different authors made packs with this ID, and the link doesn&apos;t
+            say which one it meant. Check who drafted each and open the one you
+            were sent.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {candidates.map((candidate) => (
+            <PackCard
+              key={candidate.author}
+              pack={candidate}
+              profiles={profiles}
+              viewerPubkey={session?.pubkey}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (!pack) {
     return (

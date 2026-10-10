@@ -11,8 +11,9 @@ import { naMetadata, type NaProfile } from "@/lib/nostrArchives";
 import {
   DRAFTABLE_KIND,
   FollowPack,
+  classifyLink,
   isFullPubkey,
-  matchesAuthor,
+  packsForLink,
   parsePackEvent,
 } from "./pack";
 
@@ -72,18 +73,26 @@ function queryRelay(
   });
 }
 
+// A short link's author prefix can't go in a relay filter, so the preview
+// fetches every author's pack with this ID and matches the prefix after. One
+// page of this many is plenty for real IDs; a flood past it fails closed (the
+// generic preview) rather than showing someone else's pack.
+const PREVIEW_PACK_LIMIT = 100;
+
+/**
+ * The pack a link points to, for its preview card. Null when the link is
+ * missing or ambiguous: a preview must never show the wrong author's pack.
+ */
 export async function fetchPackForPreview(
   dTag: string,
   author?: string,
   timeoutMs: number = 2500,
 ): Promise<FollowPack | null> {
-  // A short link's author prefix can't go in the filter, so fetch every
-  // author's pack with this ID and match the prefix afterwards.
   const fullAuthor = author && isFullPubkey(author);
   const filter: Filter = {
     kinds: [DRAFTABLE_KIND],
     "#d": [dTag],
-    limit: fullAuthor ? 5 : 20,
+    limit: fullAuthor ? 5 : PREVIEW_PACK_LIMIT,
   };
   if (fullAuthor) filter.authors = [author];
 
@@ -93,16 +102,11 @@ export async function fetchPackForPreview(
     );
     const packs = results
       .flat()
-      .filter(
-        (event) =>
-          event.kind === DRAFTABLE_KIND &&
-          (!author || matchesAuthor(event.pubkey, author)) &&
-          verifyEvent(event),
-      )
+      .filter((event) => event.kind === DRAFTABLE_KIND && verifyEvent(event))
       .map(parsePackEvent)
-      .filter((pack): pack is FollowPack => !!pack && pack.dTag === dTag)
-      .sort((a, b) => b.createdAt - a.createdAt);
-    return packs[0] ?? null;
+      .filter((pack): pack is FollowPack => !!pack);
+    const result = classifyLink(packsForLink(packs, dTag, author));
+    return result.status === "found" ? result.pack : null;
   } catch {
     return null;
   }
