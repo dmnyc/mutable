@@ -81,7 +81,7 @@ Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://follo
 - **Safe Following**: Follow All re-reads your newest follow list, keeps every existing tag, saves a backup to Backups first, and refuses to overwrite a follow list it can't find
 - **Share**: Post or copy a ready-made note for a pack, for the packs you (or anyone) have been drafted into, or for a pack you just published
 - **Link Previews**: Per-pack social cards (`/draftable/card`) on the woodland camo with the pack name, faces, and conscript count
-- **Compatible**: Reads and writes the same events as following.space. Pack links work at `mutable.top/draftable/d/<id>?p=<pubkey>` and `mutable.top/draftable/naddr1…`, and an `naddr`'s relay hints are used to find the pack
+- **Compatible**: Reads and writes the same events as following.space. Pack links work at `mutable.top/draftable/d/<id>?p=<author>`, where `<author>` is the first 16 hex characters of the author's key (Draftable's own links), a full key or npub (following.space's), or the 8 characters older links carry, and at `mutable.top/draftable/naddr1…`. If a link matches more than one author, the page asks which pack was meant. An `naddr`'s relay hints are tried only when the usual relays don't have the pack
 
 ### Authentication
 - **NIP-07**: Connect using browser extensions (Alby, nos2x)

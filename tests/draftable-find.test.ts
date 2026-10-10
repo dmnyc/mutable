@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { nip19 } from "nostr-tools";
 import {
   DRAFTABLE_KIND,
+  classifyLink,
   cleanRelayHints,
   ABANDONED_AFTER_DAYS,
   UNTITLED_PACK,
@@ -11,6 +12,7 @@ import {
   matchesAuthor,
   packIdError,
   packPath,
+  packsForLink,
   parseAuthorParam,
   parsePackReference,
   referencePath,
@@ -74,7 +76,7 @@ describe("referencePath", () => {
         relays: ["wss://relay.example"],
       }),
     ).toBe(
-      `/draftable/d/my%20pack?p=${AUTHOR.slice(0, 8)}&r=wss%3A%2F%2Frelay.example`,
+      `/draftable/d/my%20pack?p=${AUTHOR.slice(0, 16)}&r=wss%3A%2F%2Frelay.example`,
     );
     expect(referencePath({ dTag: "abc" })).toBe("/draftable/d/abc");
   });
@@ -222,16 +224,17 @@ describe("testPackReason", () => {
 });
 
 describe("short pack links", () => {
-  it("carries an 8-character author prefix", () => {
+  it("carries a 16-character author prefix", () => {
     const path = packPath({ author: AUTHOR, dTag: "snkwe5ebjvn9" });
-    expect(path).toBe(`/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`);
-    expect(path.length).toBeLessThan(40);
+    expect(path).toBe(`/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 16)}`);
+    expect(`https://mutable.top${path}`.length).toBeLessThan(70);
   });
 
   it("reads a full key, an npub, or a prefix of 8+ hex characters", () => {
     expect(parseAuthorParam(AUTHOR)).toBe(AUTHOR);
     expect(parseAuthorParam(nip19.npubEncode(AUTHOR))).toBe(AUTHOR);
-    expect(parseAuthorParam("EE6EA13A")).toBe("ee6ea13a");
+    expect(parseAuthorParam("EE6EA13A")).toBe("ee6ea13a"); // links made before
+    expect(parseAuthorParam("ee6ea13ab9fe5c4a")).toBe("ee6ea13ab9fe5c4a");
     expect(parseAuthorParam("ee6ea1")).toBeNull();
     expect(parseAuthorParam("not-hex!")).toBeNull();
     expect(parseAuthorParam(null)).toBeNull();
@@ -245,9 +248,9 @@ describe("short pack links", () => {
     expect(isFullPubkey(AUTHOR.slice(0, 8))).toBe(false);
   });
 
-  it("opens pasted short links, and still opens long and following.space ones", () => {
-    const short = `https://mutable.top/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`;
-    expect(parsePackReference(short)).toEqual({
+  it("opens links made before the prefix grew, and long and following.space ones", () => {
+    const old = `https://mutable.top/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`;
+    expect(parsePackReference(old)).toEqual({
       dTag: "snkwe5ebjvn9",
       author: AUTHOR.slice(0, 8),
     });
@@ -255,7 +258,68 @@ describe("short pack links", () => {
       parsePackReference(`https://following.space/d/snkwe5ebjvn9?p=${AUTHOR}`),
     ).toEqual({ dTag: "snkwe5ebjvn9", author: AUTHOR });
     expect(referencePath({ dTag: "snkwe5ebjvn9", author: AUTHOR })).toBe(
-      `/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 8)}`,
+      `/draftable/d/snkwe5ebjvn9?p=${AUTHOR.slice(0, 16)}`,
     );
+  });
+});
+
+describe("packsForLink / classifyLink", () => {
+  const A1 = "ab".repeat(32);
+  // Starts the same way as A1 for 12 characters, then differs.
+  const A2 = A1.slice(0, 12) + "0".repeat(52);
+  const A3 = "cd".repeat(32);
+  const make = (
+    author: string,
+    dTag: string,
+    createdAt: number,
+  ): FollowPack => ({
+    dTag,
+    eventId: `${author.slice(0, 8)}${createdAt}`.padEnd(64, "0"),
+    author,
+    name: "Pack",
+    description: "",
+    image: "",
+    members: [{ pubkey: A3 }],
+    createdAt,
+  });
+  const packs = [
+    make(A1, "id", 100),
+    make(A1, "id", 200), // newer version by the same author
+    make(A2, "id", 300),
+    make(A3, "id", 150),
+    make(A1, "other", 400),
+  ];
+
+  it("keeps the newest version per author, for this ID only, newest first", () => {
+    expect(
+      packsForLink(packs, "id").map((p) => [p.author.slice(0, 2), p.createdAt]),
+    ).toEqual([
+      ["ab", 300],
+      ["ab", 200],
+      ["cd", 150],
+    ]);
+  });
+
+  it("narrows by a full key or a prefix", () => {
+    expect(packsForLink(packs, "id", A1).map((p) => p.createdAt)).toEqual([
+      200,
+    ]);
+    expect(
+      packsForLink(packs, "id", A1.slice(0, 16)).map((p) => p.createdAt),
+    ).toEqual([200]);
+    // An 8-character (older) prefix matches both authors that start alike.
+    expect(
+      packsForLink(packs, "id", A1.slice(0, 8)).map((p) => p.createdAt),
+    ).toEqual([300, 200]);
+  });
+
+  it("asks instead of taking the newest when several authors match", () => {
+    expect(classifyLink([])).toEqual({ status: "missing" });
+    const one = packsForLink(packs, "id", A3);
+    expect(classifyLink(one)).toEqual({ status: "found", pack: one[0] });
+    const many = packsForLink(packs, "id", A1.slice(0, 8));
+    expect(classifyLink(many)).toEqual({ status: "ambiguous", packs: many });
+    // With no author in the link, everyone who used the ID matches.
+    expect(classifyLink(packsForLink(packs, "id")).status).toBe("ambiguous");
   });
 });

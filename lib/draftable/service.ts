@@ -21,10 +21,12 @@ import {
   PackDraft,
   addFollowTags,
   buildPackTags,
+  classifyLink,
   isFullPubkey,
   latestPacks,
-  matchesAuthor,
+  LinkLookup,
   packAddress,
+  packsForLink,
   parsePackEvent,
   removeFollowTags,
 } from "./pack";
@@ -39,16 +41,9 @@ const QUERY_MAX_WAIT_MS = 8000;
 // follow) are split across several queries.
 const AUTHOR_CHUNK = 250;
 
-/**
- * Mutable's defaults + the user's relays + where following.space published.
- * `hints` (from an naddr) go first so a copied naddr keeps them.
- */
-export function draftableRelays(
-  userRelays: string[] = [],
-  hints: string[] = [],
-): string[] {
+/** Mutable's defaults + the user's relays + where following.space published. */
+export function draftableRelays(userRelays: string[] = []): string[] {
   return normalizeRelayList([
-    ...hints,
     ...getExpandedRelayList(userRelays),
     ...PACK_RELAYS,
   ]);
@@ -167,36 +162,80 @@ export function fetchAllPacks(
   return packs;
 }
 
+// Relays answer a query with up to a page; keep asking for older events until
+// they run out, so a pile of same-ID packs from other authors can't push the
+// one a link means out of view. Capped, so a flood can't make this run long.
+const LOOKUP_PAGE = 500;
+const LOOKUP_MAX_PAGES = 4;
+
+async function queryPaged(relays: string[], filter: Filter): Promise<Event[]> {
+  const events: Event[] = [];
+  let until: number | undefined;
+  for (let page = 0; page < LOOKUP_MAX_PAGES; page++) {
+    const batch = await query(relays, {
+      ...filter,
+      limit: LOOKUP_PAGE,
+      ...(until !== undefined ? { until } : {}),
+    });
+    events.push(...batch);
+    // Fewer than a page from the merged answers means every relay is spent.
+    if (batch.length < LOOKUP_PAGE) break;
+    const oldest = Math.min(...batch.map((event) => event.created_at));
+    // `until` is inclusive; stop if a page brought nothing older.
+    if (until !== undefined && oldest >= until) break;
+    until = oldest;
+  }
+  return events;
+}
+
 /**
- * Fetch the newest version of one pack by d-tag, and by author when known:
- * a full pubkey, or the hex prefix a short link carries (relays can't
- * filter on a prefix, so that's matched after the fetch).
+ * What a pack link points to, by pack ID and author (a full pubkey, or the
+ * hex prefix a short link carries; relays can't filter on a prefix, so that
+ * is matched after the fetch). Several matching authors is "ambiguous", never
+ * a guess: see classifyLink.
  */
+export async function lookupPack(
+  dTag: string,
+  author: string | undefined,
+  relays: string[],
+): Promise<LinkLookup> {
+  const filter: Filter = { kinds: [DRAFTABLE_KIND], "#d": [dTag] };
+  if (author && isFullPubkey(author)) filter.authors = [author];
+
+  const events = await queryPaged(relays, filter);
+  for (const event of recentlyPublished.values()) events.push(event);
+
+  const packs = events
+    .map(parsePackEvent)
+    .filter((pack): pack is FollowPack => !!pack);
+  return classifyLink(packsForLink(packs, dTag, author));
+}
+
+/**
+ * Look the link up on the usual relays. Only if that finds nothing, ask the
+ * relays an naddr named: hints are for finding a pack the usual relays lack,
+ * and a relay that answers first with junk can make the pool drop real copies
+ * from the others, so hints never join the first query.
+ */
+export async function lookupPackWithHints(
+  dTag: string,
+  author: string | undefined,
+  relays: string[],
+  hints: string[],
+): Promise<LinkLookup> {
+  const first = await lookupPack(dTag, author, relays);
+  if (first.status !== "missing" || hints.length === 0) return first;
+  return lookupPack(dTag, author, normalizeRelayList(hints));
+}
+
+/** The pack a full-key link or the viewer's own pack ID points to, or null. */
 export async function fetchPack(
   dTag: string,
   author: string | undefined,
   relays: string[],
 ): Promise<FollowPack | null> {
-  const filter: Filter = { kinds: [DRAFTABLE_KIND], "#d": [dTag] };
-  if (author && isFullPubkey(author)) filter.authors = [author];
-  const byAuthor = (pubkey: string) => !author || matchesAuthor(pubkey, author);
-
-  const events = await query(relays, filter);
-  for (const event of recentlyPublished.values()) {
-    const pack = parsePackEvent(event);
-    if (pack?.dTag === dTag && byAuthor(pack.author)) {
-      events.push(event);
-    }
-  }
-
-  const packs = events
-    .map(parsePackEvent)
-    .filter(
-      (pack): pack is FollowPack =>
-        !!pack && pack.dTag === dTag && byAuthor(pack.author),
-    )
-    .sort((a, b) => b.createdAt - a.createdAt);
-  return packs[0] ?? null;
+  const result = await lookupPack(dTag, author, relays);
+  return result.status === "found" ? result.pack : null;
 }
 
 export async function publishPack(

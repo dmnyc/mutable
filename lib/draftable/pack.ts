@@ -177,17 +177,27 @@ export function packNaddr(
 }
 
 /**
- * Pack links carry only the start of the author's hex pubkey. A pack's ID is
- * only unique per author, and 8 hex characters tell authors apart (two
- * sharing an ID and a prefix is a one-in-four-billion accident) while
- * keeping links short.
+ * Pack links carry only the start of the author's hex pubkey, since a pack's
+ * ID is only unique per author. New links carry 16 hex characters (64 bits).
+ * That has to hold against someone grinding a key that starts the same way
+ * as the author's, to take over the link: 32 bits is minutes of work for a
+ * dedicated key grinder, 64 is out of reach.
  */
-export const AUTHOR_PREFIX_LENGTH = 8;
+export const AUTHOR_PREFIX_LENGTH = 16;
+
+/**
+ * Links made before the prefix grew carry only 8 characters, and are still
+ * read. When one matches more than one author, the page asks rather than
+ * guessing (see classifyLink).
+ */
+export const MIN_AUTHOR_PREFIX_LENGTH = 8;
+
+const AUTHOR_PREFIX = new RegExp(`^[0-9a-f]{${MIN_AUTHOR_PREFIX_LENGTH},63}$`);
 
 /**
  * A pack link's `p`: a full pubkey (hex, npub, or nprofile, as
  * following.space links use) or a hex prefix of at least 8 characters, as
- * Draftable's own links use. Lowercase hex, or null.
+ * Draftable's own links use (16 now, 8 before). Lowercase hex, or null.
  */
 export function parseAuthorParam(
   value: string | null | undefined,
@@ -195,7 +205,7 @@ export function parseAuthorParam(
   const full = resolvePubkey(value);
   if (full) return full;
   const trimmed = value?.trim().toLowerCase() ?? "";
-  return /^[0-9a-f]{8,63}$/.test(trimmed) ? trimmed : null;
+  return AUTHOR_PREFIX.test(trimmed) ? trimmed : null;
 }
 
 /** A full pubkey can go in a relay filter; a prefix is matched afterwards. */
@@ -205,6 +215,45 @@ export function isFullPubkey(author: string): boolean {
 
 export function matchesAuthor(pubkey: string, author: string): boolean {
   return pubkey.startsWith(author);
+}
+
+/** What a pack link points to. */
+export type LinkLookup =
+  | { status: "found"; pack: FollowPack }
+  /** Several authors match the link's ID and prefix: ask, don't guess. */
+  | { status: "ambiguous"; packs: FollowPack[] }
+  | { status: "missing" };
+
+/**
+ * The newest pack with this ID from each author the link could mean, newest
+ * first. With no author in the link, or only a prefix, that can be several.
+ */
+export function packsForLink(
+  packs: FollowPack[],
+  dTag: string,
+  author?: string,
+): FollowPack[] {
+  const newest = new Map<string, FollowPack>();
+  for (const pack of packs) {
+    if (pack.dTag !== dTag) continue;
+    if (author && !matchesAuthor(pack.author, author)) continue;
+    const existing = newest.get(pack.author);
+    if (!existing || pack.createdAt > existing.createdAt) {
+      newest.set(pack.author, pack);
+    }
+  }
+  return Array.from(newest.values()).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/**
+ * One match is the pack; several is ambiguous. Taking the newest of several
+ * would let anyone who publishes a newer pack with the same ID (and a key
+ * that starts the same way) replace the one a link was made for.
+ */
+export function classifyLink(matches: FollowPack[]): LinkLookup {
+  if (matches.length === 0) return { status: "missing" };
+  if (matches.length === 1) return { status: "found", pack: matches[0] };
+  return { status: "ambiguous", packs: matches };
 }
 
 /** In-app path to a pack. Mirrors following.space's `/d/<id>?p=<pubkey>`. */
