@@ -11,6 +11,7 @@ import {
   fetchPreviewProfiles,
   previewName,
 } from "@/lib/draftable/server";
+import { fetchPublicImage } from "@/lib/draftable/safeFetch";
 
 // Needs the Node runtime's global WebSocket to reach relays.
 export const runtime = "nodejs";
@@ -100,67 +101,20 @@ function loadFonts(): Promise<FontOptions[] | undefined> {
   return fontsPromise;
 }
 
-/**
- * Only fetch avatars from public https hosts — profile pictures are
- * attacker-controlled URLs, and this runs on the server.
- */
-function isFetchableImageUrl(raw: string | undefined): raw is string {
-  if (!raw) return false;
-  try {
-    const url = new URL(raw);
-    const host = url.hostname.toLowerCase();
-    if (url.protocol !== "https:") return false;
-    if (host === "localhost" || host.endsWith(".local")) return false;
-    if (host.endsWith(".internal") || host.endsWith(".onion")) return false;
-    if (/^[\d.]+$/.test(host) || host.includes(":") || host.startsWith("[")) {
-      return false; // IP literals
-    }
-    return host.includes(".");
-  } catch {
-    return false;
-  }
-}
-
-/** Fetch with redirects followed by hand, re-checking each hop's host. */
-async function fetchPublicImage(raw: string): Promise<Response | null> {
-  let url = raw;
-  for (let hop = 0; hop < 3; hop++) {
-    if (!isFetchableImageUrl(url)) return null;
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
-      redirect: "manual",
-    });
-    const location = res.headers.get("location");
-    if (res.status >= 300 && res.status < 400 && location) {
-      url = new URL(location, url).toString();
-      continue;
-    }
-    return res.ok ? res : null;
-  }
-  return null;
-}
-
 /** Inline an image as a data URI so one dead image can't break the card. */
 async function imageDataUri(
   raw: string | undefined,
   maxBytes: number,
 ): Promise<string | null> {
-  if (!raw) return null;
-  try {
-    const res = await fetchPublicImage(raw);
-    if (!res) return null;
-    const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
-    // The card renderer handles png/jpeg/gif; skip webp/avif/svg.
-    if (!/^image\/(png|jpe?g|gif)$/i.test(type)) return null;
-    if (Number(res.headers.get("content-length") || 0) > maxBytes) {
-      return null;
-    }
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (buffer.byteLength > maxBytes) return null;
-    return `data:${type};base64,${buffer.toString("base64")}`;
-  } catch {
-    return null;
-  }
+  // Profile pictures are URLs a stranger chose, fetched from the server:
+  // fetchPublicImage only talks to public addresses.
+  const image = await fetchPublicImage(raw, {
+    maxBytes,
+    timeoutMs: IMAGE_TIMEOUT_MS,
+  });
+  return image
+    ? `data:${image.type};base64,${image.data.toString("base64")}`
+    : null;
 }
 
 function Stamp() {
