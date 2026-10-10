@@ -23,6 +23,7 @@ import {
   buildPackTags,
   classifyLink,
   isFullPubkey,
+  isReplyNote,
   latestPacks,
   LinkLookup,
   packAddress,
@@ -296,7 +297,7 @@ export async function fetchPackPosts(
   );
   const byId = new Map<string, Event>();
   for (const event of batches.flat()) {
-    if (event.tags.some((tag) => tag[0] === "e")) continue;
+    if (isReplyNote(event.tags)) continue;
     byId.set(event.id, event);
   }
   return Array.from(byId.values())

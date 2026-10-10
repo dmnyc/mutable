@@ -217,6 +217,16 @@ export function matchesAuthor(pubkey: string, author: string): boolean {
   return pubkey.startsWith(author);
 }
 
+/**
+ * Whether a note answers another one. NIP-10: an `e` tag marked "reply" or
+ * "root" is a reply, and so is an unmarked one (the older positional style).
+ * An `e` tag marked "mention" only cites a note, so a top-level note that
+ * mentions another is still top-level.
+ */
+export function isReplyNote(tags: string[][]): boolean {
+  return tags.some((tag) => tag[0] === "e" && tag[3] !== "mention");
+}
+
 /** What a pack link points to. */
 export type LinkLookup =
   | { status: "found"; pack: FollowPack }

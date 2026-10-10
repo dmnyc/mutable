@@ -34,6 +34,7 @@ import {
   deletePack,
   fetchPack,
   fetchPacks,
+  fetchPackPosts,
   followPubkeys,
   lookupPack,
   lookupPackWithHints,
@@ -356,5 +357,32 @@ describe("lookupPackWithHints: hints are a fallback", () => {
       "missing",
     );
     expect(nostr.querySync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("fetchPackPosts", () => {
+  const note = (id: string, createdAt: number, tags: string[][]): Event => ({
+    id: id.repeat(64).slice(0, 64),
+    pubkey: A,
+    kind: 1,
+    created_at: createdAt,
+    content: `note ${id}`,
+    sig: "",
+    tags,
+  });
+
+  it("drops replies and keeps top-level notes, even ones that mention another note", async () => {
+    const target = "9".repeat(64);
+    emulateRelays({
+      r: [
+        note("1", 100, []),
+        note("2", 200, [["e", target, "", "reply"]]),
+        note("3", 300, [["e", target]]), // unmarked: an older-style reply
+        note("4", 400, [["e", target, "", "mention"]]), // cites a note
+        note("5", 500, [["q", target]]),
+      ],
+    });
+    const posts = await fetchPackPosts([A], ["r"]);
+    expect(posts.map((p) => p.content)).toEqual(["note 5", "note 4", "note 1"]);
   });
 });

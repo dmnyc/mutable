@@ -8,6 +8,7 @@ import {
   UNTITLED_PACK,
   generatePackId,
   isFullPubkey,
+  isReplyNote,
   matchPacks,
   matchesAuthor,
   packIdError,
@@ -321,5 +322,40 @@ describe("packsForLink / classifyLink", () => {
     expect(classifyLink(many)).toEqual({ status: "ambiguous", packs: many });
     // With no author in the link, everyone who used the ID matches.
     expect(classifyLink(packsForLink(packs, "id")).status).toBe("ambiguous");
+  });
+});
+
+describe("isReplyNote", () => {
+  it("treats e tags marked root or reply, and unmarked ones, as replies", () => {
+    const id = "e".repeat(64);
+    expect(isReplyNote([["e", id, "", "reply"]])).toBe(true);
+    expect(
+      isReplyNote([
+        ["e", id, "", "root"],
+        ["e", id, "", "reply"],
+      ]),
+    ).toBe(true);
+    expect(isReplyNote([["e", id]])).toBe(true);
+    expect(isReplyNote([["e", id, "wss://relay.example"]])).toBe(true);
+  });
+
+  it("keeps top-level notes, including ones that only mention another note", () => {
+    const id = "e".repeat(64);
+    expect(isReplyNote([])).toBe(false);
+    expect(
+      isReplyNote([
+        ["t", "nostr"],
+        ["p", "a".repeat(64)],
+      ]),
+    ).toBe(false);
+    expect(isReplyNote([["e", id, "", "mention"]])).toBe(false);
+    expect(isReplyNote([["q", id]])).toBe(false);
+    // One real reply marker among mentions still makes it a reply.
+    expect(
+      isReplyNote([
+        ["e", id, "", "mention"],
+        ["e", id, "", "reply"],
+      ]),
+    ).toBe(true);
   });
 });
