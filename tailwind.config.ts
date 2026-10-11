@@ -73,11 +73,6 @@ const config: Config = {
           "0 18px 36px -22px rgb(17 24 39 / 0.35), 0 1px 4px rgb(17 24 39 / 0.08)",
       },
       keyframes: {
-        shimmer: {
-          "100%": {
-            transform: "translateX(100%)",
-          },
-        },
         rise: {
           from: { opacity: "0", transform: "translateY(12px)" },
           to: { opacity: "1", transform: "none" },

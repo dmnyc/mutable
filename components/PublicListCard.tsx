@@ -330,7 +330,7 @@ export default function PublicListCard({
 
   return (
     <>
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-850 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
         <div className="p-6">
           {/* Header */}
           <div className="mb-4">
@@ -1032,7 +1032,7 @@ export default function PublicListCard({
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
             <h3 className="font-display font-bold text-2xl tracking-tight text-hi mb-4">
               Delete Pack?

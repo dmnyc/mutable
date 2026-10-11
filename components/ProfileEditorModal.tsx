@@ -270,7 +270,7 @@ export default function ProfileEditorModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget && !saving) onClose();
       }}

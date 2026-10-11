@@ -88,6 +88,37 @@ body {
     outline: 2px solid #ef4444;
     outline-offset: 2px;
   }
+
+  ::selection {
+    background-color: #dc2626;
+    color: #ffffff;
+  }
+
+  /* Themed scrollbars: quiet in light, blue-gray track in dark. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(156 163 175 / 0.5) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgb(71 85 105 / 0.6) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(156 163 175 / 0.5);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105 / 0.6);
+    background-clip: content-box;
+  }
 }
 
 @layer components {

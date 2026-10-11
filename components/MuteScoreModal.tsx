@@ -35,7 +35,7 @@ export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
   ].map((l) => ({ ...l, ...getMuteRatioSignal(l.mutes, 1000) }));
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}

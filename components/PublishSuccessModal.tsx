@@ -33,7 +33,7 @@ export default function PublishSuccessModal({ isOpen, onClose, itemCount }: Publ
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div
         className={`relative bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl shadow-2xl border-2 border-green-500 dark:border-green-600 p-8 max-w-md w-full transform transition-all duration-300 ${
           show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'

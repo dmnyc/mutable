@@ -716,7 +716,7 @@ export default function Snoopable() {
       {showShareModal &&
         analysis &&
         createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
                 Share as Nostr Note
