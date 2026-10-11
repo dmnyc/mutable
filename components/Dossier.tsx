@@ -151,11 +151,15 @@ export default function Dossier() {
 
     setHexPubkey(pubkey);
     setSubjectNpub(hexToNpub(pubkey));
+    // No kind:0 found (or the lookup failed) must not blank the page: the
+    // scans below are still meaningful for a bare pubkey.
     fetchProfile(pubkey, DEFAULT_RELAYS)
-      .then((profile) => setSubject(profile))
-      .catch(() => setSubject(null));
+      .then((profile) => setSubject(profile ?? { pubkey }))
+      .catch(() => setSubject({ pubkey }));
 
-    const relays = getExpandedRelayList(DEFAULT_RELAYS);
+    // Same relay basis as Mute-o-Scope and Reportable: the viewer's own
+    // relays when logged in, so the counts agree across screens.
+    const relays = getExpandedRelayList(session?.relays ?? DEFAULT_RELAYS);
 
     // The four sections run in parallel and land independently.
     searchMutealsNetworkWide(pubkey, relays, (count) =>
@@ -560,6 +564,11 @@ export default function Dossier() {
               <h2 className="font-display font-bold text-xl tracking-tight text-hi truncate">
                 {getDisplayName(subject, "Unknown")}
               </h2>
+              {!subject.name && !subject.display_name && (
+                <p className="text-xs text-mut mt-0.5">
+                  No profile found on the relays we checked
+                </p>
+              )}
               <button
                 type="button"
                 onClick={async () => {
@@ -633,16 +642,25 @@ export default function Dossier() {
                       ? getMuteRatioSignal(muters, noteCount)
                       : null;
                   return (
-                    <p className="text-sm text-hi mt-2">
-                      {score.emoji} {score.label}
+                    <dl className="mt-4 pt-3 border-t border-line space-y-2 text-sm">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <dt className="text-mut">Score</dt>
+                        <dd className="font-semibold text-hi">
+                          {score.emoji} {score.label}
+                        </dd>
+                      </div>
                       {ratio && (
-                        <span className="text-mut">
-                          {" "}
-                          · {formatPerThousand(ratio.perThousand)}/1k notes (
-                          {ratio.label})
-                        </span>
+                        <div className="flex items-baseline justify-between gap-3">
+                          <dt className="text-mut">Per 1k notes</dt>
+                          <dd className="font-semibold text-hi">
+                            {formatPerThousand(ratio.perThousand)}
+                            <span className="ml-2 font-normal text-mut">
+                              {ratio.label}
+                            </span>
+                          </dd>
+                        </div>
                       )}
-                    </p>
+                    </dl>
                   );
                 })()}
               </>
@@ -694,7 +712,7 @@ export default function Dossier() {
                       <button
                         type="button"
                         onClick={() => setShowAllReports((v) => !v)}
-                        className="mt-2 text-xs font-semibold text-mid hover:text-hi transition-colors"
+                        className="mt-3 block text-xs font-semibold text-mid hover:text-hi transition-colors"
                       >
                         {showAllReports
                           ? "Show fewer"
@@ -971,7 +989,7 @@ function Section({
     blue: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   };
   return (
-    <section className="panel relative rounded-xl border border-line shadow-panel p-5">
+    <section className="panel relative rounded-xl border border-line shadow-panel p-5 flex flex-col">
       <div className="flex items-center gap-2.5 mb-3">
         <span
           className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${tones[tone]}`}
@@ -1004,7 +1022,7 @@ function Section({
           {action && status !== "running" && (
             <Link
               href={action.href}
-              className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-mid hover:text-hi transition-colors"
+              className="mt-auto pt-4 inline-flex items-center gap-1 text-xs font-semibold text-mid hover:text-hi transition-colors self-start"
             >
               {action.label}
               <ArrowUpRight size={13} />
