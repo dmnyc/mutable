@@ -89,11 +89,11 @@ export default function SiteNav({
     const useTab = onTabChange && item.dashboardTab;
     const base = mobile
       ? "block w-full text-left py-3 px-4 rounded-lg font-semibold text-sm transition-colors"
-      : "py-4 px-1 border-b-2 font-semibold text-sm transition-colors";
+      : "py-4 px-2.5 border-b-2 font-semibold text-sm transition-colors";
     const state = isActive
       ? mobile
         ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-        : "border-primary text-primary"
+        : "nav-lamp border-transparent nav-lit"
       : mobile
         ? "text-mid hover:bg-black/5 dark:hover:bg-white/5"
         : "border-transparent text-mut hover:text-hi hover:border-line-2";
@@ -124,18 +124,21 @@ export default function SiteNav({
   };
 
   return (
-    <nav className="glass-header relative z-40 border-b border-line" aria-label="Main">
+    <nav
+      className="glass-header nav-lightbar relative z-40 border-b border-line"
+      aria-label="Main"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Desktop */}
-        <div className="hidden xl:flex justify-center gap-1">
+        <div className="hidden xl:flex justify-center gap-7">
           {PRIMARY.map((i) => renderItem(i, false))}
           <div className="relative">
             <button
               onClick={() => setToolsOpen(!toolsOpen)}
               onBlur={() => setTimeout(() => setToolsOpen(false), 150)}
-              className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors flex items-center gap-1 ${
+              className={`py-4 px-2.5 border-b-2 font-semibold text-sm transition-colors flex items-center gap-1.5 ${
                 otherActive
-                  ? "border-primary text-primary"
+                  ? "nav-lamp border-transparent nav-lit"
                   : "border-transparent text-mut hover:text-hi hover:border-line-2"
               }`}
               aria-expanded={toolsOpen}

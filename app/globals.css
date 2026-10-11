@@ -151,6 +151,88 @@ body {
   }
 }
 
+/* ---------- Nav as a light source ----------
+   The active tab's underline is the "lamp": a glowing strip whose light
+   falls upward onto the words (bottom-lit gradient text). Gradient
+   endpoints are theme-set and contrast-audited (see
+   scripts/check-contrast.mjs): #b91c1c on light surfaces and #fca5a5 on
+   dark ones both clear 4.5:1. */
+:root {
+  --nav-lit-from: #b91c1c;
+  --nav-lamp: #dc2626;
+  --nav-lamp-hi: #ef4444;
+  --nav-lamp-glow: 239 68 68;
+}
+
+.dark {
+  --nav-lit-from: #fca5a5;
+  --nav-lamp: #ef4444;
+  --nav-lamp-hi: #fca5a5;
+  --nav-lamp-glow: 248 113 113;
+}
+
+.nav-lit {
+  background-image: linear-gradient(
+    to top,
+    var(--nav-lit-from) 0%,
+    rgb(var(--ink-hi)) 45%,
+    rgb(var(--ink-hi)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.nav-lamp {
+  position: relative;
+}
+
+/* The bar itself as a light source: a faint luminous hairline along its
+   bottom edge, brightest center. */
+.nav-lightbar {
+  position: relative;
+}
+
+.nav-lightbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--nav-lamp-glow) / 0.25) 25%,
+    rgb(var(--nav-lamp-glow) / 0.38) 50%,
+    rgb(var(--nav-lamp-glow) / 0.25) 75%,
+    transparent
+  );
+}
+
+.nav-lamp::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nav-lamp) 22%,
+    var(--nav-lamp-hi) 50%,
+    var(--nav-lamp) 78%,
+    transparent
+  );
+  box-shadow:
+    0 -3px 10px rgb(var(--nav-lamp-glow) / 0.5),
+    0 -8px 22px rgb(var(--nav-lamp-glow) / 0.28),
+    0 4px 12px -2px rgb(var(--nav-lamp-glow) / 0.45);
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
