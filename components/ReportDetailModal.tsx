@@ -300,7 +300,7 @@ function ReportedNoteEmbed({ eventId }: { eventId: string }) {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400 py-2">
         No relay still has this note — it may have been deleted or pruned. It
-        can still be opened directly:
+        may still be visible on Nostr Archives:
       </div>
     );
   }

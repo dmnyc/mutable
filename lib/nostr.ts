@@ -2351,6 +2351,10 @@ export interface ScanSummary {
   inProgress?: boolean;
 }
 
+// Minimum time to keep listening before an empty relay scan is trusted,
+// unless every relay has already answered.
+const EMPTY_SCAN_MIN_MS = 15000;
+
 export async function searchMutealsNetworkWide(
   userPubkey: string,
   relays: string[] = DEFAULT_RELAYS,
@@ -2540,7 +2544,15 @@ export async function searchMutealsNetworkWide(
               );
               // Give a grace period for any events still in transit (especially on mobile)
               // Shorter wait if not all relays responded, to avoid excessive delays
-              const waitTime = receivedFromAll ? 5000 : 3000;
+              let waitTime = receivedFromAll ? 5000 : 3000;
+              // A fast quorum that found nothing is the case most likely to
+              // be wrong; give slower relays a floor before concluding "none".
+              if (collectedEvents.length === 0 && !receivedFromAll) {
+                waitTime = Math.max(
+                  waitTime,
+                  EMPTY_SCAN_MIN_MS - (Date.now() - scanStartedAt),
+                );
+              }
               setTimeout(() => {
                 if (resolved) return;
                 resolved = true;
@@ -2583,7 +2595,11 @@ export async function searchMutealsNetworkWide(
         // start isn't cut short. 6s of silence after the last event is well
         // past the ~5s it takes even slow relays to deliver.
         const heardSomething = eoseCount > 0 || collectedEvents.length > 0;
-        if (heardSomething && timeSinceLastEvent > 6000) {
+        const emptyTooSoon =
+          collectedEvents.length === 0 &&
+          eoseCount < relays.length &&
+          Date.now() - scanStartedAt < EMPTY_SCAN_MIN_MS;
+        if (heardSomething && !emptyTooSoon && timeSinceLastEvent > 6000) {
           if (resolved) return;
           resolved = true;
           resolveReason = "stream settled";
@@ -2615,7 +2631,8 @@ export async function searchMutealsNetworkWide(
       "Query FAILED",
       error instanceof Error ? error.message : String(error),
     );
-    return [];
+    // Not an empty result: callers must not read a failed check as "clean".
+    throw error instanceof Error ? error : new Error(String(error));
   }
 
   // Group events by author to find the LATEST one per author
@@ -2995,7 +3012,16 @@ export async function searchReportsNetworkWide(
 
             if (eoseCount >= targetEoseCount) {
               const receivedFromAll = eoseCount >= relays.length;
-              const waitTime = receivedFromAll ? 5000 : 3000;
+              let waitTime = receivedFromAll ? 5000 : 3000;
+              // A fast quorum that found nothing is the case most likely to
+              // be wrong: the relays that hold the reports may simply be
+              // slower. Give stragglers a floor before concluding "none".
+              if (collectedEvents.length === 0 && !receivedFromAll) {
+                waitTime = Math.max(
+                  waitTime,
+                  EMPTY_SCAN_MIN_MS - (Date.now() - scanStartedAt),
+                );
+              }
               setTimeout(() => {
                 if (resolved) return;
                 resolved = true;
@@ -3021,7 +3047,11 @@ export async function searchReportsNetworkWide(
       checkInterval = setInterval(() => {
         const timeSinceLastEvent = Date.now() - lastEventTime;
         const heardSomething = eoseCount > 0 || collectedEvents.length > 0;
-        if (heardSomething && timeSinceLastEvent > 6000) {
+        const emptyTooSoon =
+          collectedEvents.length === 0 &&
+          eoseCount < relays.length &&
+          Date.now() - scanStartedAt < EMPTY_SCAN_MIN_MS;
+        if (heardSomething && !emptyTooSoon && timeSinceLastEvent > 6000) {
           if (resolved) return;
           resolved = true;
           resolveReason = "stream settled";
@@ -3046,7 +3076,8 @@ export async function searchReportsNetworkWide(
       "Query FAILED",
       error instanceof Error ? error.message : String(error),
     );
-    return [];
+    // Not an empty result: callers must not read a failed check as "clean".
+    throw error instanceof Error ? error : new Error(String(error));
   }
 
   const reports: ReportResult[] = [];
