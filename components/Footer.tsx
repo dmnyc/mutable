@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { Github, Zap, User } from 'lucide-react';
 import packageJson from '@/package.json';
 
@@ -50,27 +51,36 @@ export default function Footer() {
 
   return (
     <>
-      <footer className="mt-auto py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+      {/* Breathing room above the footer on every page */}
+      <div className="mt-auto h-12 flex-none" aria-hidden="true" />
+      <footer className="py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
             <p className="text-gray-600 dark:text-gray-400 text-sm text-center lg:text-left">
-              <span className="block sm:inline">Mutable v{version}</span>
+              <span className="block sm:inline">
+                <Link
+                  href="/about"
+                  className="font-semibold hover:text-gray-900 dark:hover:text-white underline-offset-2 hover:underline"
+                >
+                  Mutable
+                </Link>{' '}v{version}
+              </span>
               <span className="hidden sm:inline"> | </span>
               <span className="block sm:inline">Made with 💜 for the Nostr community</span>
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-nowrap gap-1 sm:gap-1.5 overflow-x-auto max-w-full">
               <a
                 href={`https://jumble.social/users/${creatorNpub}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs px-3 py-1.5 rounded-full transition-colors inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white"
+                className="text-xs px-2 sm:px-2.5 py-1 rounded-full transition-colors inline-flex items-center gap-1 whitespace-nowrap shrink-0 border bg-black/5 hover:bg-black/10 dark:bg-black/40 dark:hover:bg-black/60 text-purple-700 dark:text-[#c084fc] border-purple-600/30 dark:border-[#c084fc]/30"
               >
                 <User size={14} />
                 Follow Creator
               </a>
               <button
                 onClick={showZapModal}
-                className="text-xs px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-full transition-colors inline-flex items-center gap-1.5 font-medium"
+                className="text-xs px-2 sm:px-2.5 py-1 rounded-full transition-colors inline-flex items-center gap-1 whitespace-nowrap shrink-0 border bg-black/5 hover:bg-black/10 dark:bg-black/40 dark:hover:bg-black/60 text-yellow-700 dark:text-[#ffd700] border-yellow-600/30 dark:border-[#ffd700]/30"
               >
                 <Zap size={14} />
                 Zap Creator
@@ -79,7 +89,7 @@ export default function Footer() {
                 href="https://github.com/dmnyc/mutable/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full transition-colors inline-flex items-center gap-1.5"
+                className="text-xs px-2 sm:px-2.5 py-1 rounded-full transition-colors inline-flex items-center gap-1 whitespace-nowrap shrink-0 border bg-black/5 hover:bg-black/10 dark:bg-black/40 dark:hover:bg-black/60 text-gray-700 dark:text-gray-300 border-black/15 dark:border-white/15"
               >
                 <Github size={14} />
                 Report Issue

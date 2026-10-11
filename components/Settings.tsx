@@ -16,7 +16,6 @@ import {
   BlacklistData,
 } from "@/lib/relayStorage";
 import { Profile } from "@/types";
-import packageJson from "../package.json";
 import {
   Settings as SettingsIcon,
   Trash2,
@@ -1097,124 +1096,6 @@ export default function Settings() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* About Section */}
-      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Info size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
-            About Mutable
-          </h2>
-        </div>
-
-        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-          <p>
-            <strong className="text-gray-900 dark:text-white">Version:</strong>{" "}
-            {packageJson.version}
-          </p>
-          <p>
-            <strong className="text-gray-900 dark:text-white">Build:</strong>{" "}
-            {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) ||
-              "local"}
-          </p>
-          <p>
-            <strong className="text-gray-900 dark:text-white">
-              Description:
-            </strong>{" "}
-            Mutable is a comprehensive Nostr social graph management tool that
-            helps you curate your follow lists and maintain a healthy social
-            feed through intelligent muting, community-driven filtering, and
-            advanced list management features.
-          </p>
-          <div>
-            <strong className="text-gray-900 dark:text-white block mb-2">
-              Features:
-            </strong>
-            <ul className="list-disc list-inside space-y-1 ml-4 text-gray-600 dark:text-gray-400">
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Mute-o-Scope:
-                </strong>{" "}
-                Analyze your social graph and discover users to mute based on
-                engagement patterns and follower overlap
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Public Packs:
-                </strong>{" "}
-                Discover and import curated mute lists from the Nostr community
-                (e.g., scammers, spam bots, low-quality accounts)
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Muteuals:
-                </strong>{" "}
-                Find users you follow who have muted you, helping you understand
-                your social dynamics
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Reciprocals:
-                </strong>{" "}
-                Discover who you follow that doesn&apos;t follow you back, with
-                intelligent relay discovery using NIP-65
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Purgatory:
-                </strong>{" "}
-                Find follows using specific Nostr clients or posting in
-                hellthreads, with NIP-65 relay discovery
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Note Nuke:
-                </strong>{" "}
-                Mute entire conversation threads directly from note URLs
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Domain Purge:
-                </strong>{" "}
-                Find and manage follows from specific NIP-05 domains
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Decimator:
-                </strong>{" "}
-                Randomly reduce your follow list by a percentage to keep it
-                manageable, with user protection capabilities
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  List Cleaner:
-                </strong>{" "}
-                Detect and remove inactive accounts from your follow list
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Backups:
-                </strong>{" "}
-                Automatically backup your follow lists before making changes,
-                with easy restore functionality
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  NIP-51 Support:
-                </strong>{" "}
-                Full support for Nostr&apos;s mute list standard with public and
-                private list management
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  NIP-46 Support:
-                </strong>{" "}
-                Connect with remote signers like Amber for enhanced key security
-              </li>
-            </ul>
           </div>
         </div>
       </div>
