@@ -49,6 +49,11 @@ export interface AppShellProps {
   /** Overrides the mobile nav label (e.g. "Settings", which has no tab). */
   navActiveLabel?: string;
   /**
+   * When set and signed out, children are replaced by a sign-in gate card
+   * (icon, title, text) with a Connect button that opens the auth modal.
+   */
+  authGate?: { icon: ReactNode; title: string; text: ReactNode };
+  /**
    * Dashboard mode: brand click and tab switching stay in-page (no
    * scroll), and the user menu can take extra items (Edit Profile,
    * Settings) via userMenuExtras.
@@ -72,6 +77,7 @@ export default function AppShell({
   showSearch = true,
   hideNav = false,
   navActiveLabel,
+  authGate,
   onBrandClick,
   onTabChange,
   userMenuExtras,
@@ -234,7 +240,25 @@ export default function AppShell({
       <main
         className={`flex-grow w-full ${widthClasses[width]} mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-rise ${mainClassName}`}
       >
-        {children}
+        {!session && authGate ? (
+          <div className="max-w-md mx-auto pt-10">
+            <section className="panel relative rounded-xl border border-line shadow-panel p-8 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                {authGate.icon}
+              </div>
+              <h2 className="text-xl font-bold text-hi mb-2">{authGate.title}</h2>
+              <p className="text-mid mb-6">{authGate.text}</p>
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="px-6 py-3 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] font-semibold shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 transition-all"
+              >
+                Connect with Nostr to Get Started
+              </button>
+            </section>
+          </div>
+        ) : (
+          children
+        )}
       </main>
 
       <Footer />
