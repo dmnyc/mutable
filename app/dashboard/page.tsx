@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
-import { Loader2, Pencil, Settings as SettingsIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 import MyMuteList from "@/components/MyMuteList";
@@ -24,7 +24,6 @@ import OnboardingModal from "@/components/OnboardingModal";
 import UnsavedChangesBanner from "@/components/UnsavedChangesBanner";
 import PublishSuccessModal from "@/components/PublishSuccessModal";
 import ConfirmOnExitDialog from "@/components/ConfirmOnExitDialog";
-import ProfileEditorModal from "@/components/ProfileEditorModal";
 import AppShell from "@/components/system/AppShell";
 import type { SiteNavActive } from "@/components/system/SiteNav";
 import { fetchProfile, getFollowListPubkeys } from "@/lib/nostr";
@@ -51,7 +50,6 @@ function DashboardContent() {
   const [showConfirmOnExit, setShowConfirmOnExit] = useState(false);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   // Function to change tab and update URL
   const changeTab = (tab: typeof activeTab) => {
@@ -305,34 +303,6 @@ function DashboardContent() {
       mainClassName={hasUnsavedChanges ? "pb-24" : "pb-4"}
       onBrandClick={() => changeTab("myList")}
       onTabChange={(tab) => changeTab(tab as typeof activeTab)}
-      userMenuExtras={(closeUserMenu) => (
-        <>
-          <button
-            onClick={() => {
-              setShowProfileEditor(true);
-              closeUserMenu();
-            }}
-            className="w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors text-mid hover:bg-black/5 dark:hover:bg-white/5"
-          >
-            <Pencil size={15} />
-            Edit Profile
-          </button>
-          <button
-            onClick={() => {
-              changeTab("settings");
-              closeUserMenu();
-            }}
-            className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-              activeTab === "settings"
-                ? "bg-black/5 dark:bg-white/5 text-hi"
-                : "text-mid hover:bg-black/5 dark:hover:bg-white/5"
-            }`}
-          >
-            <SettingsIcon size={15} />
-            Settings
-          </button>
-        </>
-      )}
     >
       {activeTab === "myList" && <MyMuteList />}
       {activeTab === "publicLists" && <PublicLists />}
@@ -384,15 +354,6 @@ function DashboardContent() {
         onCancel={() => setShowConfirmOnExit(false)}
       />
 
-      {/* Profile Editor Modal */}
-      {showProfileEditor && (
-        <ProfileEditorModal
-          onClose={() => setShowProfileEditor(false)}
-          onProfileUpdated={(updatedProfile) => {
-            setUserProfile(updatedProfile);
-          }}
-        />
-      )}
     </AppShell>
   );
 }

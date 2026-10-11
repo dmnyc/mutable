@@ -8,7 +8,10 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  Info,
   LogOut,
+  Pencil,
+  Settings as SettingsIcon,
   Monitor,
   Moon,
   Sun,
@@ -22,6 +25,7 @@ import type { Profile } from "@/types";
 import GlobalUserSearch from "@/components/GlobalUserSearch";
 import UserProfileModal from "@/components/UserProfileModal";
 import AuthModal from "@/components/AuthModal";
+import ProfileEditorModal from "@/components/ProfileEditorModal";
 import SiteNav, { SiteNavActive } from "@/components/system/SiteNav";
 import Footer from "@/components/Footer";
 
@@ -63,13 +67,10 @@ export interface AppShellProps {
   authGate?: { icon: ReactNode; title: string; text: ReactNode };
   /**
    * Dashboard mode: brand click and tab switching stay in-page (no
-   * scroll), and the user menu can take extra items (Edit Profile,
-   * Settings) via userMenuExtras.
+   * scroll), including the menu's Settings item.
    */
   onBrandClick?: () => void;
   onTabChange?: (tab: string) => void;
-  /** Extra user-menu entries; call closeUserMenu() after acting. */
-  userMenuExtras?: (closeUserMenu: () => void) => ReactNode;
 }
 
 /**
@@ -88,15 +89,15 @@ export default function AppShell({
   authGate,
   onBrandClick,
   onTabChange,
-  userMenuExtras,
 }: AppShellProps) {
   const router = useRouter();
   const { session, disconnect } = useAuth();
-  const { userProfile } = useStore();
+  const { userProfile, setUserProfile } = useStore();
   const [theme, setTheme] = useTheme();
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -188,7 +189,49 @@ export default function AppShell({
 
                   {userMenuOpen && (
                     <div className="absolute right-0 top-full mt-1.5 w-52 panel border border-line-2 rounded-xl shadow-panel z-50 py-1.5">
-                      {userMenuExtras?.(() => setUserMenuOpen(false))}
+                      <button
+                        onClick={() => {
+                          setShowProfileEditor(true);
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-mid hover:text-hi hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <Pencil size={15} />
+                        Edit Profile
+                      </button>
+                      {onTabChange ? (
+                        <button
+                          onClick={() => {
+                            onTabChange("settings");
+                            setUserMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            navActive === "settings"
+                              ? "bg-black/5 dark:bg-white/5 text-hi"
+                              : "text-mid hover:text-hi hover:bg-black/5 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          <SettingsIcon size={15} />
+                          Settings
+                        </button>
+                      ) : (
+                        <Link
+                          href="/dashboard?tab=settings"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-mid hover:text-hi hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <SettingsIcon size={15} />
+                          Settings
+                        </Link>
+                      )}
+                      <Link
+                        href="/about"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-mid hover:text-hi hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <Info size={15} />
+                        About Mutable
+                      </Link>
                       <UserMenuTheme theme={theme} setTheme={setTheme} />
                       <div className="flex items-center gap-2.5 px-4 py-2 text-xs text-mut border-t border-line mt-1.5 pt-2">
                         <span className="w-4 text-center text-[10px]">🟢</span>
@@ -271,6 +314,13 @@ export default function AppShell({
       </main>
 
       <Footer />
+
+      {showProfileEditor && (
+        <ProfileEditorModal
+          onClose={() => setShowProfileEditor(false)}
+          onProfileUpdated={(updatedProfile) => setUserProfile(updatedProfile)}
+        />
+      )}
 
       {selectedProfile && (
         <UserProfileModal
