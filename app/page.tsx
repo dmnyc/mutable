@@ -9,6 +9,7 @@ import { useTheme } from "@/hooks/useTheme";
 import AuthModal from "@/components/AuthModal";
 import Footer from "@/components/Footer";
 import SnoopableGlasses from "@/components/SnoopableGlasses";
+import Pitchfork from "@/components/Pitchfork";
 import {
   Lock,
   User,
@@ -19,19 +20,18 @@ import {
   Medal,
   Radiation,
   Skull,
-  Wrench,
   Copy,
-  Activity,
-  Eye,
-  FileText,
   FileSearch,
   ArrowLeftRight,
-  Users,
-  AlertTriangle,
-  BarChart3,
-  Table2,
   Sun,
   Moon,
+  Bitcoin,
+  VolumeX,
+  Package,
+  UserX,
+  BrushCleaning,
+  Globe,
+  DatabaseBackup,
 } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
@@ -475,7 +475,7 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/muggable"
-                chip={<ChipTone tone="amber"><Wrench size={16} /></ChipTone>}
+                chip={<ChipTone tone="amber"><Bitcoin size={16} /></ChipTone>}
                 title="Muggable"
                 text="Check whether a Nostr key is holding Bitcoin on-chain."
               />
@@ -493,13 +493,13 @@ export default function Home() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
               <DirectoryCard
                 href="/dashboard?tab=myList"
-                chip={<ChipTone tone="red"><BarChart3 size={16} /></ChipTone>}
+                chip={<ChipTone tone="red"><VolumeX size={16} /></ChipTone>}
                 title="My Mutes"
                 text="View, edit and publish your kind:10000 mute list."
               />
               <DirectoryCard
                 href="/dashboard?tab=publicLists"
-                chip={<ChipTone tone="gray"><Table2 size={16} /></ChipTone>}
+                chip={<ChipTone tone="gray"><Package size={16} /></ChipTone>}
                 title="Mute Packs"
                 text="Subscribe to public mute lists, or publish your own."
               />
@@ -511,13 +511,13 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/dashboard?tab=muteuals"
-                chip={<ChipTone tone="purple"><Users size={16} /></ChipTone>}
+                chip={<ChipTone tone="purple"><UserX size={16} /></ChipTone>}
                 title="Muteuals"
                 text="Who has publicly muted you."
               />
               <DirectoryCard
                 href="/purgatory"
-                chip={<ChipTone tone="amber"><AlertTriangle size={16} /></ChipTone>}
+                chip={<ChipTone tone="amber"><Pitchfork size={16} /></ChipTone>}
                 title="Purgatory"
                 text="Find follows by client or hellthread participation."
               />
@@ -535,19 +535,19 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/dashboard?tab=listCleaner"
-                chip={<ChipTone tone="green"><Activity size={16} /></ChipTone>}
+                chip={<ChipTone tone="green"><BrushCleaning size={16} /></ChipTone>}
                 title="List Cleaner"
                 text="Scan your mute list for inactive profiles."
               />
               <DirectoryCard
                 href="/dashboard?tab=domainPurge"
-                chip={<ChipTone tone="blue"><Eye size={16} /></ChipTone>}
+                chip={<ChipTone tone="blue"><Globe size={16} /></ChipTone>}
                 title="Domain Purge"
                 text="Remove every follower of a NIP-05 domain."
               />
               <DirectoryCard
                 href="/dashboard?tab=backups"
-                chip={<ChipTone tone="gray"><FileText size={16} /></ChipTone>}
+                chip={<ChipTone tone="gray"><DatabaseBackup size={16} /></ChipTone>}
                 title="Backups"
                 text="Exports, signed events and relay-history recovery."
               />
