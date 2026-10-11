@@ -1,6 +1,6 @@
 # Mutable
 
-A web-based client for managing Nostr mute lists. Mutable allows users to back up, edit, discover, and share mute lists seamlessly. Features Mute-o-Scope, a powerful tool to search who is publicly muting any Nostr profile.
+A toolkit for managing your Nostr mute list and follows, and for seeing what the network can see about any account. Back up, edit, discover and share mute lists; look anyone up with Mute-o-Scope, Reportable, Redactable, Snoopable, Muggable and The Dossier, most of them without logging in.
 
 ## Features
 
@@ -16,12 +16,42 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Session-Aware**: Uses your configured relays when signed in
 - **Profile Enrichment**: View detailed profiles of who is muting whom
 
+### The Dossier 🫆 NEW
+
+One public record for any Nostr account, in one report, no login. Open `/dossier`, search a name, NIP-05 or npub (suggestions appear as you type), and the scans run in parallel:
+
+- **Mute Score**: how many public mute lists include the account, with a per-1k-notes ratio
+- **Reports filed**: public kind:1984 reports against the account, expandable, with a link into Reportable
+- **Deletions published**: kind:5 deletion requests and how many events they cover
+- **On-chain Bitcoin**: balance and history at the addresses derived from the account's public key (Muggable's lookup)
+- **DM history**: counts of legacy NIP-04 DMs sent and received and the date range. Contents stay encrypted; NIP-17 DMs hide even who and when
+- **Public footprint**: NIP-05 verification, lightning address, avatar, bio
+
+Each card has an "Open in…" link to the full tool with the account filled in. **Copy report** gives a plain-text summary; when signed in, **Share as note** publishes it (editable first) and tags the subject, and **Open my Dossier** jumps to your own. Share links (`/dossier?npub=`) get a dedicated social card.
+
+### Reportable 🚩 NEW
+
+Public reports (kind:1984) filed about an account, and by it, with a Report Score that counts independent human reporters and sets aside automated report swarms. Empty results are held until the relays have had time to answer, so slow relays aren't read as "clean".
+
+### Redactable 🗑️ NEW
+
+An account's deletion requests (kind:5) and the posts they deleted.
+
+### Muggable ⛓️
+
+Check whether a Nostr key controls Bitcoin on-chain. A Nostr secret key is also a Bitcoin private key, so the addresses derived from your public key can hold funds. Includes migration guidance.
+
+### Clonable
+
+Copy your profile, follows, mutes and relays from an old key to a new one, including private mute decryption. Built for recovering from a compromised key.
+
 ### Personal Mute List Management (kind:10000)
-- **View & Edit**: Fetch and display your current mute list with items organized into four categories:
-  - Muted Pubkeys
-  - Muted Words
-  - Muted Tags (hashtags)
-  - Muted Threads (event IDs)
+- **View & Edit**: Fetch and display your current mute list in four tabs, each with its count:
+  - Profiles
+  - Words
+  - Hashtags
+  - Threads (event IDs)
+- **Privacy at a glance**: Two large tiles show how many mutes are public and how many are private, with a breakdown by category that links to each tab. Public mutes are plain tags anyone can read; private mutes are encrypted (NIP-44, per NIP-51; older NIP-04 entries are read too). Clients differ in which kind they apply, and Damus doesn't apply private mutes, so save a backup before switching clients
 - **CRUD Operations**: Add, edit, or delete entries in any category
 - **Publish**: Sign and broadcast your updated mute list to Nostr relays
 
@@ -90,9 +120,9 @@ Nostr follow packs (NIP-51 kind:39089), the full [following.space](https://follo
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 with App Router
+- **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS 3, Inter and Montserrat via next/font
 - **Nostr Library**: nostr-tools
 - **State Management**: Zustand with persistence
 - **Icons**: lucide-react
@@ -141,20 +171,29 @@ The app is configured for deployment on Vercel:
 ```
 mutable/
 ├── app/                    # Next.js app directory
+│   ├── about/             # About page (reached from the user menu and the footer)
 │   ├── dashboard/         # Dashboard page
+│   ├── dossier/           # The Dossier (+ /card social image)
 │   ├── draftable/         # Draftable follow packs (browse, create, /d/[id] pack pages, social card)
 │   ├── mute-o-scope/      # Mute-o-Scope standalone page
 │   ├── note-nuke/         # Note Nuke standalone page
+│   ├── reportable/        # Reportable
+│   ├── redactable/        # Redactable
+│   ├── muggable/          # Muggable
+│   ├── snoopable/         # Snoopable
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Landing page
 ├── components/            # React components
 │   ├── draftable/         # Draftable views, "no exit" notices, profile loader
+│   ├── system/            # Shared chrome: AppShell, SiteNav, PageHeader, Button, Panel
+│   ├── About.tsx          # About page content
 │   ├── AuthModal.tsx      # Authentication modal
 │   ├── BackupRestore.tsx  # Backup/restore functionality
 │   ├── Backups.tsx        # Backup management component
 │   ├── CreatePublicList.tsx
 │   ├── Decimator.tsx      # Tool to aggressively filter mute lists
+│   ├── Dossier.tsx        # The Dossier
 │   ├── DecimatorShareModal.tsx # Share options for Decimator results
 │   ├── DomainPurge.tsx    # Tool to remove users by NIP-05 domain
 │   ├── Footer.tsx         # Application footer
@@ -214,6 +253,12 @@ mutable/
 3. **Check Score**: Click the Mute Score badge to see all scoring levels
 4. **Share**: Share results directly to Nostr with automatic tagging
 
+### The Dossier
+1. **Search**: Enter a name, NIP-05, npub or hex key, or pick a suggestion
+2. **Read**: Mutes, reports, deletions, on-chain Bitcoin, DMs and footprint load in parallel
+3. **Dig in**: Use a card's "Open in…" link to see the full tool for that account
+4. **Share**: Copy the report, or publish it as a note when signed in
+
 ### Note Nuke
 1. **Paste**: Enter a note ID or paste a direct note link
 2. **Preview**: Review the note before deletion
@@ -239,12 +284,14 @@ mutable/
 
 ### Nostr Event Kinds
 
-- **kind:10000**: Personal mute list (replaceable event)
+- **kind:10000**: Personal mute list (replaceable event; public tags plus NIP-44 encrypted private entries)
+- **kind:1984**: Reports (Reportable, The Dossier)
+- **kind:4**: Legacy encrypted DMs (Snoopable, The Dossier read metadata only)
 - **kind:30001**: Public/categorized mute list (parameterized replaceable event)
 - **kind:39089**: Follow pack (Draftable, compatible with following.space)
 - **kind:30078**: Application-specific data (NIP-78) - used for relay storage sync
-- **kind:5**: Delete event marker (for Note Nuke)
-- **kind:1**: Text note (for sharing Mute-o-Scope results)
+- **kind:5**: Delete event marker (Note Nuke; counted by Redactable and The Dossier)
+- **kind:1**: Text note (for sharing Mute-o-Scope and Dossier results)
 
 ## Relay Storage Implementation
 
