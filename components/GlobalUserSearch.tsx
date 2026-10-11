@@ -15,6 +15,15 @@ export default function GlobalUserSearch({
 }: GlobalUserSearchProps) {
   const { session } = useAuth();
   const [query, setQuery] = useState("");
+  // The full hint doesn't fit a phone-width header and gets cut mid-word.
+  const [roomy, setRoomy] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setRoomy(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const [results, setResults] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -218,8 +227,10 @@ export default function GlobalUserSearch({
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="w-full pl-9 pr-9 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          placeholder="Search users by name, npub, or NIP-05..."
+          className="w-full pl-9 pr-9 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-ellipsis"
+          placeholder={
+            roomy ? "Search users by name, npub, or NIP-05..." : "Search any user"
+          }
         />
         <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center">
           <Search
