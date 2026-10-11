@@ -9,7 +9,31 @@ import {
 import { generateSecretKey } from "nostr-tools";
 import { bytesToHex } from "@noble/hashes/utils";
 import { Signer } from "./types";
-import { DEFAULT_RELAYS } from "../nostr";
+// Relays carried in the nostrconnect:// URI, which the remote signer must reach
+// to answer us. Free to write to for an unknown (fresh) client key, and
+// including Primal's own relay. Not the first of DEFAULT_RELAYS: those include
+// payment-gated relays that refuse writes from a key they've never seen.
+export const NOSTRCONNECT_RELAYS = [
+  "wss://relay.primal.net",
+  "wss://relay.damus.io",
+  "wss://nos.lol",
+];
+
+// How long to wait for the signer to approve. Switching apps to approve can
+// take a while, so this is generous.
+export const NOSTRCONNECT_WAIT_MS = 120000;
+
+/** A message to show for a failed nostrconnect wait, with the likely fix. */
+export function describeNostrConnectError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/timed out/i.test(message)) {
+    return "No signer responded in time. On an iPhone, switching apps to approve can pause this page, so the reply never arrives. Scan the QR code from another device, or use Paste Bunker URL instead.";
+  }
+  if (/subscription closed/i.test(message)) {
+    return "The connection to the relay dropped before your signer responded. If you switched apps to approve, the browser may have paused this page. Scan the QR code from another device, or use Paste Bunker URL instead.";
+  }
+  return message || "Failed to connect to remote signer";
+}
 
 export type { BunkerPointer };
 
@@ -85,13 +109,20 @@ export class Nip46Signer implements Signer {
 
     const uri = createNostrConnectURI({
       clientPubkey,
-      relays: DEFAULT_RELAYS.slice(0, 3), // Use first 3 default relays
+      relays: NOSTRCONNECT_RELAYS,
       secret,
       name: "Mutable",
       url:
         typeof window !== "undefined"
           ? window.location.origin
           : "https://mutable.top",
+      // Signers show this on the approval screen. A localhost origin isn't
+      // reachable from the signer's device, so use the production logo there.
+      image:
+        typeof window !== "undefined" &&
+        !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+          ? `${window.location.origin}/mutable_logo_transparent.png`
+          : "https://mutable.top/mutable_logo_transparent.png",
     });
 
     return { uri, secretKey, secret };
@@ -103,13 +134,13 @@ export class Nip46Signer implements Signer {
    * @param uri - The nostrconnect:// URI that was displayed as QR code
    * @param clientSecretKey - The client secret key used to generate the URI
    * @param onauth - Optional callback for auth challenges
-   * @param maxWait - Maximum time to wait for connection (ms), default 60000
+   * @param maxWait - Maximum time to wait for connection (ms), default 120000
    */
   static async connectFromURI(
     uri: string,
     clientSecretKey: Uint8Array,
     onauth?: (url: string) => void,
-    maxWait: number = 60000,
+    maxWait: number = NOSTRCONNECT_WAIT_MS,
   ): Promise<Nip46Signer> {
     const params: BunkerSignerParams = {};
     if (onauth) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { describeNostrConnectError } from "@/lib/signers/Nip46Signer";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -113,11 +114,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         // User cancelled, don't show error
         return;
       }
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to connect to remote signer",
-      );
+      setError(describeNostrConnectError(err));
     } finally {
       setConnecting(false);
       setConnectingMethod(null);

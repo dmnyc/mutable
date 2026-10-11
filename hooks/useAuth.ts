@@ -10,6 +10,7 @@ import {
   getBestRelayList,
 } from "@/lib/nostr";
 import { Nip07Signer, Nip46Signer } from "@/lib/signers";
+import { NOSTRCONNECT_WAIT_MS } from "@/lib/signers/Nip46Signer";
 import { UserSession } from "@/types";
 
 // Store for active nostrconnect sessions (used for cleanup)
@@ -190,12 +191,12 @@ export function useAuth() {
       try {
         setAuthState("connecting");
 
-        // Wait for remote signer to respond (60 second timeout)
+        // Wait for remote signer to respond
         const nip46Signer = await Nip46Signer.connectFromURI(
           connectSession.uri,
           connectSession.secretKey,
           onAuthUrl,
-          60000,
+          NOSTRCONNECT_WAIT_MS,
         );
 
         // Check if cancelled during connection
