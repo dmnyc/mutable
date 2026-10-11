@@ -483,7 +483,7 @@ export default function Home() {
                 href="/clonable"
                 chip={<ChipTone tone="violet"><Copy size={16} /></ChipTone>}
                 title="Clonable"
-                text="Clone any public list into your own mute list."
+                text="Copy your profile, follows and mutes to a new key."
               />
             </div>
 
