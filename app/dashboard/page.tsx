@@ -232,7 +232,7 @@ function DashboardContent() {
 
   if (!isConnected || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center space-y-3">
           <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
           <div className="text-lg text-gray-700 dark:text-gray-300">
@@ -341,7 +341,7 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col overflow-x-hidden">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1103,7 +1103,7 @@ export default function Dashboard() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="flex flex-col items-center space-y-3">
             <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
             <div className="text-lg text-gray-700 dark:text-gray-300">

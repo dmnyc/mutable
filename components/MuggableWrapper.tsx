@@ -36,7 +36,7 @@ export default function MuggableWrapper({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {session ? (
         <>
           <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -208,7 +208,7 @@ export default function MuggableWrapper({
         </header>
       )}
 
-      <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="flex-1">
         <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
           <Muggable initialQuery={initialQuery} />
         </main>

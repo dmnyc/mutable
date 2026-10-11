@@ -1703,7 +1703,7 @@ export default function Redactable() {
 
   /** A deletion-request row — works for lookup (own deletions) and feed. */
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen">
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
@@ -1770,7 +1770,7 @@ export default function Redactable() {
           visitors navigate from the homepage lookup instead. */}
       {session && <DashboardNav activePage="redactable" />}
 
-      <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="flex-1">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           {/* Page Header */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -1837,7 +1837,7 @@ export default function Redactable() {
 
             {/* Relay coverage — the scan set is wide on purpose; this strip
                 makes it visible and lets visitors widen it further. */}
-            <div className="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+            <div className="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700/40">
               <button
                 onClick={() => setShowRelayPanel(!showRelayPanel)}
                 className="flex items-center gap-2 w-full text-left text-sm text-gray-600 dark:text-gray-300"

@@ -648,7 +648,7 @@ export default function MuteOScope() {
   ) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {session ? (
         <>
           {/* Signed-in Header - matches dashboard exactly */}
@@ -822,7 +822,7 @@ export default function MuteOScope() {
         </>
       )}
 
-      <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="flex-1">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           {/* Page Header */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">

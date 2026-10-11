@@ -173,7 +173,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-red-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex flex-col">
         <div className="flex-1 flex items-center justify-center px-4 py-12">
           <div className="text-center w-full max-w-2xl">
             <div className="flex justify-center mb-6">
