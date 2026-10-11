@@ -22,11 +22,10 @@ import {
 } from "lucide-react";
 import { MutealResult, Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
+import AppShell from "@/components/system/AppShell";
+import PageHeader from "@/components/system/PageHeader";
 import ShareResultsModal from "./ShareResultsModal";
 import MuteScoreModal from "./MuteScoreModal";
-import GlobalUserSearch from "./GlobalUserSearch";
-import Footer from "./Footer";
-import DashboardNav from "./DashboardNav";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
@@ -470,11 +469,6 @@ export default function MuteOScope() {
     setSelectedProfile(muteal.profile || { pubkey: muteal.mutedBy });
   };
 
-  const handleDisconnect = () => {
-    disconnect();
-    window.location.href = "/";
-  };
-
   const handleUserSelect = (profile: Profile) => {
     setSelectedProfile(profile);
   };
@@ -648,202 +642,24 @@ export default function MuteOScope() {
   ) : null;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {session ? (
-        <>
-          {/* Signed-in Header - matches dashboard exactly */}
-          <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16 gap-4">
-                <Link
-                  href="/dashboard"
-                  className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
-                  title="Go to Dashboard"
-                >
-                  <Image
-                    src="/mutable_logo.svg"
-                    alt="Mutable"
-                    width={40}
-                    height={40}
-                  />
-                  <Image
-                    src="/mutable_text_dark.svg"
-                    alt="Mutable"
-                    width={120}
-                    height={24}
-                    className="hidden sm:block dark:hidden"
-                  />
-                  <Image
-                    src="/mutable_text.svg"
-                    alt="Mutable"
-                    width={120}
-                    height={24}
-                    className="hidden sm:dark:block"
-                  />
-                </Link>
-
-                {/* Global Search */}
-                <GlobalUserSearch onSelectUser={handleUserSelect} />
-
-                <div className="flex items-center space-x-4 flex-shrink-0">
-                  {/* User Profile Display - Desktop */}
-                  <div className="hidden md:flex items-center space-x-3">
-                    {userProfile?.picture ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={userProfile.picture}
-                        alt={getDisplayName(userProfile, "User")}
-                        className="w-8 h-8 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User
-                          size={16}
-                          className="text-gray-600 dark:text-gray-300"
-                        />
-                      </div>
-                    )}
-                    <div className="flex flex-col">
-                      {userProfile && (
-                        <>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {getDisplayName(userProfile)}
-                          </span>
-                          {userProfile.nip05 && (
-                            <span className="text-xs text-gray-600 dark:text-gray-400">
-                              {userProfile.nip05}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* User Avatar - Mobile */}
-                  <div className="md:hidden">
-                    {userProfile?.picture ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={userProfile.picture}
-                        alt={getDisplayName(userProfile, "User")}
-                        className="w-8 h-8 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User
-                          size={16}
-                          className="text-gray-600 dark:text-gray-300"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleDisconnect}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                    title="Disconnect"
-                  >
-                    <LogOut size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* Tab Navigation */}
-          <DashboardNav activePage="muteOScope" />
-        </>
-      ) : (
-        <>
-          {/* Anonymous Header */}
-          <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16 gap-4">
-                <Link
-                  href="/"
-                  className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
-                  title="Go to Home"
-                >
-                  <Image
-                    src="/mutable_logo.svg"
-                    alt="Mutable"
-                    width={40}
-                    height={40}
-                  />
-                  <Image
-                    src="/mutable_text_dark.svg"
-                    alt="Mutable"
-                    width={120}
-                    height={24}
-                    className="hidden sm:block dark:hidden"
-                  />
-                  <Image
-                    src="/mutable_text.svg"
-                    alt="Mutable"
-                    width={120}
-                    height={24}
-                    className="hidden sm:dark:block"
-                  />
-                </Link>
-                <Link
-                  href="/"
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-                  title="Back to the Mutable home screen"
-                >
-                  <ArrowLeft size={16} />
-                  <span className="hidden sm:inline">Back</span>
-                </Link>
-
-                <div className="flex-1" />
-
-                <div className="flex items-center gap-3">
-                  <span className="hidden md:inline text-sm text-gray-600 dark:text-gray-400">
-                    Get the full experience!
-                  </span>
-                  <Link
-                    href="/"
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
-                  >
-                    <Lock size={16} />
-                    Connect with Nostr
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </header>
-        </>
-      )}
-
-      <div className="flex-1">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <AppShell navActive="muteOScope" width="tool">
           {/* Page Header */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <div className="flex items-start gap-4 mb-4">
-              <Image
-                src="/mute_o_scope_icon_white.svg"
-                alt="Mute-o-Scope"
-                width={40}
-                height={40}
-                className="flex-shrink-0 mt-1"
-              />
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Mute-o-Scope
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Search any npub to see who is publicly muting them
-                </p>
-              </div>
-            </div>
+          <div className="mb-6">
+            <PageHeader
+              icon={
+                <Image
+                  src="/mute_o_scope_icon_white.svg"
+                  alt=""
+                  width={26}
+                  height={26}
+                />
+              }
+              iconBg="from-blue-500 to-blue-700"
+              title="Mute-o-Scope"
+              subtitle="Search any npub to see who is publicly muting them"
+            />
 
+            <div className="panel relative rounded-xl border border-line shadow-panel p-6 mt-5">
             {/* Callout badges - full width row */}
             <div className="flex flex-wrap gap-2">
               {!session && (
@@ -878,10 +694,11 @@ export default function MuteOScope() {
                 we recommend using a desktop browser with a stable connection.
               </p>
             </div>
+            </div>
           </div>
 
           {/* Search Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="panel relative rounded-xl border border-line shadow-panel p-6 mb-6">
             <div className="relative" ref={searchDropdownRef}>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative w-full sm:flex-1">
@@ -1045,7 +862,7 @@ export default function MuteOScope() {
           {/* Scan diagnostics — surfaced in the UI so scan problems can be
               reported without opening a browser console. */}
           {(diagnostics.length > 0 || scanSummary) && (
-            <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="mb-6 panel relative rounded-xl border border-line shadow-panel overflow-hidden">
               <button
                 onClick={() => setShowDiagnostics(!showDiagnostics)}
                 className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -1258,7 +1075,7 @@ export default function MuteOScope() {
             allResults.length === 0 &&
             targetPubkey &&
             !error && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="panel relative rounded-xl border border-line shadow-panel p-6">
                 {targetIdentityHeader}
                 <div className="mb-4">
                   <div className="flex items-start justify-between gap-4 mb-3">
@@ -1317,7 +1134,7 @@ export default function MuteOScope() {
             )}
 
           {displayedResults.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-6">
               {targetIdentityHeader}
               <div className="mb-4">
                 <div className="flex items-start justify-between gap-4 mb-3">
@@ -1603,10 +1420,6 @@ export default function MuteOScope() {
           {showMuteScoreModal && (
             <MuteScoreModal onClose={() => setShowMuteScoreModal(false)} />
           )}
-        </div>
-      </div>
-
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

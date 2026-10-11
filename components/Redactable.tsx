@@ -1,5 +1,7 @@
 "use client";
 
+import AppShell from "@/components/system/AppShell";
+import PageHeader from "@/components/system/PageHeader";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -25,8 +27,6 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Profile, DeletionEntry, RecoveredNote } from "@/types";
-import Footer from "./Footer";
-import DashboardNav from "./DashboardNav";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
@@ -1703,92 +1703,17 @@ export default function Redactable() {
 
   /** A deletion-request row — works for lookup (own deletions) and feed. */
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 gap-4">
-            <Link
-              href="/"
-              className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
-              title="Go to Home"
-            >
-              <Image
-                src="/mutable_logo.svg"
-                alt="Mutable"
-                width={40}
-                height={40}
-              />
-              <Image
-                src="/mutable_text_dark.svg"
-                alt="Mutable"
-                width={120}
-                height={24}
-                className="hidden sm:block dark:hidden"
-              />
-              <Image
-                src="/mutable_text.svg"
-                alt="Mutable"
-                width={120}
-                height={24}
-                className="hidden sm:dark:block"
-              />
-            </Link>
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-              title="Back to the Mutable home screen"
-            >
-              <ArrowLeft size={16} />
-              <span className="hidden sm:inline">Back</span>
-            </Link>
-
-            <div className="flex-1" />
-
-            {session ? (
-              <button
-                onClick={disconnect}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors border border-gray-200 dark:border-gray-700 rounded-lg"
-                title="Disconnect"
-              >
-                <LogOut size={16} />
-                <span className="hidden sm:inline">Disconnect</span>
-              </button>
-            ) : (
-              <Link
-                href="/"
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
-              >
-                <Lock size={16} />
-                Connect with Nostr
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* The dashboard tool menu is for signed-in users only — anonymous
-          visitors navigate from the homepage lookup instead. */}
-      {session && <DashboardNav activePage="redactable" />}
-
-      <div className="flex-1">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <AppShell navActive="redactable" width="tool">
           {/* Page Header */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="flex-shrink-0 mt-1 w-10 h-10 rounded-lg bg-red-600 flex items-center justify-center">
-                <Trash2 className="text-white" size={22} />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Redactable
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  See which posts Nostr users are asking relays to delete — look
-                  up a pubkey&apos;s deletion history or browse the live feed
-                </p>
-              </div>
-            </div>
+          <div className="mb-6">
+            <PageHeader
+              icon={<Trash2 size={25} />}
+              iconBg="from-red-500 to-red-700"
+              title="Redactable"
+              subtitle="See which posts Nostr users are asking relays to delete — look up a pubkey's deletion history or browse the live feed"
+            />
 
+            <div className="panel relative rounded-xl border border-line shadow-panel p-6 mt-5">
             <div className="flex flex-wrap gap-2">
               {!session && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium border border-green-200 dark:border-green-700">
@@ -1808,10 +1733,11 @@ export default function Redactable() {
                 a wish, not an eraser.
               </p>
             </div>
+            </div>
           </div>
 
           {/* Tabs */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+          <div className="panel relative rounded-xl border border-line shadow-panel mb-6">
             <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setActiveTab("feed")}
@@ -2072,7 +1998,7 @@ export default function Redactable() {
           {activeTab === "lookup" && !searching && searchCompleted && (
             <>
               {allDeletions.length === 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="panel relative rounded-xl border border-line shadow-panel p-6">
                   {targetIdentityHeader}
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
@@ -2086,7 +2012,7 @@ export default function Redactable() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+                <div className="panel relative rounded-xl border border-line shadow-panel p-4 sm:p-6">
                   {targetIdentityHeader}
 
                   <div className="mb-4">
@@ -2214,7 +2140,7 @@ export default function Redactable() {
 
           {/* Feed tab */}
           {activeTab === "feed" && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -2355,10 +2281,6 @@ export default function Redactable() {
               )}
             </div>
           )}
-        </div>
-      </div>
-
-      <Footer />
-    </div>
+    </AppShell>
   );
 }
