@@ -24,6 +24,7 @@ import {
   Activity,
   Eye,
   FileText,
+  FileSearch,
   ArrowLeftRight,
   Users,
   AlertTriangle,
@@ -371,6 +372,18 @@ export default function Home() {
                 )}
               </div>
 
+              {/* The Dossier — one report from every public record */}
+              <button
+                onClick={() => {
+                  setShowProfileResults(false);
+                  handleToolSearch("/dossier");
+                }}
+                className="w-full mt-2.5 px-4 py-3 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] font-semibold text-sm shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 hover:-translate-y-px transition-all flex items-center justify-center gap-2"
+              >
+                <FileSearch size={16} />
+                Open the Dossier — the full public record
+              </button>
+
               {/* Lens buttons — NEW stays on both Reportable and Redactable */}
               <div className="grid sm:grid-cols-2 gap-2.5 mt-4">
                 <button
@@ -438,6 +451,13 @@ export default function Home() {
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <DirectoryCard
+                href="/dossier"
+                chip={<ChipTone tone="gray"><FileSearch size={16} /></ChipTone>}
+                title="The Dossier"
+                badge="NEW"
+                text="Mutes, reports, deletions and footprint — one report."
+              />
               <DirectoryCard
                 href={null}
                 onClick={() => handleToolSearch("/draftable")}

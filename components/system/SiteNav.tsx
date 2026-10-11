@@ -22,6 +22,7 @@ export type SiteNavActive =
   | "reportable"
   | "redactable"
   | "draftable"
+  | "dossier"
   | "settings";
 
 interface NavItem {
@@ -50,6 +51,7 @@ const PRIMARY: NavItem[] = [
 ];
 
 const OTHER_STUFF: NavItem[] = [
+  { id: "dossier", label: "The Dossier", href: "/dossier" },
   { id: "noteNuke", label: "Note Nuke", href: "/note-nuke", dashboardTab: "noteNuke" },
   { id: "domainPurge", label: "Domain Purge", href: "/dashboard?tab=domainPurge", dashboardTab: "domainPurge" },
   { id: "purgatory", label: "Purgatory", href: "/purgatory", dashboardTab: "purgatory" },
