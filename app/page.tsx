@@ -459,7 +459,7 @@ export default function Home() {
                 chip={<ChipTone tone="gray"><FileSearch size={16} /></ChipTone>}
                 title="The Dossier"
                 badge="NEW"
-                text="Mutes, reports, deletions and footprint — one report."
+                text="Mutes, reports, deletions, Bitcoin, DMs and footprint — one report."
               />
               <DirectoryCard
                 href={null}

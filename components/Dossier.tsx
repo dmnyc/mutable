@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Eye,
@@ -15,6 +16,11 @@ import {
   Copy,
   Check,
   User,
+  Bitcoin,
+  MessageSquare,
+  Send,
+  X,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   fetchProfile,
@@ -25,6 +31,7 @@ import {
   searchReportsNetworkWide,
   hexToNpub,
   npubToHex,
+  publishTextNote,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import {
@@ -32,7 +39,15 @@ import {
   getMuteRatioSignal,
   formatPerThousand,
 } from "@/lib/utils/muteScore";
-import { countDeletionsBy, verifyNip05, Nip05Status } from "@/lib/dossier";
+import {
+  countDeletionsBy,
+  fetchDmActivity,
+  verifyNip05,
+  Nip05Status,
+  DmActivity,
+} from "@/lib/dossier";
+import { getExposure, ExposureReport } from "@/lib/keyExposureService";
+import { useAuth } from "@/hooks/useAuth";
 import { getDisplayName } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import AppShell from "@/components/system/AppShell";
@@ -45,13 +60,25 @@ const PENDING = "Scanning the network…";
 
 export default function Dossier() {
   const searchParams = useSearchParams();
+  const { session } = useAuth();
   const [input, setInput] = useState("");
   const [subject, setSubject] = useState<Profile | null>(null);
   const [subjectNpub, setSubjectNpub] = useState<string | null>(null);
   const [hexPubkey, setHexPubkey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showAllReports, setShowAllReports] = useState(false);
+  const [expandedReport, setExpandedReport] = useState<number | null>(null);
+  const [npubCopied, setNpubCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareText, setShareText] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [shareResult, setShareResult] = useState<string | null>(null);
   const inputRef = useRef<HTMLDivElement>(null);
+  const [suggestions, setSuggestions] = useState<Profile[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   // Per-section state; each scan lands independently.
   const [muteStatus, setMuteStatus] = useState<Status>("idle");
@@ -67,6 +94,10 @@ export default function Dossier() {
   const [deletions, setDeletions] = useState<
     { deletions: number; targets: number } | null
   >(null);
+  const [btcStatus, setBtcStatus] = useState<Status>("idle");
+  const [btc, setBtc] = useState<ExposureReport | null>(null);
+  const [dmStatus, setDmStatus] = useState<Status>("idle");
+  const [dms, setDms] = useState<DmActivity | null>(null);
   const [footprintStatus, setFootprintStatus] = useState<Status>("idle");
   const [footprint, setFootprint] = useState<{
     nip05: Nip05Status;
@@ -94,7 +125,17 @@ export default function Dossier() {
       } else if (query.match(/^[0-9a-f]{64}$/i)) {
         pubkey = query;
       } else {
-        const profiles = await searchProfiles(query, DEFAULT_RELAYS, 10);
+        const profiles = await Promise.race([
+          searchProfiles(query, DEFAULT_RELAYS, 10),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("search timeout")), 20000),
+          ),
+        ]).catch(() => null);
+        if (!profiles) {
+          setError("Couldn’t reach the relays to look that name up. Try again, or paste an npub.");
+          resetSections("idle");
+          return;
+        }
         if (profiles.length === 0) {
           setError(`No user found for "${query}". Try a name, NIP-05, or npub.`);
           resetSections("idle");
@@ -165,6 +206,20 @@ export default function Dossier() {
       })
       .catch(() => setDeletionStatus("error"));
 
+    getExposure(hexToNpub(pubkey))
+      .then((report) => {
+        setBtc(report);
+        setBtcStatus("done");
+      })
+      .catch(() => setBtcStatus("error"));
+
+    fetchDmActivity(pubkey, relays)
+      .then((result) => {
+        setDms(result);
+        setDmStatus("done");
+      })
+      .catch(() => setDmStatus("error"));
+
     fetchProfile(pubkey, DEFAULT_RELAYS)
       .then(async (profile) => {
         const nip05Claim = profile?.nip05 || undefined;
@@ -195,7 +250,50 @@ export default function Dossier() {
     setDeletions(null);
     setFootprintStatus(status);
     setFootprint(null);
+    setBtcStatus(status);
+    setBtc(null);
+    setDmStatus(status);
+    setDms(null);
     setCopied(false);
+    setShowAllReports(false);
+    setExpandedReport(null);
+  };
+
+  // Live name suggestions while typing; npubs, hex and NIP-05 skip this.
+  useEffect(() => {
+    const q = input.trim();
+    if (q.length < 3 || /^(npub|nprofile)/i.test(q) || /^[0-9a-f]{64}$/i.test(q)) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setSuggesting(true);
+      try {
+        const profiles = await searchProfiles(q, DEFAULT_RELAYS, 8);
+        if (cancelled) return;
+        setSuggestions(profiles);
+        setSelectedIndex(0);
+        setShowSuggestions(profiles.length > 0);
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      } finally {
+        if (!cancelled) setSuggesting(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [input]);
+
+  const pickSuggestion = (profile: Profile) => {
+    const npub = hexToNpub(profile.pubkey);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setInput(npub);
+    openDossier(npub);
   };
 
   // Open directly from ?npub= links (home lookup, shares).
@@ -212,17 +310,21 @@ export default function Dossier() {
     muteStatus === "running" ||
     reportStatus === "running" ||
     deletionStatus === "running" ||
+    btcStatus === "running" ||
+    dmStatus === "running" ||
     footprintStatus === "running";
 
+  const npubAction = (path: string, label: string) =>
+    subjectNpub
+      ? { href: `${path}?npub=${subjectNpub}`, label }
+      : undefined;
+
   const buildReport = () => {
-    const name = subject ? getDisplayName(subject) : subjectNpub;
-    const lines: string[] = [];
-    lines.push(`The Dossier — ${name}`);
-    lines.push(`${subjectNpub}`);
+    const network: string[] = [];
     if (muters !== null) {
       const score = getMuteScore(muters);
-      lines.push(
-        `Muted by ${muters} public lists (${score.emoji} ${score.label}${
+      network.push(
+        `🔇 Muted by ${muters} public lists (${score.emoji} ${score.label}${
           noteCount
             ? `, ${formatPerThousand(getMuteRatioSignal(muters, noteCount).perThousand)}/1k notes`
             : ""
@@ -230,22 +332,73 @@ export default function Dossier() {
       );
     }
     if (reports) {
-      lines.push(
-        `${reports.length} public report${reports.length === 1 ? "" : "s"} filed`,
+      network.push(
+        `🚩 ${reports.length} public report${reports.length === 1 ? "" : "s"} filed`,
       );
     }
     if (deletions) {
-      lines.push(
-        `${deletions.deletions} deletion request${deletions.deletions === 1 ? "" : "s"} published (${deletions.targets} targets)`,
+      network.push(
+        `🗑️ ${deletions.deletions} deletion request${deletions.deletions === 1 ? "" : "s"} published (${deletions.targets} targets)`,
+      );
+    }
+    const identity: string[] = [];
+    if (btc) {
+      const used = btc.addresses.some((a) => a.txCount > 0);
+      identity.push(
+        `⛓️ On-chain: ${btc.totalSats.toLocaleString("en-US")} sats at the key-derived address${used ? " (address has history)" : " (never used)"}`,
+      );
+    }
+    if (dms) {
+      identity.push(
+        `💬 Legacy DMs: ${dms.sent} sent to ${dms.recipients} people, ${dms.received} received from ${dms.senders}`,
       );
     }
     if (footprint) {
-      lines.push(
-        `NIP-05: ${footprint.nip05 === "verified" ? "verified" : footprint.nip05 === "mismatch" ? "claimed but mismatched" : "not verified"} · Lightning: ${footprint.lightning ? "yes" : "none"}`,
+      identity.push(
+        `🪪 NIP-05: ${footprint.nip05 === "verified" ? "verified" : footprint.nip05 === "mismatch" ? "claimed but mismatched" : "not verified"} · ⚡ Lightning: ${footprint.lightning ? "yes" : "none"}`,
       );
     }
-    lines.push(`Run your own: https://mutable.top/dossier?npub=${subjectNpub}`);
-    return lines.join("\n");
+    return [
+      session && hexPubkey === session.pubkey
+        ? "I just received my dossier from #Mutable 🫆"
+        : `I just received the dossier on nostr:${subjectNpub} from #Mutable 🫆`,
+      network.join("\n"),
+      identity.join("\n"),
+      "Run your own: https://mutable.top/dossier",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  };
+
+  const openShare = () => {
+    if (!subjectNpub) return;
+    setShareText(buildReport());
+    setShareResult(null);
+    setShareOpen(true);
+  };
+
+  const handlePublish = async () => {
+    if (!session || !hexPubkey) return;
+    setPublishing(true);
+    setShareResult(null);
+    try {
+      const tags: string[][] = [
+        ["t", "Dossier"],
+        ["t", "Mutable"],
+        ["client", "Mutable"],
+      ];
+      if (hexPubkey !== session.pubkey) tags.unshift(["p", hexPubkey]);
+      const result = await publishTextNote(shareText, tags, session.relays);
+      if (result.success) {
+        setShareOpen(false);
+      } else {
+        setShareResult(`Couldn’t publish: ${result.error ?? "unknown error"}`);
+      }
+    } catch {
+      setShareResult("Couldn’t publish the note. Try again.");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -262,25 +415,86 @@ export default function Dossier() {
         icon={<FileSearch size={25} />}
         iconBg="from-amber-500 to-amber-700"
         title="The Dossier"
-        subtitle="Mute Score, reports, deletions and public footprint — one report, no login."
+        subtitle="Mute Score, reports, deletions, on-chain Bitcoin, DMs and public footprint — one report, no login."
       />
 
       {/* Search */}
-      <section className="panel relative rounded-xl border border-line shadow-panel mt-6 animate-rise stagger-1">
+      <section className="panel relative z-20 rounded-xl border border-line shadow-panel mt-6 animate-rise stagger-1">
         <div className="p-5">
           <div ref={inputRef}>
             <div className="flex flex-col sm:flex-row gap-2.5">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") openDossier();
-                }}
-                placeholder="npub, NIP-05, name or hex pubkey"
-                className="flex-1 px-4 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm outline-none focus:border-primary focus:shadow-[0_0_0_3px_rgb(220_38_38/0.18)] transition-all"
-                spellCheck={false}
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  onKeyDown={(e) => {
+                    const open = showSuggestions && suggestions.length > 0;
+                    if (e.key === "Escape") {
+                      setShowSuggestions(false);
+                    } else if (open && e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSelectedIndex((i) => (i + 1) % suggestions.length);
+                    } else if (open && e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSelectedIndex(
+                        (i) => (i - 1 + suggestions.length) % suggestions.length,
+                      );
+                    } else if (e.key === "Enter") {
+                      if (open) pickSuggestion(suggestions[selectedIndex]);
+                      else openDossier();
+                    }
+                  }}
+                  placeholder="npub, NIP-05, name or hex pubkey"
+                  className="w-full px-4 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm outline-none focus:border-primary focus:shadow-[0_0_0_3px_rgb(220_38_38/0.18)] transition-all"
+                  spellCheck={false}
+                />
+                {suggesting && (
+                  <Loader2
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-mid"
+                  />
+                )}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-30 left-0 right-0 mt-1 bg-inset rounded-[10px] border border-line-strong shadow-panel max-h-72 overflow-y-auto">
+                    {suggestions.map((p, i) => (
+                      <button
+                        key={p.pubkey}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickSuggestion(p)}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5 ${
+                          i === selectedIndex ? "bg-black/5 dark:bg-white/5" : ""
+                        }`}
+                      >
+                        {p.picture ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.picture}
+                            alt=""
+                            className="w-8 h-8 rounded-full object-cover flex-none"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.visibility = "hidden";
+                            }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 flex-none" />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block truncate text-hi">
+                            {getDisplayName(p)}
+                          </span>
+                          <span className="block truncate text-xs text-mid">
+                            {p.nip05 || `${p.pubkey.slice(0, 8)}…${p.pubkey.slice(-8)}`}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => openDossier()}
                 disabled={running}
@@ -294,6 +508,21 @@ export default function Dossier() {
                 Open the Dossier
               </button>
             </div>
+            {session && (
+              <button
+                type="button"
+                onClick={() => {
+                  const npub = hexToNpub(session.pubkey);
+                  setInput(npub);
+                  openDossier(npub);
+                }}
+                disabled={running}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-mid hover:text-hi transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <User size={14} />
+                Open my Dossier
+              </button>
+            )}
             {error && (
               <p className="mt-2.5 text-xs text-red-600 dark:text-red-400">
                 {error}
@@ -331,10 +560,40 @@ export default function Dossier() {
               <h2 className="font-display font-bold text-xl tracking-tight text-hi truncate">
                 {getDisplayName(subject, "Unknown")}
               </h2>
-              <p className="font-mono text-xs text-mut mt-0.5 break-all">
-                {subjectNpub}
-              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (subjectNpub && (await copyToClipboard(subjectNpub))) {
+                    setNpubCopied(true);
+                    setTimeout(() => setNpubCopied(false), 2000);
+                  }
+                }}
+                title="Copy npub"
+                className="mt-0.5 flex items-center gap-1.5 font-mono text-xs text-mut hover:text-hi transition-colors max-w-full"
+              >
+                <span className="truncate">
+                  {subjectNpub
+                    ? `${subjectNpub.slice(0, 12)}…${subjectNpub.slice(-8)}`
+                    : ""}
+                </span>
+                {npubCopied ? (
+                  <Check size={12} className="flex-none" />
+                ) : (
+                  <Copy size={12} className="flex-none" />
+                )}
+              </button>
             </div>
+            {session && (
+              <button
+                onClick={openShare}
+                disabled={muteStatus !== "done"}
+                className="px-3.5 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] text-[13px] font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                title={muteStatus === "done" ? "Publish the report as a note" : "Report still running"}
+              >
+                <Send size={14} />
+                Share as note
+              </button>
+            )}
             <button
               onClick={handleCopy}
               disabled={muteStatus !== "done"}
@@ -355,6 +614,7 @@ export default function Dossier() {
             icon={<EyeOff size={16} />}
             tone="purple"
             title="Mute Score"
+            action={npubAction("/mute-o-scope", "Open in Mute-o-Scope")}
             status={muteStatus}
             progress={muteProgress}
           >
@@ -393,6 +653,7 @@ export default function Dossier() {
             icon={<Flag size={16} />}
             tone="orange"
             title="Reports filed"
+            action={npubAction("/reportable", "Open in Reportable")}
             status={reportStatus}
             progress={reportProgress}
           >
@@ -405,19 +666,42 @@ export default function Dossier() {
                   public kind:1984 reports target this account
                 </p>
                 {reports.length > 0 && (
-                  <ul className="mt-3 space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                    {reports.slice(0, 8).map((r, i) => (
-                      <li
-                        key={i}
-                        className="text-xs text-mid bg-inset border border-line rounded-lg px-2.5 py-1.5 truncate"
+                  <>
+                    <ul className="mt-3 space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                      {(showAllReports ? reports : reports.slice(0, 8)).map(
+                        (r, i) => (
+                          <li key={i}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedReport(expandedReport === i ? null : i)
+                              }
+                              aria-expanded={expandedReport === i}
+                              className={`w-full text-left text-xs text-mid bg-inset border border-line rounded-lg px-2.5 py-1.5 hover:border-line-strong transition-colors break-words ${
+                                expandedReport === i ? "" : "line-clamp-2"
+                              }`}
+                            >
+                              {r.type ? (
+                                <span className="text-mut">{r.type}: </span>
+                              ) : null}
+                              {r.content || "(no context given)"}
+                            </button>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                    {reports.length > 8 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllReports((v) => !v)}
+                        className="mt-2 text-xs font-semibold text-mid hover:text-hi transition-colors"
                       >
-                        {r.type ? (
-                          <span className="text-mut">{r.type}: </span>
-                        ) : null}
-                        {r.content || "(no context given)"}
-                      </li>
-                    ))}
-                  </ul>
+                        {showAllReports
+                          ? "Show fewer"
+                          : `Show all ${reports.length}`}
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             ) : null}
@@ -427,6 +711,7 @@ export default function Dossier() {
             icon={<Radiation size={16} />}
             tone="red"
             title="Deletions published"
+            action={npubAction("/redactable", "Open in Redactable")}
             status={deletionStatus}
           >
             {deletions ? (
@@ -437,6 +722,101 @@ export default function Dossier() {
                 <p className="text-sm text-mut mt-1">
                   deletion requests covering {deletions.targets} distinct{" "}
                   {deletions.targets === 1 ? "event" : "events"}
+                </p>
+              </>
+            ) : null}
+          </Section>
+
+          <Section
+            icon={<Bitcoin size={16} />}
+            tone="amber"
+            title="On-chain Bitcoin"
+            action={npubAction("/muggable", "Open in Muggable")}
+            status={btcStatus}
+          >
+            {btc ? (
+              <>
+                <p className="text-3xl font-display font-bold text-hi leading-none">
+                  {btc.totalSats.toLocaleString("en-US")}
+                  <span className="text-sm font-medium text-mut"> sats</span>
+                </p>
+                <p className="text-sm text-mut mt-1">
+                  at addresses derived from this public key
+                </p>
+                <ul className="mt-3 space-y-1.5">
+                  {btc.addresses
+                    .filter((a) => a.type === "P2TR" || a.txCount > 0 || a.error)
+                    .map((a) => (
+                    <li
+                      key={a.address}
+                      className="text-xs text-mid bg-inset border border-line rounded-lg px-2.5 py-1.5 flex items-center gap-2"
+                    >
+                      <span className="text-mut flex-none">{a.type}</span>
+                      <a
+                        href={a.addressUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate hover:text-hi"
+                      >
+                        {a.address}
+                      </a>
+                      <span className="ml-auto flex-none text-mut">
+                        {a.error
+                          ? "lookup failed"
+                          : a.txCount === 0
+                            ? "unused"
+                            : `${a.txCount} tx`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(() => {
+                  const hidden = btc.addresses.filter(
+                    (a) => !(a.type === "P2TR" || a.txCount > 0 || a.error),
+                  ).length;
+                  return hidden > 0 ? (
+                    <p className="text-xs text-mut mt-2">
+                      {hidden} other derived addresses checked, all unused.
+                    </p>
+                  ) : null;
+                })()}
+              </>
+            ) : null}
+          </Section>
+
+          <Section
+            icon={<MessageSquare size={16} />}
+            tone="blue"
+            title="DM history"
+            action={npubAction("/snoopable", "Open in Snoopable")}
+            status={dmStatus}
+          >
+            {dms ? (
+              <>
+                <p className="text-3xl font-display font-bold text-hi leading-none">
+                  {dms.sent + dms.received}
+                </p>
+                <p className="text-sm text-mut mt-1">
+                  legacy DMs: {dms.sent} sent to {dms.recipients}{" "}
+                  {dms.recipients === 1 ? "person" : "people"}, {dms.received}{" "}
+                  received from {dms.senders}
+                </p>
+                {dms.first !== null && dms.last !== null && (
+                  <p className="text-sm text-mid mt-2">
+                    {new Date(dms.first * 1000).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    })}{" "}
+                    –{" "}
+                    {new Date(dms.last * 1000).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                )}
+                <p className="text-xs text-mut mt-3">
+                  Contents stay encrypted. Only who and when is public, and
+                  NIP-17 DMs hide even that.
                 </p>
               </>
             ) : null}
@@ -494,8 +874,72 @@ export default function Dossier() {
       {muteStatus === "idle" && reportStatus === "idle" && !subject && (
         <p className="mt-6 text-sm text-mut flex items-center gap-2 animate-rise stagger-2">
           <Eye size={15} className="flex-none" />
-          Everything here comes from public relays. The subject is never told.
+          Everything here comes from public relays and public block explorers. The subject is never told unless you share it.
         </p>
+      )}
+      {shareOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => !publishing && setShareOpen(false)}
+        >
+          <div
+            className="panel relative rounded-xl border border-line shadow-panel w-full max-w-lg p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center mb-3">
+              <h3 className="font-display font-semibold text-base tracking-tight text-hi">
+                Share as note
+              </h3>
+              <button
+                onClick={() => setShareOpen(false)}
+                disabled={publishing}
+                className="ml-auto text-mut hover:text-hi"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <textarea
+              value={shareText}
+              onChange={(e) => setShareText(e.target.value)}
+              rows={10}
+              className="w-full px-3 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm font-mono outline-none focus:border-primary"
+            />
+            <p className="text-xs text-mut mt-2">
+              Publishes a public note from your account
+              {hexPubkey && hexPubkey !== session?.pubkey
+                ? " and tags the subject."
+                : "."}{" "}
+              Edit it first if you like.
+            </p>
+            {shareResult && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                {shareResult}
+              </p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setShareOpen(false)}
+                disabled={publishing}
+                className="flex-1 px-4 py-2 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublish}
+                disabled={publishing || !shareText.trim()}
+                className="flex-1 px-4 py-2 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {publishing ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Send size={15} />
+                )}
+                {publishing ? "Publishing…" : "Publish note"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AppShell>
   );
@@ -507,13 +951,15 @@ function Section({
   title,
   status,
   progress,
+  action,
   children,
 }: {
   icon: React.ReactNode;
-  tone: "purple" | "orange" | "red" | "green";
+  tone: "purple" | "orange" | "red" | "green" | "amber" | "blue";
   title: string;
   status: Status;
   progress?: string;
+  action?: { href: string; label: string };
   children?: React.ReactNode;
 }) {
   const tones: Record<string, string> = {
@@ -521,6 +967,8 @@ function Section({
     orange: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
     red: "bg-red-500/15 text-red-700 dark:text-red-400",
     green: "bg-green-500/15 text-green-700 dark:text-green-400",
+    amber: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    blue: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   };
   return (
     <section className="panel relative rounded-xl border border-line shadow-panel p-5">
@@ -551,7 +999,18 @@ function Section({
           <div className="h-3.5 w-2/3 rounded bg-black/10 dark:bg-white/10 animate-pulse" />
         </div>
       ) : (
-        children
+        <>
+          {children}
+          {action && status !== "running" && (
+            <Link
+              href={action.href}
+              className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-mid hover:text-hi transition-colors"
+            >
+              {action.label}
+              <ArrowUpRight size={13} />
+            </Link>
+          )}
+        </>
       )}
     </section>
   );
@@ -580,7 +1039,7 @@ function FootprintRow({
           className="text-green-600 dark:text-green-400 flex-none"
         />
       ) : (
-        <span className="w-[14px] text-center text-mut flex-none">—</span>
+        <X size={14} className="text-red-600 dark:text-red-400 flex-none" />
       )}
       <span className={ok || warn ? "text-mid" : "text-mut"}>{label}</span>
     </li>

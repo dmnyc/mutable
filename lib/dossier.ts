@@ -70,3 +70,69 @@ export async function verifyNip05(
     return "unverified";
   }
 }
+
+export interface DmActivity {
+  /** Legacy kind:4 DMs they authored. */
+  sent: number;
+  /** Distinct people they have sent kind:4 DMs to. */
+  recipients: number;
+  /** Legacy kind:4 DMs addressed to them. */
+  received: number;
+  /** Distinct people who have sent them kind:4 DMs. */
+  senders: number;
+  /** Unix seconds of the earliest and latest kind:4 seen, either direction. */
+  first: number | null;
+  last: number | null;
+}
+
+/**
+ * Legacy (NIP-04) DM metadata. Content is encrypted, but who talked to
+ * whom and when is public on relays. NIP-17 gift wraps hide the sender
+ * and are not counted here.
+ */
+export async function fetchDmActivity(
+  pubkey: string,
+  relays: string[],
+): Promise<DmActivity> {
+  const pool = getPool();
+  const expanded = getExpandedRelayList(relays);
+  const [outgoing, incoming] = await Promise.all([
+    pool.querySync(expanded, { kinds: [4], authors: [pubkey], limit: 1000 }),
+    pool.querySync(expanded, { kinds: [4], "#p": [pubkey], limit: 1000 }),
+  ]);
+
+  const sentIds = new Set<string>();
+  const recipients = new Set<string>();
+  const receivedIds = new Set<string>();
+  const senders = new Set<string>();
+  let first: number | null = null;
+  let last: number | null = null;
+  const touch = (t: number) => {
+    if (first === null || t < first) first = t;
+    if (last === null || t > last) last = t;
+  };
+
+  for (const e of outgoing) {
+    if (sentIds.has(e.id)) continue;
+    sentIds.add(e.id);
+    touch(e.created_at);
+    for (const tag of e.tags) {
+      if (tag[0] === "p" && tag[1]) recipients.add(tag[1]);
+    }
+  }
+  for (const e of incoming) {
+    if (receivedIds.has(e.id)) continue;
+    receivedIds.add(e.id);
+    touch(e.created_at);
+    senders.add(e.pubkey);
+  }
+
+  return {
+    sent: sentIds.size,
+    recipients: recipients.size,
+    received: receivedIds.size,
+    senders: senders.size,
+    first,
+    last,
+  };
+}
