@@ -110,7 +110,7 @@ export default function PrivacyControls({
             Privacy
           </h3>
           <span className="text-sm text-mut truncate">
-            {total} mutes · {privateCount} encrypted
+            {total} mutes
           </span>
         </div>
         <button
