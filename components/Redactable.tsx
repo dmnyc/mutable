@@ -1617,7 +1617,7 @@ export default function Redactable() {
           </div>
         )}
         <div className="min-w-0">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+          <h3 className="font-display font-semibold text-base tracking-tight text-hi truncate">
             <a
               href={getProfileLink(targetPubkey)}
               target="_blank"
@@ -2001,7 +2001,7 @@ export default function Redactable() {
                 <div className="panel relative rounded-xl border border-line shadow-panel p-6">
                   {targetIdentityHeader}
                   <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
                       No Deletion Requests Found
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -2016,7 +2016,7 @@ export default function Redactable() {
                   {targetIdentityHeader}
 
                   <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-1">
                       Requested deletion of {ownDeletedCount} post
                       {ownDeletedCount === 1 ? "" : "s"} across{" "}
                       {allDeletions.length} deletion request
@@ -2143,7 +2143,7 @@ export default function Redactable() {
             <div className="panel relative rounded-xl border border-line shadow-panel p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h3 className="font-display font-semibold text-base tracking-tight text-hi">
                     Recent Deletion Requests
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">

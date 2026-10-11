@@ -199,7 +199,7 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
             <div className="flex items-center gap-4">
               {currentStepData.icon}
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h2 className="font-display font-bold text-3xl tracking-tight text-hi">
                   {currentStepData.title}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

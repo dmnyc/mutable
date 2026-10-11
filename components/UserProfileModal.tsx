@@ -530,7 +530,7 @@ export default function UserProfileModal({
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white break-words [overflow-wrap:anywhere]">
+              <h2 className="font-display font-bold text-3xl tracking-tight text-hi break-words [overflow-wrap:anywhere]">
                 {getDisplayName()}
               </h2>
               {enrichedProfile.nip05 && (
@@ -949,7 +949,7 @@ export default function UserProfileModal({
 
           {/* User's Mute List */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
               {getDisplayName()}&apos;s Mute List
             </h3>
 

@@ -482,7 +482,7 @@ export default function CreatePublicList({
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 z-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-3xl tracking-tight text-hi">
               {isEditMode ? "Edit Community Pack" : "Create Community Pack"}
             </h2>
             <button
@@ -1112,7 +1112,7 @@ export default function CreatePublicList({
                 size={24}
               />
               <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
                   Pack Already Exists
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -275,11 +275,11 @@ export default function DomainPurge() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-start gap-3 mb-4">
           <Globe className="text-red-600 dark:text-red-500 mt-1" size={24} />
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Domain Purge
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -381,10 +381,10 @@ export default function DomainPurge() {
 
       {/* Results Section */}
       {!searching && results.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-display font-semibold text-base tracking-tight text-hi">
                 Found {results.length} user{results.length === 1 ? "" : "s"}{" "}
                 with domain: {domain}
               </h3>

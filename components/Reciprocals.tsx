@@ -604,7 +604,7 @@ export default function Reciprocals({
             className="mx-auto mb-4 text-gray-400 dark:text-gray-500"
             size={48}
           />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
             Sign In Required
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -639,7 +639,7 @@ export default function Reciprocals({
 
       {/* Search Specific User */}
       <div className="panel relative rounded-xl border border-line shadow-panel p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
           Check Specific User
         </h3>
 
@@ -747,7 +747,7 @@ export default function Reciprocals({
 
       {/* Check All Follows */}
       <div className="panel relative rounded-xl border border-line shadow-panel p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
           Check All Your Follows
         </h3>
 
@@ -811,7 +811,7 @@ export default function Reciprocals({
         <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="mb-4">
             <div className="flex items-start justify-between gap-4 mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-display font-semibold text-base tracking-tight text-hi">
                 {allResults.length} Non-Reciprocal Follow
                 {allResults.length === 1 ? "" : "s"}
               </h3>
@@ -854,7 +854,7 @@ export default function Reciprocals({
               className={`mx-auto mb-3 ${checkedFollowCount ? "text-green-500" : "text-gray-400"}`}
               size={48}
             />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
               {checkedFollowCount === null
                 ? "Check your follows"
                 : checkedFollowCount === 0

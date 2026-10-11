@@ -351,7 +351,7 @@ export default function Snoopable() {
             className="text-purple-600 dark:text-purple-500 mt-1 flex-shrink-0"
           />
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="font-display font-bold text-3xl tracking-tight text-hi mb-2">
               Snoopable
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
@@ -541,7 +541,7 @@ export default function Snoopable() {
                 </div>
               )}
               <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                   {getDisplayName(
                     analysis.targetProfile,
                     truncateNpub(analysis.targetPubkey),
@@ -622,7 +622,7 @@ export default function Snoopable() {
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="font-display font-bold text-3xl tracking-tight text-hi">
                 {analysis.contacts.length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -630,7 +630,7 @@ export default function Snoopable() {
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="font-display font-bold text-3xl tracking-tight text-hi">
                 {analysis.oldestDM
                   ? new Date(analysis.oldestDM * 1000).toLocaleDateString(
                       "en-US",
@@ -718,7 +718,7 @@ export default function Snoopable() {
         createPortal(
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+              <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
                 Share as Nostr Note
               </h3>
 

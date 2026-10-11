@@ -158,7 +158,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <X size={24} />
         </button>
 
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+        <h2 className="font-display font-bold text-2xl tracking-tight mb-4 text-hi">
           Connect to Nostr
         </h2>
 

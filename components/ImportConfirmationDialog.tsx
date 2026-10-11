@@ -66,7 +66,7 @@ export default function ImportConfirmationDialog({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Shield className="text-red-600 dark:text-red-500" size={24} />
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Confirm Import
               </h2>
             </div>

@@ -695,7 +695,7 @@ export default function Reportable() {
   // and human. A target with zero human reports says so — "Found 0 Public
   // Reports" next to a Clean score reads as exoneration of a bot swarm.
   const receivedHeadline = (
-    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+    <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
       {humanResults.length === 0 && hiddenReceivedCount > 0 ? (
         <>
           No human reports — {hiddenReceivedCount} automated report
@@ -806,7 +806,7 @@ export default function Reportable() {
         )}
 
         <div className="min-w-0">
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white break-words line-clamp-2 leading-tight">
+          <h3 className="text-xl sm:font-display font-bold text-3xl tracking-tight text-hi break-words line-clamp-2 leading-tight">
             {targetProfile
               ? getDisplayName(targetProfile, "Unknown profile")
               : "Unknown profile"}
@@ -1104,7 +1104,7 @@ export default function Reportable() {
                   <div className="panel relative rounded-xl border border-line shadow-panel p-6">
                     {targetIdentityHeader}
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                      <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
                         Found 0 Public Reports
                       </h3>
                       <button
@@ -1126,7 +1126,7 @@ export default function Reportable() {
                     </div>
                     <div className="text-center p-8">
                       <Flag className="mx-auto mb-3 text-green-500" size={48} />
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      <p className="font-display font-semibold text-base tracking-tight text-hi mb-2">
                         No Public Reports Found
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1486,7 +1486,7 @@ export default function Reportable() {
                   {resultView === "filed" && (
                     <>
                       <div className="mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
                           Filed {filedResults.length} Public Report
                           {filedResults.length === 1 ? "" : "s"} against{" "}
                           {filedUniqueTargets} Unique Target
@@ -1751,7 +1751,7 @@ export default function Reportable() {
           {activeTab === "feed" && (
             <div className="panel relative rounded-xl border border-line shadow-panel p-6">
               <div className="flex items-center justify-between gap-4 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi">
                   Recent Public Reports
                 </h3>
                 <button

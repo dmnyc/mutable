@@ -475,7 +475,7 @@ export default function ReportDetailModal({
           <div className="flex items-center gap-4 flex-1 min-w-0 basis-full sm:basis-auto">
             <OfficialSeal className="-rotate-12 opacity-80 text-blue-900 dark:text-blue-200" />
             <div className="min-w-0">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+              <h2 className="font-display font-bold text-2xl tracking-tight text-hi mb-1">
                 Public Report
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -43,7 +43,7 @@ export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between flex-shrink-0">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+            <h2 className="font-display font-bold text-3xl tracking-tight text-hi mb-1">
               Mute Score &amp; Ratio
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">

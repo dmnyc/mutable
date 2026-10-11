@@ -233,7 +233,7 @@ export default function DiagnosticsPage() {
         {results.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <div className="p-4 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              <h2 className="font-display font-semibold text-base tracking-tight text-hi">
                 Results ({results.filter((r) => r.hasData).length} /{" "}
                 {results.length} relays have data)
               </h2>

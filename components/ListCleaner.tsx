@@ -324,7 +324,7 @@ export default function ListCleaner() {
       </div>
 
       {/* Scan Controls */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -356,7 +356,7 @@ export default function ListCleaner() {
           <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
             <div>
               <p className="text-gray-600 dark:text-gray-400">
-                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                <span className="font-display font-bold text-3xl tracking-tight text-hi">
                   {muteList.pubkeys.length}
                 </span>
                 <span className="ml-2 text-sm">muted profiles</span>
@@ -415,7 +415,7 @@ export default function ListCleaner() {
 
       {/* Results */}
       {scanResults.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="panel relative rounded-xl border border-line shadow-panel">
           {/* Results Header */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
@@ -592,7 +592,7 @@ export default function ListCleaner() {
       )}
 
       {/* Blacklist Viewer */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="panel relative rounded-xl border border-line shadow-panel">
         <button
           onClick={() => setShowBlacklist(!showBlacklist)}
           className="w-full p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg"

@@ -498,7 +498,7 @@ export default function Settings() {
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
           Settings
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -528,10 +528,10 @@ export default function Settings() {
 
       {/* Nostr Network Section */}
       {session && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3 mb-4">
             <Radio size={24} className="text-gray-900 dark:text-white" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Nostr Network
             </h2>
           </div>
@@ -684,10 +684,10 @@ export default function Settings() {
 
       {/* Relay Storage Sync Section */}
       {session && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3 mb-4">
             <Cloud size={24} className="text-gray-900 dark:text-white" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Relay Storage Sync
             </h2>
           </div>
@@ -894,10 +894,10 @@ export default function Settings() {
       )}
 
       {/* Privacy & Data Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           <Shield size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             Privacy & Data
           </h2>
         </div>
@@ -953,10 +953,10 @@ export default function Settings() {
       </div>
 
       {/* Mute Privacy Default */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           {defaultMutePrivacy ? <Lock size={24} className="text-purple-600 dark:text-purple-400" /> : <Unlock size={24} className="text-amber-600 dark:text-amber-400" />}
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             Mute Privacy
           </h2>
         </div>
@@ -999,10 +999,10 @@ export default function Settings() {
       </div>
 
       {/* Onboarding Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           <Eye size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             Show Onboarding
           </h2>
         </div>
@@ -1102,10 +1102,10 @@ export default function Settings() {
       </div>
 
       {/* About Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           <Info size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             About Mutable
           </h2>
         </div>
@@ -1228,7 +1228,7 @@ export default function Settings() {
                 className="text-red-600 dark:text-red-400"
                 size={32}
               />
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Confirm Reset
               </h3>
             </div>
@@ -1273,7 +1273,7 @@ export default function Settings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Manage Protected Users ({protectedCount})
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -1433,7 +1433,7 @@ export default function Settings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Manage Blacklist ({blacklistCount})
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

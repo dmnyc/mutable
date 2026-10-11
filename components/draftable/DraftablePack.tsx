@@ -226,7 +226,7 @@ export default function DraftablePack({
       <div className="space-y-6">
         <BackToPacks />
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="font-display font-bold text-3xl tracking-tight text-hi mb-2">
             This link matches {candidates.length} packs
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
@@ -252,7 +252,7 @@ export default function DraftablePack({
   if (!pack) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <h1 className="font-display font-bold text-3xl tracking-tight text-hi mb-2">
           Pack not found
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -448,7 +448,7 @@ export default function DraftablePack({
         <div className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white break-words">
+              <h1 className="font-display font-bold text-3xl tracking-tight text-hi break-words">
                 {pack.name}
               </h1>
               <button

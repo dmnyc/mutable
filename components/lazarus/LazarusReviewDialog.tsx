@@ -216,7 +216,7 @@ export default function LazarusReviewDialog({
           <div>
             <h2
               id="lazarus-review-title"
-              className="text-lg font-semibold text-gray-900 dark:text-white"
+              className="font-display font-semibold text-base tracking-tight text-hi"
             >
               Review restore: {profile.name}
             </h2>

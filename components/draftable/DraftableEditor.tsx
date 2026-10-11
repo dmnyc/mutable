@@ -146,7 +146,7 @@ export default function DraftableEditor() {
   if (!session) {
     return (
       <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <h1 className="font-display font-bold text-3xl tracking-tight text-hi mb-2">
           Sign in to draft people
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -313,7 +313,7 @@ export default function DraftableEditor() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-28">
       <BackToPacks />
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
         {editing ? "Edit follow pack" : "Draft a follow pack"}
       </h1>
 
@@ -328,7 +328,7 @@ export default function DraftableEditor() {
 
       {/* Details */}
       <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="font-display font-semibold text-base tracking-tight text-hi">
           Pack details
         </h2>
         <div>
@@ -477,7 +477,7 @@ export default function DraftableEditor() {
       {/* Conscripts */}
       <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 className="font-display font-semibold text-base tracking-tight text-hi">
             Draft people
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -750,7 +750,7 @@ export default function DraftableEditor() {
       {confirmDelete && existing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+            <h3 className="font-display font-bold text-2xl tracking-tight text-hi mb-3">
               Delete &ldquo;{existing.name}&rdquo;?
             </h3>
             <p className="text-gray-700 dark:text-gray-300 mb-6 text-sm">

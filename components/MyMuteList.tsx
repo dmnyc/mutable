@@ -81,10 +81,10 @@ export default function MyMuteList() {
   return (
     <div className="space-y-6 w-full max-w-full">
       {/* Header with Actions */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 w-full max-w-full">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6 w-full max-w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               My Mute List
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -135,7 +135,7 @@ export default function MyMuteList() {
 
       {/* Loading State */}
       {muteListLoading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
           <RefreshCw
             className="animate-spin mx-auto mb-3 text-gray-400"
             size={32}

@@ -568,7 +568,7 @@ export default function MuteOScope() {
         )}
 
         <div className="min-w-0">
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white break-words line-clamp-2 leading-tight">
+          <h3 className="text-xl sm:font-display font-bold text-3xl tracking-tight text-hi break-words line-clamp-2 leading-tight">
             {targetProfile
               ? getDisplayName(targetProfile, "Unknown profile")
               : "Unknown profile"}
@@ -1079,7 +1079,7 @@ export default function MuteOScope() {
                 {targetIdentityHeader}
                 <div className="mb-4">
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+                    <h3 className="text-lg sm:font-display font-bold text-2xl tracking-tight text-hi">
                       Found on 0 Public Mute Lists
                     </h3>
                     {targetProfile && (
@@ -1115,7 +1115,7 @@ export default function MuteOScope() {
                 </div>
                 <div className="text-center p-8">
                   <Users className="mx-auto mb-3 text-green-500" size={48} />
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  <p className="font-display font-semibold text-base tracking-tight text-hi mb-2">
                     No Public Mute Lists Found
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1138,7 +1138,7 @@ export default function MuteOScope() {
               {targetIdentityHeader}
               <div className="mb-4">
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-lg sm:font-display font-bold text-2xl tracking-tight text-hi">
                     Found on {allResults.length} Public Mute List
                     {allResults.length === 1 ? "" : "s"}
                   </h3>

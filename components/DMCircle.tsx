@@ -903,7 +903,7 @@ export default function DMCircle({
       {showPublishConfirm && previewImageUrl && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-display font-semibold text-base tracking-tight text-hi">
               Share to Nostr
             </h3>
 
@@ -943,7 +943,7 @@ export default function DMCircle({
       {showShareableNoteModal && !isSignedIn && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-display font-semibold text-base tracking-tight text-hi">
               Copy Shareable Note
             </h3>
 

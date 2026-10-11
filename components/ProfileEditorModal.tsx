@@ -379,7 +379,7 @@ export default function ProfileEditorModal({
 
         {/* Form Body */}
         <div className="pt-16 px-6 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi mb-6">
             Edit Profile
           </h2>
 

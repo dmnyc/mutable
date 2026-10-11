@@ -881,7 +881,7 @@ export default function Backups() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
             Backups
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -943,7 +943,7 @@ export default function Backups() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
               <Shield className="text-red-600 dark:text-red-400" size={24} />
@@ -952,14 +952,14 @@ export default function Backups() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Mute List Backups
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="font-display font-bold text-3xl tracking-tight text-hi">
                 {muteListBackups.length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
               <Users className="text-blue-600 dark:text-blue-400" size={24} />
@@ -968,14 +968,14 @@ export default function Backups() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Follow List Backups
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="font-display font-bold text-3xl tracking-tight text-hi">
                 {followListBackups.length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
               <Bookmark
@@ -987,14 +987,14 @@ export default function Backups() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Bookmarks Backups
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="font-display font-bold text-3xl tracking-tight text-hi">
                 {bookmarksBackups.length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <Archive className="text-gray-600 dark:text-gray-400" size={24} />
@@ -1003,7 +1003,7 @@ export default function Backups() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Total Backups
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="font-display font-bold text-3xl tracking-tight text-hi">
                 {backups.length}
               </p>
             </div>
@@ -1012,7 +1012,7 @@ export default function Backups() {
       </div>
 
       {/* Actions Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex gap-2 flex-wrap">
             <button
@@ -1092,13 +1092,13 @@ export default function Backups() {
       </div>
 
       {/* Relay Backup Storage */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-start gap-4">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
             <Lock className="text-purple-600 dark:text-purple-400" size={24} />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+            <h2 className="font-display font-semibold text-base tracking-tight text-hi mb-1">
               Relay Backup Storage
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -1389,7 +1389,7 @@ export default function Backups() {
       {/* Bookmarks & Lists Relay Backup */}
       <div
         id="list-relay-backup"
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 scroll-mt-4"
+        className="panel relative rounded-xl border border-line shadow-panel p-6 scroll-mt-4"
       >
         <div className="flex items-start gap-4">
           <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
@@ -1399,7 +1399,7 @@ export default function Backups() {
             />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+            <h2 className="font-display font-semibold text-base tracking-tight text-hi mb-1">
               Bookmarks & Lists Relay Backup
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -1589,7 +1589,7 @@ export default function Backups() {
 
       {/* Backups List */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="font-display font-semibold text-base tracking-tight text-hi">
           Local Backup History
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
@@ -1598,9 +1598,9 @@ export default function Backups() {
         </p>
       </div>
       {filteredBackups.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
           <Archive className="mx-auto text-gray-400 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
             No backups found
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -1612,7 +1612,7 @@ export default function Backups() {
           {filteredBackups.map((backup) => (
             <div
               key={backup.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4 hover:shadow-md transition-shadow"
+              className="panel relative rounded-xl border border-line shadow-panel p-3 sm:p-4 hover:shadow-md transition-shadow"
             >
               {(() => {
                 const meta = BACKUP_TYPE_META[backup.type];
