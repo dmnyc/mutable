@@ -9,11 +9,8 @@ import {
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import PublicListCard from "@/components/PublicListCard";
-import Footer from "@/components/Footer";
-import AuthModal from "@/components/AuthModal";
 import { RefreshCw, LogIn } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
+import AppShell, { useRequestSignIn } from "@/components/system/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function PackPage() {
@@ -31,7 +28,7 @@ export default function PackPage() {
   const [pack, setPack] = useState<PublicMuteList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const requestSignIn = useRequestSignIn();
 
   useEffect(() => {
     const loadPack = async () => {
@@ -76,178 +73,44 @@ export default function PackPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="flex items-center gap-2">
-                <Image
-                  src="/mutable_logo.svg"
-                  alt="Mutable"
-                  width={32}
-                  height={32}
-                  priority
-                />
-                <Image
-                  src="/mutable_text_dark.svg"
-                  alt="Mutable"
-                  width={100}
-                  height={24}
-                  priority
-                  className="block dark:hidden"
-                />
-                <Image
-                  src="/mutable_text.svg"
-                  alt="Mutable"
-                  width={100}
-                  height={24}
-                  priority
-                  className="hidden dark:block"
-                />
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Loading State */}
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+      <AppShell navActive="draftable" hideNav width="regular">
+        <main className="py-8">
+          <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
             <RefreshCw
               className="animate-spin mx-auto mb-3 text-gray-400"
               size={32}
             />
-            <p className="text-gray-600 dark:text-gray-400">Loading pack...</p>
+            <p className="text-mid">Loading pack...</p>
           </div>
         </main>
-        <Footer />
-      </div>
+      </AppShell>
     );
   }
 
   if (error || !pack) {
     return (
-      <div className="min-h-screen flex flex-col">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="flex items-center gap-2">
-                <Image
-                  src="/mutable_logo.svg"
-                  alt="Mutable"
-                  width={32}
-                  height={32}
-                  priority
-                />
-                <Image
-                  src="/mutable_text_dark.svg"
-                  alt="Mutable"
-                  width={100}
-                  height={24}
-                  priority
-                  className="block dark:hidden"
-                />
-                <Image
-                  src="/mutable_text.svg"
-                  alt="Mutable"
-                  width={100}
-                  height={24}
-                  priority
-                  className="hidden dark:block"
-                />
-              </Link>
-              {!session && (
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  <LogIn size={18} />
-                  <span className="hidden sm:inline">Sign In</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Error State */}
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+      <AppShell navActive="draftable" hideNav width="regular">
+        <main className="py-8">
+          <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
             <p className="text-red-600 dark:text-red-400 mb-4">
               {error || "Pack not found"}
             </p>
             <button
-              onClick={() => setShowAuthModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              onClick={requestSignIn}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] font-semibold shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 transition-all"
             >
               <LogIn size={18} />
               <span>Sign In to Import</span>
             </button>
           </div>
         </main>
-        <Footer />
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-        />
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/mutable_logo.svg"
-                alt="Mutable"
-                width={32}
-                height={32}
-                priority
-              />
-              <Image
-                src="/mutable_text_dark.svg"
-                alt="Mutable"
-                width={100}
-                height={24}
-                priority
-                className="block dark:hidden"
-              />
-              <Image
-                src="/mutable_text.svg"
-                alt="Mutable"
-                width={100}
-                height={24}
-                priority
-                className="hidden dark:block"
-              />
-            </Link>
-            {session ? (
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                <span className="hidden sm:inline">Go to Dashboard</span>
-                <span className="sm:hidden">Dashboard</span>
-              </Link>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                <LogIn size={18} />
-                <span className="hidden sm:inline">Sign In</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Pack Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+    <AppShell navActive="draftable" hideNav width="regular">
+      <main className="py-8">
         <PublicListCard list={pack} isOwner={false} />
 
         {!session && (
@@ -259,11 +122,6 @@ export default function PackPage() {
           </div>
         )}
       </main>
-      <Footer />
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-      />
-    </div>
+    </AppShell>
   );
 }

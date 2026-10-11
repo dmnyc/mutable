@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, createContext, useContext, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -25,6 +25,13 @@ import AuthModal from "@/components/AuthModal";
 import SiteNav, { SiteNavActive } from "@/components/system/SiteNav";
 import Footer from "@/components/Footer";
 
+const SignInContext = createContext<() => void>(() => {});
+
+/** Opens the Connect-with-Nostr modal from anywhere inside the shell. */
+export function useRequestSignIn() {
+  return useContext(SignInContext);
+}
+
 type Width = "wide" | "tool" | "regular" | "narrow";
 
 const widthClasses: Record<Width, string> = {
@@ -37,7 +44,8 @@ const widthClasses: Record<Width, string> = {
 export interface AppShellProps {
   /** Which nav item is active. */
   navActive: SiteNavActive;
-  children: ReactNode;
+  /** Optional when authGate replaces the content for signed-out visitors. */
+  children?: ReactNode;
   /** Main container width. Default "tool" (max-w-6xl). */
   width?: Width;
   /** Extra classes on <main> (e.g. the dashboard's banner bottom padding). */
@@ -124,6 +132,7 @@ export default function AppShell({
   );
 
   return (
+    <SignInContext.Provider value={() => setShowAuthModal(true)}>
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       <header className="glass-header sticky top-0 z-50 border-b border-line">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -272,6 +281,7 @@ export default function AppShell({
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
+    </SignInContext.Provider>
   );
 }
 
