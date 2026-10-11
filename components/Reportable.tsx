@@ -895,9 +895,8 @@ export default function Reportable() {
 
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> Reports are self-published, unmoderated
-                claims — anyone can report anyone for any reason. Treat this as
-                a public signal to investigate further, not a verdict.
+                <strong>Note:</strong> Reports are self-published and unmoderated —
+                a public signal to investigate, not a verdict.
               </p>
             </div>
             </div>

@@ -363,8 +363,8 @@ export default function Snoopable() {
 
         {/* Results Disclaimer */}
         <p className="mb-6 text-xs text-gray-500 dark:text-gray-400">
-          Results may vary based on relay availability and connection quality.
-          We query the target user's NIP-65 relays when available.
+          Results depend on relay availability — the target's own relays are
+          queried when possible.
         </p>
 
         {/* Search Input */}

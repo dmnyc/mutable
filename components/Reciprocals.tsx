@@ -630,9 +630,9 @@ export default function Reciprocals({
       <div className="panel relative rounded-xl border border-line shadow-panel p-4">
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Note:</strong> For users with many follows, this may take a
-            while. The check includes a second pass that queries each
-            user&apos;s preferred relays (NIP-65) to minimize false positives.
+            <strong>Note:</strong> Large follow lists take a while — each result
+            is verified against the user&apos;s own relays (NIP-65) to avoid
+            false positives.
           </p>
         </div>
       </div>

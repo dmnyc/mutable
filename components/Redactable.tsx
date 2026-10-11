@@ -1727,9 +1727,8 @@ export default function Redactable() {
 
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> A deletion request is a public kind:5
-                event asking relays to forget a post — relays and archives may
-                ignore it, and anything already copied can persist. A request is
+                <strong>Note:</strong> A deletion request asks relays to forget a
+                post — they may ignore it, and copies can persist. A request is
                 a wish, not an eraser.
               </p>
             </div>

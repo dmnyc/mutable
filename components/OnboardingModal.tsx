@@ -113,8 +113,8 @@ export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: Onb
               <div>
                 <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">Important: Always Backup First!</h4>
                 <p className="text-sm text-red-800 dark:text-red-200">
-                  Before making any changes to your mute or follow lists, we <strong>strongly recommend</strong> creating a backup.
-                  This ensures you can restore your data if something goes wrong.
+                  Back up your mute and follow lists before making changes — you can
+                  restore from a backup if anything goes wrong.
                 </p>
               </div>
             </div>
