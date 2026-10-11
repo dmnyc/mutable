@@ -664,6 +664,11 @@ export default function Reportable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // The received scan publishes its results only when it finishes, while the
+  // filed scan streams in earlier. Until the received scan is done, an empty
+  // list means "not known yet", never "none".
+  const receivedPending = searching && allResults.length === 0;
+
   const uniqueReporters = new Set(allResults.map((r) => r.reportedBy)).size;
 
   // Received reports judged automated: self-declared bots and coordinated
@@ -1160,7 +1165,7 @@ export default function Reportable() {
                             : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
                         }`}
                       >
-                        {allResults.length}
+                        {receivedPending ? "…" : allResults.length}
                       </span>
                     </button>
                     <button
@@ -1187,7 +1192,17 @@ export default function Reportable() {
                     </button>
                   </div>
 
-                  {resultView === "received" && (
+                  {resultView === "received" && receivedPending && (
+                    <div className="flex items-center justify-center gap-3 p-8 text-sm text-gray-600 dark:text-gray-400">
+                      <RefreshCw
+                        className="animate-spin text-blue-600 dark:text-blue-400"
+                        size={18}
+                      />
+                      {progress || "Searching network for public reports..."}
+                    </div>
+                  )}
+
+                  {resultView === "received" && !receivedPending && (
                     <>
                       <div className="mb-4">
                         {receivedHeadline}
