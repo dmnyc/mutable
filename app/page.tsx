@@ -426,13 +426,13 @@ export default function Home() {
             </section>
           </div>
 
-          {/* Full directory — every tool, one consistent card. LOGIN marks
-              the ones that need a session. */}
+          {/* Directory — everything the lookup above doesn't cover, grouped
+              by whether a session is needed. */}
           <section className="max-w-4xl mx-auto mt-14 animate-rise stagger-2">
             <div className="flex items-center gap-4 mb-4">
               <span className="flex-1 h-px bg-line" />
               <h2 className="font-display font-semibold text-[13px] tracking-[0.14em] uppercase text-mut">
-                Everything in Mutable
+                Everything else — no login
               </h2>
               <span className="flex-1 h-px bg-line" />
             </div>
@@ -451,24 +451,41 @@ export default function Home() {
                 text="Follow packs, ported from following.space."
               />
               <DirectoryCard
+                href="/muggable"
+                chip={<ChipTone tone="amber"><Wrench size={16} /></ChipTone>}
+                title="Muggable"
+                text="Check whether a Nostr key is holding Bitcoin on-chain."
+              />
+              <DirectoryCard
+                href="/clonable"
+                chip={<ChipTone tone="violet"><Copy size={16} /></ChipTone>}
+                title="Clonable"
+                text="Clone any public list into your own mute list."
+              />
+            </div>
+          </section>
+
+          <section className="max-w-4xl mx-auto mt-10 animate-rise stagger-3">
+            <div className="flex items-center gap-4 mb-4">
+              <span className="flex-1 h-px bg-line" />
+              <h2 className="font-display font-semibold text-[13px] tracking-[0.14em] uppercase text-mut">
+                Connect to use
+              </h2>
+              <span className="flex-1 h-px bg-line" />
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <DirectoryCard
                 href="/dashboard?tab=myList"
                 chip={<ChipTone tone="red"><BarChart3 size={16} /></ChipTone>}
                 title="My Mutes"
-                badge="LOGIN"
                 text="View, edit and publish your kind:10000 mute list."
               />
               <DirectoryCard
                 href="/dashboard?tab=publicLists"
                 chip={<ChipTone tone="gray"><Table2 size={16} /></ChipTone>}
                 title="Mute Packs"
-                badge="LOGIN"
                 text="Subscribe to public mute lists, or publish your own."
-              />
-              <DirectoryCard
-                href="/muggable"
-                chip={<ChipTone tone="amber"><Wrench size={16} /></ChipTone>}
-                title="Muggable"
-                text="Check whether a Nostr key is holding Bitcoin on-chain."
               />
               <DirectoryCard
                 href="/reciprocals"
@@ -480,7 +497,6 @@ export default function Home() {
                 href="/dashboard?tab=muteuals"
                 chip={<ChipTone tone="purple"><Users size={16} /></ChipTone>}
                 title="Muteuals"
-                badge="LOGIN"
                 text="Who has publicly muted you."
               />
               <DirectoryCard
@@ -493,41 +509,30 @@ export default function Home() {
                 href="/decimator"
                 chip={<ChipTone tone="orange"><Skull size={16} /></ChipTone>}
                 title="Decimator"
-                badge="LOGIN"
                 text="Trim your follow list by percentage or count."
               />
               <DirectoryCard
                 href="/note-nuke"
                 chip={<ChipTone tone="red"><Radiation size={16} /></ChipTone>}
                 title="Note Nuke"
-                badge="LOGIN"
                 text="Ask every relay we can reach to delete a note."
-              />
-              <DirectoryCard
-                href="/clonable"
-                chip={<ChipTone tone="violet"><Copy size={16} /></ChipTone>}
-                title="Clonable"
-                text="Clone any public list into your own mute list."
               />
               <DirectoryCard
                 href="/dashboard?tab=listCleaner"
                 chip={<ChipTone tone="green"><Activity size={16} /></ChipTone>}
                 title="List Cleaner"
-                badge="LOGIN"
                 text="Scan your mute list for inactive profiles."
               />
               <DirectoryCard
                 href="/dashboard?tab=domainPurge"
                 chip={<ChipTone tone="blue"><Eye size={16} /></ChipTone>}
                 title="Domain Purge"
-                badge="LOGIN"
                 text="Remove every follower of a NIP-05 domain."
               />
               <DirectoryCard
                 href="/dashboard?tab=backups"
                 chip={<ChipTone tone="gray"><FileText size={16} /></ChipTone>}
                 title="Backups"
-                badge="LOGIN"
                 text="Exports, signed events and relay-history recovery."
               />
             </div>
