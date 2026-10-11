@@ -40,6 +40,10 @@ interface AppState {
 
   // Preferences
   defaultMutePrivacy: boolean; // true = new mutes default to private
+  // True once the user (or a synced device) chose a default. Until then the
+  // default follows whichever kind the user's own mute list mostly uses.
+  defaultMutePrivacyExplicit: boolean;
+  defaultMutePrivacyAt: number; // when it was last chosen, for cross-device sync
 
   // UI state
   activeTab:
@@ -105,6 +109,8 @@ interface AppState {
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
   setDefaultMutePrivacy: (isPrivate: boolean) => void;
+  /** Apply a value chosen on another device, keeping its timestamp. */
+  applySyncedDefaultMutePrivacy: (isPrivate: boolean, at: number) => void;
 
   // Blacklist operations
   addToBlacklist: (pubkey: string) => void;
@@ -179,6 +185,8 @@ export const useStore = create<AppState>()(
       publicListsLoading: false,
       importedPackItems: {},
       defaultMutePrivacy: false,
+      defaultMutePrivacyExplicit: false,
+      defaultMutePrivacyAt: 0,
       activeTab: "myList",
       showAuthModal: false,
       hasCompletedOnboarding: false,
@@ -204,10 +212,28 @@ export const useStore = create<AppState>()(
 
       // Mute list actions
       setMuteList: (list) =>
-        set({
-          muteList: list,
-          muteListLastFetched: Date.now(),
-          hasUnsavedChanges: false,
+        set((state) => {
+          // Until a default has been chosen, follow what this user actually
+          // uses: whichever kind holds most of their mutes (ties keep the
+          // current value).
+          let defaults = {};
+          if (!state.defaultMutePrivacyExplicit) {
+            const items = [
+              ...list.pubkeys,
+              ...list.words,
+              ...list.tags,
+              ...list.threads,
+            ] as { private?: boolean }[];
+            const priv = items.filter((i) => i.private === true).length;
+            const pub = items.length - priv;
+            if (priv !== pub) defaults = { defaultMutePrivacy: priv > pub };
+          }
+          return {
+            muteList: list,
+            muteListLastFetched: Date.now(),
+            hasUnsavedChanges: false,
+            ...defaults,
+          };
         }),
 
       setMuteListLoading: (loading) => set({ muteListLoading: loading }),
@@ -282,8 +308,32 @@ export const useStore = create<AppState>()(
       setHasCompletedOnboarding: (completed) =>
         set({ hasCompletedOnboarding: completed }),
 
-      setDefaultMutePrivacy: (isPrivate) =>
-        set({ defaultMutePrivacy: isPrivate }),
+      setDefaultMutePrivacy: (isPrivate) => {
+        set({
+          defaultMutePrivacy: isPrivate,
+          defaultMutePrivacyExplicit: true,
+          defaultMutePrivacyAt: Date.now(),
+        });
+        // Follow the user across devices (fire and forget).
+        const { session } = get();
+        if (session) {
+          import("./syncManager")
+            .then((m) =>
+              m.syncManager.publishService(
+                "preferences",
+                session.pubkey,
+                session.relays,
+              ),
+            )
+            .catch(() => {});
+        }
+      },
+      applySyncedDefaultMutePrivacy: (isPrivate, at) =>
+        set({
+          defaultMutePrivacy: isPrivate,
+          defaultMutePrivacyExplicit: true,
+          defaultMutePrivacyAt: at,
+        }),
 
       // Mute list CRUD operations
       addMutedItem: (item, category) =>
@@ -440,6 +490,16 @@ export const useStore = create<AppState>()(
     }),
     {
       name: "mutable-storage",
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<AppState>;
+        return {
+          ...current,
+          ...p,
+          // A stored "private" default predates the flag, so it was chosen.
+          defaultMutePrivacyExplicit:
+            p.defaultMutePrivacyExplicit ?? p.defaultMutePrivacy === true,
+        };
+      },
       partialize: (state) => ({
         // Persist session, mute list, and unsaved changes flag
         // Note: activeTab is intentionally NOT persisted so /dashboard always defaults to "myList"
@@ -448,6 +508,8 @@ export const useStore = create<AppState>()(
         hasUnsavedChanges: state.hasUnsavedChanges,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         defaultMutePrivacy: state.defaultMutePrivacy,
+        defaultMutePrivacyExplicit: state.defaultMutePrivacyExplicit,
+        defaultMutePrivacyAt: state.defaultMutePrivacyAt,
         // Persist user profile for faster display on reload
         userProfile: state.userProfile,
         // Persist NIP-46 session data for restoration (signer itself is not persisted)
