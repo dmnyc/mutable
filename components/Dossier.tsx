@@ -21,6 +21,8 @@ import {
   Send,
   X,
   ArrowUpRight,
+  ExternalLink,
+  CheckCircle2,
 } from "lucide-react";
 import {
   fetchProfile,
@@ -50,6 +52,7 @@ import { getExposure, ExposureReport } from "@/lib/keyExposureService";
 import { useAuth } from "@/hooks/useAuth";
 import { getDisplayName } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { getPostedNoteLink, getPostedNevent } from "@/lib/utils/links";
 import AppShell from "@/components/system/AppShell";
 import PageHeader from "@/components/system/PageHeader";
 import type { Profile } from "@/types";
@@ -74,6 +77,14 @@ export default function Dossier() {
   const [shareText, setShareText] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [shareResult, setShareResult] = useState<string | null>(null);
+  const [postedLink, setPostedLink] = useState<string | null>(null);
+  const [postedTagged, setPostedTagged] = useState(false);
+  const [postedNoteId, setPostedNoteId] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [postedRelays, setPostedRelays] = useState<{
+    accepted: number;
+    total: number;
+  } | null>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const [suggestions, setSuggestions] = useState<Profile[]>([]);
   const [suggesting, setSuggesting] = useState(false);
@@ -91,9 +102,10 @@ export default function Dossier() {
   >(null);
   const [reportProgress, setReportProgress] = useState("");
   const [deletionStatus, setDeletionStatus] = useState<Status>("idle");
-  const [deletions, setDeletions] = useState<
-    { deletions: number; targets: number } | null
-  >(null);
+  const [deletions, setDeletions] = useState<{
+    deletions: number;
+    targets: number;
+  } | null>(null);
   const [btcStatus, setBtcStatus] = useState<Status>("idle");
   const [btc, setBtc] = useState<ExposureReport | null>(null);
   const [dmStatus, setDmStatus] = useState<Status>("idle");
@@ -132,12 +144,16 @@ export default function Dossier() {
           ),
         ]).catch(() => null);
         if (!profiles) {
-          setError("Couldn’t reach the relays to look that name up. Try again, or paste an npub.");
+          setError(
+            "Couldn’t reach the relays to look that name up. Try again, or paste an npub.",
+          );
           resetSections("idle");
           return;
         }
         if (profiles.length === 0) {
-          setError(`No user found for "${query}". Try a name, NIP-05, or npub.`);
+          setError(
+            `No user found for "${query}". Try a name, NIP-05, or npub.`,
+          );
           resetSections("idle");
           return;
         }
@@ -266,7 +282,11 @@ export default function Dossier() {
   // Live name suggestions while typing; npubs, hex and NIP-05 skip this.
   useEffect(() => {
     const q = input.trim();
-    if (q.length < 3 || /^(npub|nprofile)/i.test(q) || /^[0-9a-f]{64}$/i.test(q)) {
+    if (
+      q.length < 3 ||
+      /^(npub|nprofile)/i.test(q) ||
+      /^[0-9a-f]{64}$/i.test(q)
+    ) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -319,9 +339,7 @@ export default function Dossier() {
     footprintStatus === "running";
 
   const npubAction = (path: string, label: string) =>
-    subjectNpub
-      ? { href: `${path}?npub=${subjectNpub}`, label }
-      : undefined;
+    subjectNpub ? { href: `${path}?npub=${subjectNpub}`, label } : undefined;
 
   const buildReport = () => {
     const network: string[] = [];
@@ -378,6 +396,9 @@ export default function Dossier() {
     if (!subjectNpub) return;
     setShareText(buildReport());
     setShareResult(null);
+    setPostedLink(null);
+    setPostedNoteId(null);
+    setLinkCopied(false);
     setShareOpen(true);
   };
 
@@ -391,9 +412,31 @@ export default function Dossier() {
         ["t", "Mutable"],
         ["client", "Mutable"],
       ];
-      if (hexPubkey !== session.pubkey) tags.unshift(["p", hexPubkey]);
+      const tagged = hexPubkey !== session.pubkey;
+      if (tagged) tags.unshift(["p", hexPubkey]);
       const result = await publishTextNote(shareText, tags, session.relays);
-      if (result.success) {
+      if (result.success && result.event) {
+        setPostedTagged(tagged);
+        setPostedRelays(
+          result.report
+            ? {
+                accepted: result.report.accepted.length,
+                total: result.report.total,
+              }
+            : null,
+        );
+        // The relays that actually took the note. An account with no relay
+        // list publishes to the defaults, and an id with no hints sends the
+        // viewer looking on relays that don't have it.
+        const hints = {
+          relays: result.report?.accepted.length
+            ? result.report.accepted
+            : session.relays,
+          author: result.event.pubkey,
+        };
+        setPostedLink(getPostedNoteLink(result.event.id, hints));
+        setPostedNoteId(getPostedNevent(result.event.id, hints));
+      } else if (result.success) {
         setShareOpen(false);
       } else {
         setShareResult(`Couldn’t publish: ${result.error ?? "unknown error"}`);
@@ -432,8 +475,12 @@ export default function Dossier() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSuggestions(false), 150)
+                  }
+                  onFocus={() =>
+                    suggestions.length > 0 && setShowSuggestions(true)
+                  }
                   onKeyDown={(e) => {
                     const open = showSuggestions && suggestions.length > 0;
                     if (e.key === "Escape") {
@@ -444,7 +491,8 @@ export default function Dossier() {
                     } else if (open && e.key === "ArrowUp") {
                       e.preventDefault();
                       setSelectedIndex(
-                        (i) => (i - 1 + suggestions.length) % suggestions.length,
+                        (i) =>
+                          (i - 1 + suggestions.length) % suggestions.length,
                       );
                     } else if (e.key === "Enter") {
                       if (open) pickSuggestion(suggestions[selectedIndex]);
@@ -470,7 +518,9 @@ export default function Dossier() {
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => pickSuggestion(p)}
                         className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5 ${
-                          i === selectedIndex ? "bg-black/5 dark:bg-white/5" : ""
+                          i === selectedIndex
+                            ? "bg-black/5 dark:bg-white/5"
+                            : ""
                         }`}
                       >
                         {p.picture ? (
@@ -480,7 +530,8 @@ export default function Dossier() {
                             alt=""
                             className="w-8 h-8 rounded-full object-cover flex-none"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).style.visibility = "hidden";
+                              (e.target as HTMLImageElement).style.visibility =
+                                "hidden";
                             }}
                           />
                         ) : (
@@ -491,7 +542,8 @@ export default function Dossier() {
                             {getDisplayName(p)}
                           </span>
                           <span className="block truncate text-xs text-mid">
-                            {p.nip05 || `${p.pubkey.slice(0, 8)}…${p.pubkey.slice(-8)}`}
+                            {p.nip05 ||
+                              `${p.pubkey.slice(0, 8)}…${p.pubkey.slice(-8)}`}
                           </span>
                         </span>
                       </button>
@@ -597,7 +649,11 @@ export default function Dossier() {
                 onClick={openShare}
                 disabled={muteStatus !== "done"}
                 className="px-3.5 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] text-[13px] font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                title={muteStatus === "done" ? "Publish the report as a note" : "Report still running"}
+                title={
+                  muteStatus === "done"
+                    ? "Publish the report as a note"
+                    : "Report still running"
+                }
               >
                 <Send size={14} />
                 Share as note
@@ -607,7 +663,11 @@ export default function Dossier() {
               onClick={handleCopy}
               disabled={muteStatus !== "done"}
               className="px-3.5 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] text-[13px] font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-              title={muteStatus === "done" ? "Copy the report" : "Report still running"}
+              title={
+                muteStatus === "done"
+                  ? "Copy the report"
+                  : "Report still running"
+              }
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
               {copied ? "Copied" : "Copy report"}
@@ -692,7 +752,9 @@ export default function Dossier() {
                             <button
                               type="button"
                               onClick={() =>
-                                setExpandedReport(expandedReport === i ? null : i)
+                                setExpandedReport(
+                                  expandedReport === i ? null : i,
+                                )
                               }
                               aria-expanded={expandedReport === i}
                               className={`w-full text-left text-xs text-mid bg-inset border border-line rounded-lg px-2.5 py-1.5 hover:border-line-strong transition-colors break-words ${
@@ -763,30 +825,32 @@ export default function Dossier() {
                 </p>
                 <ul className="mt-3 space-y-1.5">
                   {btc.addresses
-                    .filter((a) => a.type === "P2TR" || a.txCount > 0 || a.error)
+                    .filter(
+                      (a) => a.type === "P2TR" || a.txCount > 0 || a.error,
+                    )
                     .map((a) => (
-                    <li
-                      key={a.address}
-                      className="text-xs text-mid bg-inset border border-line rounded-lg px-2.5 py-1.5 flex items-center gap-2"
-                    >
-                      <span className="text-mut flex-none">{a.type}</span>
-                      <a
-                        href={a.addressUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate hover:text-hi"
+                      <li
+                        key={a.address}
+                        className="text-xs text-mid bg-inset border border-line rounded-lg px-2.5 py-1.5 flex items-center gap-2"
                       >
-                        {a.address}
-                      </a>
-                      <span className="ml-auto flex-none text-mut">
-                        {a.error
-                          ? "lookup failed"
-                          : a.txCount === 0
-                            ? "unused"
-                            : `${a.txCount} tx`}
-                      </span>
-                    </li>
-                  ))}
+                        <span className="text-mut flex-none">{a.type}</span>
+                        <a
+                          href={a.addressUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate hover:text-hi"
+                        >
+                          {a.address}
+                        </a>
+                        <span className="ml-auto flex-none text-mut">
+                          {a.error
+                            ? "lookup failed"
+                            : a.txCount === 0
+                              ? "unused"
+                              : `${a.txCount} tx`}
+                        </span>
+                      </li>
+                    ))}
                 </ul>
                 {(() => {
                   const hidden = btc.addresses.filter(
@@ -892,7 +956,8 @@ export default function Dossier() {
       {muteStatus === "idle" && reportStatus === "idle" && !subject && (
         <p className="mt-6 text-sm text-mut flex items-center gap-2 animate-rise stagger-2">
           <Eye size={15} className="flex-none" />
-          Everything here comes from public relays and public block explorers. The subject is never told unless you share it.
+          Everything here comes from public relays and public block explorers.
+          The subject is never told unless you share it.
         </p>
       )}
       {shareOpen && (
@@ -904,58 +969,117 @@ export default function Dossier() {
             className="panel relative rounded-xl border border-line shadow-panel w-full max-w-lg p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center mb-3">
-              <h3 className="font-display font-semibold text-base tracking-tight text-hi">
-                Share as note
-              </h3>
-              <button
-                onClick={() => setShareOpen(false)}
-                disabled={publishing}
-                className="ml-auto text-mut hover:text-hi"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <textarea
-              value={shareText}
-              onChange={(e) => setShareText(e.target.value)}
-              rows={10}
-              className="w-full px-3 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm font-mono outline-none focus:border-primary"
-            />
-            <p className="text-xs text-mut mt-2">
-              Publishes a public note from your account
-              {hexPubkey && hexPubkey !== session?.pubkey
-                ? " and tags the subject."
-                : "."}{" "}
-              Edit it first if you like.
-            </p>
-            {shareResult && (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                {shareResult}
-              </p>
-            )}
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShareOpen(false)}
-                disabled={publishing}
-                className="flex-1 px-4 py-2 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePublish}
-                disabled={publishing || !shareText.trim()}
-                className="flex-1 px-4 py-2 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {publishing ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Send size={15} />
+            {postedLink ? (
+              <div className="text-center py-4">
+                <div className="mx-auto w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+                  <CheckCircle2
+                    size={36}
+                    className="text-green-600 dark:text-green-400"
+                  />
+                </div>
+                <h3 className="font-display font-bold text-xl tracking-tight text-hi mt-4">
+                  Note published
+                </h3>
+                <p className="text-sm text-mid mt-1.5">
+                  Your Dossier is live on Nostr
+                  {postedTagged ? ", and the subject was tagged" : ""}.
+                </p>
+                {postedRelays && (
+                  <p className="text-xs text-mut mt-1">
+                    Accepted by {postedRelays.accepted} of {postedRelays.total}{" "}
+                    {postedRelays.total === 1 ? "relay" : "relays"}. It can take
+                    a moment to show up in clients.
+                  </p>
                 )}
-                {publishing ? "Publishing…" : "Publish note"}
-              </button>
-            </div>
+                <div className="mt-6 grid gap-2.5">
+                  <a
+                    href={postedLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2.5 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink size={15} />
+                    View note on Jumble
+                  </a>
+                  <button
+                    onClick={async () => {
+                      if (
+                        postedNoteId &&
+                        (await copyToClipboard(postedNoteId))
+                      ) {
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
+                  >
+                    {linkCopied ? <Check size={15} /> : <Copy size={15} />}
+                    {linkCopied ? "nevent copied" : "Copy nevent"}
+                  </button>
+                  <button
+                    onClick={() => setShareOpen(false)}
+                    className="px-4 py-2 text-sm font-semibold text-mut hover:text-hi transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center mb-3">
+                  <h3 className="font-display font-semibold text-base tracking-tight text-hi">
+                    Share as note
+                  </h3>
+                  <button
+                    onClick={() => setShareOpen(false)}
+                    disabled={publishing}
+                    className="ml-auto text-mut hover:text-hi"
+                    aria-label="Close"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <textarea
+                  value={shareText}
+                  onChange={(e) => setShareText(e.target.value)}
+                  rows={10}
+                  className="w-full px-3 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm font-mono outline-none focus:border-primary"
+                />
+                <p className="text-xs text-mut mt-2">
+                  Publishes a public note from your account
+                  {hexPubkey && hexPubkey !== session?.pubkey
+                    ? " and tags the subject."
+                    : "."}{" "}
+                  Edit it first if you like.
+                </p>
+                {shareResult && (
+                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                    {shareResult}
+                  </p>
+                )}
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShareOpen(false)}
+                    disabled={publishing}
+                    className="flex-1 px-4 py-2 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePublish}
+                    disabled={publishing || !shareText.trim()}
+                    className="flex-1 px-4 py-2 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {publishing ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Send size={15} />
+                    )}
+                    {publishing ? "Publishing…" : "Publish note"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
