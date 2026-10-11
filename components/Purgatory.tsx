@@ -313,7 +313,7 @@ export default function Purgatory() {
             size={24}
           />
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Purgatory
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -556,7 +556,7 @@ export default function Purgatory() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <h3 className="font-display font-semibold text-base tracking-tight text-hi flex items-center gap-2">
                 {searching && (
                   <RefreshCw
                     className="animate-spin text-orange-500"

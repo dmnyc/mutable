@@ -478,11 +478,11 @@ export default function CreatePublicList({
   const MAX_DESC_LENGTH = 500;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 z-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-3xl tracking-tight text-hi">
               {isEditMode ? "Edit Community Pack" : "Create Community Pack"}
             </h2>
             <button
@@ -1000,7 +1000,7 @@ export default function CreatePublicList({
           )}
 
           {/* List Preview */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-750 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Pack Summary
             </h3>
@@ -1104,7 +1104,7 @@ export default function CreatePublicList({
       {/* Duplicate Pack Warning Dialog — also via portal so the dark overlay
           escapes any ancestor stacking context and covers the full viewport. */}
       {showDuplicateWarning && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-start gap-3 mb-4">
               <AlertCircle
@@ -1112,7 +1112,7 @@ export default function CreatePublicList({
                 size={24}
               />
               <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
                   Pack Already Exists
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">

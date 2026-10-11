@@ -206,7 +206,7 @@ export default function LazarusReviewDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="lazarus-review-title"
@@ -216,7 +216,7 @@ export default function LazarusReviewDialog({
           <div>
             <h2
               id="lazarus-review-title"
-              className="text-lg font-semibold text-gray-900 dark:text-white"
+              className="font-display font-semibold text-base tracking-tight text-hi"
             >
               Review restore: {profile.name}
             </h2>

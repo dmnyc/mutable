@@ -149,7 +149,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 relative">
         <button
           onClick={handleClose}
@@ -158,7 +158,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <X size={24} />
         </button>
 
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+        <h2 className="font-display font-bold text-2xl tracking-tight mb-4 text-hi">
           Connect to Nostr
         </h2>
 
@@ -218,7 +218,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               {connectingMethod === "nip07"
                 ? "Please approve the connection in your extension"
                 : hasNip07Extension
-                  ? "Connect using Alby, nos2x, or another NIP-07 extension"
+                  ? "Connect using Sidecar, Alby, or another NIP-07 extension"
                   : "No extension detected. Please install a NIP-07 compatible extension."}
             </p>
           </button>
@@ -415,21 +415,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <p className="text-sm text-blue-800 dark:text-blue-300">
               Install{" "}
               <a
+                href="https://sidecar.top/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline"
+              >
+                Sidecar
+              </a>{" "}
+              or{" "}
+              <a
                 href="https://getalby.com/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline"
               >
                 Alby
-              </a>{" "}
-              or{" "}
-              <a
-                href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:no-underline"
-              >
-                nos2x
               </a>{" "}
               to get started.
             </p>

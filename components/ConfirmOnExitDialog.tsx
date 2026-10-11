@@ -19,11 +19,11 @@ export default function ConfirmOnExitDialog({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
         <div className="p-6">
           <div className="flex justify-between items-start">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Unsaved Changes
             </h2>
             <button

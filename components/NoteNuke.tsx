@@ -481,7 +481,7 @@ export default function NoteNuke() {
             <Radiation className="text-red-600 dark:text-red-300" size={28} />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-3xl tracking-tight text-hi">
               Note Nuke
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 max-w-3xl">

@@ -35,7 +35,7 @@ export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
   ].map((l) => ({ ...l, ...getMuteRatioSignal(l.mutes, 1000) }));
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -43,7 +43,7 @@ export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between flex-shrink-0">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+            <h2 className="font-display font-bold text-3xl tracking-tight text-hi mb-1">
               Mute Score &amp; Ratio
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">

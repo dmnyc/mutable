@@ -16,6 +16,8 @@ import {
 import MuteListCategory from "./MuteListCategory";
 import PrivacyControls from "./PrivacyControls";
 
+type MuteTab = "profiles" | "words" | "tags" | "threads";
+
 export default function MyMuteList() {
   const { session, reloadMuteList } = useAuth();
   const {
@@ -27,9 +29,7 @@ export default function MyMuteList() {
     setActiveTab,
   } = useStore();
 
-  const [subTab, setSubTab] = useState<"profiles" | "wordsTagsThreads">(
-    "profiles",
-  );
+  const [subTab, setSubTab] = useState<MuteTab>("profiles");
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishSuccess, setPublishSuccess] = useState(false);
@@ -81,10 +81,10 @@ export default function MyMuteList() {
   return (
     <div className="space-y-6 w-full max-w-full">
       {/* Header with Actions */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 w-full max-w-full">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6 w-full max-w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               My Mute List
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -135,7 +135,7 @@ export default function MyMuteList() {
 
       {/* Loading State */}
       {muteListLoading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
           <RefreshCw
             className="animate-spin mx-auto mb-3 text-gray-400"
             size={32}
@@ -147,79 +147,92 @@ export default function MyMuteList() {
       )}
 
       {/* Privacy Controls */}
-      {!muteListLoading && <PrivacyControls />}
+      {!muteListLoading && (
+        <PrivacyControls
+          onSelectCategory={(tab) => {
+            setSubTab(tab);
+            requestAnimationFrame(() =>
+              document
+                .getElementById("mute-subtabs")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            );
+          }}
+        />
+      )}
 
       {/* Sub-tab Navigation */}
       {!muteListLoading && (
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setSubTab("profiles")}
-              className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                subTab === "profiles"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Profiles
-              <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
-                {muteList.pubkeys.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setSubTab("wordsTagsThreads")}
-              className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${
-                subTab === "wordsTagsThreads"
-                  ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Words, Tags & Threads
-              <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
-                {muteList.words.length +
-                  muteList.tags.length +
-                  muteList.threads.length}
-              </span>
-            </button>
+        <div
+          id="mute-subtabs"
+          className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto scroll-mt-4"
+        >
+          <nav className="flex space-x-6 sm:space-x-8 whitespace-nowrap">
+            {(
+              [
+                {
+                  id: "profiles",
+                  label: "Profiles",
+                  n: muteList.pubkeys.length,
+                },
+                { id: "words", label: "Words", n: muteList.words.length },
+                { id: "tags", label: "Hashtags", n: muteList.tags.length },
+                { id: "threads", label: "Threads", n: muteList.threads.length },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setSubTab(tab.id)}
+                className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${
+                  subTab === tab.id
+                    ? "border-red-600 text-red-600 dark:border-red-500 dark:text-red-500"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}
+              >
+                {tab.label}
+                <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+                  {tab.n}
+                </span>
+              </button>
+            ))}
           </nav>
         </div>
       )}
 
       {/* Mute List Categories */}
       {!muteListLoading && subTab === "profiles" && (
-        <div className="space-y-6">
-          <MuteListCategory
-            category="pubkeys"
-            title="Muted Profiles"
-            items={muteList.pubkeys}
-            placeholder="Enter pubkey (hex or npub)"
-          />
-        </div>
+        <MuteListCategory
+          category="pubkeys"
+          title="Muted Profiles"
+          items={muteList.pubkeys}
+          placeholder="Enter pubkey (hex or npub)"
+        />
       )}
 
-      {!muteListLoading && subTab === "wordsTagsThreads" && (
-        <div className="space-y-6">
-          <MuteListCategory
-            category="words"
-            title="Muted Words"
-            items={muteList.words}
-            placeholder="Enter word or phrase"
-          />
+      {!muteListLoading && subTab === "words" && (
+        <MuteListCategory
+          category="words"
+          title="Muted Words"
+          items={muteList.words}
+          placeholder="Enter word or phrase"
+        />
+      )}
 
-          <MuteListCategory
-            category="tags"
-            title="Muted Tags"
-            items={muteList.tags}
-            placeholder="Enter hashtag (without #)"
-          />
+      {!muteListLoading && subTab === "tags" && (
+        <MuteListCategory
+          category="tags"
+          title="Muted Tags"
+          items={muteList.tags}
+          placeholder="Enter hashtag (without #)"
+        />
+      )}
 
-          <MuteListCategory
-            category="threads"
-            title="Muted Threads"
-            items={muteList.threads}
-            placeholder="Enter event ID (hex, note1..., or nevent1...)"
-          />
-        </div>
+      {!muteListLoading && subTab === "threads" && (
+        <MuteListCategory
+          category="threads"
+          title="Muted Threads"
+          items={muteList.threads}
+          placeholder="Enter event ID (hex, note1..., or nevent1...)"
+        />
       )}
     </div>
   );

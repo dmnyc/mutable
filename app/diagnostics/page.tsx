@@ -1,6 +1,9 @@
 "use client";
 
+import AppShell from "@/components/system/AppShell";
+import PageHeader from "@/components/system/PageHeader";
 import { useState } from "react";
+import { Radio } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchAppData, D_TAGS } from "@/lib/relayStorage";
 import { getPool, DEFAULT_RELAYS } from "@/lib/nostr";
@@ -199,28 +202,23 @@ export default function DiagnosticsPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">
-            Relay Diagnostics
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Please log in to use the diagnostics tool.
-          </p>
-        </div>
-      </div>
+      <AppShell navActive="muteOScope" hideNav width="regular" authGate={{
+        icon: <Radio size={30} className="text-red-600 dark:text-red-400" />,
+        title: "Relay Diagnostics",
+        text: "Please log in to use the diagnostics tool.",
+      }} />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">
-          Relay Storage Diagnostics
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Test which relays have your protected users data
-        </p>
+    <AppShell navActive="muteOScope" hideNav width="tool">
+      <div>
+        <PageHeader
+          icon={<Radio size={25} />}
+          iconBg="from-blue-500 to-blue-700"
+          title="Relay Storage Diagnostics"
+          subtitle="Test which relays have your protected users data"
+        />
 
         <div className="mb-6">
           <button
@@ -235,7 +233,7 @@ export default function DiagnosticsPage() {
         {results.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <div className="p-4 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              <h2 className="font-display font-semibold text-base tracking-tight text-hi">
                 Results ({results.filter((r) => r.hasData).length} /{" "}
                 {results.length} relays have data)
               </h2>
@@ -301,6 +299,6 @@ export default function DiagnosticsPage() {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

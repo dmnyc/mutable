@@ -2,22 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Mutable 2.0 design tokens.
+ *
+ * Light values live on :root, dark overrides on .dark — the same class the
+ * theme system (lib/theme.ts) toggles and every dark: variant follows.
+ * (Previously the two --background/--foreground vars tracked the OS media
+ * query instead, so "light" still painted dark on dark-OS machines; fixed.)
+ *
+ * All surface/text tokens are bare channel triplets for Tailwind alpha
+ * modifiers. Dark stays on the existing blue-based gray family.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f9fafb;
+  --foreground: #111827;
+
+  --canvas-a: 249 250 251; /* gray-50 */
+  --canvas-b: 243 244 246; /* gray-100 */
+  --panel-a: 255 255 255;
+  --panel-b: 251 252 253;
+  --panel-inset: 249 250 251;
+
+  --ink-hi: 17 24 39; /* gray-900 */
+  --ink-mid: 55 65 81; /* gray-700 */
+  --ink-mut: 75 85 99; /* gray-600 — 4.5:1 on gray-100, the worst light surface */
+
+  --line: 17 24 39;
+
+  --fog-a: 220 38 38; /* primary red */
+  --fog-b: 59 130 246; /* tool blue */
+  --fog-opacity: 0.05;
+  --grain-opacity: 0.03;
+  --vignette: 31 41 55; /* gray-800 */
+  --vignette-opacity: 0.1;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #111827;
+  --foreground: #f9fafb;
+
+  --canvas-a: 17 24 39; /* gray-900 */
+  --canvas-b: 11 16 28; /* deepened gray-900, same blue family */
+  --panel-a: 31 41 55; /* gray-800 */
+  --panel-b: 25 33 48;
+  --panel-inset: 17 24 39; /* gray-900 */
+
+  --ink-hi: 249 250 251; /* gray-50 */
+  --ink-mid: 209 213 219; /* gray-300 */
+  --ink-mut: 156 163 175; /* gray-400 */
+
+  --line: 255 255 255;
+
+  --fog-opacity: 0.08;
+  --grain-opacity: 0.04;
+  --vignette: 2 6 23; /* slate-950, blue-black */
+  --vignette-opacity: 0.55;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    var(--font-inter),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 /* No orphans: don't let a block of text end on a lone word. Browsers
@@ -33,6 +83,232 @@ body {
   figcaption {
     text-wrap: pretty;
   }
+
+  :focus-visible {
+    outline: 2px solid #ef4444;
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: #dc2626;
+    color: #ffffff;
+  }
+
+  /* Themed scrollbars: quiet in light, blue-gray track in dark. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(156 163 175 / 0.5) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgb(71 85 105 / 0.6) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(156 163 175 / 0.5);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105 / 0.6);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Panel surface: token gradient + hairline border live in the component;
+     the .panel class adds the gradient fill and the dark-mode top sheen
+     that Tailwind utilities can't express cleanly. */
+  .panel {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--panel-a)),
+      rgb(var(--panel-b))
+    );
+  }
+
+  .dark .panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 22%);
+  }
+
+  /* Sticky header chrome: translucent panel + blur (AmbientBackdrop shows
+     through when scrolled over content). */
+  .glass-header {
+    background: rgb(var(--panel-a) / 0.85);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+}
+
+/* ---------- Nav as a light source ----------
+   The active tab's underline is the "lamp": a glowing strip whose light
+   falls upward onto the words (bottom-lit gradient text). Gradient
+   endpoints are theme-set and contrast-audited (see
+   scripts/check-contrast.mjs): #b91c1c on light surfaces and #fca5a5 on
+   dark ones both clear 4.5:1. */
+:root {
+  --nav-lit-from: #b91c1c;
+  --nav-lamp: #dc2626;
+  --nav-lamp-hi: #ef4444;
+  --nav-lamp-glow: 239 68 68;
+}
+
+.dark {
+  --nav-lit-from: #fca5a5;
+  --nav-lamp: #ef4444;
+  --nav-lamp-hi: #fca5a5;
+  --nav-lamp-glow: 248 113 113;
+}
+
+.nav-lit {
+  background-image: linear-gradient(
+    to top,
+    var(--nav-lit-from) 0%,
+    rgb(var(--ink-hi)) 45%,
+    rgb(var(--ink-hi)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* The caret must not inherit the transparent fill from the gradient-text
+   states — give it the lamp color explicitly. */
+.nav-lit .nav-caret,
+.nav-lamp .nav-caret {
+  color: var(--nav-lamp);
+}
+
+.nav-dim:hover .nav-caret {
+  color: var(--nav-hover-lamp);
+}
+
+.nav-lamp {
+  position: relative;
+}
+
+/* The bar itself as a light source: a faint luminous hairline along its
+   bottom edge, brightest center. */
+.nav-lightbar {
+  position: relative;
+}
+
+.nav-lightbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--nav-lamp-glow) / 0.25) 25%,
+    rgb(var(--nav-lamp-glow) / 0.38) 50%,
+    rgb(var(--nav-lamp-glow) / 0.25) 75%,
+    transparent
+  );
+}
+
+/* Hover lamps: a second, cooler light. Where the active tab burns red,
+   hovered items glow blue from the same strip position — dimmer than the
+   active lamp, and their labels light from below in the hover hue.
+   Gradient endpoints are contrast-audited (scripts/check-contrast.mjs). */
+:root {
+  --nav-hover-from: #1d4ed8;
+  --nav-hover-lamp: #3b82f6;
+  --nav-hover-lamp-hi: #60a5fa;
+  --nav-hover-glow: 96 165 250;
+}
+
+.dark {
+  --nav-hover-from: #93c5fd;
+  --nav-hover-lamp: #3b82f6;
+  --nav-hover-lamp-hi: #93c5fd;
+  --nav-hover-glow: 96 165 250;
+}
+
+.nav-dim {
+  position: relative;
+}
+
+.nav-dim::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nav-hover-lamp) 28%,
+    var(--nav-hover-lamp-hi) 50%,
+    var(--nav-hover-lamp) 72%,
+    transparent
+  );
+  box-shadow:
+    0 -3px 10px rgb(var(--nav-hover-glow) / 0.42),
+    0 -8px 20px rgb(var(--nav-hover-glow) / 0.2),
+    0 4px 12px -2px rgb(var(--nav-hover-glow) / 0.38);
+  opacity: 0;
+  transform: scaleX(0.55);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  pointer-events: none;
+}
+
+.nav-dim:hover::after {
+  opacity: 0.9;
+  transform: none;
+}
+
+.nav-dim:hover {
+  background-image: linear-gradient(
+    to top,
+    var(--nav-hover-from) 0%,
+    rgb(var(--ink-hi)) 45%,
+    rgb(var(--ink-hi)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.nav-lamp::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nav-lamp) 22%,
+    var(--nav-lamp-hi) 50%,
+    var(--nav-lamp) 78%,
+    transparent
+  );
+  box-shadow:
+    0 -3px 10px rgb(var(--nav-lamp-glow) / 0.5),
+    0 -8px 22px rgb(var(--nav-lamp-glow) / 0.28),
+    0 4px 12px -2px rgb(var(--nav-lamp-glow) / 0.45);
 }
 
 @layer utilities {
@@ -43,6 +319,111 @@ body {
   .animate-pulse-glow {
     animation: pulse-glow 2s ease-in-out infinite;
   }
+
+  /* Ambient canvas: gradient + masked grid + two drifting fogs + grain +
+     vignette. Mounted once by components/system/AmbientBackdrop.tsx. */
+  .backdrop-root {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .backdrop-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--canvas-a)),
+      rgb(var(--canvas-b))
+    );
+  }
+
+  .backdrop-grid {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(rgb(var(--line) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line) / 0.06) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(
+      ellipse 90% 55% at 50% -8%,
+      black,
+      transparent 72%
+    );
+    mask-image: radial-gradient(
+      ellipse 90% 55% at 50% -8%,
+      black,
+      transparent 72%
+    );
+  }
+
+  .backdrop-fog {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(95px);
+  }
+
+  .backdrop-fog-a {
+    width: 58vmax;
+    height: 58vmax;
+    left: -16vmax;
+    top: -24vmax;
+    background: radial-gradient(
+      circle,
+      rgb(var(--fog-a) / var(--fog-opacity)),
+      transparent 64%
+    );
+    animation: fog-drift-a 48s ease-in-out infinite alternate;
+  }
+
+  .backdrop-fog-b {
+    width: 52vmax;
+    height: 52vmax;
+    right: -14vmax;
+    bottom: -20vmax;
+    background: radial-gradient(
+      circle,
+      rgb(var(--fog-b) / var(--fog-opacity)),
+      transparent 64%
+    );
+    animation: fog-drift-b 60s ease-in-out infinite alternate;
+  }
+
+  .backdrop-grain {
+    position: absolute;
+    inset: -50%;
+    width: 200%;
+    height: 200%;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  html:not(.dark) .backdrop-grain {
+    mix-blend-mode: multiply;
+  }
+
+  .backdrop-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 125% 105% at 50% 36%,
+      transparent 58%,
+      rgb(var(--vignette) / var(--vignette-opacity)) 135%
+    );
+  }
+
+  /* Stagger helpers for entrance animations (use with animate-rise). */
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+  .stagger-6 { animation-delay: 0.3s; }
+  .stagger-7 { animation-delay: 0.35s; }
+  .stagger-8 { animation-delay: 0.4s; }
 
   /* Draftable's woodland camo. public/draftable_camo.svg is a seamless
      1000×1000 tile, so it repeats at a fixed scale instead of stretching.
@@ -88,10 +469,33 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 rgba(220, 38, 38, 0);
   }
   50% {
     box-shadow: 0 0 20px rgba(220, 38, 38, 0.6), 0 0 30px rgba(220, 38, 38, 0.4);
+  }
+}
+
+@keyframes fog-drift-a {
+  to {
+    transform: translate(8vmax, 5vmax);
+  }
+}
+
+@keyframes fog-drift-b {
+  to {
+    transform: translate(-7vmax, -6vmax);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
   }
 }

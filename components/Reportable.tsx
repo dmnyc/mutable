@@ -31,13 +31,12 @@ import {
   ReportFeedEntry,
 } from "@/types";
 import UserProfileModal from "./UserProfileModal";
+import AppShell from "@/components/system/AppShell";
+import PageHeader from "@/components/system/PageHeader";
 import ReportScoreModal from "./ReportScoreModal";
 import ReportableShareModal from "./ReportableShareModal";
 import ReportDetailModal from "./ReportDetailModal";
 import ReportTypeBadge from "./ReportTypeBadge";
-import GlobalUserSearch from "./GlobalUserSearch";
-import Footer from "./Footer";
-import DashboardNav from "./DashboardNav";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
@@ -622,11 +621,6 @@ export default function Reportable() {
     setShowProfileResults(false);
   };
 
-  const handleDisconnect = () => {
-    disconnect();
-    window.location.href = "/";
-  };
-
   const handleReportMyself = () => {
     if (!session?.pubkey) return;
     setTargetPubkey(session.pubkey);
@@ -670,6 +664,11 @@ export default function Reportable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // The received scan publishes its results only when it finishes, while the
+  // filed scan streams in earlier. Until the received scan is done, an empty
+  // list means "not known yet", never "none".
+  const receivedPending = searching && allResults.length === 0;
+
   const uniqueReporters = new Set(allResults.map((r) => r.reportedBy)).size;
 
   // Received reports judged automated: self-declared bots and coordinated
@@ -701,7 +700,7 @@ export default function Reportable() {
   // and human. A target with zero human reports says so — "Found 0 Public
   // Reports" next to a Clean score reads as exoneration of a bot swarm.
   const receivedHeadline = (
-    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+    <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
       {humanResults.length === 0 && hiddenReceivedCount > 0 ? (
         <>
           No human reports — {hiddenReceivedCount} automated report
@@ -812,7 +811,7 @@ export default function Reportable() {
         )}
 
         <div className="min-w-0">
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white break-words line-clamp-2 leading-tight">
+          <h3 className="text-xl sm:font-display font-bold text-3xl tracking-tight text-hi break-words line-clamp-2 leading-tight">
             {targetProfile
               ? getDisplayName(targetProfile, "Unknown profile")
               : "Unknown profile"}
@@ -872,191 +871,17 @@ export default function Reportable() {
   ) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      {session ? (
-        <>
-          <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16 gap-4">
-                <Link
-                  href="/dashboard"
-                  className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
-                  title="Go to Dashboard"
-                >
-                  <Image
-                    src="/mutable_logo.svg"
-                    alt="Mutable"
-                    width={40}
-                    height={40}
-                  />
-                  <Image
-                    src="/mutable_text_dark.svg"
-                    alt="Mutable"
-                    width={120}
-                    height={24}
-                    className="hidden sm:block dark:hidden"
-                  />
-                  <Image
-                    src="/mutable_text.svg"
-                    alt="Mutable"
-                    width={120}
-                    height={24}
-                    className="hidden sm:dark:block"
-                  />
-                </Link>
-
-                <GlobalUserSearch onSelectUser={handleUserSelect} />
-
-                <div className="flex items-center space-x-4 flex-shrink-0">
-                  <div className="hidden md:flex items-center space-x-3">
-                    {userProfile?.picture ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={userProfile.picture}
-                        alt={getDisplayName(userProfile, "User")}
-                        className="w-8 h-8 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User
-                          size={16}
-                          className="text-gray-600 dark:text-gray-300"
-                        />
-                      </div>
-                    )}
-                    <div className="flex flex-col">
-                      {userProfile && (
-                        <>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {getDisplayName(userProfile)}
-                          </span>
-                          {userProfile.nip05 && (
-                            <span className="text-xs text-gray-600 dark:text-gray-400">
-                              {userProfile.nip05}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="md:hidden">
-                    {userProfile?.picture ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={userProfile.picture}
-                        alt={getDisplayName(userProfile, "User")}
-                        className="w-8 h-8 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/%3E%3Cpath d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/%3E%3C/svg%3E';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <User
-                          size={16}
-                          className="text-gray-600 dark:text-gray-300"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleDisconnect}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                    title="Disconnect"
-                  >
-                    <LogOut size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          <DashboardNav activePage="reportable" />
-        </>
-      ) : (
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16 gap-4">
-              <Link
-                href="/"
-                className="flex items-center space-x-3 flex-shrink-0 hover:opacity-80 transition-opacity"
-                title="Go to Home"
-              >
-                <Image
-                  src="/mutable_logo.svg"
-                  alt="Mutable"
-                  width={40}
-                  height={40}
-                />
-                <Image
-                  src="/mutable_text_dark.svg"
-                  alt="Mutable"
-                  width={120}
-                  height={24}
-                  className="hidden sm:block dark:hidden"
-                />
-                <Image
-                  src="/mutable_text.svg"
-                  alt="Mutable"
-                  width={120}
-                  height={24}
-                  className="hidden sm:dark:block"
-                />
-              </Link>
-              <Link
-                href="/"
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-                title="Back to the Mutable home screen"
-              >
-                <ArrowLeft size={16} />
-                <span className="hidden sm:inline">Back</span>
-              </Link>
-
-              <div className="flex-1" />
-
-              <div className="flex items-center gap-3">
-                <span className="hidden md:inline text-sm text-gray-600 dark:text-gray-400">
-                  Get the full experience!
-                </span>
-                <Link
-                  href="/"
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
-                >
-                  <Lock size={16} />
-                  Connect with Nostr
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-
-      <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <AppShell navActive="reportable" width="tool">
           {/* Page Header */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="flex-shrink-0 mt-1 w-10 h-10 rounded-lg bg-red-600 flex items-center justify-center">
-                <Flag className="text-white" size={22} />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Reportable
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  See who is publicly reporting whom on Nostr — look up a
-                  pubkey&apos;s report history or browse the live feed
-                </p>
-              </div>
-            </div>
+          <div className="mb-6">
+            <PageHeader
+              icon={<Flag size={25} />}
+              iconBg="from-red-500 to-red-700"
+              title="Reportable"
+              subtitle="See who is publicly reporting whom on Nostr — look up a pubkey's report history or browse the live feed"
+            />
 
+            <div className="panel relative rounded-xl border border-line shadow-panel p-6 mt-5">
             <div className="flex flex-wrap gap-2">
               {!session && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium border border-green-200 dark:border-green-700">
@@ -1075,15 +900,15 @@ export default function Reportable() {
 
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> Reports are self-published, unmoderated
-                claims — anyone can report anyone for any reason. Treat this as
-                a public signal to investigate further, not a verdict.
+                <strong>Note:</strong> Reports are self-published and unmoderated —
+                a public signal to investigate, not a verdict.
               </p>
+            </div>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+          <div className="panel relative rounded-xl border border-line shadow-panel mb-6">
             <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => handleTabChange("lookup")}
@@ -1111,7 +936,7 @@ export default function Reportable() {
           {activeTab === "lookup" && (
             <>
               {/* Search Section */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <div className="panel relative rounded-xl border border-line shadow-panel p-6 mb-6">
                 <div className="relative" ref={searchDropdownRef}>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative w-full sm:flex-1">
@@ -1280,10 +1105,10 @@ export default function Reportable() {
                 !filedLoading &&
                 targetPubkey &&
                 !error && (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="panel relative rounded-xl border border-line shadow-panel p-6">
                     {targetIdentityHeader}
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                      <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
                         Found 0 Public Reports
                       </h3>
                       <button
@@ -1305,7 +1130,7 @@ export default function Reportable() {
                     </div>
                     <div className="text-center p-8">
                       <Flag className="mx-auto mb-3 text-green-500" size={48} />
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      <p className="font-display font-semibold text-base tracking-tight text-hi mb-2">
                         No Public Reports Found
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1317,7 +1142,7 @@ export default function Reportable() {
                 )}
 
               {(displayedResults.length > 0 || filedDisplayed.length > 0) && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+                <div className="panel relative rounded-xl border border-line shadow-panel p-4 sm:p-6">
                   {targetIdentityHeader}
 
                   {/* Received vs Filed — primary tabs, full width, each
@@ -1340,7 +1165,7 @@ export default function Reportable() {
                             : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
                         }`}
                       >
-                        {allResults.length}
+                        {receivedPending ? "…" : allResults.length}
                       </span>
                     </button>
                     <button
@@ -1367,7 +1192,17 @@ export default function Reportable() {
                     </button>
                   </div>
 
-                  {resultView === "received" && (
+                  {resultView === "received" && receivedPending && (
+                    <div className="flex items-center justify-center gap-3 p-8 text-sm text-gray-600 dark:text-gray-400">
+                      <RefreshCw
+                        className="animate-spin text-blue-600 dark:text-blue-400"
+                        size={18}
+                      />
+                      {progress || "Searching network for public reports..."}
+                    </div>
+                  )}
+
+                  {resultView === "received" && !receivedPending && (
                     <>
                       <div className="mb-4">
                         {receivedHeadline}
@@ -1665,7 +1500,7 @@ export default function Reportable() {
                   {resultView === "filed" && (
                     <>
                       <div className="mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
                           Filed {filedResults.length} Public Report
                           {filedResults.length === 1 ? "" : "s"} against{" "}
                           {filedUniqueTargets} Unique Target
@@ -1928,9 +1763,9 @@ export default function Reportable() {
           )}
 
           {activeTab === "feed" && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-6">
               <div className="flex items-center justify-between gap-4 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi">
                   Recent Public Reports
                 </h3>
                 <button
@@ -2195,10 +2030,6 @@ export default function Reportable() {
               onClose={() => setShowShareModal(false)}
             />
           )}
-        </div>
-      </div>
-
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

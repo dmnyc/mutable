@@ -720,7 +720,7 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
           <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
             <Wrench size={22} className="text-red-600 dark:text-red-400" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
             Muggable
           </h1>
         </div>

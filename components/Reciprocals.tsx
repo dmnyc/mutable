@@ -35,8 +35,14 @@ import { backupService } from "@/lib/backupService";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
 import { getProfileLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import PageHeader from "@/components/system/PageHeader";
 
-export default function Reciprocals() {
+export default function Reciprocals({
+  titleAs = "h1",
+}: {
+  /** h2 when rendered as a dashboard tab; h1 standalone. */
+  titleAs?: "h1" | "h2";
+}) {
   const { session } = useAuth();
   const { muteList, addMutedItem } = useStore();
   const [checking, setChecking] = useState(false);
@@ -593,12 +599,12 @@ export default function Reciprocals() {
   if (!session) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-8 text-center">
           <Users
             className="mx-auto mb-4 text-gray-400 dark:text-gray-500"
             size={48}
           />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
             Sign In Required
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -612,33 +618,28 @@ export default function Reciprocals() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <Repeat className="text-red-600 dark:text-red-500 mt-1" size={24} />
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Reciprocals - Check Who Follows Back
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Find users you follow who don&apos;t follow you back. Check your
-              entire follow list or search for a specific user.
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        as={titleAs}
+        icon={<Repeat size={25} />}
+        iconBg="from-red-500 to-red-700"
+        title="Reciprocals - Check Who Follows Back"
+        subtitle="Find users you follow who don't follow you back. Check your entire follow list or search for a specific user."
+      />
 
-        {/* Info Box */}
+      {/* Info Box */}
+      <div className="panel relative rounded-xl border border-line shadow-panel p-4">
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Note:</strong> For users with many follows, this may take a
-            while. The check includes a second pass that queries each
-            user&apos;s preferred relays (NIP-65) to minimize false positives.
+            <strong>Note:</strong> Large follow lists take a while — each result
+            is verified against the user&apos;s own relays (NIP-65) to avoid
+            false positives.
           </p>
         </div>
       </div>
 
       {/* Search Specific User */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
+        <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
           Check Specific User
         </h3>
 
@@ -745,8 +746,8 @@ export default function Reciprocals() {
       </div>
 
       {/* Check All Follows */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
+        <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
           Check All Your Follows
         </h3>
 
@@ -807,10 +808,10 @@ export default function Reciprocals() {
 
       {/* Results Section */}
       {!checking && displayedResults.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="mb-4">
             <div className="flex items-start justify-between gap-4 mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-display font-semibold text-base tracking-tight text-hi">
                 {allResults.length} Non-Reciprocal Follow
                 {allResults.length === 1 ? "" : "s"}
               </h3>
@@ -848,12 +849,12 @@ export default function Reciprocals() {
         !searchResult &&
         allResults.length === 0 &&
         (displayedResults.length > 0 || !error) && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <div className="panel relative rounded-xl border border-line shadow-panel p-8 text-center">
             <Users
               className={`mx-auto mb-3 ${checkedFollowCount ? "text-green-500" : "text-gray-400"}`}
               size={48}
             />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
               {checkedFollowCount === null
                 ? "Check your follows"
                 : checkedFollowCount === 0

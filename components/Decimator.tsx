@@ -487,7 +487,7 @@ export default function Decimator() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <Skull className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h2 className="font-display font-bold text-3xl tracking-tight text-hi mb-2">
             Sign in to use Decimator
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
@@ -504,7 +504,7 @@ export default function Decimator() {
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Skull className="w-8 h-8 text-red-500" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
             Decimator
           </h1>
         </div>
@@ -535,7 +535,7 @@ export default function Decimator() {
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => setShowProtectedList(!showProtectedList)}
-              className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              className="flex items-center gap-2 font-display font-semibold text-base tracking-tight text-hi hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
               <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
               <span>Protected Users ({protectedPubkeys.size})</span>
@@ -737,7 +737,7 @@ export default function Decimator() {
 
       {/* Selection Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <h2 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
           Selection Method
         </h2>
 
@@ -892,7 +892,7 @@ export default function Decimator() {
 
       {/* Nuclear option — its own card so it's visually distinct from the normal flow */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mt-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+        <h2 className="font-display font-semibold text-base tracking-tight text-hi mb-3">
           Unfollow Everyone
         </h2>
         <button
@@ -975,7 +975,7 @@ export default function Decimator() {
       {selectedUsers.length > 0 && decimatedCount === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="font-display font-semibold text-base tracking-tight text-hi">
               Selected Users ({selectedUsers.length})
             </h2>
             <button

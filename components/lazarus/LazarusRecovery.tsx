@@ -1072,7 +1072,7 @@ export default function LazarusRecovery({
   return (
     <div
       id="lazarus-recovery"
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
+      className="panel relative rounded-xl border border-line shadow-panel p-6"
     >
       <div className="flex items-start gap-4">
         <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
@@ -1082,7 +1082,7 @@ export default function LazarusRecovery({
           />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+          <h2 className="font-display font-semibold text-base tracking-tight text-hi mb-1">
             Recover from relay history
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">

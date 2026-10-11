@@ -148,7 +148,7 @@ export default function ShareModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -162,7 +162,7 @@ export default function ShareModal({
           <div>
             <h2
               id="draftable-share-title"
-              className="text-2xl font-bold text-gray-900 dark:text-white mb-1"
+              className="font-display font-bold text-3xl tracking-tight text-hi mb-1"
             >
               {title}
             </h2>

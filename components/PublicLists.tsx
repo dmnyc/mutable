@@ -363,10 +363,10 @@ export default function PublicLists() {
   return (
     <div className="space-y-6 block">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 block">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6 block">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Public Mute Lists
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -633,7 +633,7 @@ export default function PublicLists() {
         <>
           {/* Loading State */}
           {loadingUserPacks && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center block">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center block">
               <RefreshCw
                 className="animate-spin mx-auto mb-3 text-gray-400"
                 size={32}
@@ -665,7 +665,7 @@ export default function PublicLists() {
 
           {/* Empty State */}
           {!loadingUserPacks && userPacks.length === 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
               <Package className="mx-auto mb-3 text-gray-400" size={48} />
               <p className="text-gray-600 dark:text-gray-400 mb-2">
                 You haven&apos;t created any packs yet
@@ -690,7 +690,7 @@ export default function PublicLists() {
         <>
           {/* Loading State */}
           {publicListsLoading && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center block">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center block">
               <RefreshCw
                 className="animate-spin mx-auto mb-3 text-gray-400"
                 size={32}
@@ -723,7 +723,7 @@ export default function PublicLists() {
 
           {/* Empty State */}
           {!publicListsLoading && publicLists.length === 0 && !searchError && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <div className="panel relative rounded-xl border border-line shadow-panel p-12 text-center">
               <Package className="mx-auto mb-3 text-gray-400" size={48} />
               <p className="text-gray-600 dark:text-gray-400 mb-2">
                 {searchType === "browse"

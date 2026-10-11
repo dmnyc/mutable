@@ -152,7 +152,7 @@ export default function ReportableShareModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -162,7 +162,7 @@ export default function ReportableShareModal({
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+            <h2 className="font-display font-bold text-3xl tracking-tight text-hi mb-1">
               Share Results
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">

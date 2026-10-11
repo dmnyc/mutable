@@ -702,6 +702,82 @@ export async function publishToRelays(
   await Promise.race([publishPromise, timeoutPromise]);
 }
 
+export interface PublishReport {
+  accepted: string[];
+  rejected: { relay: string; reason: string }[];
+  /** Relays that hadn't answered when we stopped waiting. */
+  pending: number;
+  total: number;
+}
+
+/**
+ * Like publishToRelays, but reports per-relay outcomes. Resolves once one
+ * relay accepts (throws if none does within timeoutMs), then waits a short
+ * grace period so the report reflects the other relays too.
+ */
+export async function publishToRelaysDetailed(
+  pool: SimplePool,
+  relays: string[],
+  event: Event,
+  timeoutMs: number = 15000,
+  graceMs: number = 3000,
+): Promise<PublishReport> {
+  const urls = Array.from(new Set(relays));
+  const accepted: string[] = [];
+  const rejected: { relay: string; reason: string }[] = [];
+  const tracked = pool.publish(urls, event).map((attempt, i) =>
+    attempt.then(
+      () => {
+        accepted.push(urls[i]);
+      },
+      (err: unknown) => {
+        rejected.push({
+          relay: urls[i],
+          reason: err instanceof Error ? err.message : String(err),
+        });
+      },
+    ),
+  );
+
+  const firstAccepted = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("Publish timeout: no relay responded in time")),
+      timeoutMs,
+    );
+    const check = setInterval(() => {
+      if (accepted.length > 0) {
+        clearTimeout(timer);
+        clearInterval(check);
+        resolve();
+      } else if (rejected.length === urls.length) {
+        clearTimeout(timer);
+        clearInterval(check);
+        reject(
+          new Error(
+            `No relay accepted the note (${rejected
+              .slice(0, 3)
+              .map((r) => r.reason)
+              .join("; ")})`,
+          ),
+        );
+      }
+    }, 100);
+  });
+  await firstAccepted;
+
+  await Promise.race([
+    Promise.all(tracked),
+    new Promise<void>((r) => setTimeout(r, graceMs)),
+  ]);
+
+  return {
+    accepted,
+    rejected,
+    pending: urls.length - accepted.length - rejected.length,
+    total: urls.length,
+  };
+}
+
 // Publish mute list (handles both public and private mutes)
 export async function publishMuteList(
   muteList: MuteList,
@@ -984,7 +1060,12 @@ export async function publishTextNote(
   content: string,
   tags: string[][] = [],
   relays: string[] = DEFAULT_RELAYS,
-): Promise<{ success: boolean; event?: Event; error?: string }> {
+): Promise<{
+  success: boolean;
+  event?: Event;
+  error?: string;
+  report?: PublishReport;
+}> {
   try {
     const eventTemplate: EventTemplate = {
       kind: 1, // Text note
@@ -996,9 +1077,9 @@ export async function publishTextNote(
     const signedEvent = await signEvent(eventTemplate);
     const pool = getPool();
 
-    await publishToRelays(pool, relays, signedEvent);
+    const report = await publishToRelaysDetailed(pool, relays, signedEvent);
 
-    return { success: true, event: signedEvent };
+    return { success: true, event: signedEvent, report };
   } catch (error) {
     console.error("Failed to publish text note:", error);
     return {
@@ -1020,6 +1101,9 @@ export async function publishProfile(
     nip05?: string;
     lud16?: string;
     website?: string;
+    noffer?: string;
+    offer?: string;
+    clink_offer?: string;
   },
   existingContent?: Record<string, unknown>,
   relays: string[] = DEFAULT_RELAYS,
@@ -2351,6 +2435,10 @@ export interface ScanSummary {
   inProgress?: boolean;
 }
 
+// Minimum time to keep listening before an empty relay scan is trusted,
+// unless every relay has already answered.
+const EMPTY_SCAN_MIN_MS = 15000;
+
 export async function searchMutealsNetworkWide(
   userPubkey: string,
   relays: string[] = DEFAULT_RELAYS,
@@ -2540,7 +2628,15 @@ export async function searchMutealsNetworkWide(
               );
               // Give a grace period for any events still in transit (especially on mobile)
               // Shorter wait if not all relays responded, to avoid excessive delays
-              const waitTime = receivedFromAll ? 5000 : 3000;
+              let waitTime = receivedFromAll ? 5000 : 3000;
+              // A fast quorum that found nothing is the case most likely to
+              // be wrong; give slower relays a floor before concluding "none".
+              if (collectedEvents.length === 0 && !receivedFromAll) {
+                waitTime = Math.max(
+                  waitTime,
+                  EMPTY_SCAN_MIN_MS - (Date.now() - scanStartedAt),
+                );
+              }
               setTimeout(() => {
                 if (resolved) return;
                 resolved = true;
@@ -2583,7 +2679,11 @@ export async function searchMutealsNetworkWide(
         // start isn't cut short. 6s of silence after the last event is well
         // past the ~5s it takes even slow relays to deliver.
         const heardSomething = eoseCount > 0 || collectedEvents.length > 0;
-        if (heardSomething && timeSinceLastEvent > 6000) {
+        const emptyTooSoon =
+          collectedEvents.length === 0 &&
+          eoseCount < relays.length &&
+          Date.now() - scanStartedAt < EMPTY_SCAN_MIN_MS;
+        if (heardSomething && !emptyTooSoon && timeSinceLastEvent > 6000) {
           if (resolved) return;
           resolved = true;
           resolveReason = "stream settled";
@@ -2615,7 +2715,8 @@ export async function searchMutealsNetworkWide(
       "Query FAILED",
       error instanceof Error ? error.message : String(error),
     );
-    return [];
+    // Not an empty result: callers must not read a failed check as "clean".
+    throw error instanceof Error ? error : new Error(String(error));
   }
 
   // Group events by author to find the LATEST one per author
@@ -2995,7 +3096,16 @@ export async function searchReportsNetworkWide(
 
             if (eoseCount >= targetEoseCount) {
               const receivedFromAll = eoseCount >= relays.length;
-              const waitTime = receivedFromAll ? 5000 : 3000;
+              let waitTime = receivedFromAll ? 5000 : 3000;
+              // A fast quorum that found nothing is the case most likely to
+              // be wrong: the relays that hold the reports may simply be
+              // slower. Give stragglers a floor before concluding "none".
+              if (collectedEvents.length === 0 && !receivedFromAll) {
+                waitTime = Math.max(
+                  waitTime,
+                  EMPTY_SCAN_MIN_MS - (Date.now() - scanStartedAt),
+                );
+              }
               setTimeout(() => {
                 if (resolved) return;
                 resolved = true;
@@ -3021,7 +3131,11 @@ export async function searchReportsNetworkWide(
       checkInterval = setInterval(() => {
         const timeSinceLastEvent = Date.now() - lastEventTime;
         const heardSomething = eoseCount > 0 || collectedEvents.length > 0;
-        if (heardSomething && timeSinceLastEvent > 6000) {
+        const emptyTooSoon =
+          collectedEvents.length === 0 &&
+          eoseCount < relays.length &&
+          Date.now() - scanStartedAt < EMPTY_SCAN_MIN_MS;
+        if (heardSomething && !emptyTooSoon && timeSinceLastEvent > 6000) {
           if (resolved) return;
           resolved = true;
           resolveReason = "stream settled";
@@ -3046,7 +3160,8 @@ export async function searchReportsNetworkWide(
       "Query FAILED",
       error instanceof Error ? error.message : String(error),
     );
-    return [];
+    // Not an empty result: callers must not read a failed check as "clean".
+    throw error instanceof Error ? error : new Error(String(error));
   }
 
   const reports: ReportResult[] = [];

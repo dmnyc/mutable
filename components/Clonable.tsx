@@ -490,7 +490,7 @@ export default function Clonable() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <ClonableIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
               Clonable
             </h1>
           </div>
@@ -565,7 +565,7 @@ export default function Clonable() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <ClonableIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
             Clonable
           </h1>
         </div>
@@ -591,7 +591,7 @@ export default function Clonable() {
       {/* Step: Mode Selection */}
       {step === "mode" && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="font-display font-semibold text-base tracking-tight text-hi mb-4">
             How would you like to clone?
           </h2>
 
@@ -604,7 +604,7 @@ export default function Clonable() {
                 <Key size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-red-600 dark:group-hover:text-red-400">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi group-hover:text-red-600 dark:group-hover:text-red-400">
                   I have the nsec (full clone)
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -625,7 +625,7 @@ export default function Clonable() {
                 <Eye size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi group-hover:text-blue-600 dark:group-hover:text-blue-400">
                   I only have the npub (public data only)
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

@@ -16,7 +16,6 @@ import {
   BlacklistData,
 } from "@/lib/relayStorage";
 import { Profile } from "@/types";
-import packageJson from "../package.json";
 import {
   Settings as SettingsIcon,
   Trash2,
@@ -498,7 +497,7 @@ export default function Settings() {
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
           Settings
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -528,10 +527,10 @@ export default function Settings() {
 
       {/* Nostr Network Section */}
       {session && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3 mb-4">
             <Radio size={24} className="text-gray-900 dark:text-white" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Nostr Network
             </h2>
           </div>
@@ -684,10 +683,10 @@ export default function Settings() {
 
       {/* Relay Storage Sync Section */}
       {session && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           <div className="flex items-center gap-3 mb-4">
             <Cloud size={24} className="text-gray-900 dark:text-white" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
               Relay Storage Sync
             </h2>
           </div>
@@ -894,10 +893,10 @@ export default function Settings() {
       )}
 
       {/* Privacy & Data Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           <Shield size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             Privacy & Data
           </h2>
         </div>
@@ -953,10 +952,10 @@ export default function Settings() {
       </div>
 
       {/* Mute Privacy Default */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           {defaultMutePrivacy ? <Lock size={24} className="text-purple-600 dark:text-purple-400" /> : <Unlock size={24} className="text-amber-600 dark:text-amber-400" />}
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             Mute Privacy
           </h2>
         </div>
@@ -999,10 +998,10 @@ export default function Settings() {
       </div>
 
       {/* Onboarding Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
         <div className="flex items-center gap-3 mb-4">
           <Eye size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
             Show Onboarding
           </h2>
         </div>
@@ -1101,134 +1100,16 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* About Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Info size={24} className="text-gray-900 dark:text-white" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            About Mutable
-          </h2>
-        </div>
-
-        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-          <p>
-            <strong className="text-gray-900 dark:text-white">Version:</strong>{" "}
-            {packageJson.version}
-          </p>
-          <p>
-            <strong className="text-gray-900 dark:text-white">Build:</strong>{" "}
-            {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.substring(0, 7) ||
-              "local"}
-          </p>
-          <p>
-            <strong className="text-gray-900 dark:text-white">
-              Description:
-            </strong>{" "}
-            Mutable is a comprehensive Nostr social graph management tool that
-            helps you curate your follow lists and maintain a healthy social
-            feed through intelligent muting, community-driven filtering, and
-            advanced list management features.
-          </p>
-          <div>
-            <strong className="text-gray-900 dark:text-white block mb-2">
-              Features:
-            </strong>
-            <ul className="list-disc list-inside space-y-1 ml-4 text-gray-600 dark:text-gray-400">
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Mute-o-Scope:
-                </strong>{" "}
-                Analyze your social graph and discover users to mute based on
-                engagement patterns and follower overlap
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Public Packs:
-                </strong>{" "}
-                Discover and import curated mute lists from the Nostr community
-                (e.g., scammers, spam bots, low-quality accounts)
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Muteuals:
-                </strong>{" "}
-                Find users you follow who have muted you, helping you understand
-                your social dynamics
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Reciprocals:
-                </strong>{" "}
-                Discover who you follow that doesn&apos;t follow you back, with
-                intelligent relay discovery using NIP-65
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Purgatory:
-                </strong>{" "}
-                Find follows using specific Nostr clients or posting in
-                hellthreads, with NIP-65 relay discovery
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Note Nuke:
-                </strong>{" "}
-                Mute entire conversation threads directly from note URLs
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Domain Purge:
-                </strong>{" "}
-                Find and manage follows from specific NIP-05 domains
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Decimator:
-                </strong>{" "}
-                Randomly reduce your follow list by a percentage to keep it
-                manageable, with user protection capabilities
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  List Cleaner:
-                </strong>{" "}
-                Detect and remove inactive accounts from your follow list
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  Backups:
-                </strong>{" "}
-                Automatically backup your follow lists before making changes,
-                with easy restore functionality
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  NIP-51 Support:
-                </strong>{" "}
-                Full support for Nostr&apos;s mute list standard with public and
-                private list management
-              </li>
-              <li>
-                <strong className="text-gray-700 dark:text-gray-300">
-                  NIP-46 Support:
-                </strong>{" "}
-                Connect with remote signers like Amber for enhanced key security
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
       {/* Confirmation Modal */}
       {showResetConfirm && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle
                 className="text-red-600 dark:text-red-400"
                 size={32}
               />
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Confirm Reset
               </h3>
             </div>
@@ -1270,10 +1151,10 @@ export default function Settings() {
 
       {/* Protected Users Manager Modal */}
       {showProtectedManager && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Manage Protected Users ({protectedCount})
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -1430,10 +1311,10 @@ export default function Settings() {
 
       {/* Blacklist Manager Modal */}
       {showBlacklistManager && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
                 Manage Blacklist ({blacklistCount})
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

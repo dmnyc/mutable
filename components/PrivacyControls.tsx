@@ -1,202 +1,269 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useStore } from '@/lib/store';
-import { Lock, Eye, EyeOff, Info, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { Eye, EyeOff, Info, ArrowLeftRight } from "lucide-react";
 
-export default function PrivacyControls() {
-  const { muteList, bulkSetPrivacy, defaultMutePrivacy, setDefaultMutePrivacy } = useStore();
-  const [showInfo, setShowInfo] = useState(true); // Default to visible
+export type MuteCategoryTab = "profiles" | "words" | "tags" | "threads";
 
-  const publicPubkeys = muteList.pubkeys.filter(item => !item.private).length;
-  const publicWords = muteList.words.filter(item => !item.private).length;
-  const publicTags = muteList.tags.filter(item => !item.private).length;
-  const publicThreads = muteList.threads.filter(item => !item.private).length;
-  const publicCount = publicPubkeys + publicWords + publicTags + publicThreads;
+export default function PrivacyControls({
+  onSelectCategory,
+}: {
+  onSelectCategory?: (tab: MuteCategoryTab) => void;
+}) {
+  const {
+    muteList,
+    bulkSetPrivacy,
+    defaultMutePrivacy,
+    setDefaultMutePrivacy,
+    setActiveTab,
+  } = useStore();
+  const [showInfo, setShowInfo] = useState(false);
 
-  const privatePubkeys = muteList.pubkeys.filter(item => item.private).length;
-  const privateWords = muteList.words.filter(item => item.private).length;
-  const privateTags = muteList.tags.filter(item => item.private).length;
-  const privateThreads = muteList.threads.filter(item => item.private).length;
-  const privateCount = privatePubkeys + privateWords + privateTags + privateThreads;
+  const count = (list: { private?: boolean }[], value: boolean) =>
+    list.filter((item) => item.private === value).length;
+
+  const privateCount =
+    count(muteList.pubkeys, true) +
+    count(muteList.words, true) +
+    count(muteList.tags, true) +
+    count(muteList.threads, true);
+  const publicCount =
+    count(muteList.pubkeys, false) +
+    count(muteList.words, false) +
+    count(muteList.tags, false) +
+    count(muteList.threads, false);
+  const total = privateCount + publicCount;
+
+  // What makes up each side's number: a fixed 2x2 grid so both tiles line up.
+  const breakdown = (value: boolean) => [
+    {
+      label: "profiles",
+      tab: "profiles" as const,
+      n: count(muteList.pubkeys, value),
+    },
+    { label: "words", tab: "words" as const, n: count(muteList.words, value) },
+    { label: "hashtags", tab: "tags" as const, n: count(muteList.tags, value) },
+    {
+      label: "threads",
+      tab: "threads" as const,
+      n: count(muteList.threads, value),
+    },
+  ];
+  const publicBreakdown = breakdown(false);
+  const privateBreakdown = breakdown(true);
+
+  const renderBreakdown = (
+    rows: { label: string; tab: MuteCategoryTab; n: number }[],
+  ) => (
+    <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-line">
+      {rows.map((row) => (
+        <button
+          key={row.label}
+          type="button"
+          onClick={() => onSelectCategory?.(row.tab)}
+          disabled={!onSelectCategory}
+          title={`Open ${row.label}`}
+          className={`text-left rounded-lg -m-1.5 p-1.5 transition-colors enabled:hover:bg-black/5 dark:enabled:hover:bg-white/5 ${
+            row.n === 0 ? "opacity-40" : ""
+          }`}
+        >
+          <span
+            className="block font-display font-bold text-hi leading-none tabular-nums"
+            style={{ fontSize: "clamp(22px, 4vw, 32px)" }}
+          >
+            {row.n}
+          </span>
+          <span className="block text-sm text-mut mt-1">
+            {row.n === 1 ? row.label.replace(/s$/, "") : row.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 
   const handleMakeAllPrivate = () => {
-    if (confirm(`This will make all ${publicCount} public mutes private (encrypted). Continue?`)) {
+    if (
+      confirm(
+        `This will make all ${publicCount} public mutes private (encrypted). Continue?`,
+      )
+    ) {
       bulkSetPrivacy(true);
     }
   };
 
   const handleMakeAllPublic = () => {
-    if (confirm(`This will make all ${privateCount} private mutes public (visible to everyone). Continue?`)) {
+    if (
+      confirm(
+        `This will make all ${privateCount} private mutes public (visible to everyone). Continue?`,
+      )
+    ) {
       bulkSetPrivacy(false);
     }
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 w-full max-w-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Privacy Controls
-        </h3>
+    <section className="panel relative rounded-xl border border-line shadow-panel">
+      <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-line">
+        <div className="flex items-center gap-3 min-w-0">
+          <h3 className="font-display font-semibold text-base tracking-tight text-hi">
+            Privacy
+          </h3>
+          <span className="text-sm text-mut truncate">
+            {total} mutes
+          </span>
+        </div>
         <button
           onClick={() => setShowInfo(!showInfo)}
-          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          title="About privacy"
+          className="p-2 text-mut hover:text-hi hover:bg-black/5 dark:hover:bg-white/5 rounded-[10px] transition-colors flex-none"
+          title="How privacy works"
+          aria-expanded={showInfo}
         >
-          <Info size={18} />
+          <Info size={17} />
         </button>
       </div>
 
-      {/* Cards row with directional switch between them */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 md:gap-4 items-stretch w-full max-w-full">
-        {/* Private Mutes */}
-        <div className="p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg w-full max-w-full">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <EyeOff size={20} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
-              <h4 className="font-semibold text-purple-900 dark:text-purple-100 truncate">
-                Private Mutes
-              </h4>
+      <div className="p-5">
+        {/* Infographic: two big tiles, one per mode. A zero side dims. */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div
+            className={`rounded-xl border p-4 sm:p-6 transition-opacity ${
+              publicCount === 0 ? "opacity-45" : ""
+            } border-amber-500/30 bg-amber-500/10`}
+          >
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <Eye size={20} />
+              <span className="text-sm font-semibold uppercase tracking-wider">
+                Public
+              </span>
             </div>
-            <span className="text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">
-              Encrypted (only you can see)
-            </span>
+            <p
+              className="font-display font-extrabold text-amber-700 dark:text-amber-400 leading-none tracking-tight mt-3 tabular-nums"
+              style={{ fontSize: "clamp(56px, 12vw, 112px)" }}
+            >
+              {publicCount}
+            </p>
+            {renderBreakdown(publicBreakdown)}
           </div>
-          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mb-1">
-            {privateCount}
-          </p>
-          <p className="text-xs text-purple-700 dark:text-purple-300">
-            {privatePubkeys} {privatePubkeys === 1 ? 'profile' : 'profiles'}
-            {privateWords > 0 && `, ${privateWords} ${privateWords === 1 ? 'word' : 'words'}`}
-            {privateTags > 0 && `, ${privateTags} ${privateTags === 1 ? 'tag' : 'tags'}`}
-            {privateThreads > 0 && `, ${privateThreads} ${privateThreads === 1 ? 'thread' : 'threads'}`}
-          </p>
+          <div
+            className={`rounded-xl border p-4 sm:p-6 transition-opacity ${
+              privateCount === 0 ? "opacity-45" : ""
+            } border-purple-500/30 bg-purple-500/10`}
+          >
+            <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+              <EyeOff size={20} />
+              <span className="text-sm font-semibold uppercase tracking-wider">
+                Private
+              </span>
+            </div>
+            <p
+              className="font-display font-extrabold text-purple-700 dark:text-purple-400 leading-none tracking-tight mt-3 tabular-nums"
+              style={{ fontSize: "clamp(56px, 12vw, 112px)" }}
+            >
+              {privateCount}
+            </p>
+            {renderBreakdown(privateBreakdown)}
+          </div>
         </div>
 
-        {/* Switch column — directional arrows between the two cards */}
-        <div className="flex flex-row md:flex-col items-center justify-center gap-2 px-1 md:px-0 py-2 md:py-0">
+        {/* Bulk moves */}
+        <div className="mt-4 flex items-center gap-2 flex-wrap">
           <button
             onClick={handleMakeAllPrivate}
             disabled={publicCount === 0}
-            title="Move every public mute into the encrypted private list"
-            className="w-full md:w-auto px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
+            title="Encrypt every public mute"
+            className="px-3 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] transition-colors text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            <ArrowUp size={14} className="md:hidden" />
-            <ArrowLeft size={14} className="hidden md:block" />
-            <span>Make all private</span>
+            <EyeOff size={14} />
+            All private
           </button>
           <button
             onClick={handleMakeAllPublic}
             disabled={privateCount === 0}
-            title="Move every private mute into the public list"
-            className="w-full md:w-auto px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
+            title="Make every private mute publicly visible"
+            className="px-3 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] transition-colors text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            <span>Make all public</span>
-            <ArrowDown size={14} className="md:hidden" />
-            <ArrowRight size={14} className="hidden md:block" />
+            <ArrowLeftRight size={14} />
+            All public
           </button>
         </div>
 
-        {/* Public Mutes */}
-        <div className="p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg w-full max-w-full">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Eye size={20} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
-              <h4 className="font-semibold text-amber-900 dark:text-amber-100 truncate">
-                Public Mutes
-              </h4>
-            </div>
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded">
-              Visible to everyone
+        {/* Default for new mutes */}
+        <div className="mt-5 pt-4 border-t border-line flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-mid">
+            New mutes default to{" "}
+            <span className="font-semibold text-hi">
+              {defaultMutePrivacy ? "private" : "public"}
             </span>
-          </div>
-          <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
-            {publicCount}
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-300">
-            {publicPubkeys} {publicPubkeys === 1 ? 'profile' : 'profiles'}
-            {publicWords > 0 && `, ${publicWords} ${publicWords === 1 ? 'word' : 'words'}`}
-            {publicTags > 0 && `, ${publicTags} ${publicTags === 1 ? 'tag' : 'tags'}`}
-            {publicThreads > 0 && `, ${publicThreads} ${publicThreads === 1 ? 'thread' : 'threads'}`}
-          </p>
-        </div>
-      </div>
-
-      {/* Default privacy — compact segmented control */}
-      <div className="mt-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            Default for new mutes
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {defaultMutePrivacy
-              ? "New mutes will be encrypted (only you can see)"
-              : "New mutes will be visible to everyone"}
-          </p>
-        </div>
-        <div className="inline-flex rounded-lg bg-gray-200 dark:bg-gray-800 p-1 self-start sm:self-auto flex-shrink-0">
-          <button
-            onClick={() => setDefaultMutePrivacy(true)}
-            aria-pressed={defaultMutePrivacy}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              defaultMutePrivacy
-                ? "bg-purple-600 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <EyeOff size={13} />
-            Private
-          </button>
-          <button
-            onClick={() => setDefaultMutePrivacy(false)}
-            aria-pressed={!defaultMutePrivacy}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              !defaultMutePrivacy
-                ? "bg-amber-500 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <Eye size={13} />
-            Public
-          </button>
-        </div>
-      </div>
-
-      {/* Info block — now below the dashboard row */}
-      {showInfo && (
-        <div className="mt-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg w-full max-w-full">
-          <div className="flex items-start gap-2 sm:gap-3 w-full max-w-full">
-            <Info size={18} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0 text-xs sm:text-sm text-gray-900 dark:text-gray-200 space-y-2 sm:space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-blue-900 dark:text-blue-100">Understanding Public vs Private Mutes</p>
-                <button
-                  onClick={() => setShowInfo(false)}
-                  className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 underline whitespace-nowrap flex-shrink-0"
-                >
-                  Dismiss
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <p><strong>Public:</strong> Stored in event tags, visible to everyone. Works in all clients.</p>
-
-                <p><strong>Private:</strong> Encrypted using NIP-44 as required by the NIP-51 spec. Mutable also reads legacy NIP-04 encrypted mutes for backward compatibility.</p>
-
-                <p className="text-amber-800 dark:text-amber-300"><strong>⚠️ Compatibility:</strong> Support varies across clients. Mutable and Wisp follow the NIP-51 spec for private mutes; Jumble currently uses the older NIP-04 encryption; Primal stores private mutes unencrypted; and Damus doesn&apos;t read private mutes yet, so editing your list there can drop them when it republishes. If your favorite client doesn&apos;t handle private mutes, let the developers know.</p>
-
-                <p className="text-green-800 dark:text-green-300"><strong>💾 Take snapshots:</strong> Before switching clients, save a backup from the <strong>Backups</strong> tab. If another client doesn&apos;t carry your private mutes through, you can restore from the backup.</p>
-
-                <p className="text-blue-900 dark:text-blue-100"><strong>💡 Your call:</strong> Public and private mutes each have tradeoffs. Pick what fits how you use Nostr, and know what your client supports.</p>
-              </div>
-
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Individual items can be toggled using the lock icon next to each mute.
-              </p>
-            </div>
+          <div className="inline-flex rounded-[10px] bg-inset border border-line-2 p-1 self-start sm:self-auto flex-shrink-0">
+            <button
+              onClick={() => setDefaultMutePrivacy(true)}
+              aria-pressed={defaultMutePrivacy}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                defaultMutePrivacy
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-mut hover:text-hi"
+              }`}
+            >
+              <EyeOff size={13} />
+              Private
+            </button>
+            <button
+              onClick={() => setDefaultMutePrivacy(false)}
+              aria-pressed={!defaultMutePrivacy}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                !defaultMutePrivacy
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-mut hover:text-hi"
+              }`}
+            >
+              <Eye size={13} />
+              Public
+            </button>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Info — collapsed by default, trimmed */}
+        {showInfo && (
+          <div className="mt-5 pt-4 border-t border-line text-sm text-mid space-y-2.5">
+            <p>
+              <span className="font-semibold text-hi flex items-center gap-1.5">
+                <Eye size={14} className="text-amber-600 dark:text-amber-400" />
+                Public
+              </span>
+              Stored as plain tags — anyone can read them. Some clients default
+              to public; others ignore public mute lists.
+            </p>
+            <p>
+              <span className="font-semibold text-hi flex items-center gap-1.5">
+                <EyeOff
+                  size={14}
+                  className="text-purple-600 dark:text-purple-400"
+                />
+                Private
+              </span>
+              Encrypted (NIP-44, per the NIP-51 spec) — only you can read them.
+              Older NIP-04 private mutes are read too.
+            </p>
+            <p className="text-mut">
+              Client support varies: Damus doesn’t apply private mutes, and
+              muting or unmuting there can erase them. Always{" "}
+              <button
+                type="button"
+                onClick={() => setActiveTab("backups")}
+                className="underline underline-offset-2 hover:text-hi transition-colors"
+              >
+                save a backup here
+              </button>{" "}
+              before switching clients.
+            </p>
+            <p className="text-xs text-mut">
+              Toggle any single mute with its lock icon.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
