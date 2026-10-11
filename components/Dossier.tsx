@@ -78,7 +78,10 @@ export default function Dossier() {
 
   const openDossier = async (override?: string) => {
     const query = (override ?? input).trim();
-    if (!query) return;
+    if (!query) {
+      setError("Enter a name, NIP-05 or npub first.");
+      return;
+    }
     setError(null);
     setSubject(null);
     setSubjectNpub(null);
