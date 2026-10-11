@@ -4,12 +4,19 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Eye, EyeOff, Info, ArrowLeftRight } from "lucide-react";
 
-export default function PrivacyControls() {
+export type MuteCategoryTab = "profiles" | "words" | "tags" | "threads";
+
+export default function PrivacyControls({
+  onSelectCategory,
+}: {
+  onSelectCategory?: (tab: MuteCategoryTab) => void;
+}) {
   const {
     muteList,
     bulkSetPrivacy,
     defaultMutePrivacy,
     setDefaultMutePrivacy,
+    setActiveTab,
   } = useStore();
   const [showInfo, setShowInfo] = useState(false);
 
@@ -27,6 +34,53 @@ export default function PrivacyControls() {
     count(muteList.tags, false) +
     count(muteList.threads, false);
   const total = privateCount + publicCount;
+
+  // What makes up each side's number: a fixed 2x2 grid so both tiles line up.
+  const breakdown = (value: boolean) => [
+    {
+      label: "profiles",
+      tab: "profiles" as const,
+      n: count(muteList.pubkeys, value),
+    },
+    { label: "words", tab: "words" as const, n: count(muteList.words, value) },
+    { label: "hashtags", tab: "tags" as const, n: count(muteList.tags, value) },
+    {
+      label: "threads",
+      tab: "threads" as const,
+      n: count(muteList.threads, value),
+    },
+  ];
+  const publicBreakdown = breakdown(false);
+  const privateBreakdown = breakdown(true);
+
+  const renderBreakdown = (
+    rows: { label: string; tab: MuteCategoryTab; n: number }[],
+  ) => (
+    <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-line">
+      {rows.map((row) => (
+        <button
+          key={row.label}
+          type="button"
+          onClick={() => onSelectCategory?.(row.tab)}
+          disabled={!onSelectCategory}
+          title={`Open ${row.label}`}
+          className={`text-left rounded-lg -m-1.5 p-1.5 transition-colors enabled:hover:bg-black/5 dark:enabled:hover:bg-white/5 ${
+            row.n === 0 ? "opacity-40" : ""
+          }`}
+        >
+          <span
+            className="block font-display font-bold text-hi leading-none tabular-nums"
+            style={{ fontSize: "clamp(22px, 4vw, 32px)" }}
+          >
+            {row.n}
+          </span>
+          <span className="block text-sm text-mut mt-1">
+            {row.n === 1 ? row.label.replace(/s$/, "") : row.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 
   const handleMakeAllPrivate = () => {
     if (
@@ -47,8 +101,6 @@ export default function PrivacyControls() {
       bulkSetPrivacy(false);
     }
   };
-
-  const privatePct = total > 0 ? (privateCount / total) * 100 : 0;
 
   return (
     <section className="panel relative rounded-xl border border-line shadow-panel">
@@ -72,72 +124,68 @@ export default function PrivacyControls() {
       </div>
 
       <div className="p-5">
-        {/* Ratio bar — the whole list at a glance */}
-        <div
-          className="flex h-2.5 rounded-full overflow-hidden bg-black/10 dark:bg-white/10"
-          role="img"
-          aria-label={`${publicCount} public, ${privateCount} private`}
-        >
+        {/* Infographic: two big tiles, one per mode. A zero side dims. */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <div
-            className="bg-amber-500/80 transition-all duration-300"
-            style={{ width: `${total > 0 ? 100 - privatePct : 50}%` }}
-          />
+            className={`rounded-xl border p-4 sm:p-6 transition-opacity ${
+              publicCount === 0 ? "opacity-45" : ""
+            } border-amber-500/30 bg-amber-500/10`}
+          >
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <Eye size={20} />
+              <span className="text-sm font-semibold uppercase tracking-wider">
+                Public
+              </span>
+            </div>
+            <p
+              className="font-display font-extrabold text-amber-700 dark:text-amber-400 leading-none tracking-tight mt-3 tabular-nums"
+              style={{ fontSize: "clamp(56px, 12vw, 112px)" }}
+            >
+              {publicCount}
+            </p>
+            {renderBreakdown(publicBreakdown)}
+          </div>
           <div
-            className="bg-purple-500/80 transition-all duration-300"
-            style={{ width: `${total > 0 ? privatePct : 50}%` }}
-          />
+            className={`rounded-xl border p-4 sm:p-6 transition-opacity ${
+              privateCount === 0 ? "opacity-45" : ""
+            } border-purple-500/30 bg-purple-500/10`}
+          >
+            <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+              <EyeOff size={20} />
+              <span className="text-sm font-semibold uppercase tracking-wider">
+                Private
+              </span>
+            </div>
+            <p
+              className="font-display font-extrabold text-purple-700 dark:text-purple-400 leading-none tracking-tight mt-3 tabular-nums"
+              style={{ fontSize: "clamp(56px, 12vw, 112px)" }}
+            >
+              {privateCount}
+            </p>
+            {renderBreakdown(privateBreakdown)}
+          </div>
         </div>
 
-        <div className="mt-4 flex flex-col lg:flex-row lg:items-center gap-4">
-          {/* Counts */}
-          <div className="flex items-center gap-5 flex-wrap flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <Eye
-                size={16}
-                className="text-amber-600 dark:text-amber-400 flex-none"
-              />
-              <div>
-                <p className="text-lg font-display font-bold text-hi leading-tight">
-                  {publicCount}
-                </p>
-                <p className="text-xs text-mut leading-tight">public</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <EyeOff
-                size={16}
-                className="text-purple-600 dark:text-purple-400 flex-none"
-              />
-              <div>
-                <p className="text-lg font-display font-bold text-hi leading-tight">
-                  {privateCount}
-                </p>
-                <p className="text-xs text-mut leading-tight">private</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Bulk moves */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={handleMakeAllPrivate}
-              disabled={publicCount === 0}
-              title="Encrypt every public mute"
-              className="px-3 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] transition-colors text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
-            >
-              <EyeOff size={14} />
-              All private
-            </button>
-            <button
-              onClick={handleMakeAllPublic}
-              disabled={privateCount === 0}
-              title="Make every private mute publicly visible"
-              className="px-3 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] transition-colors text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
-            >
-              <ArrowLeftRight size={14} />
-              All public
-            </button>
-          </div>
+        {/* Bulk moves */}
+        <div className="mt-4 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleMakeAllPrivate}
+            disabled={publicCount === 0}
+            title="Encrypt every public mute"
+            className="px-3 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] transition-colors text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            <EyeOff size={14} />
+            All private
+          </button>
+          <button
+            onClick={handleMakeAllPublic}
+            disabled={privateCount === 0}
+            title="Make every private mute publicly visible"
+            className="px-3 py-2 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] transition-colors text-[13px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            <ArrowLeftRight size={14} />
+            All public
+          </button>
         </div>
 
         {/* Default for new mutes */}
@@ -184,8 +232,8 @@ export default function PrivacyControls() {
                 <Eye size={14} className="text-amber-600 dark:text-amber-400" />
                 Public
               </span>
-              Stored as plain tags — anyone can read them. Works in every
-              client.
+              Stored as plain tags — anyone can read them. Some clients default
+              to public; others ignore public mute lists.
             </p>
             <p>
               <span className="font-semibold text-hi flex items-center gap-1.5">
@@ -196,12 +244,19 @@ export default function PrivacyControls() {
                 Private
               </span>
               Encrypted (NIP-44, per the NIP-51 spec) — only you can read them.
-              Legacy NIP-04 private mutes are read too.
+              Older NIP-04 private mutes are read too.
             </p>
             <p className="text-mut">
-              Client support varies: Damus can drop private mutes when it
-              republishes your list, and Jumble uses the older NIP-04
-              encryption. Save a backup before switching clients.
+              Client support varies: Damus doesn’t apply private mutes, and
+              muting or unmuting there can erase them. Always{" "}
+              <button
+                type="button"
+                onClick={() => setActiveTab("backups")}
+                className="underline underline-offset-2 hover:text-hi transition-colors"
+              >
+                save a backup here
+              </button>{" "}
+              before switching clients.
             </p>
             <p className="text-xs text-mut">
               Toggle any single mute with its lock icon.
