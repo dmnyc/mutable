@@ -211,6 +211,73 @@ body {
   );
 }
 
+/* Hover lamps: a second, cooler light. Where the active tab burns red,
+   hovered items glow blue from the same strip position — dimmer than the
+   active lamp, and their labels light from below in the hover hue.
+   Gradient endpoints are contrast-audited (scripts/check-contrast.mjs). */
+:root {
+  --nav-hover-from: #1d4ed8;
+  --nav-hover-lamp: #3b82f6;
+  --nav-hover-lamp-hi: #60a5fa;
+  --nav-hover-glow: 96 165 250;
+}
+
+.dark {
+  --nav-hover-from: #93c5fd;
+  --nav-hover-lamp: #3b82f6;
+  --nav-hover-lamp-hi: #93c5fd;
+  --nav-hover-glow: 96 165 250;
+}
+
+.nav-dim {
+  position: relative;
+}
+
+.nav-dim::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nav-hover-lamp) 28%,
+    var(--nav-hover-lamp-hi) 50%,
+    var(--nav-hover-lamp) 72%,
+    transparent
+  );
+  box-shadow:
+    0 -3px 10px rgb(var(--nav-hover-glow) / 0.42),
+    0 -8px 20px rgb(var(--nav-hover-glow) / 0.2),
+    0 4px 12px -2px rgb(var(--nav-hover-glow) / 0.38);
+  opacity: 0;
+  transform: scaleX(0.55);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  pointer-events: none;
+}
+
+.nav-dim:hover::after {
+  opacity: 0.9;
+  transform: none;
+}
+
+.nav-dim:hover {
+  background-image: linear-gradient(
+    to top,
+    var(--nav-hover-from) 0%,
+    rgb(var(--ink-hi)) 45%,
+    rgb(var(--ink-hi)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .nav-lamp::after {
   content: "";
   position: absolute;

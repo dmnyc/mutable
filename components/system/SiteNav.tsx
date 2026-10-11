@@ -96,7 +96,7 @@ export default function SiteNav({
         : "nav-lamp border-transparent nav-lit"
       : mobile
         ? "text-mid hover:bg-black/5 dark:hover:bg-white/5"
-        : "border-transparent text-mut hover:text-hi hover:border-line-2";
+        : "nav-dim border-transparent text-mut";
     if (useTab) {
       return (
         <button
@@ -139,7 +139,7 @@ export default function SiteNav({
               className={`py-4 px-2.5 border-b-2 font-semibold text-sm transition-colors flex items-center gap-1.5 ${
                 otherActive
                   ? "nav-lamp border-transparent nav-lit"
-                  : "border-transparent text-mut hover:text-hi hover:border-line-2"
+                  : "nav-dim border-transparent text-mut"
               }`}
               aria-expanded={toolsOpen}
             >
