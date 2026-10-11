@@ -13,6 +13,10 @@ import {
 export interface AppPreferences {
   theme?: 'light' | 'dark';
   hasCompletedOnboarding?: boolean;
+  // Only present once the user has chosen a default (an auto-detected
+  // default is derived locally and never synced).
+  defaultMutePrivacy?: boolean;
+  defaultMutePrivacyAt?: number;
   // Add more preferences as needed
   [key: string]: unknown;
 }
@@ -45,6 +49,13 @@ class PreferencesService {
         const parsed = JSON.parse(zustandStorage);
         if (parsed.state?.hasCompletedOnboarding !== undefined) {
           prefs.hasCompletedOnboarding = parsed.state.hasCompletedOnboarding;
+        }
+        if (
+          parsed.state?.defaultMutePrivacyExplicit &&
+          typeof parsed.state.defaultMutePrivacy === 'boolean'
+        ) {
+          prefs.defaultMutePrivacy = parsed.state.defaultMutePrivacy;
+          prefs.defaultMutePrivacyAt = parsed.state.defaultMutePrivacyAt ?? 0;
         }
       }
     } catch (error) {
@@ -133,6 +144,8 @@ class PreferencesService {
     this.syncInProgress = true;
 
     try {
+      await this.reconcileDefaultMutePrivacy(userPubkey, relays);
+
       // Load local data
       const localPrefs = this.loadPreferences();
       const localData = Object.keys(localPrefs).length > 0
@@ -171,6 +184,32 @@ class PreferencesService {
       return false;
     } finally {
       this.syncInProgress = false;
+    }
+  }
+
+  /**
+   * The default for new mutes follows the user across devices: the most
+   * recent explicit choice wins. Done before the generic sync because that
+   * sync treats local data as always newest and would never pull this in.
+   */
+  private async reconcileDefaultMutePrivacy(
+    userPubkey: string,
+    relays: string[]
+  ): Promise<void> {
+    try {
+      const remote = await this.fetchFromRelay(userPubkey, relays);
+      if (typeof remote.defaultMutePrivacy !== 'boolean') return;
+      const { useStore } = await import('./store');
+      const state = useStore.getState();
+      const remoteAt = remote.defaultMutePrivacyAt ?? 0;
+      if (
+        !state.defaultMutePrivacyExplicit ||
+        remoteAt > state.defaultMutePrivacyAt
+      ) {
+        state.applySyncedDefaultMutePrivacy(remote.defaultMutePrivacy, remoteAt);
+      }
+    } catch (error) {
+      console.error('Failed to reconcile default mute privacy:', error);
     }
   }
 

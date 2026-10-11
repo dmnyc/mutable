@@ -15,6 +15,7 @@ export default function PrivacyControls({
     muteList,
     bulkSetPrivacy,
     defaultMutePrivacy,
+    defaultMutePrivacyExplicit,
     setDefaultMutePrivacy,
     setActiveTab,
   } = useStore();
@@ -195,6 +196,9 @@ export default function PrivacyControls({
             <span className="font-semibold text-hi">
               {defaultMutePrivacy ? "private" : "public"}
             </span>
+            {!defaultMutePrivacyExplicit && total > 0 && (
+              <span className="text-mut"> · matches most of your list</span>
+            )}
           </p>
           <div className="inline-flex rounded-[10px] bg-inset border border-line-2 p-1 self-start sm:self-auto flex-shrink-0">
             <button
