@@ -1,7 +1,23 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { Inter, Montserrat } from "next/font/google";
 import { themeInitScript } from "@/lib/theme";
+import AmbientBackdrop from "@/components/system/AmbientBackdrop";
 import "./globals.css";
+
+// Self-hosted at build time by next/font; exposed as CSS variables that
+// tailwind.config.ts maps to font-sans and font-display.
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-montserrat",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mutable.top"),
@@ -44,10 +60,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${montserrat.variable}`}
+    >
+      <body className="antialiased font-sans">
         {/* Applies the stored theme before first paint to avoid a flash */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <AmbientBackdrop />
         {children}
         <Analytics />
       </body>
