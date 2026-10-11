@@ -144,10 +144,12 @@ export default function SiteNav({
               aria-expanded={toolsOpen}
             >
               Other Stuff
-              <ChevronDown
-                size={15}
-                className={`transition-transform ${toolsOpen ? "rotate-180" : ""}`}
-              />
+              <span className="nav-caret inline-flex">
+                <ChevronDown
+                  size={15}
+                  className={`transition-transform ${toolsOpen ? "rotate-180" : ""}`}
+                />
+              </span>
             </button>
             {toolsOpen && (
               <div className="absolute top-full left-0 mt-1 panel border border-line-2 rounded-xl shadow-panel py-1.5 min-w-[180px] z-50">

@@ -183,6 +183,17 @@ body {
   color: transparent;
 }
 
+/* The caret must not inherit the transparent fill from the gradient-text
+   states — give it the lamp color explicitly. */
+.nav-lit .nav-caret,
+.nav-lamp .nav-caret {
+  color: var(--nav-lamp);
+}
+
+.nav-dim:hover .nav-caret {
+  color: var(--nav-hover-lamp);
+}
+
 .nav-lamp {
   position: relative;
 }
