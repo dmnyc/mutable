@@ -4,10 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  publishProfile,
-  fetchRawProfileContent,
-} from "@/lib/nostr";
+import { publishProfile, fetchRawProfileContent } from "@/lib/nostr";
 import { uploadImageToBlossom } from "@/lib/imageUpload";
 import { profileBackupService } from "@/lib/profileBackupService";
 import { ProfileBackupData } from "@/lib/relayStorage";
@@ -41,6 +38,18 @@ interface FormData {
   lud16: string;
 }
 
+const NOFFER_SHAPE =
+  /^(nostr:)?noffer1[023456789acdefghjklmnpqrstuvwxyz]{6,}$/i;
+
+function readNoffer(content: Record<string, unknown> | null | undefined) {
+  if (!content) return "";
+  for (const key of ["noffer", "offer", "clink_offer"]) {
+    const v = content[key];
+    if (typeof v === "string" && v) return v;
+  }
+  return "";
+}
+
 export default function ProfileEditorModal({
   onClose,
   onProfileUpdated,
@@ -59,6 +68,10 @@ export default function ProfileEditorModal({
     website: "",
     lud16: "",
   });
+
+  // CLINK offer, read tolerantly (the key was never standardized) and always
+  // published back on `noffer`, matching Sidecar.
+  const [noffer, setNoffer] = useState("");
 
   // Raw existing kind:0 content (preserves unknown fields)
   const [existingContent, setExistingContent] = useState<Record<
@@ -107,19 +120,18 @@ export default function ProfileEditorModal({
 
     // Fetch raw content to preserve unknown fields
     if (session?.pubkey) {
-      fetchRawProfileContent(session.pubkey, session.relays).then(
-        (content) => {
-          if (content) setExistingContent(content);
-        },
-      );
+      fetchRawProfileContent(session.pubkey, session.relays).then((content) => {
+        if (content) {
+          setExistingContent(content);
+          const found = readNoffer(content);
+          setNoffer((prev) => prev || found);
+        }
+      });
     }
   }, [userProfile, session]);
 
   // Handle image upload
-  const handleImageUpload = async (
-    file: File,
-    type: "picture" | "banner",
-  ) => {
+  const handleImageUpload = async (file: File, type: "picture" | "banner") => {
     if (!file.type.startsWith("image/")) {
       setErrorMessage("Please select an image file");
       setTimeout(() => setErrorMessage(null), 3000);
@@ -160,6 +172,15 @@ export default function ProfileEditorModal({
   const handleSave = async () => {
     if (!session) return;
 
+    const offerValue = noffer.trim();
+    if (offerValue && !NOFFER_SHAPE.test(offerValue)) {
+      setErrorMessage(
+        "That does not look like a CLINK offer. It starts with noffer1.",
+      );
+      setTimeout(() => setErrorMessage(null), 5000);
+      return;
+    }
+
     setSaving(true);
     setErrorMessage(null);
 
@@ -182,7 +203,13 @@ export default function ProfileEditorModal({
 
       // Step 2: Publish updated profile
       setSaveStatus("Publishing profile...");
-      await publishProfile(formData, existingContent || undefined, session.relays);
+      // The offer consolidates onto `noffer`; the alternate keys are cleared so
+      // a stale duplicate can't linger under another name.
+      await publishProfile(
+        { ...formData, noffer: offerValue, offer: "", clink_offer: "" },
+        existingContent || undefined,
+        session.relays,
+      );
 
       // Step 3: Update store
       const updatedProfile: Profile = {
@@ -254,6 +281,7 @@ export default function ProfileEditorModal({
     });
     // Also update existingContent so unknown fields are preserved from backup
     setExistingContent(backup.profile);
+    setNoffer(readNoffer(backup.profile));
     setSuccessMessage(
       "Backup restored to form. Review and click Save to publish.",
     );
@@ -351,10 +379,7 @@ export default function ProfileEditorModal({
               )}
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
                 {uploadingPicture ? (
-                  <Loader2
-                    size={24}
-                    className="text-white animate-spin"
-                  />
+                  <Loader2 size={24} className="text-white animate-spin" />
                 ) : (
                   <Camera
                     size={24}
@@ -412,7 +437,7 @@ export default function ProfileEditorModal({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Display Name
+                Display name
               </label>
               <input
                 type="text"
@@ -450,10 +475,45 @@ export default function ProfileEditorModal({
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent resize-vertical"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Profile Picture URL
+                NIP-05 identifier
+              </label>
+              <input
+                type="text"
+                value={formData.nip05}
+                onChange={(e) => updateField("nip05", e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Lightning address
+              </label>
+              <input
+                type="text"
+                value={formData.lud16}
+                onChange={(e) => updateField("lud16", e.target.value)}
+                placeholder="you@getalby.com"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Website
+              </label>
+              <input
+                type="url"
+                value={formData.website}
+                onChange={(e) => updateField("website", e.target.value)}
+                placeholder="https://yoursite.com"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Avatar URL
               </label>
               <div className="flex gap-2">
                 <input
@@ -476,7 +536,6 @@ export default function ProfileEditorModal({
                 </button>
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Banner URL
@@ -502,42 +561,17 @@ export default function ProfileEditorModal({
                 </button>
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                NIP-05 Identifier
+                CLINK offer
               </label>
               <input
                 type="text"
-                value={formData.nip05}
-                onChange={(e) => updateField("nip05", e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Website
-              </label>
-              <input
-                type="url"
-                value={formData.website}
-                onChange={(e) => updateField("website", e.target.value)}
-                placeholder="https://yoursite.com"
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Lightning Address
-              </label>
-              <input
-                type="text"
-                value={formData.lud16}
-                onChange={(e) => updateField("lud16", e.target.value)}
-                placeholder="you@getalby.com"
+                value={noffer}
+                onChange={(e) => setNoffer(e.target.value)}
+                placeholder="noffer1…"
+                autoComplete="off"
+                spellCheck={false}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
               />
             </div>
