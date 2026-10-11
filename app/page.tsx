@@ -260,7 +260,7 @@ export default function Home() {
               <span className="font-semibold text-hi">
                 Your Nostr mute list manager.
               </span>{" "}
-              Back up, edit, discover and share mute lists — plus DM forensics,
+              Back up, edit, discover and share mute lists, plus DM forensics,
               follow packs, reciprocal audits and event deletion.
             </p>
             <div className="mt-6">
@@ -381,7 +381,7 @@ export default function Home() {
                 className="w-full mt-2.5 px-4 py-3 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] font-semibold text-sm shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 hover:-translate-y-px transition-all flex items-center justify-center gap-2"
               >
                 <FileSearch size={16} />
-                Open the Dossier — the full public record
+                Open the Dossier
               </button>
 
               {/* Lens buttons — NEW stays on both Reportable and Redactable */}
@@ -409,7 +409,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => handleToolSearch("/reportable")}
-                  title="Public reports filed about them — and by them"
+                  title="Public reports filed about them and by them"
                   className={`${lensClass} bg-gradient-to-b from-orange-500 to-orange-700 shadow-[0_6px_18px_-8px_rgb(234_88_12/0.7),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-110`}
                 >
                   <Flag size={16} />
@@ -459,7 +459,7 @@ export default function Home() {
                 chip={<ChipTone tone="gray"><FileSearch size={16} /></ChipTone>}
                 title="The Dossier"
                 badge="NEW"
-                text="Mutes, reports, deletions, Bitcoin, DMs and footprint — one report."
+                text="Every public record on an account, in one report."
               />
               <DirectoryCard
                 href={null}
