@@ -124,7 +124,7 @@ export default function SiteNav({
   };
 
   return (
-    <nav className="glass-header border-b border-line" aria-label="Main">
+    <nav className="glass-header relative z-40 border-b border-line" aria-label="Main">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Desktop */}
         <div className="hidden xl:flex justify-center gap-1">
@@ -203,7 +203,7 @@ export default function SiteNav({
           </button>
 
           {mobileOpen && (
-            <div className="absolute left-0 right-0 max-h-[calc(100vh-4rem)] overflow-y-auto glass-header border-t border-line shadow-panel z-50">
+            <div className="absolute left-0 right-0 max-h-[calc(100vh-4rem)] overflow-y-auto panel border-t border-line shadow-panel z-50">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
                 {PRIMARY.map((i) => renderItem(i, true))}
                 <div className="mt-2 border-t border-line pt-2">
