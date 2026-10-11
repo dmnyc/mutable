@@ -442,15 +442,18 @@ export default function Home() {
           {/* Directory — everything the lookup above doesn't cover, grouped
               by whether a session is needed. */}
           <section className="max-w-4xl mx-auto mt-14 animate-rise stagger-2">
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4 mb-5">
               <span className="flex-1 h-px bg-line" />
               <h2 className="font-display font-semibold text-[13px] tracking-[0.14em] uppercase text-mut">
-                Everything else — no login
+                Everything else
               </h2>
               <span className="flex-1 h-px bg-line" />
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mut mb-3">
+              No login
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
               <DirectoryCard
                 href="/dossier"
                 chip={<ChipTone tone="gray"><FileSearch size={16} /></ChipTone>}
@@ -468,7 +471,7 @@ export default function Home() {
                 }
                 title="Draftable"
                 badge="NEW"
-                text="Follow packs, ported from following.space."
+                text="Follow packs you can't leave."
               />
               <DirectoryCard
                 href="/muggable"
@@ -483,18 +486,11 @@ export default function Home() {
                 text="Clone any public list into your own mute list."
               />
             </div>
-          </section>
 
-          <section className="max-w-4xl mx-auto mt-10 animate-rise stagger-3">
-            <div className="flex items-center gap-4 mb-4">
-              <span className="flex-1 h-px bg-line" />
-              <h2 className="font-display font-semibold text-[13px] tracking-[0.14em] uppercase text-mut">
-                Connect to use
-              </h2>
-              <span className="flex-1 h-px bg-line" />
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mut mb-3 mt-8">
+              Connect to use
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
               <DirectoryCard
                 href="/dashboard?tab=myList"
                 chip={<ChipTone tone="red"><BarChart3 size={16} /></ChipTone>}
