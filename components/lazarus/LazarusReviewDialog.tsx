@@ -118,21 +118,30 @@ function PublishResults({ results }: { results: LazarusPublishResult[] }) {
   return (
     <ul className="space-y-0.5 text-xs">
       {results.map((result) => (
-        <li key={result.url} className="flex justify-between gap-3">
-          <span className="min-w-0 truncate text-gray-600 dark:text-gray-400">
-            {shortRelay(result.url)}
-          </span>
-          <span
-            className={
-              result.status === "accepted"
-                ? "flex-shrink-0 text-emerald-700 dark:text-emerald-400"
-                : "flex-shrink-0 text-gray-500 dark:text-gray-400"
-            }
-            title={result.message}
-          >
-            {label[result.status]}
-            {result.message ? `: ${result.message}` : ""}
-          </span>
+        <li key={result.url}>
+          <div className="flex justify-between gap-3">
+            <span className="min-w-0 truncate text-gray-600 dark:text-gray-400">
+              {shortRelay(result.url)}
+            </span>
+            <span
+              className={
+                result.status === "accepted"
+                  ? "flex-shrink-0 text-emerald-700 dark:text-emerald-400"
+                  : "flex-shrink-0 text-gray-500 dark:text-gray-400"
+              }
+              title={result.message}
+            >
+              {label[result.status]}
+            </span>
+          </div>
+          {/* Relay messages can be long ("blocked: this relay is community
+              funded..."), so they wrap on their own line instead of pushing
+              the row wider than the dialog. */}
+          {result.message ? (
+            <p className="mt-0.5 break-words pl-3 text-gray-500 dark:text-gray-400">
+              {result.message}
+            </p>
+          ) : null}
         </li>
       ))}
     </ul>
