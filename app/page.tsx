@@ -445,7 +445,7 @@ export default function Home() {
             <div className="flex items-center gap-4 mb-5">
               <span className="flex-1 h-px bg-line" />
               <h2 className="font-display font-semibold text-[13px] tracking-[0.14em] uppercase text-mut">
-                Everything else
+                Everything in Mutable
               </h2>
               <span className="flex-1 h-px bg-line" />
             </div>
@@ -456,10 +456,73 @@ export default function Home() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
               <DirectoryCard
                 href="/dossier"
-                chip={<ChipTone tone="gray"><FileSearch size={16} /></ChipTone>}
+                chip={<ChipTone tone="red"><FileSearch size={16} /></ChipTone>}
                 title="The Dossier"
                 badge="NEW"
                 text="Every public record on an account, in one report."
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/mute-o-scope")}
+                chip={
+                  <ChipTone tone="blue">
+                    <Image
+                      src="/mute_o_scope_icon_dark.svg"
+                      alt=""
+                      width={16}
+                      height={16}
+                      className="block dark:hidden"
+                    />
+                    <Image
+                      src="/mute_o_scope_icon_white.svg"
+                      alt=""
+                      width={16}
+                      height={16}
+                      className="hidden dark:block"
+                    />
+                  </ChipTone>
+                }
+                title="Mute-o-Scope"
+                text="Who is publicly muting any profile."
+                oneLine
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/snoopable")}
+                chip={
+                  <ChipTone tone="purple">
+                    <SnoopableGlasses width={18} height={15} />
+                  </ChipTone>
+                }
+                title="Snoopable"
+                text="The public metadata of anyone’s DMs."
+                oneLine
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/reportable")}
+                chip={
+                  <ChipTone tone="orange">
+                    <Flag size={16} />
+                  </ChipTone>
+                }
+                title="Reportable"
+                badge="NEW"
+                text="Public reports filed about any account."
+                oneLine
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/redactable")}
+                chip={
+                  <ChipTone tone="gray">
+                    <Trash2 size={16} />
+                  </ChipTone>
+                }
+                title="Redactable"
+                badge="NEW"
+                text="What an account asked relays to delete."
+                oneLine
               />
               <DirectoryCard
                 href={null}
@@ -643,6 +706,7 @@ function DirectoryCard({
   title,
   text,
   badge,
+  oneLine,
 }: {
   href: string | null;
   onClick?: () => void;
@@ -650,6 +714,8 @@ function DirectoryCard({
   title: string;
   text: string;
   badge?: "NEW" | "LOGIN";
+  /** Keep the description on one line, ellipsized if it can't fit. */
+  oneLine?: boolean;
 }) {
   const inner = (
     <>
@@ -668,7 +734,11 @@ function DirectoryCard({
             </span>
           )}
         </span>
-        <span className="block text-[13px] text-mut mt-0.5 leading-snug">
+        <span
+          className={`block text-[13px] text-mut mt-0.5 leading-snug ${
+            oneLine ? "truncate" : ""
+          }`}
+        >
           {text}
         </span>
       </span>
