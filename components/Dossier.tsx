@@ -460,7 +460,7 @@ export default function Dossier() {
     <AppShell navActive="dossier" width="regular">
       <PageHeader
         icon={<FileSearch size={25} />}
-        iconBg="from-amber-500 to-amber-700"
+        iconBg="from-red-500 to-red-700"
         title="The Dossier"
         subtitle="Mute Score, reports, deletions, on-chain Bitcoin, DMs and public footprint — one report, no login."
       />

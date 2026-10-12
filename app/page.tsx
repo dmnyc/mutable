@@ -456,7 +456,7 @@ export default function Home() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
               <DirectoryCard
                 href="/dossier"
-                chip={<ChipTone tone="gray"><FileSearch size={16} /></ChipTone>}
+                chip={<ChipTone tone="red"><FileSearch size={16} /></ChipTone>}
                 title="The Dossier"
                 badge="NEW"
                 text="Every public record on an account, in one report."
