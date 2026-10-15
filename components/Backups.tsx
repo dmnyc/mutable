@@ -878,6 +878,37 @@ export default function Backups() {
   const pinnedNotesBackups = backups.filter((b) => b.type === "pinned-notes");
   const interestsBackups = backups.filter((b) => b.type === "interests");
 
+  // Sections on this page, in order, with each chip tinted like its section's
+  // icon. The Lazarus scan only renders signed in.
+  const sectionLinks: Array<[string, string, string]> = [
+    [
+      "relay-backup-storage",
+      "Relay Backup Storage",
+      "border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/20",
+    ],
+    [
+      "list-relay-backup",
+      "Bookmarks & Lists Backup",
+      "border-yellow-300 text-yellow-700 hover:bg-yellow-50 dark:border-yellow-800 dark:text-yellow-300 dark:hover:bg-yellow-900/20",
+    ],
+    ...(session
+      ? ([
+          [
+            "lazarus-recovery",
+            "Recover from Relay History",
+            "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/20",
+          ],
+        ] as Array<[string, string, string]>)
+      : []),
+    [
+      "local-backup-history",
+      "Local Backup History",
+      // Neutral like the Total Backups stat card it counts; red on this page
+      // reads as destructive, and local history is the safe copy.
+      "border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700",
+    ],
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1095,8 +1126,33 @@ export default function Backups() {
         )}
       </div>
 
+      {/* Jump-to menu for the sections below */}
+      <nav
+        aria-label="Backups sections"
+        className="flex flex-wrap items-center justify-center gap-2"
+      >
+        {sectionLinks.map(([id, label, chipClass]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .getElementById(id)
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className={`rounded-lg border px-3 py-1.5 text-sm ${chipClass}`}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
       {/* Relay Backup Storage */}
-      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
+      <div
+        id="relay-backup-storage"
+        className="panel relative rounded-xl border border-line shadow-panel p-6 scroll-mt-4"
+      >
         <div className="flex items-start gap-4">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
             <Lock className="text-purple-600 dark:text-purple-400" size={24} />
@@ -1592,7 +1648,7 @@ export default function Backups() {
       <LazarusRecovery onBackupsChanged={loadBackups} />
 
       {/* Backups List */}
-      <div>
+      <div id="local-backup-history" className="scroll-mt-4">
         <h2 className="font-display font-semibold text-base tracking-tight text-hi">
           Local Backup History
         </h2>

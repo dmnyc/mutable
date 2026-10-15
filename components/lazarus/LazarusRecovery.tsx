@@ -1072,7 +1072,7 @@ export default function LazarusRecovery({
   return (
     <div
       id="lazarus-recovery"
-      className="panel relative rounded-xl border border-line shadow-panel p-6"
+      className="panel relative rounded-xl border border-line shadow-panel p-6 scroll-mt-4"
     >
       <div className="flex items-start gap-4">
         <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
