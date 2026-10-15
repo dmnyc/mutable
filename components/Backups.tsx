@@ -878,6 +878,18 @@ export default function Backups() {
   const pinnedNotesBackups = backups.filter((b) => b.type === "pinned-notes");
   const interestsBackups = backups.filter((b) => b.type === "interests");
 
+  // Sections on this page, in order. The Lazarus scan only renders signed in.
+  const sectionLinks: Array<[string, string]> = [
+    ["relay-backup-storage", "Relay Backup Storage"],
+    ["list-relay-backup", "Bookmarks & Lists Backup"],
+    ...(session
+      ? ([
+          ["lazarus-recovery", "Recover from Relay History"],
+        ] as Array<[string, string]>)
+      : []),
+    ["local-backup-history", "Local Backup History"],
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1095,8 +1107,33 @@ export default function Backups() {
         )}
       </div>
 
+      {/* Jump-to menu for the sections below */}
+      <nav aria-label="Backups sections" className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Jump to
+        </span>
+        {sectionLinks.map(([id, label]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .getElementById(id)
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
       {/* Relay Backup Storage */}
-      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
+      <div
+        id="relay-backup-storage"
+        className="panel relative rounded-xl border border-line shadow-panel p-6 scroll-mt-4"
+      >
         <div className="flex items-start gap-4">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
             <Lock className="text-purple-600 dark:text-purple-400" size={24} />
@@ -1592,7 +1629,7 @@ export default function Backups() {
       <LazarusRecovery onBackupsChanged={loadBackups} />
 
       {/* Backups List */}
-      <div>
+      <div id="local-backup-history" className="scroll-mt-4">
         <h2 className="font-display font-semibold text-base tracking-tight text-hi">
           Local Backup History
         </h2>
