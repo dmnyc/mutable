@@ -1,7 +1,7 @@
 import type { Event } from "nostr-tools";
 import { estimatePrivateItems, getContentEncryption } from "./private-items";
 
-// Lazarus kind registry (spec 0.6.0-draft): the only place kind semantics live.
+// Lazarus kind registry (spec 0.6.2-draft): the only place kind semantics live.
 // https://github.com/dmnyc/lazarus/blob/main/SPEC.md
 
 export type LazarusRanking = "count" | "recency" | "intent";

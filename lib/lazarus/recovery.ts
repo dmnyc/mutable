@@ -7,7 +7,7 @@ import {
   type LazarusKindProfile,
 } from "./registry";
 
-// Lazarus core (spec 0.6.0-draft): scan orchestration, ranking, deltas, and
+// Lazarus core (spec 0.6.2-draft): scan orchestration, ranking, deltas, and
 // the recovery draft. Pure: relays come in through a LazarusRelaySource, and
 // nothing here signs or publishes.
 
