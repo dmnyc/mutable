@@ -1,0 +1,163 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  File,
+  ImageOff,
+  Trash2,
+  Video,
+} from "lucide-react";
+import { serverHost } from "@/lib/blossom/client";
+import { formatBytes, shortHash, type BlobItem } from "@/lib/blossom/inventory";
+import { copyToClipboard } from "@/lib/utils/clipboard";
+
+export function formatUploaded(uploaded: number | undefined): string {
+  if (!uploaded) return "Upload date unknown";
+  try {
+    return new Date(uploaded * 1000).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "Upload date unknown";
+  }
+}
+
+export default function BlobTile({
+  item,
+  selected,
+  onToggleSelect,
+  onReap,
+}: {
+  item: BlobItem;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onReap: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [broken, setBroken] = useState(false);
+  const posts = item.references.length;
+
+  const handleCopy = async () => {
+    if (await copyToClipboard(item.primaryUrl)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  return (
+    <div
+      className={`panel rounded-xl border overflow-hidden transition-colors ${
+        selected ? "border-red-500/70 ring-1 ring-red-500/40" : "border-line"
+      }`}
+    >
+      <div className="relative aspect-square bg-black/5 dark:bg-white/5">
+        {item.media === "image" && !broken ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.primaryUrl}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover"
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-mut">
+            {item.media === "video" ? (
+              <Video size={28} />
+            ) : broken ? (
+              <ImageOff size={28} />
+            ) : (
+              <File size={28} />
+            )}
+            <span className="text-[11px] uppercase tracking-wide">
+              {broken ? "Didn't load" : item.type || "file"}
+            </span>
+          </div>
+        )}
+
+        <label className="absolute top-2 left-2 flex items-center justify-center w-6 h-6 rounded-md bg-black/60 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            className="h-3.5 w-3.5 accent-red-600"
+            aria-label="Select for reaping"
+          />
+        </label>
+
+        <span
+          className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+            posts > 0
+              ? "bg-emerald-600/90 text-white"
+              : "bg-black/60 text-white/90"
+          }`}
+          title={
+            posts > 0
+              ? "Linked from your posts"
+              : "No post in the scan links to this blob"
+          }
+        >
+          {posts > 0 ? `in ${posts} post${posts === 1 ? "" : "s"}` : "orphaned"}
+        </span>
+        {item.copies.length > 1 ? (
+          <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/60 text-white/90">
+            {item.copies.length} servers
+          </span>
+        ) : null}
+      </div>
+
+      <div className="p-2.5 space-y-1.5">
+        <div className="flex items-center justify-between gap-2 text-xs text-mut">
+          <span className="font-mono" title={item.hash}>
+            {shortHash(item.hash)}
+          </span>
+          <span>{formatBytes(item.size)}</span>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {item.copies.map((copy) => (
+            <span
+              key={copy.server}
+              className="px-1.5 py-0.5 rounded bg-inset border border-line-2 text-[10px] text-mid"
+              title={copy.url}
+            >
+              {serverHost(copy.server)}
+            </span>
+          ))}
+        </div>
+        <div className="text-[11px] text-mut">{formatUploaded(item.uploaded)}</div>
+        <div className="flex items-center gap-1.5 pt-0.5">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-inset border border-line-2 text-xs font-semibold text-mid hover:text-hi hover:border-line-strong transition-colors"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {copied ? "Copied" : "Copy URL"}
+          </button>
+          <a
+            href={item.primaryUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong transition-colors"
+            title="Open"
+          >
+            <ExternalLink size={13} />
+          </a>
+          <button
+            type="button"
+            onClick={onReap}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
+            title="Reap (request deletion)"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

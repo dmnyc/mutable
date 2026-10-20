@@ -174,6 +174,12 @@ export default function NoteNuke() {
   });
   const previewRequestRef = useRef<number | null>(null);
 
+  // Other tools (Bloom Reaper) hand over a note to delete via ?note=.
+  useEffect(() => {
+    const note = new URLSearchParams(window.location.search).get("note");
+    if (note) setNoteInput(note.trim());
+  }, []);
+
   useEffect(() => {
     let active = true;
     if (!hasNip07()) return;

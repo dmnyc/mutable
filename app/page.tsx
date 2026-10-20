@@ -32,6 +32,7 @@ import {
   BrushCleaning,
   Globe,
   DatabaseBackup,
+  Flower2,
 } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
@@ -595,6 +596,13 @@ export default function Home() {
                 chip={<ChipTone tone="red"><Radiation size={16} /></ChipTone>}
                 title="Note Nuke"
                 text="Ask every relay we can reach to delete a note."
+              />
+              <DirectoryCard
+                href="/bloom-reaper"
+                chip={<ChipTone tone="red"><Flower2 size={16} /></ChipTone>}
+                title="Bloom Reaper"
+                badge="NEW"
+                text="Your lost Blossom photos: find, copy links, or reap them."
               />
               <DirectoryCard
                 href="/dashboard?tab=listCleaner"
