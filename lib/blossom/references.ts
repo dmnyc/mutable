@@ -3,11 +3,13 @@ import { extractBlobHash, isBlobHash, normalizeBlossomServer } from "./client";
 import type { RelayQuery } from "./servers";
 
 // Where a user's published events point at blobs: profile picture and
-// banner, imeta tags and bare URLs in notes, NIP-94 file metadata, picture
-// events, and follow pack covers.
-
-export const REFERENCE_KINDS = [0, 1, 20, 1063, 39089];
-export const DEFAULT_REFERENCE_LIMIT = 400;
+// banner (every version the relays still hold), imeta tags and bare URLs in
+// notes, NIP-94 file metadata, picture and video events, long-form articles,
+// comments, and follow pack covers. Reposts are left out on purpose: their
+// content belongs to other people's blobs.
+export const REFERENCE_KINDS = [0, 1, 20, 1063, 1111, 30023, 34235, 34236, 39089];
+export const REFERENCE_PAGE_SIZE = 400;
+export const REFERENCE_MAX_PAGES = 12;
 
 export type ReferenceVia =
   | "imeta"
@@ -142,10 +144,57 @@ export function referencedServers(index: ReferenceIndex): string[] {
   return servers;
 }
 
-export function fetchReferenceEvents(
+export interface ReferenceScan {
+  events: Event[];
+  // Oldest fetched event — the start of the scanned window. Anything
+  // uploaded before it hasn't been checked.
+  oldestCreated?: number;
+  pages: number;
+}
+
+// Pages backwards through the user's events (until = oldest seen so far)
+// until a page adds nothing, a cap is hit, or coverage reaches `before`
+// (typically the oldest upload, so nothing gets mislabeled orphaned).
+export async function fetchReferenceEventsPaged(
   pubkey: string,
   query: RelayQuery,
-  limit = DEFAULT_REFERENCE_LIMIT,
-): Promise<Event[]> {
-  return query({ kinds: REFERENCE_KINDS, authors: [pubkey], limit });
+  options: {
+    pageSize?: number;
+    maxPages?: number;
+    before?: number;
+  } = {},
+): Promise<ReferenceScan> {
+  const pageSize = options.pageSize ?? REFERENCE_PAGE_SIZE;
+  const maxPages = options.maxPages ?? REFERENCE_MAX_PAGES;
+  const byId = new Map<string, Event>();
+  let oldestSeen: number | undefined;
+  let pages = 0;
+
+  while (pages < maxPages) {
+    const events = await query({
+      kinds: REFERENCE_KINDS,
+      authors: [pubkey],
+      limit: pageSize,
+      ...(oldestSeen !== undefined ? { until: oldestSeen - 1 } : {}),
+    });
+    pages += 1;
+    const fresh = events.filter((event) => !byId.has(event.id));
+    for (const event of fresh) byId.set(event.id, event);
+    // No new events means the relays have nothing older to give.
+    if (fresh.length === 0) break;
+    const pageOldest = Math.min(...events.map((event) => event.created_at));
+    if (options.before !== undefined && pageOldest <= options.before) break;
+    if (oldestSeen === undefined || pageOldest < oldestSeen) {
+      oldestSeen = pageOldest;
+    }
+  }
+
+  const events = Array.from(byId.values());
+  return {
+    events,
+    oldestCreated: events.length
+      ? Math.min(...events.map((event) => event.created_at))
+      : undefined,
+    pages,
+  };
 }

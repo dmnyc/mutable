@@ -8,11 +8,10 @@ import { hexToNote } from "@/lib/nostr";
 import {
   deleteBlob,
   mapWithConcurrency,
-  serverHost,
   signBlossomAuth,
   type BlossomDeleteOutcome,
 } from "@/lib/blossom/client";
-import { shortHash, type BlobItem } from "@/lib/blossom/inventory";
+import { shortHash, shortServerHost, type BlobItem } from "@/lib/blossom/inventory";
 import Button from "@/components/system/Button";
 
 export interface ReapResult {
@@ -211,7 +210,9 @@ export default function ReapDialog({
                             onChange={() => toggle(key)}
                             className="h-4 w-4 accent-red-600"
                           />
-                          <span className="flex-1 truncate">{serverHost(copy.server)}</span>
+                          <span className="flex-1 truncate" title={copy.server}>
+                            {shortServerHost(copy.server)}
+                          </span>
                           {outcome ? (
                             <span
                               className={`inline-flex items-center gap-1 text-xs font-semibold ${

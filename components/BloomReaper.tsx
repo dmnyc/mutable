@@ -26,7 +26,7 @@ import {
   type BlobPresence,
 } from "@/lib/blossom/client";
 import type { BlossomServerEntry, BlossomServerOrigin } from "@/lib/blossom/servers";
-import { DEFAULT_REFERENCE_LIMIT, type ReferenceIndex } from "@/lib/blossom/references";
+import type { ReferenceIndex } from "@/lib/blossom/references";
 import {
   findMissingBlobs,
   groupServersByContent,
@@ -39,7 +39,7 @@ import { BlossomSigningError, scanBlossom, type BlossomScan } from "@/lib/blosso
 import PageHeader from "@/components/system/PageHeader";
 import Panel, { PanelHeader } from "@/components/system/Panel";
 import Button from "@/components/system/Button";
-import BlobTile from "@/components/bloom-reaper/BlobTile";
+import BlobTile, { formatUploaded } from "@/components/bloom-reaper/BlobTile";
 import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import ReapDialog, { type ReapResult } from "@/components/bloom-reaper/ReapDialog";
 
@@ -52,7 +52,13 @@ interface ServerRow extends BlossomServerEntry {
 }
 
 type Phase = "idle" | "signing" | "scanning" | "done" | "error";
-type GalleryFilter = "all" | "images" | "referenced" | "orphaned" | "hidden";
+type GalleryFilter =
+  | "all"
+  | "images"
+  | "referenced"
+  | "unlinked"
+  | "unscanned"
+  | "hidden";
 
 const RELAY_MAX_WAIT_MS = 8000;
 const PROBE_CONCURRENCY = 4;
@@ -77,7 +83,8 @@ const filterLabels: Record<GalleryFilter, string> = {
   all: "All",
   images: "Images",
   referenced: "In your posts",
-  orphaned: "Orphaned",
+  unlinked: "No link found",
+  unscanned: "Not scanned",
   hidden: "Dismissed",
 };
 
@@ -104,6 +111,9 @@ export default function BloomReaper() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reapTargets, setReapTargets] = useState<BlobItem[] | null>(null);
   const [referenceEventCount, setReferenceEventCount] = useState(0);
+  const [referenceOldest, setReferenceOldest] = useState<number | undefined>(
+    undefined,
+  );
 
   const relays = useMemo(
     () =>
@@ -187,6 +197,7 @@ export default function BloomReaper() {
 
     setReferences(scanResult.references);
     setReferenceEventCount(scanResult.referenceEventCount);
+    setReferenceOldest(scanResult.referenceOldest);
     setListings(scanResult.listings);
     setItems(scanResult.items);
     setMissing(scanResult.missing);
@@ -323,7 +334,8 @@ export default function BloomReaper() {
       all: liveItems.length,
       images: liveItems.filter((item) => item.media === "image").length,
       referenced: liveItems.filter((item) => item.references.length > 0).length,
-      orphaned: liveItems.filter((item) => item.references.length === 0).length,
+      unlinked: liveItems.filter((item) => item.referenceState === "unlinked").length,
+      unscanned: liveItems.filter((item) => item.referenceState === "unscanned").length,
       hidden: hiddenItems.length,
     }),
     [liveItems, hiddenItems],
@@ -335,8 +347,10 @@ export default function BloomReaper() {
         return liveItems.filter((item) => item.media === "image");
       case "referenced":
         return liveItems.filter((item) => item.references.length > 0);
-      case "orphaned":
-        return liveItems.filter((item) => item.references.length === 0);
+      case "unlinked":
+        return liveItems.filter((item) => item.referenceState === "unlinked");
+      case "unscanned":
+        return liveItems.filter((item) => item.referenceState === "unscanned");
       case "hidden":
         return hiddenItems;
       default:
@@ -503,7 +517,11 @@ export default function BloomReaper() {
               note={
                 items.length === 0
                   ? "nothing listed"
-                  : `${items.length} file${items.length === 1 ? "" : "s"}, checked against your latest ${referenceEventCount} events`
+                  : `${items.length} file${items.length === 1 ? "" : "s"}, checked against ${referenceEventCount} event${referenceEventCount === 1 ? "" : "s"}${
+                      referenceOldest
+                        ? ` back to ${formatUploaded(referenceOldest)}`
+                        : ""
+                    }`
               }
               actions={
                 selectedItems.length > 0 ? (
@@ -574,7 +592,11 @@ export default function BloomReaper() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {(Object.keys(filterLabels) as GalleryFilter[])
-                      .filter((key) => key !== "hidden" || counts.hidden > 0)
+                      .filter(
+                        (key) =>
+                          (key !== "hidden" && key !== "unscanned") ||
+                          counts[key] > 0,
+                      )
                       .map((key) => (
                       <button
                         key={key}
@@ -634,10 +656,14 @@ export default function BloomReaper() {
                   )}
                   <p className="text-xs text-mut flex items-start gap-2">
                     <AlertTriangle size={13} className="mt-0.5 flex-none" />
-                    &ldquo;Orphaned&rdquo; means none of your latest{" "}
-                    {Math.min(referenceEventCount, DEFAULT_REFERENCE_LIMIT) || DEFAULT_REFERENCE_LIMIT}{" "}
-                    events link to it. Older posts, other people&apos;s posts and
-                    DMs weren&apos;t checked.
+                    &ldquo;No link found&rdquo; means none of the scanned
+                    events link to it. Files uploaded before{" "}
+                    {referenceOldest
+                      ? formatUploaded(referenceOldest)
+                      : "the scan window"}{" "}
+                    are marked &ldquo;not scanned&rdquo; — older posts weren&apos;t
+                    fetched. Posts on other relays, images in DMs, and
+                    clients that post proxy URLs can&apos;t be matched.
                   </p>
                 </>
               )}

@@ -6,6 +6,7 @@ import {
   verifyEvent,
   type Event,
   type EventTemplate,
+  type Filter,
 } from "nostr-tools";
 import {
   BLOSSOM_AUTH_KIND,
@@ -32,7 +33,9 @@ import {
 import {
   extractBlobReferences,
   extractUrls,
+  fetchReferenceEventsPaged,
   indexBlobReferences,
+  REFERENCE_KINDS,
   referencedServers,
 } from "@/lib/blossom/references";
 import {
@@ -43,6 +46,7 @@ import {
   groupServersByContent,
   removeReapedCopies,
   shortHash,
+  shortServerHost,
 } from "@/lib/blossom/inventory";
 import { BlossomSigningError, scanBlossom } from "@/lib/blossom/scan";
 
@@ -630,6 +634,7 @@ describe("scanBlossom", () => {
     expect(scan.outcomes.get(SERVER)).toEqual({ status: "unauthorized", code: 401 });
     expect(scan.outcomes.get(cdn)).toEqual({ status: "unsupported", code: 404 });
     expect(scan.referenceEventCount).toBe(1);
+    expect(scan.referenceOldest).toBe(2000);
 
     expect(scan.items).toHaveLength(1);
     expect(scan.items[0]).toMatchObject({
@@ -691,5 +696,106 @@ describe("scanBlossom", () => {
     expect(scan.missing).toEqual([]);
     expect(scan.referenceEventCount).toBe(0);
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("fetchReferenceEventsPaged", () => {
+  const eventAt = (createdAt: number, salt = ""): Event =>
+    finalizeEvent({ kind: 1, created_at: createdAt, tags: [], content: salt }, secretKey);
+
+  it("pages backwards with until until a page adds nothing", async () => {
+    const seen: Filter[] = [];
+    const pages: Event[][] = [
+      [eventAt(500), eventAt(400)],
+      [eventAt(300)],
+      [],
+    ];
+    const scan = await fetchReferenceEventsPaged(pubkey, async (filter) => {
+      seen.push(filter);
+      return pages[seen.length - 1] ?? [];
+    }, { pageSize: 2, maxPages: 5 });
+
+    expect(seen[0]).toEqual({ kinds: REFERENCE_KINDS, authors: [pubkey], limit: 2 });
+    expect(seen[1].until).toBe(399);
+    expect(seen[2].until).toBe(299);
+    expect(scan.pages).toBe(3);
+    expect(scan.events.map((event) => event.created_at).sort((a, b) => b - a)).toEqual([500, 400, 300]);
+    expect(scan.oldestCreated).toBe(300);
+  });
+
+  it("stops early once coverage reaches the oldest upload", async () => {
+    const seen: Filter[] = [];
+    const scan = await fetchReferenceEventsPaged(pubkey, async (filter) => {
+      seen.push(filter);
+      return [eventAt(200)];
+    }, { pageSize: 2, maxPages: 5, before: 250 });
+
+    expect(seen).toHaveLength(1);
+    expect(scan.oldestCreated).toBe(200);
+  });
+
+  it("respects the page cap even when every page brings something new", async () => {
+    let page = 0;
+    const scan = await fetchReferenceEventsPaged(
+      pubkey,
+      async () => [eventAt(500, `page-${page++}`)],
+      {
+        pageSize: 2,
+        maxPages: 3,
+      },
+    );
+    expect(scan.pages).toBe(3);
+    expect(scan.events).toHaveLength(3);
+    expect(scan.oldestCreated).toBe(500);
+  });
+});
+
+describe("reference states", () => {
+  it("splits linked, no-link-found and not-scanned by the scan window", () => {
+    const refs = indexBlobReferences([signed(1, `${SERVER}/${hashOf(2)}.png`, [], 100)]);
+    const listings = new Map([
+      [SERVER, [
+        { url: `${SERVER}/${hashOf(1)}.png`, sha256: hashOf(1), size: 1, uploaded: 50 },
+        { url: `${SERVER}/${hashOf(2)}.png`, sha256: hashOf(2), size: 1, uploaded: 150 },
+        { url: `${SERVER}/${hashOf(3)}.png`, sha256: hashOf(3), size: 1, uploaded: 150 },
+        { url: `${SERVER}/${hashOf(4)}.png`, sha256: hashOf(4), size: 1 },
+      ]],
+    ]);
+
+    const items = buildBlobInventory(listings, [SERVER], refs, 100);
+    const stateOf = (n: number) =>
+      items.find((item) => item.hash === hashOf(n))?.referenceState;
+    expect(stateOf(1)).toBe("unscanned");
+    expect(stateOf(2)).toBe("linked");
+    expect(stateOf(3)).toBe("unlinked");
+    expect(stateOf(4)).toBe("unscanned");
+
+    // Without a covered window nothing can be called orphaned.
+    const noWindow = buildBlobInventory(listings, [SERVER], refs);
+    expect(noWindow.find((item) => item.hash === hashOf(3))?.referenceState).toBe("unscanned");
+  });
+
+  it("recomputes the state when a mirror reveals an earlier upload", () => {
+    const mirror = "https://mirror.example";
+    const listings = new Map([
+      [SERVER, [{ url: `${SERVER}/${hashOf(3)}.png`, sha256: hashOf(3), size: 1, uploaded: 150 }]],
+      [mirror, [{ url: `${mirror}/${hashOf(3)}.png`, sha256: hashOf(3), size: 1, uploaded: 90 }]],
+    ]);
+    const items = buildBlobInventory(listings, [SERVER, mirror], new Map(), 100);
+    expect(items[0].uploaded).toBe(90);
+    expect(items[0].referenceState).toBe("unscanned");
+  });
+});
+
+describe("shortServerHost", () => {
+  it("folds per-npub subdomains into their base host", () => {
+    expect(
+      shortServerHost(
+        "https://npub1mq8x5dn2mxpqt9smhv75s37574wmmdeca6j7asth2ahsl4megu9qlln9ze.blossom.band",
+      ),
+    ).toBe("blossom.band");
+    expect(shortServerHost("https://blossom.band")).toBe("blossom.band");
+    expect(shortServerHost("https://onlydans.blossom.band")).toBe("onlydans.blossom.band");
+    expect(shortServerHost("https://blossom.primal.net")).toBe("blossom.primal.net");
   });
 });

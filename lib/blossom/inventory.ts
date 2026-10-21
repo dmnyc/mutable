@@ -1,4 +1,5 @@
 import type { BlobDescriptor } from "./client";
+import { serverHost } from "./client";
 import type { BlobReference, ReferenceIndex } from "./references";
 
 // The gallery model: one item per hash, with every server that holds a copy
@@ -24,6 +25,22 @@ export interface BlobItem {
   uploaded?: number;
   references: BlobReference[];
   media: BlobMedia;
+  referenceState: ReferenceState;
+}
+
+export type ReferenceState = "linked" | "unlinked" | "unscanned";
+
+// "linked": a scanned event points at it. "unlinked": the scan covered the
+// upload's date and found no link. "unscanned": the file predates (or
+// predates knowing) the scanned window, so its absence proves nothing.
+function referenceStateOf(
+  references: BlobReference[],
+  uploaded: number | undefined,
+  windowStart: number | undefined,
+): ReferenceState {
+  if (references.length > 0) return "linked";
+  if (windowStart === undefined || !uploaded) return "unscanned";
+  return uploaded < windowStart ? "unscanned" : "unlinked";
 }
 
 export interface MissingBlob {
@@ -50,6 +67,8 @@ export function buildBlobInventory(
   listings: ReadonlyMap<string, BlobDescriptor[]>,
   serverOrder: string[],
   references: ReferenceIndex,
+  // Oldest event the reference scan covered; see referenceStateOf.
+  referenceWindowStart?: number,
 ): BlobItem[] {
   const items = new Map<string, BlobItem>();
   for (const server of serverOrder) {
@@ -74,9 +93,15 @@ export function buildBlobInventory(
         ) {
           existing.uploaded = copy.uploaded;
         }
+        existing.referenceState = referenceStateOf(
+          existing.references,
+          existing.uploaded,
+          referenceWindowStart,
+        );
         existing.media = classifyMedia(existing.type, existing.primaryUrl);
         continue;
       }
+      const itemReferences = references.get(descriptor.sha256) ?? [];
       items.set(descriptor.sha256, {
         hash: descriptor.sha256,
         copies: [copy],
@@ -84,8 +109,13 @@ export function buildBlobInventory(
         size: descriptor.size,
         type: descriptor.type,
         uploaded: descriptor.uploaded,
-        references: references.get(descriptor.sha256) ?? [],
+        references: itemReferences,
         media: classifyMedia(descriptor.type, descriptor.url),
+        referenceState: referenceStateOf(
+          itemReferences,
+          descriptor.uploaded,
+          referenceWindowStart,
+        ),
       });
     }
   }
@@ -158,6 +188,16 @@ export function formatBytes(bytes: number): string {
 
 export function shortHash(hash: string): string {
   return `${hash.slice(0, 8)}…${hash.slice(-4)}`;
+}
+
+// Per-npub subdomains (npub1….blossom.band) are the same storage as their
+// base host, and the full label is unreadable in a chip; show the base.
+// The full host stays available at the call site for tooltips.
+export function shortServerHost(server: string): string {
+  return serverHost(server).replace(
+    /^npub1[02-9ac-hj-np-z]+\.(?=[a-z0-9-]+\.[a-z]{2,}$)/,
+    "",
+  );
 }
 
 export interface ServerContentGroup {

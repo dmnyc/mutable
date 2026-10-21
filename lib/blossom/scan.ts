@@ -15,10 +15,11 @@ import {
   type RelayQuery,
 } from "./servers";
 import {
-  DEFAULT_REFERENCE_LIMIT,
-  fetchReferenceEvents,
+  fetchReferenceEventsPaged,
   indexBlobReferences,
   referencedServers,
+  REFERENCE_MAX_PAGES,
+  REFERENCE_PAGE_SIZE,
   type ReferenceIndex,
 } from "./references";
 import {
@@ -38,7 +39,8 @@ export interface BlossomScanInput {
   signer: Pick<Signer, "signEvent">;
   query: RelayQuery;
   request?: BlossomRequestOptions;
-  referenceLimit?: number;
+  referencePageSize?: number;
+  referenceMaxPages?: number;
   defaultServers?: string[];
   concurrency?: number;
 }
@@ -55,6 +57,9 @@ export interface BlossomScan {
   listings: ReadonlyMap<string, BlobDescriptor[]>;
   references: ReferenceIndex;
   referenceEventCount: number;
+  // Oldest event the reference scan covered; uploads older than this are
+  // "unscanned" rather than "no link found".
+  referenceOldest?: number;
   items: BlobItem[];
   missing: MissingBlob[];
 }
@@ -86,17 +91,16 @@ export async function scanBlossom(
   }
   callbacks.onSigned?.();
 
-  const [serverList, referenceEvents] = await Promise.all([
+  const [serverList, referenceScan] = await Promise.all([
     fetchBlossomServerList(pubkey, query).catch(() => ({
       servers: [] as string[],
     })),
-    fetchReferenceEvents(
-      pubkey,
-      query,
-      input.referenceLimit ?? DEFAULT_REFERENCE_LIMIT,
-    ).catch(() => []),
+    fetchReferenceEventsPaged(pubkey, query, {
+      pageSize: input.referencePageSize ?? REFERENCE_PAGE_SIZE,
+      maxPages: input.referenceMaxPages ?? REFERENCE_MAX_PAGES,
+    }).catch(() => ({ events: [], pages: 0, oldestCreated: undefined })),
   ]);
-  const references = indexBlobReferences(referenceEvents);
+  const references = indexBlobReferences(referenceScan.events);
   const servers = mergeBlossomServers(
     serverList.servers,
     referencedServers(references),
@@ -121,13 +125,15 @@ export async function scanBlossom(
     listings,
     servers.map((entry) => entry.server),
     references,
+    referenceScan.oldestCreated,
   );
   return {
     servers,
     outcomes,
     listings,
     references,
-    referenceEventCount: referenceEvents.length,
+    referenceEventCount: referenceScan.events.length,
+    referenceOldest: referenceScan.oldestCreated,
     items,
     missing: findMissingBlobs(items, references),
   };

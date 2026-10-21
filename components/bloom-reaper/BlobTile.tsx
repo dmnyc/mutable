@@ -13,8 +13,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { serverHost } from "@/lib/blossom/client";
-import { formatBytes, shortHash, type BlobItem } from "@/lib/blossom/inventory";
+import { formatBytes, shortHash, shortServerHost, type BlobItem } from "@/lib/blossom/inventory";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 
 export function formatUploaded(uploaded: number | undefined): string {
@@ -50,6 +49,26 @@ export default function BlobTile({
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const posts = item.references.length;
+
+  const linkBadge =
+    posts > 0
+      ? {
+          cls: "bg-emerald-600/90 text-white",
+          label: `in ${posts} post${posts === 1 ? "" : "s"}`,
+          title: "Linked from your posts",
+        }
+      : item.referenceState === "unscanned"
+        ? {
+            cls: "bg-sky-700/90 text-white",
+            label: "not scanned",
+            title:
+              "Uploaded before the oldest event this scan covered — older posts weren't fetched, so it may still be linked",
+          }
+        : {
+            cls: "bg-black/60 text-white/90",
+            label: "no link found",
+            title: "None of the scanned events link to this blob",
+          };
 
   const handleCopy = async () => {
     if (await copyToClipboard(item.primaryUrl)) {
@@ -128,18 +147,10 @@ export default function BlobTile({
         </button>
 
         <span
-          className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-            posts > 0
-              ? "bg-emerald-600/90 text-white"
-              : "bg-black/60 text-white/90"
-          }`}
-          title={
-            posts > 0
-              ? "Linked from your posts"
-              : "No post in the scan links to this blob"
-          }
+          className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${linkBadge.cls}`}
+          title={linkBadge.title}
         >
-          {posts > 0 ? `in ${posts} post${posts === 1 ? "" : "s"}` : "orphaned"}
+          {linkBadge.label}
         </span>
         {item.copies.length > 1 ? (
           <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/60 text-white/90">
@@ -162,7 +173,7 @@ export default function BlobTile({
               className="px-1.5 py-0.5 rounded bg-inset border border-line-2 text-[10px] text-mid"
               title={copy.url}
             >
-              {serverHost(copy.server)}
+              {shortServerHost(copy.server)}
             </span>
           ))}
         </div>
