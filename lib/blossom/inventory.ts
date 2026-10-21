@@ -159,3 +159,34 @@ export function formatBytes(bytes: number): string {
 export function shortHash(hash: string): string {
   return `${hash.slice(0, 8)}…${hash.slice(-4)}`;
 }
+
+export interface ServerContentGroup {
+  server: string;
+  mirrors: string[];
+  count: number;
+}
+
+// Servers holding exactly the same set of files are one storage listed
+// several times (per-npub subdomains, shared backends); collapse them so the
+// panel names each storage once. Empty servers form no group.
+export function groupServersByContent(
+  listings: ReadonlyMap<string, BlobDescriptor[]>,
+  serverOrder: string[],
+): ServerContentGroup[] {
+  const groups = new Map<string, ServerContentGroup>();
+  for (const server of serverOrder) {
+    const descriptors = listings.get(server) ?? [];
+    if (descriptors.length === 0) continue;
+    const key = descriptors
+      .map((descriptor) => descriptor.sha256)
+      .sort()
+      .join("|");
+    const existing = groups.get(key);
+    if (existing) {
+      existing.mirrors.push(server);
+      continue;
+    }
+    groups.set(key, { server, mirrors: [], count: descriptors.length });
+  }
+  return Array.from(groups.values());
+}

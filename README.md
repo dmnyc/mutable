@@ -50,6 +50,8 @@ Copy your profile, follows, mutes and relays from an old key to a new one, inclu
 Every file you've uploaded to Blossom, on every server you use, in one gallery. Sign in, and Bloom Reaper reads your Blossom server list (kind:10063), adds the servers Mutable uploads to and any host your recent posts link from, then asks each one for everything stored under your key (BUD-12 `/list`, one signature for all servers).
 
 - **Find**: size, upload date and which servers hold each file, grouped by hash so a mirrored image is one tile. Tiles stay placeholders until you load one — Blossom serves only the original bytes (no smaller sizes), so no image downloads until you ask for it
+- **Quiet server list**: servers holding nothing are left out, and servers with an identical file set collapse into one row naming the mirrors
+- **Dismiss**: an X on every tile hides it from the gallery for good (per key, nothing is deleted); the Dismissed filter brings them back with a restore button
 - **Linked or orphaned**: your latest events are scanned (`imeta` tags, bare URLs, profile picture and banner, NIP-94 files, pack covers) to show which files your posts still use, and which links point at files no server holds anymore
 - **Copy URL** and open, straight from the tile
 - **Reap**: request deletion from any or all servers holding a file (BUD-12 `DELETE`), with one signature covering the whole selection. The confirmation spells out what a request can and can't do: deletion is per server, a server only drops your claim on the bytes, cached copies are out of reach, and posts that embed the file still link to it, with a hand-off to Note Nuke (`/note-nuke?note=…`) for those

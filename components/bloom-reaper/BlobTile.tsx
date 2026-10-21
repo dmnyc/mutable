@@ -10,7 +10,9 @@ import {
   ImageOff,
   RefreshCw,
   Trash2,
+  Undo2,
   Video,
+  X,
 } from "lucide-react";
 import { serverHost } from "@/lib/blossom/client";
 import { formatBytes, shortHash, type BlobItem } from "@/lib/blossom/inventory";
@@ -40,11 +42,16 @@ export function hashGradient(hash: string): string {
 export default function BlobTile({
   item,
   selected,
+  dismissed,
+  onToggleDismissed,
   onToggleSelect,
   onReap,
 }: {
   item: BlobItem;
   selected: boolean;
+  /** In the Dismissed view: the button restores instead of dismissing. */
+  dismissed: boolean;
+  onToggleDismissed: () => void;
   onToggleSelect: () => void;
   onReap: () => void;
 }) {
@@ -139,6 +146,19 @@ export default function BlobTile({
             aria-label="Select for reaping"
           />
         </label>
+
+        <button
+          type="button"
+          onClick={onToggleDismissed}
+          className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 rounded-md bg-black/60 text-white/80 hover:text-white transition-colors"
+          title={
+            dismissed
+              ? "Restore to the gallery"
+              : "Dismiss — hides this tile from the gallery (nothing is deleted)"
+          }
+        >
+          {dismissed ? <Undo2 size={13} /> : <X size={13} />}
+        </button>
 
         <span
           className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${

@@ -17,15 +17,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import { DEFAULT_RELAYS, getPool, hasNip07, hexToNote, normalizeRelayList } from "@/lib/nostr";
 import {
+  isBlobHash,
   mapWithConcurrency,
   probeUrl,
   serverHost,
+  type BlobDescriptor,
   type BlobPresence,
 } from "@/lib/blossom/client";
 import type { BlossomServerEntry, BlossomServerOrigin } from "@/lib/blossom/servers";
 import { DEFAULT_REFERENCE_LIMIT, type ReferenceIndex } from "@/lib/blossom/references";
 import {
   findMissingBlobs,
+  groupServersByContent,
   removeReapedCopies,
   shortHash,
   type BlobItem,
@@ -48,7 +51,7 @@ interface ServerRow extends BlossomServerEntry {
 }
 
 type Phase = "idle" | "signing" | "scanning" | "done" | "error";
-type GalleryFilter = "all" | "images" | "referenced" | "orphaned";
+type GalleryFilter = "all" | "images" | "referenced" | "orphaned" | "hidden";
 
 const RELAY_MAX_WAIT_MS = 8000;
 const PROBE_CONCURRENCY = 4;
@@ -74,6 +77,7 @@ const filterLabels: Record<GalleryFilter, string> = {
   images: "Images",
   referenced: "In your posts",
   orphaned: "Orphaned",
+  hidden: "Dismissed",
 };
 
 export default function BloomReaper() {
@@ -89,6 +93,10 @@ export default function BloomReaper() {
   const [missingPresence, setMissingPresence] = useState<Record<string, BlobPresence>>({});
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
+  const [listings, setListings] = useState<ReadonlyMap<string, BlobDescriptor[]>>(
+    new Map(),
+  );
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reapTargets, setReapTargets] = useState<BlobItem[] | null>(null);
   const [referenceEventCount, setReferenceEventCount] = useState(0);
@@ -119,6 +127,24 @@ export default function BloomReaper() {
     setMissing([]);
     setMissingPresence({});
     setSelected(new Set());
+    // Dismissals persist per key, so a rescan keeps the gallery tidy.
+    let storedHidden: unknown = [];
+    try {
+      storedHidden = JSON.parse(
+        localStorage.getItem(`bloom-reaper-hidden-${pubkey}`) ?? "[]",
+      );
+    } catch {
+      storedHidden = [];
+    }
+    setHidden(
+      new Set(
+        Array.isArray(storedHidden)
+          ? storedHidden.filter(
+              (hash): hash is string => typeof hash === "string" && isBlobHash(hash),
+            )
+          : [],
+      ),
+    );
     setPhase("signing");
 
     let scanResult: BlossomScan;
@@ -157,6 +183,7 @@ export default function BloomReaper() {
 
     setReferences(scanResult.references);
     setReferenceEventCount(scanResult.referenceEventCount);
+    setListings(scanResult.listings);
     setItems(scanResult.items);
     setMissing(scanResult.missing);
     setVisibleCount(GALLERY_PAGE_SIZE);
@@ -199,31 +226,6 @@ export default function BloomReaper() {
     });
   };
 
-  const counts = useMemo(
-    () => ({
-      all: items.length,
-      images: items.filter((item) => item.media === "image").length,
-      referenced: items.filter((item) => item.references.length > 0).length,
-      orphaned: items.filter((item) => item.references.length === 0).length,
-    }),
-    [items],
-  );
-
-  const visible = useMemo(() => {
-    switch (filter) {
-      case "images":
-        return items.filter((item) => item.media === "image");
-      case "referenced":
-        return items.filter((item) => item.references.length > 0);
-      case "orphaned":
-        return items.filter((item) => item.references.length === 0);
-      default:
-        return items;
-    }
-  }, [items, filter]);
-
-  const shown = visible.slice(0, visibleCount);
-
   const toggleSelected = (hash: string) => {
     setSelected((previous) => {
       const next = new Set(previous);
@@ -233,13 +235,81 @@ export default function BloomReaper() {
     });
   };
 
+  const updateHidden = (next: Set<string>) => {
+    setHidden(next);
+    if (!session) return;
+    try {
+      localStorage.setItem(
+        `bloom-reaper-hidden-${session.pubkey}`,
+        JSON.stringify(Array.from(next)),
+      );
+    } catch {
+      // Storage unavailable: the dismissal lasts for the session.
+    }
+  };
+
+  const toggleHidden = (hash: string) => {
+    const next = new Set(hidden);
+    if (next.has(hash)) next.delete(hash);
+    else next.add(hash);
+    updateHidden(next);
+    setSelected((previous) => {
+      const nextSelected = new Set(previous);
+      nextSelected.delete(hash);
+      return nextSelected;
+    });
+  };
+
   const selectedItems = items.filter((item) => selected.has(item.hash));
-  // Servers without a single blob under the key are not shown at all.
-  const serversWithContent = servers.filter(
-    (row) => row.status === "ok" && (row.count ?? 0) > 0,
+  // Servers without a single blob under the key are not shown at all, and
+  // servers holding exactly the same files collapse into one row.
+  const serverGroups = useMemo(
+    () => groupServersByContent(listings, servers.map((row) => row.server)),
+    [listings, servers],
+  );
+  const originsOf = useCallback(
+    (server: string) =>
+      servers.find((row) => row.server === server)?.origins ?? [],
+    [servers],
+  );
+  const liveItems = useMemo(
+    () => items.filter((item) => !hidden.has(item.hash)),
+    [items, hidden],
+  );
+  const hiddenItems = useMemo(
+    () => items.filter((item) => hidden.has(item.hash)),
+    [items, hidden],
   );
   const scanning = phase === "signing" || phase === "scanning";
   const signerReady = !!session && !!signer;
+
+  const counts = useMemo(
+    () => ({
+      all: liveItems.length,
+      images: liveItems.filter((item) => item.media === "image").length,
+      referenced: liveItems.filter((item) => item.references.length > 0).length,
+      orphaned: liveItems.filter((item) => item.references.length === 0).length,
+      hidden: hiddenItems.length,
+    }),
+    [liveItems, hiddenItems],
+  );
+
+  const visible = useMemo(() => {
+    switch (filter) {
+      case "images":
+        return liveItems.filter((item) => item.media === "image");
+      case "referenced":
+        return liveItems.filter((item) => item.references.length > 0);
+      case "orphaned":
+        return liveItems.filter((item) => item.references.length === 0);
+      case "hidden":
+        return hiddenItems;
+      default:
+        return liveItems;
+    }
+  }, [liveItems, hiddenItems, filter]);
+
+  const shown = visible.slice(0, visibleCount);
 
   return (
     <div className="space-y-6">
@@ -306,7 +376,7 @@ export default function BloomReaper() {
         </Panel>
       ) : null}
 
-      {phase !== "idle" && (scanning || serversWithContent.length > 0) ? (
+      {phase !== "idle" && (scanning || serverGroups.length > 0) ? (
         <Panel>
           <PanelHeader
             title="Servers"
@@ -315,37 +385,61 @@ export default function BloomReaper() {
                 ? phase === "signing"
                   ? "waiting for your signature"
                   : `asking ${servers.length}…`
-                : `${serversWithContent.length} server${serversWithContent.length === 1 ? "" : "s"} hold${serversWithContent.length === 1 ? "s" : ""} your files`
+                : `${serverGroups.length} server${serverGroups.length === 1 ? "" : "s"} hold${serverGroups.length === 1 ? "s" : ""} your files`
             }
             actions={
               scanning ? <RefreshCw size={15} className="animate-spin text-mut" /> : null
             }
           />
           <ul className="divide-y divide-line">
-            {(scanning ? servers : serversWithContent).map((row) => (
-              <li
-                key={row.server}
-                className="flex flex-wrap items-center gap-2 px-5 py-2.5 text-sm"
-              >
-                <Server size={14} className="text-mut flex-none" />
-                <span className="font-mono text-mid truncate">{serverHost(row.server)}</span>
-                <span className="flex flex-wrap gap-1">
-                  {row.origins.map((origin) => (
-                    <span
-                      key={origin}
-                      className="px-1.5 py-0.5 rounded bg-inset border border-line-2 text-[10px] uppercase tracking-wide text-mut"
-                    >
-                      {originLabels[origin]}
+            {scanning
+              ? servers.map((row) => (
+                  <li
+                    key={row.server}
+                    className="flex flex-wrap items-center gap-2 px-5 py-2.5 text-sm"
+                  >
+                    <Server size={14} className="text-mut flex-none" />
+                    <span className="font-mono text-mid truncate">{serverHost(row.server)}</span>
+                    <span className="ml-auto text-xs text-mut">
+                      {statusLabels[row.status]}
                     </span>
-                  ))}
-                </span>
-                <span className="ml-auto text-xs text-mut">
-                  {row.status === "ok"
-                    ? `${row.count} blob${row.count === 1 ? "" : "s"}`
-                    : statusLabels[row.status]}
-                </span>
-              </li>
-            ))}
+                  </li>
+                ))
+              : serverGroups.map((group) => (
+                  <li
+                    key={group.server}
+                    className="flex flex-wrap items-center gap-2 px-5 py-2.5 text-sm"
+                  >
+                    <Server size={14} className="text-mut flex-none" />
+                    <span className="font-mono text-mid truncate">{serverHost(group.server)}</span>
+                    {group.mirrors.length > 0 ? (
+                      <span
+                        className="text-[11px] text-mut truncate max-w-[20rem]"
+                        title={`The same files are also listed on ${group.mirrors
+                          .map(serverHost)
+                          .join(", ")}`}
+                      >
+                        same files on {serverHost(group.mirrors[0])}
+                        {group.mirrors.length > 1
+                          ? ` +${group.mirrors.length - 1} more`
+                          : ""}
+                      </span>
+                    ) : null}
+                    <span className="flex flex-wrap gap-1">
+                      {originsOf(group.server).map((origin) => (
+                        <span
+                          key={origin}
+                          className="px-1.5 py-0.5 rounded bg-inset border border-line-2 text-[10px] uppercase tracking-wide text-mut"
+                        >
+                          {originLabels[origin]}
+                        </span>
+                      ))}
+                    </span>
+                    <span className="ml-auto text-xs text-mut">
+                      {group.count} blob{group.count === 1 ? "" : "s"}
+                    </span>
+                  </li>
+                ))}
             {servers.length === 0 && phase === "signing" ? (
               <li className="px-5 py-3 text-sm text-mut">
                 Sign the listing request in your signer to continue.
@@ -386,7 +480,9 @@ export default function BloomReaper() {
               ) : (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(Object.keys(filterLabels) as GalleryFilter[]).map((key) => (
+                    {(Object.keys(filterLabels) as GalleryFilter[])
+                      .filter((key) => key !== "hidden" || counts.hidden > 0)
+                      .map((key) => (
                       <button
                         key={key}
                         type="button"
@@ -422,6 +518,8 @@ export default function BloomReaper() {
                           <BlobTile
                             key={item.hash}
                             item={item}
+                            dismissed={filter === "hidden"}
+                            onToggleDismissed={() => toggleHidden(item.hash)}
                             selected={selected.has(item.hash)}
                             onToggleSelect={() => toggleSelected(item.hash)}
                             onReap={() => setReapTargets([item])}
@@ -435,7 +533,7 @@ export default function BloomReaper() {
                             onClick={() => setVisibleCount((count) => count + GALLERY_PAGE_SIZE)}
                           >
                             Load {Math.min(GALLERY_PAGE_SIZE, visible.length - shown.length)} more
-                            ({visible.length - shown.length} hidden)
+                            ({visible.length - shown.length} not shown)
                           </Button>
                         </div>
                       ) : null}

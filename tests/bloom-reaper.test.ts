@@ -40,6 +40,7 @@ import {
   classifyMedia,
   findMissingBlobs,
   formatBytes,
+  groupServersByContent,
   removeReapedCopies,
   shortHash,
 } from "@/lib/blossom/inventory";
@@ -545,6 +546,44 @@ describe("inventory", () => {
     expect(remaining[0].hash).toBe(hashOf(1));
     expect(remaining[0].copies.map((copy) => copy.server)).toEqual([mirror]);
     expect(remaining[0].primaryUrl).toBe(`${mirror}/${hashOf(1)}.png`);
+  });
+
+  it("collapses servers with identical file sets into one group", () => {
+    const band = "https://blossom.band";
+    const subdomain = "https://npub1.example.blossom.band";
+    const primal = "https://blossom.primal.net";
+    const listings = new Map([
+      [band, [descriptor(1, band), descriptor(2, band)]],
+      [subdomain, [descriptor(2, subdomain), descriptor(1, subdomain)]],
+      [primal, [descriptor(1, primal)]],
+      ["https://empty.example", []],
+    ]);
+
+    const groups = groupServersByContent(listings, [
+      band,
+      subdomain,
+      primal,
+      "https://empty.example",
+    ]);
+
+    expect(groups).toEqual([
+      { server: band, mirrors: [subdomain], count: 2 },
+      { server: primal, mirrors: [], count: 1 },
+    ]);
+  });
+
+  it("keeps same-count but different-file servers apart", () => {
+    const a = "https://a.example";
+    const b = "https://b.example";
+    const groups = groupServersByContent(
+      new Map([
+        [a, [descriptor(1, a)]],
+        [b, [descriptor(2, b)]],
+      ]),
+      [a, b],
+    );
+    expect(groups.map((group) => group.server)).toEqual([a, b]);
+    expect(groups.every((group) => group.mirrors.length === 0)).toBe(true);
   });
 });
 

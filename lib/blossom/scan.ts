@@ -52,6 +52,7 @@ export interface BlossomScanCallbacks {
 export interface BlossomScan {
   servers: BlossomServerEntry[];
   outcomes: Map<string, BlossomListOutcome>;
+  listings: ReadonlyMap<string, BlobDescriptor[]>;
   references: ReferenceIndex;
   referenceEventCount: number;
   items: BlobItem[];
@@ -124,6 +125,7 @@ export async function scanBlossom(
   return {
     servers,
     outcomes,
+    listings,
     references,
     referenceEventCount: referenceEvents.length,
     items,
