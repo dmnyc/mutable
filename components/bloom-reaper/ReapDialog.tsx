@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Eye, File, RefreshCw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, File, RefreshCw, Trash2, X } from "lucide-react";
 import type { Signer } from "@/lib/signers";
 import { hexToNote } from "@/lib/nostr";
 import {
@@ -14,7 +14,6 @@ import {
 } from "@/lib/blossom/client";
 import { shortHash, type BlobItem } from "@/lib/blossom/inventory";
 import Button from "@/components/system/Button";
-import { hashGradient } from "@/components/bloom-reaper/BlobTile";
 
 export interface ReapResult {
   hash: string;
@@ -56,8 +55,6 @@ export default function ReapDialog({
   const [results, setResults] = useState<Map<string, BlossomDeleteOutcome>>(
     new Map(),
   );
-  // Images only load when asked for: reaping shouldn't download every file.
-  const [previews, setPreviews] = useState<Set<string>>(new Set());
 
   const copies = useMemo(
     () =>
@@ -177,33 +174,20 @@ export default function ReapDialog({
                 key={item.hash}
                 className="flex gap-3 rounded-xl border border-line bg-inset p-3"
               >
-                <div className="w-16 h-16 rounded-lg overflow-hidden flex-none">
+                <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/10 dark:bg-white/10 flex-none">
                   {item.media !== "image" ? (
-                    <div className="w-full h-full bg-black/10 dark:bg-white/10 flex items-center justify-center text-mut">
+                    <div className="w-full h-full flex items-center justify-center text-mut">
                       <File size={18} />
                     </div>
-                  ) : previews.has(item.hash) ? (
+                  ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.primaryUrl}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover"
                     />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPreviews((previous) => new Set(previous).add(item.hash))
-                      }
-                      className="w-full h-full flex items-center justify-center text-white/80 hover:text-white transition-colors"
-                      style={{ background: hashGradient(item.hash) }}
-                      title="Load preview"
-                    >
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/15">
-                        <Eye size={11} />
-                        View
-                      </span>
-                    </button>
                   )}
                 </div>
                 <div className="min-w-0 flex-1 space-y-1.5">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Filter } from "nostr-tools";
 import {
   AlertTriangle,
+  CalendarDays,
   Check,
   ExternalLink,
   Flower2,
@@ -38,7 +39,7 @@ import { BlossomSigningError, scanBlossom, type BlossomScan } from "@/lib/blosso
 import PageHeader from "@/components/system/PageHeader";
 import Panel, { PanelHeader } from "@/components/system/Panel";
 import Button from "@/components/system/Button";
-import BlobTile, { hashGradient } from "@/components/bloom-reaper/BlobTile";
+import BlobTile from "@/components/bloom-reaper/BlobTile";
 import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import ReapDialog, { type ReapResult } from "@/components/bloom-reaper/ReapDialog";
 
@@ -93,10 +94,13 @@ export default function BloomReaper() {
   const [missingPresence, setMissingPresence] = useState<Record<string, BlobPresence>>({});
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [listings, setListings] = useState<ReadonlyMap<string, BlobDescriptor[]>>(
     new Map(),
   );
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reapTargets, setReapTargets] = useState<BlobItem[] | null>(null);
   const [referenceEventCount, setReferenceEventCount] = useState(0);
@@ -260,6 +264,15 @@ export default function BloomReaper() {
     });
   };
 
+  const toggleExpanded = (server: string) => {
+    setExpandedServers((previous) => {
+      const next = new Set(previous);
+      if (next.has(server)) next.delete(server);
+      else next.add(server);
+      return next;
+    });
+  };
+
   const selectedItems = items.filter((item) => selected.has(item.hash));
   // Servers without a single blob under the key are not shown at all, and
   // servers holding exactly the same files collapse into one row.
@@ -272,13 +285,35 @@ export default function BloomReaper() {
       servers.find((row) => row.server === server)?.origins ?? [],
     [servers],
   );
+  // Local-calendar-day comparison against the YYYY-MM-DD input values.
+  const uploadedDay = useCallback((uploaded: number): string => {
+    const date = new Date(uploaded * 1000);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }, []);
+  // With a range set, files whose upload date is unknown can't be placed in
+  // it, so they stay out until the filter is cleared.
+  const inDateRange = useCallback(
+    (item: BlobItem) => {
+      if (!dateFrom && !dateTo) return true;
+      if (!item.uploaded) return false;
+      const day = uploadedDay(item.uploaded);
+      if (dateFrom && day < dateFrom) return false;
+      if (dateTo && day > dateTo) return false;
+      return true;
+    },
+    [dateFrom, dateTo, uploadedDay],
+  );
+  const datedItems = useMemo(
+    () => items.filter(inDateRange),
+    [items, inDateRange],
+  );
   const liveItems = useMemo(
-    () => items.filter((item) => !hidden.has(item.hash)),
-    [items, hidden],
+    () => datedItems.filter((item) => !hidden.has(item.hash)),
+    [datedItems, hidden],
   );
   const hiddenItems = useMemo(
-    () => items.filter((item) => hidden.has(item.hash)),
-    [items, hidden],
+    () => datedItems.filter((item) => hidden.has(item.hash)),
+    [datedItems, hidden],
   );
   const scanning = phase === "signing" || phase === "scanning";
   const signerReady = !!session && !!signer;
@@ -414,17 +449,32 @@ export default function BloomReaper() {
                     <Server size={14} className="text-mut flex-none" />
                     <span className="font-mono text-mid truncate">{serverHost(group.server)}</span>
                     {group.mirrors.length > 0 ? (
-                      <span
-                        className="text-[11px] text-mut truncate max-w-[20rem]"
-                        title={`The same files are also listed on ${group.mirrors
-                          .map(serverHost)
-                          .join(", ")}`}
-                      >
-                        same files on {serverHost(group.mirrors[0])}
-                        {group.mirrors.length > 1
-                          ? ` +${group.mirrors.length - 1} more`
-                          : ""}
-                      </span>
+                      expandedServers.has(group.server) ? (
+                        <span className="text-[11px] text-mut">
+                          same files on {group.mirrors.map(serverHost).join(", ")}{" "}
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(group.server)}
+                            className="underline decoration-dotted hover:text-mid"
+                          >
+                            less
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(group.server)}
+                          className="text-[11px] text-mut hover:text-mid text-left"
+                          title={`The same files are also listed on ${group.mirrors
+                            .map(serverHost)
+                            .join(", ")}`}
+                        >
+                          same files on {serverHost(group.mirrors[0])}
+                          {group.mirrors.length > 1
+                            ? ` +${group.mirrors.length - 1} more…`
+                            : ""}
+                        </button>
+                      )
                     ) : null}
                     <span className="flex flex-wrap gap-1">
                       {originsOf(group.server).map((origin) => (
@@ -475,6 +525,53 @@ export default function BloomReaper() {
                 </div>
               ) : (
                 <>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-mut">
+                    <CalendarDays size={14} className="flex-none" />
+                    <span className="font-semibold">Uploaded</span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={(e) => {
+                        setDateFrom(e.target.value);
+                        setVisibleCount(GALLERY_PAGE_SIZE);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-inset border border-line-2 text-mid dark:[color-scheme:dark]"
+                      aria-label="From date"
+                    />
+                    <span aria-hidden="true">→</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(e) => {
+                        setDateTo(e.target.value);
+                        setVisibleCount(GALLERY_PAGE_SIZE);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-inset border border-line-2 text-mid dark:[color-scheme:dark]"
+                      aria-label="To date"
+                    />
+                    {dateFrom || dateTo ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDateFrom("");
+                          setDateTo("");
+                          setVisibleCount(GALLERY_PAGE_SIZE);
+                        }}
+                        className="underline decoration-dotted hover:text-hi"
+                      >
+                        Clear dates
+                      </button>
+                    ) : null}
+                    {dateFrom || dateTo ? (
+                      <span
+                        title="Files with an unknown upload date are hidden while a date filter is set."
+                      >
+                        files with unknown dates are hidden
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {(Object.keys(filterLabels) as GalleryFilter[])
                       .filter((key) => key !== "hidden" || counts.hidden > 0)
@@ -568,8 +665,7 @@ export default function BloomReaper() {
                             href={blob.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full h-full flex items-center justify-center text-white/80 hover:text-white transition-colors"
-                            style={{ background: hashGradient(blob.hash) }}
+                            className="w-full h-full flex items-center justify-center text-white/80 bg-slate-500/40 hover:text-white transition-colors"
                             title="Open the file"
                           >
                             <WiltedRose size={20} />
