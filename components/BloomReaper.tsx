@@ -331,21 +331,16 @@ export default function BloomReaper() {
       {phase === "idle" || phase === "error" ? (
         <Panel className="p-6 space-y-4">
           <p className="text-sm text-mid max-w-3xl">
-            Blossom servers store files by their hash, and they keep a list of
-            what each key uploaded. Bloom Reaper reads your Blossom server
-            list (kind 10063), adds the servers Mutable uploads to and any host
-            your posts link from, and asks each one for everything under your
-            key. Your latest posts are checked too, so you can see which files
-            are still linked and which links now point at nothing.
+            Every Blossom server keeps a list of what each key uploaded.
+            Bloom Reaper gathers your servers — your kind 10063 list,
+            Mutable&apos;s defaults, and hosts from your recent posts — asks
+            each for everything under your key, and checks your latest posts
+            to see which files are still linked and which links point at
+            nothing.
           </p>
           <p className="text-sm text-mid max-w-3xl">
-            Listing needs one signature: servers only show a key its own
-            uploads. Nothing is deleted without a second, separate signature.
-          </p>
-          <p className="text-xs text-mut max-w-3xl">
-            Images shared from Snoopable while signed out were uploaded under a
-            throwaway key. They can&apos;t be listed or reaped by anyone, only
-            reached through the link you got at the time.
+            One signature lists them; servers only show a key its own uploads.
+            Nothing is deleted without a second signature.
           </p>
           {error ? (
             <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
