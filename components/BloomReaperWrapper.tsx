@@ -1,7 +1,7 @@
 "use client";
 
-import { Flower2 } from "lucide-react";
 import BloomReaper from "./BloomReaper";
+import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import AppShell from "@/components/system/AppShell";
 
 export default function BloomReaperWrapper() {
@@ -10,7 +10,11 @@ export default function BloomReaperWrapper() {
       navActive="bloomReaper"
       width="tool"
       authGate={{
-        icon: <Flower2 size={30} className="text-red-600 dark:text-red-400" />,
+        icon: (
+          <span className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center">
+            <WiltedRose size={34} className="text-white" />
+          </span>
+        ),
         title: "Bloom Reaper",
         text: (
           <>

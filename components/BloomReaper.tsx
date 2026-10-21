@@ -35,7 +35,8 @@ import { BlossomSigningError, scanBlossom, type BlossomScan } from "@/lib/blosso
 import PageHeader from "@/components/system/PageHeader";
 import Panel, { PanelHeader } from "@/components/system/Panel";
 import Button from "@/components/system/Button";
-import BlobTile from "@/components/bloom-reaper/BlobTile";
+import BlobTile, { hashGradient } from "@/components/bloom-reaper/BlobTile";
+import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import ReapDialog, { type ReapResult } from "@/components/bloom-reaper/ReapDialog";
 
 type ServerStatus = "pending" | "ok" | "unauthorized" | "unsupported" | "failed";
@@ -51,6 +52,8 @@ type GalleryFilter = "all" | "images" | "referenced" | "orphaned";
 
 const RELAY_MAX_WAIT_MS = 8000;
 const PROBE_CONCURRENCY = 4;
+// Tiles beyond the first page wait for a click: no DOM, no downloads.
+const GALLERY_PAGE_SIZE = 24;
 
 const originLabels: Record<BlossomServerOrigin, string> = {
   list: "your list",
@@ -64,14 +67,6 @@ const statusLabels: Record<ServerStatus, string> = {
   unauthorized: "refused",
   unsupported: "listing unavailable",
   failed: "failed",
-};
-
-const statusStyles: Record<ServerStatus, string> = {
-  pending: "bg-black/5 dark:bg-white/10 text-mut",
-  ok: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  unauthorized: "bg-red-500/15 text-red-700 dark:text-red-400",
-  unsupported: "bg-black/5 dark:bg-white/10 text-mut",
-  failed: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
 };
 
 const filterLabels: Record<GalleryFilter, string> = {
@@ -93,6 +88,7 @@ export default function BloomReaper() {
   const [missing, setMissing] = useState<MissingBlob[]>([]);
   const [missingPresence, setMissingPresence] = useState<Record<string, BlobPresence>>({});
   const [filter, setFilter] = useState<GalleryFilter>("all");
+  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reapTargets, setReapTargets] = useState<BlobItem[] | null>(null);
   const [referenceEventCount, setReferenceEventCount] = useState(0);
@@ -163,6 +159,7 @@ export default function BloomReaper() {
     setReferenceEventCount(scanResult.referenceEventCount);
     setItems(scanResult.items);
     setMissing(scanResult.missing);
+    setVisibleCount(GALLERY_PAGE_SIZE);
     setPhase("done");
 
     // Whether a dead-looking link still resolves at its original host.
@@ -225,6 +222,8 @@ export default function BloomReaper() {
     }
   }, [items, filter]);
 
+  const shown = visible.slice(0, visibleCount);
+
   const toggleSelected = (hash: string) => {
     setSelected((previous) => {
       const next = new Set(previous);
@@ -235,15 +234,18 @@ export default function BloomReaper() {
   };
 
   const selectedItems = items.filter((item) => selected.has(item.hash));
-  const listedServers = servers.filter((row) => row.status === "ok").length;
+  // Servers without a single blob under the key are not shown at all.
+  const serversWithContent = servers.filter(
+    (row) => row.status === "ok" && (row.count ?? 0) > 0,
+  );
   const scanning = phase === "signing" || phase === "scanning";
   const signerReady = !!session && !!signer;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={<Flower2 size={26} />}
-        iconBg="from-rose-500 to-red-700"
+        icon={<WiltedRose size={34} />}
+        iconBg="from-slate-600 to-slate-900"
         title="Bloom Reaper"
         subtitle="Every file you've uploaded to Blossom, on every server you use. Find the ones you lost track of, copy their links, or reap them."
         actions={
@@ -304,7 +306,7 @@ export default function BloomReaper() {
         </Panel>
       ) : null}
 
-      {phase !== "idle" ? (
+      {phase !== "idle" && (scanning || serversWithContent.length > 0) ? (
         <Panel>
           <PanelHeader
             title="Servers"
@@ -312,15 +314,15 @@ export default function BloomReaper() {
               scanning
                 ? phase === "signing"
                   ? "waiting for your signature"
-                  : "asking each server"
-                : `${listedServers} of ${servers.length} answered with a list`
+                  : `asking ${servers.length}…`
+                : `${serversWithContent.length} server${serversWithContent.length === 1 ? "" : "s"} hold${serversWithContent.length === 1 ? "s" : ""} your files`
             }
             actions={
               scanning ? <RefreshCw size={15} className="animate-spin text-mut" /> : null
             }
           />
           <ul className="divide-y divide-line">
-            {servers.map((row) => (
+            {(scanning ? servers : serversWithContent).map((row) => (
               <li
                 key={row.server}
                 className="flex flex-wrap items-center gap-2 px-5 py-2.5 text-sm"
@@ -337,18 +339,10 @@ export default function BloomReaper() {
                     </span>
                   ))}
                 </span>
-                <span className="ml-auto flex items-center gap-2 text-xs">
-                  {row.status === "ok" ? (
-                    <span className="text-mut">
-                      {row.count} blob{row.count === 1 ? "" : "s"}
-                    </span>
-                  ) : null}
-                  <span
-                    className={`px-2 py-0.5 rounded-full font-semibold ${statusStyles[row.status]}`}
-                    title={row.message || statusLabels[row.status]}
-                  >
-                    {statusLabels[row.status]}
-                  </span>
+                <span className="ml-auto text-xs text-mut">
+                  {row.status === "ok"
+                    ? `${row.count} blob${row.count === 1 ? "" : "s"}`
+                    : statusLabels[row.status]}
                 </span>
               </li>
             ))}
@@ -384,9 +378,9 @@ export default function BloomReaper() {
               {items.length === 0 ? (
                 <div className="text-sm text-mid space-y-2">
                   <p>
-                    {listedServers === 0
+                    {servers.length === 0
                       ? "No server answered the listing request, so this may be a server problem rather than an empty account."
-                      : "Nothing is listed under your key on these servers. Either you haven't uploaded with this key, your uploads went to a server that isn't in your list and isn't linked from your recent posts, or you've reaped everything."}
+                      : "No server came back with files under your key. Either you haven't uploaded with this key, your uploads went to a server that isn't in your list and isn't linked from your recent posts, or you've reaped everything."}
                   </p>
                 </div>
               ) : (
@@ -396,7 +390,10 @@ export default function BloomReaper() {
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setFilter(key)}
+                        onClick={() => {
+                          setFilter(key);
+                          setVisibleCount(GALLERY_PAGE_SIZE);
+                        }}
                         className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                           filter === key
                             ? "bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-400"
@@ -419,17 +416,30 @@ export default function BloomReaper() {
                   {visible.length === 0 ? (
                     <p className="text-sm text-mut">Nothing matches this filter.</p>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {visible.map((item) => (
-                        <BlobTile
-                          key={item.hash}
-                          item={item}
-                          selected={selected.has(item.hash)}
-                          onToggleSelect={() => toggleSelected(item.hash)}
-                          onReap={() => setReapTargets([item])}
-                        />
-                      ))}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {shown.map((item) => (
+                          <BlobTile
+                            key={item.hash}
+                            item={item}
+                            selected={selected.has(item.hash)}
+                            onToggleSelect={() => toggleSelected(item.hash)}
+                            onReap={() => setReapTargets([item])}
+                          />
+                        ))}
+                      </div>
+                      {visible.length > shown.length ? (
+                        <div className="flex justify-center pt-1">
+                          <Button
+                            variant="secondary"
+                            onClick={() => setVisibleCount((count) => count + GALLERY_PAGE_SIZE)}
+                          >
+                            Load {Math.min(GALLERY_PAGE_SIZE, visible.length - shown.length)} more
+                            ({visible.length - shown.length} hidden)
+                          </Button>
+                        </div>
+                      ) : null}
+                    </>
                   )}
                   <p className="text-xs text-mut flex items-start gap-2">
                     <AlertTriangle size={13} className="mt-0.5 flex-none" />
@@ -458,12 +468,22 @@ export default function BloomReaper() {
                       key={blob.hash}
                       className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm"
                     >
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-black/5 dark:bg-white/10 flex items-center justify-center flex-none text-mut">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden flex-none">
                         {presence === "present" && blob.url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={blob.url} alt="" className="w-full h-full object-cover" />
+                          <a
+                            href={blob.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full h-full flex items-center justify-center text-white/80 hover:text-white transition-colors"
+                            style={{ background: hashGradient(blob.hash) }}
+                            title="Open the file"
+                          >
+                            <WiltedRose size={20} />
+                          </a>
                         ) : (
-                          <ImageOff size={16} />
+                          <div className="w-full h-full bg-black/5 dark:bg-white/10 flex items-center justify-center text-mut">
+                            <ImageOff size={16} />
+                          </div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

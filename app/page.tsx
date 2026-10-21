@@ -32,10 +32,10 @@ import {
   BrushCleaning,
   Globe,
   DatabaseBackup,
-  Flower2,
 } from "lucide-react";
 import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
 import { Profile } from "@/types";
+import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 
 export default function Home() {
   const router = useRouter();
@@ -599,7 +599,11 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/bloom-reaper"
-                chip={<ChipTone tone="red"><Flower2 size={16} /></ChipTone>}
+                chip={
+                  <span className="w-9 h-9 rounded-[9px] flex items-center justify-center flex-none bg-slate-800">
+                    <WiltedRose size={22} className="text-white" />
+                  </span>
+                }
                 title="Bloom Reaper"
                 badge="NEW"
                 text="Your lost Blossom photos: find, copy links, or reap them."

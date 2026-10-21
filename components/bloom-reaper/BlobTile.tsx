@@ -5,14 +5,17 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Eye,
   File,
   ImageOff,
+  RefreshCw,
   Trash2,
   Video,
 } from "lucide-react";
 import { serverHost } from "@/lib/blossom/client";
 import { formatBytes, shortHash, type BlobItem } from "@/lib/blossom/inventory";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 
 export function formatUploaded(uploaded: number | undefined): string {
   if (!uploaded) return "Upload date unknown";
@@ -27,6 +30,13 @@ export function formatUploaded(uploaded: number | undefined): string {
   }
 }
 
+// A muted, deterministic backdrop per blob, so placeholder tiles are
+// tellable apart without loading a single byte of image data.
+export function hashGradient(hash: string): string {
+  const hue = parseInt(hash.slice(0, 4), 16) % 360;
+  return `linear-gradient(135deg, hsl(${hue} 28% 24%), hsl(${(hue + 50) % 360} 24% 12%))`;
+}
+
 export default function BlobTile({
   item,
   selected,
@@ -39,7 +49,9 @@ export default function BlobTile({
   onReap: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const posts = item.references.length;
 
   const handleCopy = async () => {
@@ -49,35 +61,73 @@ export default function BlobTile({
     }
   };
 
+  const showImage = item.media === "image" && preview && !broken;
+
   return (
     <div
       className={`panel rounded-xl border overflow-hidden transition-colors ${
         selected ? "border-red-500/70 ring-1 ring-red-500/40" : "border-line"
       }`}
     >
-      <div className="relative aspect-square bg-black/5 dark:bg-white/5">
-        {item.media === "image" && !broken ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.primaryUrl}
-            alt=""
-            loading="lazy"
-            className="w-full h-full object-cover"
-            onError={() => setBroken(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-mut">
-            {item.media === "video" ? (
-              <Video size={28} />
-            ) : broken ? (
-              <ImageOff size={28} />
+      <div
+        className="relative h-32"
+        style={showImage ? undefined : { background: hashGradient(item.hash) }}
+      >
+        {showImage ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.primaryUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+              className={`w-full h-full object-cover ${loaded ? "" : "opacity-0"}`}
+              onError={() => setBroken(true)}
+            />
+            {!loaded ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/80">
+                <RefreshCw size={20} className="animate-spin" />
+                <span className="text-[11px]">Loading {formatBytes(item.size)}…</span>
+              </div>
+            ) : null}
+          </>
+        ) : item.media === "other" || (preview && broken) ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-white/80">
+            {item.media === "other" ? (
+              <File size={26} />
             ) : (
-              <File size={28} />
+              <ImageOff size={26} />
             )}
             <span className="text-[11px] uppercase tracking-wide">
-              {broken ? "Didn't load" : item.type || "file"}
+              {item.media === "other" ? item.type || "file" : "didn't load"}
             </span>
           </div>
+        ) : item.media === "video" ? (
+          <button
+            type="button"
+            onClick={() => setPreview(true)}
+            className="w-full h-full flex flex-col items-center justify-center gap-2 text-white/90 hover:text-white transition-colors"
+          >
+            <Video size={26} />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-[11px] font-semibold">
+              <Eye size={13} />
+              Load preview
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPreview(true)}
+            className="w-full h-full group flex flex-col items-center justify-center gap-2 text-white/90 hover:text-white transition-colors"
+            title="Load the image (the full file downloads — Blossom has no smaller sizes)"
+          >
+            <WiltedRose size={26} className="opacity-60 group-hover:opacity-90 transition-opacity" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-[11px] font-semibold">
+              <Eye size={13} />
+              Load preview
+            </span>
+          </button>
         )}
 
         <label className="absolute top-2 left-2 flex items-center justify-center w-6 h-6 rounded-md bg-black/60 cursor-pointer">
