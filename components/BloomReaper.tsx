@@ -371,15 +371,21 @@ export default function BloomReaper() {
         </Panel>
       ) : null}
 
-      {phase !== "idle" && (scanning || serverGroups.length > 0) ? (
+      {phase === "signing" ? (
+        <Panel className="p-5 flex items-center gap-3 text-sm text-mid">
+          <RefreshCw size={15} className="animate-spin text-mut flex-none" />
+          Waiting for your signature — approve the listing request in your
+          signer to continue.
+        </Panel>
+      ) : null}
+
+      {servers.length > 0 && (scanning || serverGroups.length > 0) ? (
         <Panel>
           <PanelHeader
             title="Servers"
             note={
               scanning
-                ? phase === "signing"
-                  ? "waiting for your signature"
-                  : `asking ${servers.length}…`
+                ? `asking ${servers.length}…`
                 : `${serverGroups.length} server${serverGroups.length === 1 ? "" : "s"} hold${serverGroups.length === 1 ? "s" : ""} your files`
             }
             actions={
@@ -435,11 +441,6 @@ export default function BloomReaper() {
                     </span>
                   </li>
                 ))}
-            {servers.length === 0 && phase === "signing" ? (
-              <li className="px-5 py-3 text-sm text-mut">
-                Sign the listing request in your signer to continue.
-              </li>
-            ) : null}
           </ul>
         </Panel>
       ) : null}
