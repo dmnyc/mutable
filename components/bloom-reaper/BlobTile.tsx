@@ -81,6 +81,11 @@ export default function BlobTile({
   // pagination keeps the page short. Blossom only serves the original file,
   // so large images just take their time under the spinner.
   const showImage = item.media === "image" && !broken;
+  // The media fragment makes the browser decode an early frame for the
+  // poster; preload="metadata" keeps that to a couple of range requests.
+  const videoSrc = item.primaryUrl.includes("#")
+    ? item.primaryUrl
+    : `${item.primaryUrl}#t=0.1`;
 
   return (
     <div
@@ -105,6 +110,23 @@ export default function BlobTile({
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-mut">
                 <RefreshCw size={20} className="animate-spin" />
                 <span className="text-[11px]">Loading {formatBytes(item.size)}…</span>
+              </div>
+            ) : null}
+          </>
+        ) : item.media === "video" && !broken ? (
+          <>
+            <video
+              src={videoSrc}
+              preload="metadata"
+              muted
+              playsInline
+              onLoadedData={() => setLoaded(true)}
+              onError={() => setBroken(true)}
+              className={`w-full h-full object-cover ${loaded ? "" : "opacity-0"}`}
+            />
+            {!loaded ? (
+              <div className="absolute inset-0 flex items-center justify-center text-mut">
+                <RefreshCw size={20} className="animate-spin" />
               </div>
             ) : null}
           </>
