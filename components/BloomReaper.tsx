@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Filter } from "nostr-tools";
 import {
   AlertTriangle,
+  ArrowRightLeft,
   CalendarDays,
   Check,
   ExternalLink,
@@ -36,11 +37,13 @@ import {
   type MissingBlob,
 } from "@/lib/blossom/inventory";
 import { BlossomSigningError, scanBlossom, type BlossomScan } from "@/lib/blossom/scan";
+import { MUTABLE_BLOSSOM_SERVERS } from "@/lib/blossom/servers";
 import PageHeader from "@/components/system/PageHeader";
 import Panel, { PanelHeader } from "@/components/system/Panel";
 import Button from "@/components/system/Button";
 import BlobTile, { formatUploaded } from "@/components/bloom-reaper/BlobTile";
 import GallerySkeleton from "@/components/bloom-reaper/GallerySkeleton";
+import RehomeDialog from "@/components/bloom-reaper/RehomeDialog";
 import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import ReapDialog, { type ReapResult } from "@/components/bloom-reaper/ReapDialog";
 
@@ -129,6 +132,8 @@ export default function BloomReaper() {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reapTargets, setReapTargets] = useState<BlobItem[] | null>(null);
+  const [rehomeTarget, setRehomeTarget] = useState<MissingBlob | null>(null);
+  const [rehomed, setRehomed] = useState<Record<string, { server: string; listed: boolean }>>({});
   const [referenceEventCount, setReferenceEventCount] = useState(0);
   const [referenceOldest, setReferenceOldest] = useState<number | undefined>(
     undefined,
@@ -160,6 +165,8 @@ export default function BloomReaper() {
     setMissing([]);
     setMissingPresence({});
     setSelected(new Set());
+    setRehomed({});
+    setRehomeTarget(null);
     // Dismissals persist per key, so a rescan keeps the gallery tidy.
     let storedHidden: unknown = [];
     try {
@@ -797,6 +804,33 @@ export default function BloomReaper() {
                               ? "couldn't check"
                               : "checking…"}
                       </span>
+                      {rehomed[blob.hash] ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            rehomed[blob.hash].listed
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                          }`}
+                          title={
+                            rehomed[blob.hash].listed
+                              ? `A copy is stored and listed on ${rehomed[blob.hash].server}`
+                              : `A copy is stored on ${rehomed[blob.hash].server}, but it isn't listed under your key`
+                          }
+                        >
+                          {rehomed[blob.hash].listed ? "saved" : "copied"} →{" "}
+                          {serverHost(rehomed[blob.hash].server)}
+                        </span>
+                      ) : presence === "present" && blob.url ? (
+                        <button
+                          type="button"
+                          onClick={() => setRehomeTarget(blob)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-inset border border-line-2 text-mid hover:text-hi transition-colors"
+                          title="Ask one of your servers to fetch a copy of this file before the old host goes away"
+                        >
+                          <ArrowRightLeft size={12} />
+                          Re-home
+                        </button>
+                      ) : null}
                       {blob.references[0] ? (
                         <Link
                           href={`/note-nuke?note=${hexToNote(blob.references[0].eventId)}`}
@@ -836,6 +870,23 @@ export default function BloomReaper() {
           signer={signer}
           onClose={() => setReapTargets(null)}
           onComplete={handleReaped}
+        />
+      ) : null}
+
+      {rehomeTarget && signer && session ? (
+        <RehomeDialog
+          blob={rehomeTarget}
+          targets={
+            servers.some((row) => row.status === "ok")
+              ? servers.filter((row) => row.status === "ok").map((row) => row.server)
+              : Array.from(MUTABLE_BLOSSOM_SERVERS)
+          }
+          pubkey={session.pubkey}
+          signer={signer}
+          onClose={() => setRehomeTarget(null)}
+          onSaved={(hash, server, listed) =>
+            setRehomed((previous) => ({ ...previous, [hash]: { server, listed } }))
+          }
         />
       ) : null}
 

@@ -16,6 +16,7 @@ import {
   headBlob,
   listBlobs,
   mapWithConcurrency,
+  mirrorBlob,
   normalizeBlossomServer,
   probeUrl,
   serverHost,
@@ -375,6 +376,50 @@ describe("deleteBlob", () => {
         timeoutMs: 10,
       }),
     ).toEqual({ status: "failed", message: "Timed out — file still there" });
+  });
+});
+
+describe("mirrorBlob", () => {
+  it("sends an authorized PUT with the source URL to /mirror", async () => {
+    const { calls, fetch } = recordingFetch(() =>
+      new Response(JSON.stringify({ sha256: HASH_A }), { status: 201 }),
+    );
+
+    const outcome = await mirrorBlob(SERVER, "https://old.host/pic.jpg", HASH_A, "Nostr tok", { fetch });
+
+    expect(outcome).toEqual({ status: "ok", existed: false });
+    expect(calls[0].url).toBe(`${SERVER}/mirror`);
+    expect(calls[0].init.method).toBe("PUT");
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Nostr tok");
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ url: "https://old.host/pic.jpg" });
+  });
+
+  it("maps the response codes", async () => {
+    const outcomeOf = (response: Response) =>
+      mirrorBlob(SERVER, "https://old.host/pic.jpg", HASH_A, "Nostr tok", {
+        fetch: async () => response,
+      });
+
+    expect(await outcomeOf(new Response("{}", { status: 200 }))).toEqual({
+      status: "ok",
+      existed: true,
+    });
+    expect(await outcomeOf(new Response("", { status: 403 }))).toEqual({
+      status: "unauthorized",
+      code: 403,
+    });
+    expect(
+      await outcomeOf(
+        new Response("", { status: 502, headers: { "X-Reason": "origin unreachable" } }),
+      ),
+    ).toEqual({ status: "failed", message: "HTTP 502: origin unreachable" });
+    expect(
+      await mirrorBlob(SERVER, "https://old.host/pic.jpg", HASH_A, "Nostr tok", {
+        fetch: async () => {
+          throw new TypeError("offline");
+        },
+      }),
+    ).toEqual({ status: "failed", message: "Network error" });
   });
 });
 
