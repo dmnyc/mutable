@@ -3,12 +3,14 @@
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { getMuteScore, getMuteRatioSignal } from '@/lib/utils/muteScore';
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface MuteScoreModalProps {
   onClose: () => void;
 }
 
 export default function MuteScoreModal({ onClose }: MuteScoreModalProps) {
+  useBodyScrollLock();
   // Ranges are labelled here, but emoji/label come from the shared scoring
   // helpers so this explainer can't drift from what the app actually shows.
   const muteScoreLevels = [

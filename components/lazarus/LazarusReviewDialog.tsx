@@ -35,6 +35,7 @@ import {
   kindPhrase,
   shortRelay,
 } from "./format";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export type LazarusReviewStatus =
   "review" | "working" | "unconfirmed" | "failed" | "published";
@@ -161,6 +162,7 @@ export default function LazarusReviewDialog({
   onClose,
   onConfirm,
 }: LazarusReviewDialogProps) {
+  useBodyScrollLock();
   const [shrinkAck, setShrinkAck] = useState(false);
   const [intent, setIntent] = useState<"restore" | "keep" | null>(null);
   const [overrideAck, setOverrideAck] = useState(false);

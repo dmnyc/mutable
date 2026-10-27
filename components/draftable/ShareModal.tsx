@@ -30,6 +30,7 @@ import {
 import ProfileAvatar from "../ProfileAvatar";
 import { useRequestSignIn } from "./DraftableShell";
 import MentionEditor from "./MentionEditor";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 /** How a linked page unfurls, for the preview. */
 export interface LinkPreview {
@@ -59,6 +60,7 @@ export default function ShareModal({
   secondaryLink?: { href: string; label: string };
   onClose: () => void;
 }) {
+  useBodyScrollLock();
   const { session } = useAuth();
   const { userProfile } = useStore();
   const requestSignIn = useRequestSignIn();

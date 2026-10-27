@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface UserProfileModalProps {
   profile: Profile;
@@ -62,6 +63,7 @@ export default function UserProfileModal({
   profile,
   onClose,
 }: UserProfileModalProps) {
+  useBodyScrollLock();
   const { session } = useAuth();
   const {
     muteList,

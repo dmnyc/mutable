@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { AlertTriangle, Check, File, RefreshCw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, File, RefreshCw, Trash2, Video, X } from "lucide-react";
 import type { Signer } from "@/lib/signers";
 import { hexToNote } from "@/lib/nostr";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/lib/blossom/client";
 import { shortHash, shortServerHost, type BlobItem } from "@/lib/blossom/inventory";
 import Button from "@/components/system/Button";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export interface ReapResult {
   hash: string;
@@ -53,6 +54,7 @@ export default function ReapDialog({
   onClose: () => void;
   onComplete: (results: ReapResult[]) => void;
 }) {
+  useBodyScrollLock();
   const [phase, setPhase] = useState<Phase>("confirm");
   const [error, setError] = useState<string | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
@@ -185,7 +187,11 @@ export default function ReapDialog({
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/10 dark:bg-white/10 flex-none">
                   {item.media !== "image" ? (
                     <div className="w-full h-full flex items-center justify-center text-mut">
-                      <File size={18} />
+                      {item.media === "video" ? (
+                        <Video size={18} />
+                      ) : (
+                        <File size={18} />
+                      )}
                     </div>
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -271,8 +277,10 @@ export default function ReapDialog({
                         <Link
                           href={`/note-nuke?note=${hexToNote(eventId)}`}
                           target="_blank"
-                          className="font-mono text-red-600 dark:text-red-400 hover:underline"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 font-mono text-red-600 dark:text-red-400 hover:underline"
                         >
+                          <Trash2 size={11} className="flex-none" />
                           {kind === 0 ? "your profile" : hexToNote(eventId).slice(0, 14) + "…"}
                         </Link>
                       </span>

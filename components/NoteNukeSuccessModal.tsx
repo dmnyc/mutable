@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Radiation, Sparkles, X } from "lucide-react";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface NoteNukeSuccessModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export default function NoteNukeSuccessModal({
   totalCount,
 }: NoteNukeSuccessModalProps) {
   const [show, setShow] = useState(false);
+  useBodyScrollLock(isOpen && show);
 
   const handleClose = () => {
     setShow(false);

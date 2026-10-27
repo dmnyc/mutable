@@ -21,7 +21,10 @@ import {
   REFERENCE_MAX_PAGES,
   REFERENCE_PAGE_SIZE,
   type ReferenceIndex,
+  type ReferenceProgress,
 } from "./references";
+
+export type { ReferenceProgress };
 import {
   buildBlobInventory,
   findMissingBlobs,
@@ -47,8 +50,19 @@ export interface BlossomScanInput {
 
 export interface BlossomScanCallbacks {
   onSigned?: () => void;
+  /** Fired once the kind 10063 list is read (fast), and again after
+      references are indexed with the hosts the posts revealed. */
   onServers?: (servers: BlossomServerEntry[]) => void;
   onServerResult?: (server: string, outcome: BlossomListOutcome) => void;
+  /** After each finished slice of the reference walk, so the UI can show
+      live coverage instead of silence. */
+  onReferenceProgress?: (progress: ReferenceProgress) => void;
+  /** Fired once the first listing pass completes: the gallery can render
+      from listings alone while link states are still being computed. */
+  onListingsDone?: (payload: { servers: BlossomServerEntry[]; items: BlobItem[] }) => void;
+  /** Per finished slice: the gallery's link states refined with the
+      references indexed so far. */
+  onReferencesPartial?: (payload: { references: ReferenceIndex; items: BlobItem[] }) => void;
 }
 
 export interface BlossomScan {
@@ -91,35 +105,75 @@ export async function scanBlossom(
   }
   callbacks.onSigned?.();
 
-  const [serverList, referenceScan] = await Promise.all([
-    fetchBlossomServerList(pubkey, query).catch(() => ({
-      servers: [] as string[],
-    })),
-    fetchReferenceEventsPaged(pubkey, query, {
-      pageSize: input.referencePageSize ?? REFERENCE_PAGE_SIZE,
-      maxPages: input.referenceMaxPages ?? REFERENCE_MAX_PAGES,
-    }).catch(() => ({ events: [], pages: 0, oldestCreated: undefined })),
-  ]);
-  const references = indexBlobReferences(referenceScan.events);
-  const servers = mergeBlossomServers(
+  // The server list is one cheap relay query: show real rows before the
+  // long reference walk starts rather than gating the page on it.
+  const serverList = await fetchBlossomServerList(pubkey, query).catch(() => ({
+    servers: [] as string[],
+  }));
+  let servers = mergeBlossomServers(
     serverList.servers,
-    referencedServers(references),
+    [],
     input.defaultServers ?? MUTABLE_BLOSSOM_SERVERS,
   );
   callbacks.onServers?.(servers);
 
   const outcomes = new Map<string, BlossomListOutcome>();
   const listings = new Map<string, BlobDescriptor[]>();
-  await mapWithConcurrency(
-    servers,
-    input.concurrency ?? DEFAULT_LIST_CONCURRENCY,
-    async (entry) => {
-      const outcome = await listBlobs(entry.server, pubkey, auth, input.request);
-      outcomes.set(entry.server, outcome);
-      if (outcome.status === "ok") listings.set(entry.server, outcome.blobs);
-      callbacks.onServerResult?.(entry.server, outcome);
+  const listServers = async (entries: BlossomServerEntry[]) => {
+    await mapWithConcurrency(
+      entries,
+      input.concurrency ?? DEFAULT_LIST_CONCURRENCY,
+      async (entry) => {
+        const outcome = await listBlobs(entry.server, pubkey, auth, input.request);
+        outcomes.set(entry.server, outcome);
+        if (outcome.status === "ok") listings.set(entry.server, outcome.blobs);
+        callbacks.onServerResult?.(entry.server, outcome);
+      },
+    );
+  };
+
+  // Listings and the reference walk are independent — run them together.
+  // The gallery renders from listings alone as soon as they land; link
+  // states refine as reference slices are indexed.
+  const serverNames = servers.map((entry) => entry.server);
+  const referencePromise = fetchReferenceEventsPaged(pubkey, query, {
+    pageSize: input.referencePageSize ?? REFERENCE_PAGE_SIZE,
+    maxPages: input.referenceMaxPages ?? REFERENCE_MAX_PAGES,
+    onProgress: (progress) => {
+      callbacks.onReferenceProgress?.(progress);
+      if (callbacks.onReferencesPartial) {
+        callbacks.onReferencesPartial({
+          references: progress.references,
+          items: buildBlobInventory(listings, serverNames, progress.references, progress.oldest),
+        });
+      }
     },
+  }).catch(() => ({ events: [], pages: 0, oldestCreated: undefined }));
+
+  await listServers(servers);
+  callbacks.onListingsDone?.({
+    servers,
+    items: buildBlobInventory(listings, serverNames, new Map(), undefined),
+  });
+  const referenceScan = await referencePromise;
+  const references = indexBlobReferences(referenceScan.events);
+
+  // Posts can point at hosts that are in no list; ask those too.
+  const referenced = referencedServers(references);
+  const newReferenced = referenced.filter(
+    (server) => !servers.some((entry) => entry.server === server),
   );
+  if (newReferenced.length > 0) {
+    servers = mergeBlossomServers(
+      serverList.servers,
+      referenced,
+      input.defaultServers ?? MUTABLE_BLOSSOM_SERVERS,
+    );
+    callbacks.onServers?.(servers);
+    await listServers(
+      servers.filter((entry) => newReferenced.includes(entry.server)),
+    );
+  }
 
   const items = buildBlobInventory(
     listings,

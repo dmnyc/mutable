@@ -16,6 +16,7 @@ import {
   headBlob,
   listBlobs,
   mapWithConcurrency,
+  mirrorBlob,
   normalizeBlossomServer,
   probeUrl,
   serverHost,
@@ -47,6 +48,7 @@ import {
   removeReapedCopies,
   shortHash,
   shortServerHost,
+  type BlobItem,
 } from "@/lib/blossom/inventory";
 import { BlossomSigningError, scanBlossom } from "@/lib/blossom/scan";
 
@@ -378,6 +380,50 @@ describe("deleteBlob", () => {
   });
 });
 
+describe("mirrorBlob", () => {
+  it("sends an authorized PUT with the source URL to /mirror", async () => {
+    const { calls, fetch } = recordingFetch(() =>
+      new Response(JSON.stringify({ sha256: HASH_A }), { status: 201 }),
+    );
+
+    const outcome = await mirrorBlob(SERVER, "https://old.host/pic.jpg", HASH_A, "Nostr tok", { fetch });
+
+    expect(outcome).toEqual({ status: "ok", existed: false });
+    expect(calls[0].url).toBe(`${SERVER}/mirror`);
+    expect(calls[0].init.method).toBe("PUT");
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Nostr tok");
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ url: "https://old.host/pic.jpg" });
+  });
+
+  it("maps the response codes", async () => {
+    const outcomeOf = (response: Response) =>
+      mirrorBlob(SERVER, "https://old.host/pic.jpg", HASH_A, "Nostr tok", {
+        fetch: async () => response,
+      });
+
+    expect(await outcomeOf(new Response("{}", { status: 200 }))).toEqual({
+      status: "ok",
+      existed: true,
+    });
+    expect(await outcomeOf(new Response("", { status: 403 }))).toEqual({
+      status: "unauthorized",
+      code: 403,
+    });
+    expect(
+      await outcomeOf(
+        new Response("", { status: 502, headers: { "X-Reason": "origin unreachable" } }),
+      ),
+    ).toEqual({ status: "failed", message: "HTTP 502: origin unreachable" });
+    expect(
+      await mirrorBlob(SERVER, "https://old.host/pic.jpg", HASH_A, "Nostr tok", {
+        fetch: async () => {
+          throw new TypeError("offline");
+        },
+      }),
+    ).toEqual({ status: "failed", message: "Network error" });
+  });
+});
+
 describe("probeUrl and headBlob", () => {
   it("uses HEAD and maps presence", async () => {
     const { calls, fetch } = recordingFetch(() => new Response(null, { status: 200 }));
@@ -648,8 +694,12 @@ describe("scanBlossom", () => {
   const cdn = "https://cdn.example";
   const serverListEvent = signed(BLOSSOM_SERVER_LIST_KIND, "", [["server", `${mine}/`]]);
   const note = signed(1, `old ${cdn}/${HASH_A}.png and ${mine}/${HASH_B}.png`, [], 2000);
-  const query = async (filter: { kinds?: number[] }) =>
-    filter.kinds?.[0] === BLOSSOM_SERVER_LIST_KIND ? [serverListEvent] : [note];
+  const query = async (filter: { kinds?: number[] }) => {
+    // Yield a macrotask like real relay I/O, so listing responses can land
+    // between reference slices instead of the walk finishing instantly.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return filter.kinds?.[0] === BLOSSOM_SERVER_LIST_KIND ? [serverListEvent] : [note];
+  };
 
   function routedFetch() {
     return recordingFetch(({ url }) => {
@@ -667,6 +717,8 @@ describe("scanBlossom", () => {
   it("signs once, asks every server, and builds the gallery and missing list", async () => {
     const { calls, fetch } = routedFetch();
     const events: string[] = [];
+    const listingsDoneItems: BlobItem[][] = [];
+    const partialItems: BlobItem[][] = [];
 
     const scan = await scanBlossom(
       { pubkey, signer, query, request: { fetch }, defaultServers: [SERVER] },
@@ -674,6 +726,8 @@ describe("scanBlossom", () => {
         onSigned: () => events.push("signed"),
         onServers: (servers) => events.push(`servers:${servers.length}`),
         onServerResult: (server, outcome) => events.push(`${serverHost(server)}:${outcome.status}`),
+        onListingsDone: ({ items }) => listingsDoneItems.push(items),
+        onReferencesPartial: ({ items }) => partialItems.push(items),
       },
     );
 
@@ -710,12 +764,27 @@ describe("scanBlossom", () => {
     expect(token.tags).toContainEqual(["t", "list"]);
 
     expect(events[0]).toBe("signed");
-    expect(events[1]).toBe("servers:3");
-    expect(events.slice(2).sort()).toEqual([
+    // Two phases: the kind 10063 list lands before the reference walk, and
+    // the post-referenced host joins with the second onServers call.
+    expect(events[1]).toBe("servers:2");
+    expect(events.slice(2, 4).sort()).toEqual([
       "blossom.example:unauthorized",
-      "cdn.example:unsupported",
       "mine.example:ok",
     ]);
+    expect(events[4]).toBe("servers:3");
+    expect(events[5]).toBe("cdn.example:unsupported");
+
+    // The gallery renders from listings alone first (links pending), then
+    // refines as reference slices are indexed. Slices can land before the
+    // (instant, mocked) listings do, so assert that refinement happens
+    // rather than depending on call order.
+    expect(listingsDoneItems).toHaveLength(1);
+    expect(listingsDoneItems[0]).toHaveLength(1);
+    expect(listingsDoneItems[0][0].references).toEqual([]);
+    const refined = partialItems.find(
+      (items) => items.length > 0 && items[0].references.length > 0,
+    );
+    expect(refined?.[0].references.map((r) => r.eventId)).toEqual([note.id]);
   });
 
   it("stops before touching the network when signing is declined", async () => {
@@ -755,50 +824,72 @@ describe("fetchReferenceEventsPaged", () => {
   const eventAt = (createdAt: number, salt = ""): Event =>
     finalizeEvent({ kind: 1, created_at: createdAt, tags: [], content: salt }, secretKey);
 
-  it("pages backwards with until until a page adds nothing", async () => {
+  it("queries fixed windows newest-first and dedupes slice results", async () => {
     const seen: Filter[] = [];
-    const pages: Event[][] = [
-      [eventAt(500), eventAt(400)],
-      [eventAt(300)],
-      [],
-    ];
+    let events: Event[] = [];
     const scan = await fetchReferenceEventsPaged(pubkey, async (filter) => {
       seen.push(filter);
-      return pages[seen.length - 1] ?? [];
-    }, { pageSize: 2, maxPages: 5 });
+      if (seen.length === 1) {
+        // Anchor the fixtures to whatever window the implementation
+        // actually opened, so the test never races a second boundary.
+        const until = filter.until as number;
+        events = [
+          eventAt(until - 1),
+          eventAt(until - 51),
+          eventAt(until - 150),
+          eventAt(until - 250),
+        ];
+      }
+      return events.filter(
+        (event) =>
+          event.created_at >= (filter.since as number) &&
+          event.created_at <= (filter.until as number),
+      );
+    }, { pageSize: 2, sliceSeconds: 100, maxPages: 10 });
 
-    expect(seen[0]).toEqual({ kinds: REFERENCE_KINDS, authors: [pubkey], limit: 2 });
-    expect(seen[1].until).toBe(399);
-    expect(seen[2].until).toBe(299);
-    expect(scan.pages).toBe(3);
-    expect(scan.events.map((event) => event.created_at).sort((a, b) => b - a)).toEqual([500, 400, 300]);
-    expect(scan.oldestCreated).toBe(300);
+    const until0 = seen[0].until as number;
+    expect(seen[0].since).toBe(until0 - 100);
+    expect(seen[1].until).toBe(until0 - 100);
+    expect(seen[1].since).toBe(until0 - 200);
+    // Three empty windows in a row stop the walk.
+    expect(seen).toHaveLength(6);
+    expect(scan.pages).toBe(6);
+    expect(scan.events.map((event) => event.created_at).sort((a, b) => b - a)).toEqual([
+      until0 - 1,
+      until0 - 51,
+      until0 - 150,
+      until0 - 250,
+    ]);
+    expect(scan.oldestCreated).toBe(until0 - 250);
   });
 
-  it("stops early once coverage reaches the oldest upload", async () => {
+  it("stops once a slice starts before the oldest upload", async () => {
     const seen: Filter[] = [];
+    const now = Math.floor(Date.now() / 1000);
     const scan = await fetchReferenceEventsPaged(pubkey, async (filter) => {
       seen.push(filter);
-      return [eventAt(200)];
-    }, { pageSize: 2, maxPages: 5, before: 250 });
+      return [eventAt(filter.until as number)];
+    }, { pageSize: 2, sliceSeconds: 100, maxPages: 10, before: now - 160 });
 
-    expect(seen).toHaveLength(1);
-    expect(scan.oldestCreated).toBe(200);
+    // Slice 1 covers [now-99, now+1]; slice 2 starts at now-199, below the
+    // floor, so the walk ends there.
+    expect(seen).toHaveLength(2);
+    expect(scan.oldestCreated).toBe(seen[1].until);
   });
 
-  it("respects the page cap even when every page brings something new", async () => {
+  it("respects the page cap even when every slice brings something new", async () => {
     let page = 0;
     const scan = await fetchReferenceEventsPaged(
       pubkey,
-      async () => [eventAt(500, `page-${page++}`)],
+      async () => [eventAt(500, `slice-${page++}`)],
       {
         pageSize: 2,
+        sliceSeconds: 100,
         maxPages: 3,
       },
     );
     expect(scan.pages).toBe(3);
     expect(scan.events).toHaveLength(3);
-    expect(scan.oldestCreated).toBe(500);
   });
 });
 
@@ -849,5 +940,22 @@ describe("shortServerHost", () => {
     expect(shortServerHost("https://blossom.band")).toBe("blossom.band");
     expect(shortServerHost("https://onlydans.blossom.band")).toBe("onlydans.blossom.band");
     expect(shortServerHost("https://blossom.primal.net")).toBe("blossom.primal.net");
+  });
+});
+
+describe("hexToNevent", () => {
+  it("encodes an event id (with kind) that decodes back", async () => {
+    const { hexToNevent } = await import("@/lib/nostr");
+    const { nip19 } = await import("nostr-tools");
+    const id = "0".repeat(63) + "a";
+
+    const nevent = hexToNevent(id);
+    expect(nevent.startsWith("nevent1")).toBe(true);
+    expect((nip19.decode(nevent).data as { id: string }).id).toBe(id);
+
+    const withKind = hexToNevent(id, 20);
+    const decoded = nip19.decode(withKind).data as { id: string; kind?: number };
+    expect(decoded.id).toBe(id);
+    expect(decoded.kind).toBe(20);
   });
 });

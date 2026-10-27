@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatBytes, shortHash, shortServerHost, type BlobItem } from "@/lib/blossom/inventory";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import PostsDialog from "./PostsDialog";
 
 export function formatUploaded(uploaded: number | undefined): string {
   if (!uploaded) return "Upload date unknown";
@@ -48,6 +49,7 @@ export default function BlobTile({
   const [copied, setCopied] = useState(false);
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [showPosts, setShowPosts] = useState(false);
   const posts = item.references.length;
 
   const linkBadge =
@@ -55,7 +57,7 @@ export default function BlobTile({
       ? {
           cls: "bg-emerald-600/90 text-white",
           label: `in ${posts} post${posts === 1 ? "" : "s"}`,
-          title: "Linked from your posts",
+          title: "Click to see the posts that reference this file",
         }
       : item.referenceState === "unscanned"
         ? {
@@ -93,7 +95,23 @@ export default function BlobTile({
         selected ? "border-red-500/70 ring-1 ring-red-500/40" : "border-line"
       }`}
     >
-      <div className="relative h-32 bg-black/10 dark:bg-white/5">
+      <div
+        className="relative h-32 bg-black/10 dark:bg-white/5 cursor-pointer"
+        onClick={() => setShowPosts(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setShowPosts(true);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        title={
+          posts > 0
+            ? "See the posts that use this file"
+            : "No posts found in your scanned posts"
+        }
+      >
         {showImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -145,7 +163,10 @@ export default function BlobTile({
           </div>
         )}
 
-        <label className="absolute top-2 left-2 flex items-center justify-center w-6 h-6 rounded-md bg-black/60 cursor-pointer">
+        <label
+          className="absolute top-2 left-2 flex items-center justify-center w-6 h-6 rounded-md bg-black/60 cursor-pointer"
+          onClick={(e) => e.stopPropagation()}
+        >
           <input
             type="checkbox"
             checked={selected}
@@ -157,7 +178,10 @@ export default function BlobTile({
 
         <button
           type="button"
-          onClick={onToggleDismissed}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleDismissed();
+          }}
           className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 rounded-md bg-black/60 text-white/80 hover:text-white transition-colors"
           title={
             dismissed
@@ -168,15 +192,38 @@ export default function BlobTile({
           {dismissed ? <Undo2 size={13} /> : <X size={13} />}
         </button>
 
-        <span
-          className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${linkBadge.cls}`}
-          title={linkBadge.title}
-        >
-          {linkBadge.label}
-        </span>
-        {item.copies.length > 1 ? (
-          <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/60 text-white/90">
-            {item.copies.length} servers
+        {posts > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowPosts(true)}
+            className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${linkBadge.cls} hover:brightness-125 transition-all`}
+            title="See the posts that use this file"
+          >
+            {linkBadge.label}
+          </button>
+        ) : (
+          <span
+            className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${linkBadge.cls}`}
+            title={linkBadge.title}
+          >
+            {linkBadge.label}
+          </span>
+        )}
+        {item.media === "video" || item.copies.length > 1 ? (
+          <span className="absolute bottom-2 right-2 flex items-center gap-1">
+            {item.media === "video" && !broken ? (
+              <span
+                className="flex items-center justify-center w-5 h-5 rounded bg-black/60 text-white/90"
+                title="Video"
+              >
+                <Video size={11} />
+              </span>
+            ) : null}
+            {item.copies.length > 1 ? (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/60 text-white/90">
+                {item.copies.length} servers
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -228,6 +275,22 @@ export default function BlobTile({
           </button>
         </div>
       </div>
+      {showPosts ? (
+        <PostsDialog
+          hash={item.hash}
+          references={item.references}
+          previewUrl={item.primaryUrl}
+          media={item.media}
+          emptyMessage={
+            item.referenceState === "unscanned"
+              ? "Uploaded before the scan window; your posts weren't checked for links to it."
+              : "None of your scanned posts link to it. DMs, unread relays, or URL-rewriting clients may."
+          }
+          fileUrl={item.primaryUrl}
+          onDelete={onReap}
+          onClose={() => setShowPosts(false)}
+        />
+      ) : null}
     </div>
   );
 }

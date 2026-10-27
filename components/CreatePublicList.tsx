@@ -37,6 +37,7 @@ import {
   Profile,
 } from "@/types";
 import UserProfileModal from "./UserProfileModal";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface CreatePublicListProps {
   onClose: () => void;
@@ -47,6 +48,7 @@ export default function CreatePublicList({
   onClose,
   editingPack,
 }: CreatePublicListProps) {
+  useBodyScrollLock();
   const { session } = useAuth();
   const { muteList, setMuteList, setHasUnsavedChanges } = useStore();
 
