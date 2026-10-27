@@ -40,6 +40,7 @@ import PageHeader from "@/components/system/PageHeader";
 import Panel, { PanelHeader } from "@/components/system/Panel";
 import Button from "@/components/system/Button";
 import BlobTile, { formatUploaded } from "@/components/bloom-reaper/BlobTile";
+import GallerySkeleton from "@/components/bloom-reaper/GallerySkeleton";
 import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import ReapDialog, { type ReapResult } from "@/components/bloom-reaper/ReapDialog";
 
@@ -64,12 +65,29 @@ const RELAY_MAX_WAIT_MS = 8000;
 const PROBE_CONCURRENCY = 4;
 // Tiles beyond the first page wait for a click: no DOM, no downloads.
 const GALLERY_PAGE_SIZE = 24;
+// "Linked but gone" rows are slim, so the page holds more of them.
+const MISSING_PAGE_SIZE = 50;
 
 const originLabels: Record<BlossomServerOrigin, string> = {
   list: "your list",
   mutable: "mutable",
   referenced: "in your posts",
 };
+
+// Quick cuts on the upload bracket: open-ended ranges ending today. The
+// local calendar day matches how the from/to inputs compare.
+const presetRanges = [
+  { label: "7 days", days: 7 },
+  { label: "30 days", days: 30 },
+  { label: "90 days", days: 90 },
+  { label: "1 year", days: 365 },
+] as const;
+
+function presetFrom(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 const statusLabels: Record<ServerStatus, string> = {
   pending: "asking…",
@@ -101,6 +119,7 @@ export default function BloomReaper() {
   const [missingPresence, setMissingPresence] = useState<Record<string, BlobPresence>>({});
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
+  const [missingVisibleCount, setMissingVisibleCount] = useState(MISSING_PAGE_SIZE);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [listings, setListings] = useState<ReadonlyMap<string, BlobDescriptor[]>>(
@@ -202,6 +221,7 @@ export default function BloomReaper() {
     setItems(scanResult.items);
     setMissing(scanResult.missing);
     setVisibleCount(GALLERY_PAGE_SIZE);
+    setMissingVisibleCount(MISSING_PAGE_SIZE);
     setPhase("done");
 
     // Whether a dead-looking link still resolves at its original host.
@@ -509,6 +529,25 @@ export default function BloomReaper() {
         </Panel>
       ) : null}
 
+      {scanning ? (
+        <Panel>
+          <PanelHeader
+            title="Your blooms"
+            note={
+              phase === "signing"
+                ? "waiting for your signature…"
+                : servers.length > 0
+                  ? `asking ${servers.length} server${servers.length === 1 ? "" : "s"}…`
+                  : "asking your servers…"
+            }
+            actions={<RefreshCw size={15} className="animate-spin text-mut" />}
+          />
+          <div className="p-5">
+            <GallerySkeleton />
+          </div>
+        </Panel>
+      ) : null}
+
       {phase === "done" ? (
         <>
           <Panel>
@@ -569,6 +608,28 @@ export default function BloomReaper() {
                       className="px-2 py-1 rounded-lg bg-inset border border-line-2 text-mid dark:[color-scheme:dark]"
                       aria-label="To date"
                     />
+                    {presetRanges.map(({ label, days }) => {
+                      const active = dateFrom === presetFrom(days) && !dateTo;
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => {
+                            setDateFrom(presetFrom(days));
+                            setDateTo("");
+                            setVisibleCount(GALLERY_PAGE_SIZE);
+                          }}
+                          className={`px-2 py-1 rounded-full border text-xs font-semibold transition-colors ${
+                            active
+                              ? "bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-400"
+                              : "bg-inset border-line-2 text-mut hover:text-hi"
+                          }`}
+                          title={`Uploaded in the last ${label}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                     {dateFrom || dateTo ? (
                       <button
                         type="button"
@@ -677,7 +738,7 @@ export default function BloomReaper() {
                 note={`${missing.length} file${missing.length === 1 ? "" : "s"} your posts point at that no listed server holds`}
               />
               <ul className="divide-y divide-line">
-                {missing.map((blob) => {
+                {missing.slice(0, missingVisibleCount).map((blob) => {
                   const presence = missingPresence[blob.hash];
                   const posts = blob.references.length;
                   return (
@@ -750,6 +811,20 @@ export default function BloomReaper() {
                   );
                 })}
               </ul>
+              {missing.length > missingVisibleCount ? (
+                <div className="flex justify-center py-3 border-t border-line">
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      setMissingVisibleCount((count) => count + MISSING_PAGE_SIZE)
+                    }
+                  >
+                    Load{" "}
+                    {Math.min(MISSING_PAGE_SIZE, missing.length - missingVisibleCount)}{" "}
+                    more ({missing.length - missingVisibleCount} not shown)
+                  </Button>
+                </div>
+              ) : null}
             </Panel>
           ) : null}
         </>
