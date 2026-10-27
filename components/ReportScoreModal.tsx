@@ -3,14 +3,12 @@
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { REPORT_SCORE_LEVELS } from '@/lib/utils/reportScore';
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface ReportScoreModalProps {
   onClose: () => void;
 }
 
 export default function ReportScoreModal({ onClose }: ReportScoreModalProps) {
-  useBodyScrollLock();
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div

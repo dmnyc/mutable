@@ -14,7 +14,6 @@ import {
 } from "@/lib/blossom/client";
 import { shortHash, shortServerHost, type BlobItem } from "@/lib/blossom/inventory";
 import Button from "@/components/system/Button";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export interface ReapResult {
   hash: string;
@@ -54,7 +53,6 @@ export default function ReapDialog({
   onClose: () => void;
   onComplete: (results: ReapResult[]) => void;
 }) {
-  useBodyScrollLock();
   const [phase, setPhase] = useState<Phase>("confirm");
   const [error, setError] = useState<string | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());

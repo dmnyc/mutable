@@ -56,14 +56,12 @@ import { getPostedNoteLink, getPostedNevent } from "@/lib/utils/links";
 import AppShell from "@/components/system/AppShell";
 import PageHeader from "@/components/system/PageHeader";
 import type { Profile } from "@/types";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 type Status = "idle" | "running" | "done" | "error";
 
 const PENDING = "Scanning the network…";
 
 export default function Dossier() {
-  useBodyScrollLock();
   const searchParams = useSearchParams();
   const { session } = useAuth();
   const [input, setInput] = useState("");

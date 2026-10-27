@@ -21,7 +21,6 @@ import {
 } from "@/lib/blossom/client";
 import { shortServerHost, type MissingBlob } from "@/lib/blossom/inventory";
 import Button from "@/components/system/Button";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 type Phase = "pick" | "signing" | "mirroring" | "verifying" | "done";
 
@@ -46,7 +45,6 @@ export default function RehomeDialog({
   onClose: () => void;
   onSaved: (hash: string, server: string, listed: boolean) => void;
 }) {
-  useBodyScrollLock();
   const [server, setServer] = useState(targets[0] ?? "");
   const [phase, setPhase] = useState<Phase>("pick");
   const [error, setError] = useState<string | null>(null);

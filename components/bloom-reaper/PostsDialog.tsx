@@ -12,7 +12,6 @@ import {
 } from "@/lib/blossom/inventory";
 import type { BlobReference } from "@/lib/blossom/references";
 import PostLinks from "./PostLinks";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const KIND_LABELS: Record<number, string> = {
   0: "profile",
@@ -59,7 +58,6 @@ export default function PostsDialog({
   onDelete?: () => void;
   onClose: () => void;
 }) {
-  useBodyScrollLock();
   const [broken, setBroken] = useState(false);
   const showPreview =
     (media === "image" || media === "video") && !broken;

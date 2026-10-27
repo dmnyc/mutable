@@ -37,10 +37,8 @@ import {
   Lock,
   Unlock,
 } from "lucide-react";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export default function Settings() {
-  useBodyScrollLock();
   const router = useRouter();
   const { disconnect } = useAuth();
   const { triggerSync, getSyncStatus, isOnline } = useRelaySync();

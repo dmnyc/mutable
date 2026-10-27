@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Inter, Montserrat } from "next/font/google";
 import { themeInitScript } from "@/lib/theme";
 import AmbientBackdrop from "@/components/system/AmbientBackdrop";
+import ModalScrollLock from "@/components/system/ModalScrollLock";
 import "./globals.css";
 
 // Self-hosted at build time by next/font; exposed as CSS variables that
@@ -69,6 +70,7 @@ export default function RootLayout({
         {/* Applies the stored theme before first paint to avoid a flash */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <AmbientBackdrop />
+        <ModalScrollLock />
         {children}
         <Analytics />
       </body>

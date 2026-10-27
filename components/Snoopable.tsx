@@ -38,10 +38,8 @@ import {
   getErrorMessage,
 } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export default function Snoopable() {
-  useBodyScrollLock();
   const { session } = useAuth();
   const searchParams = useSearchParams();
 

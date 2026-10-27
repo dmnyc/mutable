@@ -21,7 +21,6 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface ProfileEditorModalProps {
   onClose: () => void;
@@ -55,7 +54,6 @@ export default function ProfileEditorModal({
   onClose,
   onProfileUpdated,
 }: ProfileEditorModalProps) {
-  useBodyScrollLock();
   const { session } = useAuth();
   const { userProfile, setUserProfile, signer } = useStore();
 

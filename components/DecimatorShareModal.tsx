@@ -7,7 +7,6 @@ import { getErrorMessage } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Copy, Check, Send, Loader2 } from "lucide-react";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface DecimatorShareModalProps {
   decimatedCount: number;
@@ -18,7 +17,6 @@ export default function DecimatorShareModal({
   decimatedCount,
   onClose,
 }: DecimatorShareModalProps) {
-  useBodyScrollLock();
   const { session } = useAuth();
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);

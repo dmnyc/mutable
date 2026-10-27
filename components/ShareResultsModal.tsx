@@ -16,7 +16,6 @@ import {
   formatPerThousand,
 } from "@/lib/utils/muteScore";
 import { X, Copy, Check, Send, Loader2 } from "lucide-react";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface ShareResultsModalProps {
   targetProfile: Profile;
@@ -35,7 +34,6 @@ export default function ShareResultsModal({
   noteCountCapped = false,
   onClose,
 }: ShareResultsModalProps) {
-  useBodyScrollLock();
   const { session } = useAuth();
   // Pre-check "This is me!" whenever the results being shared are the signed-in
   // user's own — covers Scope Myself, a self npub paste, and ?npub= links alike.

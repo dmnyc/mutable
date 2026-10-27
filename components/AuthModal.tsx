@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/hooks/useAuth";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,7 +22,6 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  useBodyScrollLock();
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectingMethod, setConnectingMethod] = useState<

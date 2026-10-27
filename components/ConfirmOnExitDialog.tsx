@@ -2,7 +2,6 @@
 
 import { createPortal } from 'react-dom';
 import { Save, Trash2, X } from 'lucide-react';
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface ConfirmOnExitDialogProps {
   isOpen: boolean;
@@ -17,7 +16,6 @@ export default function ConfirmOnExitDialog({
   onDiscard,
   onCancel,
 }: ConfirmOnExitDialogProps) {
-  useBodyScrollLock();
   if (!isOpen) return null;
 
   return createPortal(

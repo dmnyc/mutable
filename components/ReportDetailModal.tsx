@@ -25,7 +25,6 @@ import { getDisplayName } from "@/lib/utils/format";
 import { getEventLink, getReportEventLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import ReportTypeBadge from "./ReportTypeBadge";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 /**
  * The fields every report view (received, filed, feed) can hand to the
@@ -370,7 +369,6 @@ export default function ReportDetailModal({
   report,
   onClose,
 }: ReportDetailModalProps) {
-  useBodyScrollLock();
   const [copied, setCopied] = useState<string | null>(null);
 
   const reporterProfile = report.reporterProfile ?? report.profile;

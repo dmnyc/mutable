@@ -12,7 +12,6 @@ import { copyToClipboard } from "@/lib/utils/clipboard";
 import { useAuth } from "@/hooks/useAuth";
 import { getReportScore } from "@/lib/utils/reportScore";
 import { X, Copy, Check, Send, Loader2 } from "lucide-react";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface ReportableShareModalProps {
   targetProfile: Profile;
@@ -32,7 +31,6 @@ export default function ReportableShareModal({
   filedCount,
   onClose,
 }: ReportableShareModalProps) {
-  useBodyScrollLock();
   const { session } = useAuth();
   // Pre-check "This is me!" whenever the results being shared are the signed-in
   // user's own — covers Check my Reports, a self npub paste, and ?npub= links.

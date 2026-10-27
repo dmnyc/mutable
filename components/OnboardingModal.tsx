@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Shield, Users, Eye, EyeOff, Archive, Download, FileText } from 'lucide-react';
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface OnboardingModalProps {
   onClose: () => void;
@@ -12,7 +11,6 @@ interface OnboardingModalProps {
 }
 
 export default function OnboardingModal({ onClose, onCreateBackup, onSkip }: OnboardingModalProps) {
-  useBodyScrollLock();
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = [

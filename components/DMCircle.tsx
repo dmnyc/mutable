@@ -19,7 +19,6 @@ import { getPostedNoteLink } from "@/lib/utils/links";
 import { uploadImageToBlossom } from "@/lib/imageUpload";
 import { useStore } from "@/lib/store";
 import { nip19 } from "nostr-tools";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 // Global cache for loaded images (persists across re-renders)
 const imageCache = new Map<string, string>();
@@ -35,7 +34,6 @@ export default function DMCircle({
   targetPubkey,
   contacts,
 }: DMCircleProps) {
-  useBodyScrollLock();
   const circleRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
