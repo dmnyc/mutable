@@ -5,8 +5,10 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Github, Zap, User } from 'lucide-react';
 import packageJson from '@/package.json';
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export default function Footer() {
+  useBodyScrollLock();
   const [zapModal, setZapModal] = useState({
     show: false,
     lightningAddress: 'daniel@breez.tips',

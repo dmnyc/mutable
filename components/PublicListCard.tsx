@@ -38,6 +38,7 @@ import { copyToClipboard } from "@/lib/utils/clipboard";
 import ImportConfirmationDialog from "./ImportConfirmationDialog";
 import UserProfileModal from "./UserProfileModal";
 import { useAuth } from "@/hooks/useAuth";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface PublicListCardProps {
   list: PublicMuteList;
@@ -54,6 +55,7 @@ export default function PublicListCard({
   onDelete,
   hideImportFeatures = false,
 }: PublicListCardProps) {
+  useBodyScrollLock();
   const { session } = useAuth();
   const {
     muteList,

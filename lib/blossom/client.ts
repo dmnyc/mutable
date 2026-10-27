@@ -332,6 +332,47 @@ export async function deleteBlob(
   }
 }
 
+export type BlossomMirrorOutcome =
+  | { status: "ok"; existed: boolean }
+  | { status: "unauthorized"; code: number }
+  | { status: "failed"; message: string };
+
+// PUT /mirror (BUD-04): ask a server to fetch the blob from its current URL.
+// The auth token is an upload token whose x tag covers the hash, so servers
+// that attribute mirrors will list it under the key; some won't, which the
+// caller verifies against /list.
+export async function mirrorBlob(
+  target: string,
+  sourceUrl: string,
+  hash: string,
+  authHeader: string,
+  options: BlossomRequestOptions = {},
+): Promise<BlossomMirrorOutcome> {
+  try {
+    const response = await request(
+      `${target}/mirror`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: sourceUrl }),
+      },
+      options,
+    );
+    if (response.status === 200 || response.status === 201) {
+      return { status: "ok", existed: response.status === 200 };
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { status: "unauthorized", code: response.status };
+    }
+    return { status: "failed", message: describeStatus(response) };
+  } catch (error) {
+    return { status: "failed", message: describeError(error) };
+  }
+}
+
 export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,

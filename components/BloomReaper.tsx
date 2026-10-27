@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Filter } from "nostr-tools";
 import {
   AlertTriangle,
+  ArrowRightLeft,
   CalendarDays,
   Check,
-  ExternalLink,
   Flower2,
   ImageOff,
   RefreshCw,
@@ -16,7 +16,14 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
-import { DEFAULT_RELAYS, getPool, hasNip07, hexToNote, normalizeRelayList } from "@/lib/nostr";
+import {
+  DEFAULT_RELAYS,
+  KNOWN_RELAYS,
+  getPool,
+  hasNip07,
+  hexToNote,
+  normalizeRelayList,
+} from "@/lib/nostr";
 import {
   isBlobHash,
   mapWithConcurrency,
@@ -35,12 +42,15 @@ import {
   type BlobItem,
   type MissingBlob,
 } from "@/lib/blossom/inventory";
-import { BlossomSigningError, scanBlossom, type BlossomScan } from "@/lib/blossom/scan";
+import { BlossomSigningError, scanBlossom, type BlossomScan, type ReferenceProgress } from "@/lib/blossom/scan";
+import { MUTABLE_BLOSSOM_SERVERS } from "@/lib/blossom/servers";
 import PageHeader from "@/components/system/PageHeader";
 import Panel, { PanelHeader } from "@/components/system/Panel";
 import Button from "@/components/system/Button";
 import BlobTile, { formatUploaded } from "@/components/bloom-reaper/BlobTile";
 import GallerySkeleton from "@/components/bloom-reaper/GallerySkeleton";
+import PostLinks from "@/components/bloom-reaper/PostLinks";
+import RehomeDialog from "@/components/bloom-reaper/RehomeDialog";
 import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 import ReapDialog, { type ReapResult } from "@/components/bloom-reaper/ReapDialog";
 
@@ -61,7 +71,10 @@ type GalleryFilter =
   | "unscanned"
   | "hidden";
 
-const RELAY_MAX_WAIT_MS = 8000;
+// The reference scan asks for the user's own events across a wide fan-out:
+// a post sitting on a relay outside this set is what turns into a false
+// "no link found" in the gallery.
+const RELAY_MAX_WAIT_MS = 12_000;
 const PROBE_CONCURRENCY = 4;
 // Tiles beyond the first page wait for a click: no DOM, no downloads.
 const GALLERY_PAGE_SIZE = 24;
@@ -97,6 +110,21 @@ const statusLabels: Record<ServerStatus, string> = {
   failed: "failed",
 };
 
+// The scan reports servers twice — the kind 10063 list first, then with
+// post-referenced hosts — keep live statuses across the replacement.
+function mergeServerRows(
+  previous: ServerRow[],
+  entries: BlossomServerEntry[],
+): ServerRow[] {
+  const known = new Map(previous.map((row) => [row.server, row]));
+  return entries.map((entry) => ({
+    ...entry,
+    status: known.get(entry.server)?.status ?? "pending",
+    count: known.get(entry.server)?.count,
+    message: known.get(entry.server)?.message,
+  }));
+}
+
 const filterLabels: Record<GalleryFilter, string> = {
   all: "All",
   images: "Images",
@@ -129,15 +157,28 @@ export default function BloomReaper() {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reapTargets, setReapTargets] = useState<BlobItem[] | null>(null);
+  const [rehomeTarget, setRehomeTarget] = useState<MissingBlob | null>(null);
+  const [rehomed, setRehomed] = useState<Record<string, { server: string; listed: boolean }>>({});
   const [referenceEventCount, setReferenceEventCount] = useState(0);
   const [referenceOldest, setReferenceOldest] = useState<number | undefined>(
     undefined,
   );
+  const [referenceProgress, setReferenceProgress] = useState<ReferenceProgress | null>(null);
+  const listingsRef = useRef(new Map<string, BlobDescriptor[]>());
 
+  // Session relays plus the wide discovery set: this one query feeds the
+  // server list (kind 10063) and every reference match in the gallery, so
+  // coverage here is what keeps "no link found" honest.
   const relays = useMemo(
     () =>
       Array.from(
-        new Set(normalizeRelayList([...(session?.relays ?? []), ...DEFAULT_RELAYS])),
+        new Set(
+          normalizeRelayList([
+            ...(session?.relays ?? []),
+            ...DEFAULT_RELAYS,
+            ...KNOWN_RELAYS,
+          ]),
+        ),
       ),
     [session],
   );
@@ -160,6 +201,10 @@ export default function BloomReaper() {
     setMissing([]);
     setMissingPresence({});
     setSelected(new Set());
+    setRehomed({});
+    setRehomeTarget(null);
+    setReferenceProgress(null);
+    listingsRef.current = new Map();
     // Dismissals persist per key, so a rescan keeps the gallery tidy.
     let storedHidden: unknown = [];
     try {
@@ -187,9 +232,10 @@ export default function BloomReaper() {
         {
           onSigned: () => setPhase("scanning"),
           onServers: (entries) =>
-            setServers(entries.map((entry) => ({ ...entry, status: "pending" }))),
+            setServers((previous) => mergeServerRows(previous, entries)),
           onServerResult: (server, outcome) => {
             if (outcome.status === "ok") {
+              listingsRef.current.set(server, outcome.blobs);
               updateServer(server, { status: "ok", count: outcome.blobs.length });
             } else if (outcome.status === "failed") {
               updateServer(server, { status: "failed", message: outcome.message });
@@ -199,6 +245,16 @@ export default function BloomReaper() {
                 message: `HTTP ${outcome.code}`,
               });
             }
+          },
+          onReferenceProgress: (progress) => setReferenceProgress(progress),
+          onListingsDone: ({ servers: entries, items: partialItems }) => {
+            setServers((previous) => mergeServerRows(previous, entries));
+            setListings(new Map(listingsRef.current));
+            setItems(partialItems);
+          },
+          onReferencesPartial: ({ references: partialRefs, items: partialItems }) => {
+            setReferences(partialRefs);
+            setItems(partialItems);
           },
         },
       );
@@ -400,12 +456,13 @@ export default function BloomReaper() {
       {phase === "idle" || phase === "error" ? (
         <Panel className="p-6 space-y-4">
           <p className="text-sm text-mid max-w-3xl">
-            Every Blossom server keeps a list of what each key uploaded.
-            Bloom Reaper gathers your servers — your kind 10063 list,
+            Some Blossom servers keep a list of what each key uploaded. Bloom
+            Reaper gathers your servers — your kind 10063 list,
             Mutable&apos;s defaults, and hosts from your recent posts — asks
             each for everything under your key, and checks your latest posts
             to see which files are still linked and which links point at
-            nothing.
+            nothing. Servers that don&apos;t track uploads just show as
+            unavailable.
           </p>
           <p className="text-sm text-mid max-w-3xl">
             One signature lists them; servers only show a key its own uploads.
@@ -529,7 +586,7 @@ export default function BloomReaper() {
         </Panel>
       ) : null}
 
-      {scanning ? (
+      {scanning && items.length === 0 ? (
         <Panel>
           <PanelHeader
             title="Your blooms"
@@ -544,11 +601,21 @@ export default function BloomReaper() {
           />
           <div className="p-5">
             <GallerySkeleton />
+            {referenceProgress ? (
+              <p className="pt-4 text-xs text-mut flex items-center gap-2">
+                <RefreshCw size={13} className="animate-spin flex-none" />
+                Reading your posts — {referenceProgress.events} events so far,
+                back to{" "}
+                {referenceProgress.oldest
+                  ? formatUploaded(referenceProgress.oldest)
+                  : "now"}
+              </p>
+            ) : null}
           </div>
         </Panel>
       ) : null}
 
-      {phase === "done" ? (
+      {phase === "done" || (scanning && items.length > 0) ? (
         <>
           <Panel>
             <PanelHeader
@@ -556,11 +623,13 @@ export default function BloomReaper() {
               note={
                 items.length === 0
                   ? "nothing listed"
-                  : `${items.length} file${items.length === 1 ? "" : "s"}, checked against ${referenceEventCount} event${referenceEventCount === 1 ? "" : "s"}${
-                      referenceOldest
-                        ? ` back to ${formatUploaded(referenceOldest)}`
-                        : ""
-                    }`
+                  : scanning
+                    ? `${items.length} file${items.length === 1 ? "" : "s"} — checking links…`
+                    : `${items.length} file${items.length === 1 ? "" : "s"}, checked against ${referenceEventCount} event${referenceEventCount === 1 ? "" : "s"}${
+                        referenceOldest
+                          ? ` back to ${formatUploaded(referenceOldest)}`
+                          : ""
+                      }`
               }
               actions={
                 selectedItems.length > 0 ? (
@@ -731,6 +800,17 @@ export default function BloomReaper() {
             </div>
           </Panel>
 
+          {scanning && referenceProgress ? (
+            <p className="text-xs text-mut flex items-center gap-2">
+              <RefreshCw size={13} className="animate-spin flex-none" />
+              Reading your posts — {referenceProgress.events} events so far,
+              back to{" "}
+              {referenceProgress.oldest
+                ? formatUploaded(referenceProgress.oldest)
+                : "now"}
+            </p>
+          ) : null}
+
           {missing.length > 0 ? (
             <Panel>
               <PanelHeader
@@ -797,15 +877,50 @@ export default function BloomReaper() {
                               ? "couldn't check"
                               : "checking…"}
                       </span>
-                      {blob.references[0] ? (
-                        <Link
-                          href={`/note-nuke?note=${hexToNote(blob.references[0].eventId)}`}
-                          className="inline-flex items-center gap-1 text-xs text-mut hover:text-hi"
-                          title="Open the newest post that links to it in Note Nuke"
+                      {rehomed[blob.hash] ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            rehomed[blob.hash].listed
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                          }`}
+                          title={
+                            rehomed[blob.hash].listed
+                              ? `A copy is stored and listed on ${rehomed[blob.hash].server}`
+                              : `A copy is stored on ${rehomed[blob.hash].server}, but it isn't listed under your key`
+                          }
                         >
-                          <ExternalLink size={13} />
-                          post
-                        </Link>
+                          {rehomed[blob.hash].listed ? "saved" : "copied"} →{" "}
+                          {serverHost(rehomed[blob.hash].server)}
+                        </span>
+                      ) : presence === "present" && blob.url ? (
+                        <button
+                          type="button"
+                          onClick={() => setRehomeTarget(blob)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-inset border border-line-2 text-mid hover:text-hi transition-colors"
+                          title="Ask one of your servers to fetch a copy of this file before the old host goes away"
+                        >
+                          <ArrowRightLeft size={12} />
+                          Re-home
+                        </button>
+                      ) : null}
+                      {blob.references[0] ? (
+                        <>
+                          <Link
+                            href={`/note-nuke?note=${hexToNote(blob.references[0].eventId)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-mut hover:text-hi"
+                            title="Open the newest post that links to it in Note Nuke (new tab)"
+                          >
+                            <Trash2 size={13} />
+                            post
+                          </Link>
+                          <PostLinks
+                            eventId={blob.references[0].eventId}
+                            kind={blob.references[0].kind}
+                          />
+                        </>
                       ) : null}
                     </li>
                   );
@@ -836,6 +951,23 @@ export default function BloomReaper() {
           signer={signer}
           onClose={() => setReapTargets(null)}
           onComplete={handleReaped}
+        />
+      ) : null}
+
+      {rehomeTarget && signer && session ? (
+        <RehomeDialog
+          blob={rehomeTarget}
+          targets={
+            servers.some((row) => row.status === "ok")
+              ? servers.filter((row) => row.status === "ok").map((row) => row.server)
+              : Array.from(MUTABLE_BLOSSOM_SERVERS)
+          }
+          pubkey={session.pubkey}
+          signer={signer}
+          onClose={() => setRehomeTarget(null)}
+          onSaved={(hash, server, listed) =>
+            setRehomed((previous) => ({ ...previous, [hash]: { server, listed } }))
+          }
         />
       ) : null}
 

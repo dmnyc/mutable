@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, Sparkles, X } from 'lucide-react';
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface PublishSuccessModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface PublishSuccessModalProps {
 }
 
 export default function PublishSuccessModal({ isOpen, onClose, itemCount }: PublishSuccessModalProps) {
+  useBodyScrollLock();
   const [show, setShow] = useState(false);
 
   const handleClose = () => {

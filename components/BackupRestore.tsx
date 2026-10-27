@@ -6,8 +6,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { MuteList } from '@/types';
 import { publishMuteList } from '@/lib/nostr';
 import { Download, Upload, Archive } from 'lucide-react';
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export default function BackupRestore() {
+  useBodyScrollLock();
   const { session } = useAuth();
   const { muteList, setMuteList, setHasUnsavedChanges } = useStore();
   const [showMenu, setShowMenu] = useState(false);

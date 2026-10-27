@@ -1316,10 +1316,11 @@ export function hexToNpub(hex: string): string {
   }
 }
 
-// Convert hex event ID to nevent bech32 format
-export function hexToNevent(hex: string): string {
+// Convert hex event ID to nevent bech32 format. The optional kind lets
+// clients (Jumble, njump) resolve kind 0/1063 references, not just notes.
+export function hexToNevent(hex: string, kind?: number): string {
   try {
-    return nip19.neventEncode({ id: hex });
+    return nip19.neventEncode(kind !== undefined ? { id: hex, kind } : { id: hex });
   } catch (error) {
     // Fallback to note format if nevent fails
     try {

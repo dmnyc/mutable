@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Shield, AlertTriangle, Loader2, Archive } from 'lucide-react';
 import { PublicMuteList } from '@/types';
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface ImportConfirmationDialogProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export default function ImportConfirmationDialog({
   newItemsCount,
   totalItemsCount,
 }: ImportConfirmationDialogProps) {
+  useBodyScrollLock();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
