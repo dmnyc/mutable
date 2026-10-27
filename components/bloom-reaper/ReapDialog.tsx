@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AlertTriangle, Check, File, RefreshCw, Trash2, X } from "lucide-react";
 import type { Signer } from "@/lib/signers";
@@ -21,6 +22,10 @@ export interface ReapResult {
 }
 
 type Phase = "confirm" | "signing" | "reaping" | "done";
+
+// Servers can be slow to answer a DELETE (primal has timed out at the 15s
+// default); a timed-out delete is settled by a presence check either way.
+const DELETE_TIMEOUT_MS = 30_000;
 
 const copyKey = (hash: string, server: string) => `${hash}|${server}`;
 
@@ -103,7 +108,9 @@ export default function ReapDialog({
     setPhase("reaping");
     const collected: ReapResult[] = [];
     await mapWithConcurrency(selected, 4, async ({ item, copy, key }) => {
-      const outcome = await deleteBlob(copy.server, item.hash, auth);
+      const outcome = await deleteBlob(copy.server, item.hash, auth, {
+        timeoutMs: DELETE_TIMEOUT_MS,
+      });
       collected.push({ hash: item.hash, server: copy.server, outcome });
       setResults((previous) => new Map(previous).set(key, outcome));
     });
@@ -123,10 +130,12 @@ export default function ReapDialog({
 
   const busy = phase === "signing" || phase === "reaping";
 
-  return (
+  // Portaled to <body>: <main> carries animate-rise (a fill-mode "both"
+  // transform animation), which makes it the containing block for fixed
+  // descendants and would push the dialog to the middle of a very tall page.
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-      style={{ margin: 0 }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="reap-dialog-title"
@@ -308,6 +317,7 @@ export default function ReapDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

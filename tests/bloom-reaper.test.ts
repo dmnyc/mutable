@@ -324,6 +324,58 @@ describe("deleteBlob", () => {
       }),
     ).toEqual({ status: "failed", message: "Network error" });
   });
+
+  it("settles a timed-out delete with a presence check", async () => {
+    const seen: string[] = [];
+    const cacheModes: (string | undefined)[] = [];
+    const hanging: FetchLike = (url, init) => {
+      seen.push(`${init.method} ${url}`);
+      cacheModes.push(init.cache);
+      if (init.method === "DELETE") {
+        return new Promise((_, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          });
+        });
+      }
+      return Promise.resolve(new Response(null, { status: 404 }));
+    };
+
+    const outcome = await deleteBlob(SERVER, HASH_A, "Nostr tok", {
+      fetch: hanging,
+      timeoutMs: 10,
+    });
+
+    expect(outcome).toEqual({ status: "missing" });
+    expect(seen[1]).toBe(`HEAD ${SERVER}/${HASH_A}`);
+    // The gallery renders blob URLs as <img>; the check must not read that
+    // cached pre-delete 200 back as "still there".
+    expect(cacheModes[1]).toBe("no-store");
+  });
+
+  it("reports a timed-out delete as still there when the blob survives", async () => {
+    const aborting: FetchLike = (_url, init) =>
+      new Promise((_, reject) => {
+        init.signal?.addEventListener("abort", () => {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        });
+      });
+    const stillThere: FetchLike = (url, init) =>
+      init.method === "DELETE"
+        ? aborting(url, init)
+        : Promise.resolve(new Response(null, { status: 200 }));
+
+    expect(
+      await deleteBlob(SERVER, HASH_A, "Nostr tok", {
+        fetch: stillThere,
+        timeoutMs: 10,
+      }),
+    ).toEqual({ status: "failed", message: "Timed out — file still there" });
+  });
 });
 
 describe("probeUrl and headBlob", () => {

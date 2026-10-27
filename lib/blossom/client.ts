@@ -265,7 +265,14 @@ export async function probeUrl(
   options: BlossomRequestOptions = {},
 ): Promise<BlobPresence> {
   try {
-    const response = await request(url, { method: "HEAD" }, options);
+    // no-store: gallery tiles render these exact URLs as <img> and blobs
+    // are content-addressed (servers often mark them immutably cacheable),
+    // so a cached response would report a just-deleted blob as still there.
+    const response = await request(
+      url,
+      { method: "HEAD", cache: "no-store" },
+      options,
+    );
     if (response.ok) return "present";
     if (response.status === 404 || response.status === 410) return "missing";
     return "failed";
@@ -311,6 +318,16 @@ export async function deleteBlob(
     }
     return { status: "failed", message: describeStatus(response) };
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      // The request dying says nothing about whether the server finished
+      // the deletion: settle it with a presence check instead of
+      // reporting an ambiguous failure.
+      const presence = await probeUrl(blobUrl(server, hash), options);
+      if (presence === "missing") return { status: "missing" };
+      if (presence === "present") {
+        return { status: "failed", message: "Timed out — file still there" };
+      }
+    }
     return { status: "failed", message: describeError(error) };
   }
 }
