@@ -45,6 +45,19 @@ Check whether a Nostr key controls Bitcoin on-chain. A Nostr secret key is also 
 
 Copy your profile, follows, mutes and relays from an old key to a new one, including private mute decryption. Built for recovering from a compromised key.
 
+### Bloom Reaper 🌹 NEW
+
+Every file you've uploaded to Blossom, on every server you use, in one gallery. Sign in, and Bloom Reaper reads your Blossom server list (kind:10063), adds the servers Mutable uploads to and any host your recent posts link from, then asks each one for everything stored under your key (BUD-12 `/list`, one signature for all servers).
+
+- **Find**: size, upload date and which servers hold each file, grouped by hash so a mirrored image is one tile. Previews load as you scroll — Blossom serves only the original bytes (no smaller sizes), so large files just take a moment under the spinner. Filter by upload date with From/To; files with unknown dates sit out while a range is set
+- **Honest link status**: the reference scan pages backwards through your events until it covers your oldest upload (or a cap), and each tile reads "in N posts", "no link found" (the scan covered its date and found nothing) or "not scanned" (it predates the window, shown in the panel header). Kinds scanned: profile versions, notes, pictures, file metadata, comments, long-form articles, videos, pack covers
+- **Quiet server list**: servers holding nothing are left out, servers with an identical file set collapse into one row that expands to name every mirror, and per-npub subdomains (npub1….blossom.band) display as their base host
+- **Dismiss**: an X on every tile hides it from the gallery for good (per key, nothing is deleted); the Dismissed filter brings them back with a restore button
+- **Linked or orphaned**: your latest events are scanned (`imeta` tags, bare URLs, profile picture and banner, NIP-94 files, pack covers) to show which files your posts still use, and which links point at files no server holds anymore
+- **Copy URL** and open, straight from the tile
+- **Reap**: request deletion from any or all servers holding a file (BUD-12 `DELETE`), with one signature covering the whole selection. The confirmation spells out what a request can and can't do: deletion is per server, a server only drops your claim on the bytes, cached copies are out of reach, and posts that embed the file still link to it, with a hand-off to Note Nuke (`/note-nuke?note=…`) for those
+- **Honest limits**: listing is own-account only (servers refuse to list other keys), and images shared from Snoopable while signed out were uploaded under a throwaway key, so no one can list or reap them
+
 ### Personal Mute List Management (kind:10000)
 - **View & Edit**: Fetch and display your current mute list in four tabs, each with its count:
   - Profiles
@@ -172,6 +185,7 @@ The app is configured for deployment on Vercel:
 mutable/
 ├── app/                    # Next.js app directory
 │   ├── about/             # About page (reached from the user menu and the footer)
+│   ├── bloom-reaper/      # Bloom Reaper: your Blossom uploads, found and reaped
 │   ├── dashboard/         # Dashboard page
 │   ├── dossier/           # The Dossier (+ /card social image)
 │   ├── draftable/         # Draftable follow packs (browse, create, /d/[id] pack pages, social card)
@@ -185,12 +199,14 @@ mutable/
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Landing page
 ├── components/            # React components
+│   ├── bloom-reaper/      # Gallery tile and the reap confirmation dialog
 │   ├── draftable/         # Draftable views, "no exit" notices, profile loader
 │   ├── system/            # Shared chrome: AppShell, SiteNav, PageHeader, Button, Panel
 │   ├── About.tsx          # About page content
 │   ├── AuthModal.tsx      # Authentication modal
 │   ├── BackupRestore.tsx  # Backup/restore functionality
 │   ├── Backups.tsx        # Backup management component
+│   ├── BloomReaper.tsx    # Bloom Reaper: scan, gallery, missing links
 │   ├── CreatePublicList.tsx
 │   ├── Decimator.tsx      # Tool to aggressively filter mute lists
 │   ├── Dossier.tsx        # The Dossier
@@ -224,6 +240,7 @@ mutable/
 │   └── useRelaySync.ts   # Relay storage sync hook
 ├── lib/                   # Library code
 │   ├── nostr.ts          # Nostr protocol functions
+│   ├── blossom/          # Blossom client (list, HEAD, delete), server discovery, reference scan, gallery model
 │   ├── draftable/        # Follow pack parsing/building, relay service, link-preview fetcher
 │   ├── store.ts          # Zustand state management
 │   ├── relayStorage.ts   # NIP-78 relay storage implementation
@@ -292,6 +309,8 @@ mutable/
 - **kind:30078**: Application-specific data (NIP-78) - used for relay storage sync
 - **kind:5**: Delete event marker (Note Nuke; counted by Redactable and The Dossier)
 - **kind:1**: Text note (for sharing Mute-o-Scope and Dossier results)
+- **kind:10063**: Blossom server list (BUD-03), read by Bloom Reaper to know which servers to ask
+- **kind:24242**: Blossom authorization (BUD-11), signed for uploads, listing and deletion; never published to relays
 
 ## Relay Storage Implementation
 
@@ -357,6 +376,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Built for the Nostr protocol
 - From the creator of [Plebs vs. Zombies](https://plebsvszombies.cc) and [Ghostr](https://ghostr.org)
 - Draftable is ported from [following.space](https://github.com/callebtc/nostr-follow-packs) by calle (MIT)
+- Bloom Reaper's wilted rose is OpenMoji's wilted flower (CC BY-SA 4.0)
 
 ## Author
 

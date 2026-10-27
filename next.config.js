@@ -16,6 +16,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/bloomreaper',
+        destination: '/bloom-reaper',
+        permanent: true,
+      },
+      {
         source: '/backups',
         destination: '/dashboard?tab=backups',
         permanent: false,

@@ -12,6 +12,7 @@ export type SiteNavActive =
   | "muteOScope"
   | "backups"
   | "noteNuke"
+  | "bloomReaper"
   | "domainPurge"
   | "purgatory"
   | "decimator"
@@ -53,6 +54,7 @@ const PRIMARY: NavItem[] = [
 const OTHER_STUFF: NavItem[] = [
   { id: "dossier", label: "The Dossier", href: "/dossier" },
   { id: "noteNuke", label: "Note Nuke", href: "/note-nuke", dashboardTab: "noteNuke" },
+  { id: "bloomReaper", label: "Bloom Reaper", href: "/bloom-reaper" },
   { id: "domainPurge", label: "Domain Purge", href: "/dashboard?tab=domainPurge", dashboardTab: "domainPurge" },
   { id: "purgatory", label: "Purgatory", href: "/purgatory", dashboardTab: "purgatory" },
   { id: "decimator", label: "Decimator", href: "/decimator" },
