@@ -28,6 +28,7 @@ import {
   hexToNpub,
 } from "@/lib/nostr";
 import { getDisplayName, getErrorMessage } from "@/lib/utils/format";
+import { getJumbleProfileLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { backupService } from "@/lib/backupService";
 import { protectionService } from "@/lib/protectionService";
@@ -1081,6 +1082,15 @@ export default function Decimator() {
                       <Copy className="w-4 h-4" />
                     )}
                   </button>
+                  <a
+                    href={getJumbleProfileLink(user.pubkey)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    title="View profile in Jumble"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
                 </div>
               </div>
             ))}

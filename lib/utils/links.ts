@@ -5,6 +5,7 @@ import { hexToNote } from "@/lib/nostr";
 // hex ids, and it has no page for deleted notes or for other event kinds
 // (reports, deletions), so those still go to njump.
 const ARCHIVE = "https://nostrarchives.com";
+const JUMBLE = "https://jumble.social";
 const HEX64 = /^[0-9a-f]{64}$/i;
 
 /** A hex event id from hex, note1, or nevent1, or null. */
@@ -108,6 +109,24 @@ export function getProfileLink(pubkey: string): string {
     if (decoded.type === "npub") return `${ARCHIVE}/profiles/${decoded.data}`;
     if (decoded.type === "nprofile") {
       return `${ARCHIVE}/profiles/${decoded.data.pubkey}`;
+    }
+  } catch {
+    // not bech32
+  }
+  return "#";
+}
+
+/** Generate a link to view a Nostr profile in Jumble. */
+export function getJumbleProfileLink(pubkey: string): string {
+  const trimmed = pubkey.trim();
+  try {
+    if (HEX64.test(trimmed))
+      return `${JUMBLE}/users/${nip19.npubEncode(trimmed.toLowerCase())}`;
+    const decoded = nip19.decode(trimmed);
+    if (decoded.type === "npub")
+      return `${JUMBLE}/users/${nip19.npubEncode(decoded.data)}`;
+    if (decoded.type === "nprofile") {
+      return `${JUMBLE}/users/${nip19.npubEncode(decoded.data.pubkey)}`;
     }
   } catch {
     // not bech32
