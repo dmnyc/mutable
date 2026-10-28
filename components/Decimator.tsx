@@ -136,7 +136,7 @@ export default function Decimator() {
       );
 
       if (allFollows.length === 0) {
-        setError("You don&apos;t follow anyone yet!");
+        setError("You don't follow anyone yet!");
         setProgress("");
         setProcessing(false);
         return;
