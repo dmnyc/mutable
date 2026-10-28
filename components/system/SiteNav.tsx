@@ -43,7 +43,7 @@ interface NavItem {
 const PRIMARY: NavItem[] = [
   { id: "myList", label: "My Mutes", href: "/dashboard?tab=myList", dashboardTab: "myList" },
   { id: "publicLists", label: "Mute Packs", href: "/dashboard?tab=publicLists", dashboardTab: "publicLists" },
-  { id: "muteuals", label: "Muteuals", href: "/dashboard?tab=muteuals", dashboardTab: "muteuals" },
+  { id: "muteuals", label: "Muteuals", href: "/muteuals", dashboardTab: "muteuals" },
   { id: "reciprocals", label: "Reciprocals", href: "/reciprocals" },
   { id: "muteOScope", label: "Mute-o-Scope", href: "/mute-o-scope" },
   { id: "snoopable", label: "Snoopable", href: "/snoopable" },
