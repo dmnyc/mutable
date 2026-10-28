@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { nip19 } from "nostr-tools";
 import {
   getEventLink,
+  getJumbleProfileLink,
   getPostedNoteLink,
   getProfileLink,
 } from "@/lib/utils/links";
@@ -22,6 +23,22 @@ describe("getProfileLink", () => {
 
   it("returns # for anything else", () => {
     expect(getProfileLink("not a key")).toBe("#");
+  });
+});
+
+describe("getJumbleProfileLink", () => {
+  it("links to Jumble by hex pubkey, from hex, npub, or nprofile", () => {
+    const want = `https://jumble.social/users/${nip19.npubEncode(PUBKEY)}`;
+    expect(getJumbleProfileLink(PUBKEY)).toBe(want);
+    expect(getJumbleProfileLink(PUBKEY.toUpperCase())).toBe(want);
+    expect(getJumbleProfileLink(nip19.npubEncode(PUBKEY))).toBe(want);
+    expect(getJumbleProfileLink(nip19.nprofileEncode({ pubkey: PUBKEY }))).toBe(
+      want,
+    );
+  });
+
+  it("returns # for anything else", () => {
+    expect(getJumbleProfileLink("not a key")).toBe("#");
   });
 });
 
