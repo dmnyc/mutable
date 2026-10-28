@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
-import { publishMuteList } from "@/lib/nostr";
+import { getFollowListPubkeys, publishMuteList } from "@/lib/nostr";
 import { getErrorMessage } from "@/lib/utils/format";
 import {
   Save,
@@ -12,6 +13,8 @@ import {
   Upload,
   Archive,
   FolderOpen,
+  VolumeX,
+  Users,
 } from "lucide-react";
 import MuteListCategory from "./MuteListCategory";
 import PrivacyControls from "./PrivacyControls";
@@ -19,6 +22,7 @@ import PrivacyControls from "./PrivacyControls";
 type MuteTab = "profiles" | "words" | "tags" | "threads";
 
 export default function MyMuteList() {
+  const router = useRouter();
   const { session, reloadMuteList } = useAuth();
   const {
     muteList,
@@ -33,6 +37,30 @@ export default function MyMuteList() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [mutedFollowCount, setMutedFollowCount] = useState<number | null>(null);
+
+  // Count follows that are also muted, to surface the Decimator's muted purge
+  useEffect(() => {
+    let cancelled = false;
+    const countMutedFollows = async () => {
+      if (!session || muteListLoading || muteList.pubkeys.length === 0) return;
+      try {
+        const follows = await getFollowListPubkeys(
+          session.pubkey,
+          session.relays,
+        );
+        const muted = new Set(muteList.pubkeys.map((p) => p.value));
+        const count = follows.filter((pubkey) => muted.has(pubkey)).length;
+        if (!cancelled) setMutedFollowCount(count);
+      } catch {
+        // Stay hidden if the follow list can't be fetched
+      }
+    };
+    countMutedFollows();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, muteListLoading, muteList.pubkeys]);
 
   const handlePublish = async () => {
     if (!session) return;
@@ -132,6 +160,31 @@ export default function MyMuteList() {
           </div>
         )}
       </div>
+
+      {/* Muted follows notice */}
+      {!muteListLoading &&
+        mutedFollowCount !== null &&
+        mutedFollowCount > 0 && (
+          <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 flex flex-col sm:flex-row sm:items-center gap-3">
+            <VolumeX className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="flex-1 text-sm text-amber-900 dark:text-amber-100">
+              You follow {mutedFollowCount}{" "}
+              {mutedFollowCount === 1 ? "account that is" : "accounts that are"}{" "}
+              on your mute list. Muteuals can review and unfollow them while
+              keeping them muted.
+            </p>
+            <button
+              onClick={() => {
+                setActiveTab("muteuals");
+                router.push("/dashboard?tab=muteuals&method=muted");
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm w-full sm:w-auto flex-shrink-0"
+            >
+              <Users size={16} />
+              Review in Muteuals
+            </button>
+          </div>
+        )}
 
       {/* Loading State */}
       {muteListLoading && (
