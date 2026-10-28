@@ -306,7 +306,7 @@ function DashboardContent() {
     >
       {activeTab === "myList" && <MyMuteList />}
       {activeTab === "publicLists" && <PublicLists />}
-      {activeTab === "muteuals" && <Muteuals />}
+      {activeTab === "muteuals" && <Muteuals titleAs="h2" />}
       {activeTab === "reciprocals" && <Reciprocals titleAs="h2" />}
       {activeTab === "decimator" && <Decimator />}
       {activeTab === "noteNuke" && <NoteNuke />}

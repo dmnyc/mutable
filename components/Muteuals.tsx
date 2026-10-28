@@ -16,9 +16,12 @@ import {
   X,
   List,
   Copy,
+  CheckCircle2,
+  Archive,
 } from "lucide-react";
 import { MutealResult, Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
+import PageHeader from "@/components/system/PageHeader";
 import {
   searchMutealsFromFollows,
   searchMutealsNetworkWide,
@@ -53,11 +56,16 @@ interface MutedFollowsStats {
   totalFollows: number;
 }
 
-export default function Muteuals() {
+export default function Muteuals({
+  titleAs = "h1",
+}: {
+  /** h2 when rendered as a dashboard tab; h1 standalone. */
+  titleAs?: "h1" | "h2";
+}) {
   const { session } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { muteList, addMutedItem, removeMutedItem } = useStore();
+  const { muteList, addMutedItem, removeMutedItem, setActiveTab } = useStore();
   const [featurette, setFeaturette] = useState<Featurette>("mutedBy");
   const [discoveryMethod, setDiscoveryMethod] =
     useState<DiscoveryMethod>("follows");
@@ -71,6 +79,10 @@ export default function Muteuals() {
   const [scanStats, setScanStats] = useState<ScanStats | null>(null);
   const [mutedFollowsStats, setMutedFollowsStats] =
     useState<MutedFollowsStats | null>(null);
+  const [purgeResult, setPurgeResult] = useState<{
+    count: number;
+    backupCount: number;
+  } | null>(null);
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -199,6 +211,7 @@ export default function Muteuals() {
       setError(null);
       setMutedFollowResults([]);
       setMutedFollowsStats(null);
+      setPurgeResult(null);
       setProgress("Fetching your follow list...");
 
       const follows = await getFollowListPubkeys(
@@ -505,9 +518,10 @@ export default function Muteuals() {
         prev.map((r) => (r.isFollowing ? { ...r, isFollowing: false } : r)),
       );
 
-      alert(
-        `✅ Success!\n\n• Backup created with ${currentFollows.length} follows\n• Unfollowed ${toUnfollow.length} muted follow${toUnfollow.length === 1 ? "" : "s"} (still muted)\n• Changes published to relays\n\nYou can restore from the Backups tab if needed.`,
-      );
+      setPurgeResult({
+        count: toUnfollow.length,
+        backupCount: currentFollows.length,
+      });
     } catch (error) {
       console.error("Failed to purge muted follows:", error);
       setProgress("");
@@ -669,20 +683,13 @@ export default function Muteuals() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="panel relative rounded-xl border border-line shadow-panel p-6">
-        <div className="flex items-start gap-3">
-          <Users className="text-red-600 dark:text-red-500 mt-1" size={24} />
-          <div>
-            <h2 className="font-display font-bold text-2xl tracking-tight text-hi">
-              Muteuals
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Mute relationships in both directions: who muted you, and who you
-              muted but still follow.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        as={titleAs}
+        icon={<Users size={25} />}
+        iconBg="from-red-500 to-red-700"
+        title="Muteuals"
+        subtitle="Mute relationships in both directions: who muted you, and who you muted but still follow."
+      />
 
       {/* Featurette Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto scroll-mt-4">
@@ -1071,7 +1078,41 @@ export default function Muteuals() {
           </div>
 
           {/* Results Section */}
-          {!searching &&
+          {purgeResult ? (
+            <div className="panel relative rounded-xl border border-green-200 dark:border-green-800 shadow-panel p-8">
+              <div className="flex flex-col items-center text-center gap-4">
+                <CheckCircle2 className="text-green-500" size={48} />
+                <div>
+                  <h3 className="font-display font-semibold text-base tracking-tight text-hi mb-2">
+                    Purged {purgeResult.count} muted follow
+                    {purgeResult.count === 1 ? "" : "s"}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Unfollowed and published once to your relays — they all
+                    stay muted. A backup of your {purgeResult.backupCount}{" "}
+                    follow{purgeResult.backupCount === 1 ? "" : "s"} was saved
+                    first.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setActiveTab("backups")}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white hover:bg-gray-700 rounded-lg font-medium text-sm transition-colors"
+                  >
+                    <Archive size={16} />
+                    <span>Open Backups</span>
+                  </button>
+                  <button
+                    onClick={handleScanMutedFollows}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg font-medium text-sm transition-colors"
+                  >
+                    <RefreshCw size={16} />
+                    <span>Scan Again</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : !searching &&
           mutedFollowResults.length === 0 &&
           mutedFollowsStats ? (
             <div className="panel relative rounded-xl border border-line shadow-panel p-8">
