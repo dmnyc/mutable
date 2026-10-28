@@ -10,6 +10,7 @@ import AuthModal from "@/components/AuthModal";
 import Footer from "@/components/Footer";
 import SnoopableGlasses from "@/components/SnoopableGlasses";
 import Pitchfork from "@/components/Pitchfork";
+import MuteualsHand from "@/components/MuteualsHand";
 import {
   Lock,
   User,
@@ -28,7 +29,6 @@ import {
   Bitcoin,
   VolumeX,
   Package,
-  UserX,
   BrushCleaning,
   Globe,
   DatabaseBackup,
@@ -575,7 +575,7 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/dashboard?tab=muteuals"
-                chip={<ChipTone tone="purple"><UserX size={16} /></ChipTone>}
+                chip={<ChipTone tone="purple"><MuteualsHand size={18} /></ChipTone>}
                 title="Muteuals"
                 text="Who has publicly muted you."
               />

@@ -1,7 +1,7 @@
 "use client";
 
-import { Users } from "lucide-react";
 import Muteuals from "./Muteuals";
+import MuteualsHand from "./MuteualsHand";
 import AppShell from "@/components/system/AppShell";
 
 export default function MuteualsWrapper() {
@@ -9,7 +9,12 @@ export default function MuteualsWrapper() {
     <AppShell
       navActive="muteuals"
       authGate={{
-        icon: <Users size={30} className="text-red-600 dark:text-red-400" />,
+        icon: (
+          <MuteualsHand
+            size={34}
+            className="text-red-600 dark:text-red-400"
+          />
+        ),
         title: "Muteuals",
         text: (
           <>

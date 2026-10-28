@@ -22,6 +22,7 @@ import {
 import { MutealResult, Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
 import PageHeader from "@/components/system/PageHeader";
+import MuteualsHand from "./MuteualsHand";
 import {
   searchMutealsFromFollows,
   searchMutealsNetworkWide,
@@ -685,7 +686,7 @@ export default function Muteuals({
       {/* Header */}
       <PageHeader
         as={titleAs}
-        icon={<Users size={25} />}
+        icon={<MuteualsHand size={28} />}
         iconBg="from-red-500 to-red-700"
         title="Muteuals"
         subtitle="Mute relationships in both directions: who muted you, and who you muted but still follow."

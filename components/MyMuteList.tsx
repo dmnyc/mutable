@@ -14,10 +14,10 @@ import {
   Archive,
   FolderOpen,
   VolumeX,
-  Users,
 } from "lucide-react";
 import MuteListCategory from "./MuteListCategory";
 import PrivacyControls from "./PrivacyControls";
+import MuteualsHand from "./MuteualsHand";
 
 type MuteTab = "profiles" | "words" | "tags" | "threads";
 
@@ -180,7 +180,7 @@ export default function MyMuteList() {
               }}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm w-full sm:w-auto flex-shrink-0"
             >
-              <Users size={16} />
+              <MuteualsHand size={18} />
               Review in Muteuals
             </button>
           </div>
