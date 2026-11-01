@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { MuteItem, MuteList, Profile } from "@/types";
 import {
@@ -27,6 +27,7 @@ import {
   fetchEventById,
 } from "@/lib/nostr";
 import { useAuth } from "@/hooks/useAuth";
+import { orderMuteItems, type MuteSortOrder } from "@/lib/muteAddedAt";
 import { truncateNpub } from "@/lib/utils/format";
 import { getEventLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
@@ -74,6 +75,7 @@ export default function MuteListCategory({
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<MuteSortOrder>("list");
   const [threadEvents, setThreadEvents] = useState<
     Map<string, ThreadEventInfo>
   >(new Map());
@@ -283,6 +285,13 @@ export default function MuteListCategory({
     }
   };
 
+  // Sort the category's items by when they were added (local ledger), with
+  // list position as the fallback for items added before tracking existed.
+  const sortedItems = useMemo(
+    () => orderMuteItems(items, category, session?.pubkey, sortBy),
+    [items, sortBy, category, session?.pubkey],
+  );
+
   // Load profiles for pubkeys (only for current page)
   useEffect(() => {
     const loadProfiles = async () => {
@@ -294,7 +303,7 @@ export default function MuteListCategory({
       // Calculate current page items
       const startIndex = (currentPage - 1) * pageSize;
       const endIndex = startIndex + pageSize;
-      const currentPageItems = items.slice(startIndex, endIndex);
+      const currentPageItems = sortedItems.slice(startIndex, endIndex);
 
       const fetchPromises = currentPageItems.map(async (item) => {
         // Skip if already loaded
@@ -317,7 +326,7 @@ export default function MuteListCategory({
 
     loadProfiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, items, session, currentPage, pageSize]);
+  }, [category, sortedItems, session, currentPage, pageSize]);
 
   // Load thread events and author profiles for threads (only for current page)
   useEffect(() => {
@@ -330,7 +339,7 @@ export default function MuteListCategory({
       // Calculate current page items
       const startIndex = (currentPage - 1) * pageSize;
       const endIndex = startIndex + pageSize;
-      const currentPageItems = items.slice(startIndex, endIndex);
+      const currentPageItems = sortedItems.slice(startIndex, endIndex);
 
       const fetchPromises = currentPageItems.map(async (item) => {
         // Skip if already loaded
@@ -364,7 +373,7 @@ export default function MuteListCategory({
 
     loadThreadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, items, session, currentPage, pageSize]);
+  }, [category, sortedItems, session, currentPage, pageSize]);
 
   const displayValue = (item: MuteItem) => {
     if (category === "pubkeys") {
@@ -403,10 +412,10 @@ export default function MuteListCategory({
   };
 
   // Pagination calculations
-  const totalPages = Math.ceil(items.length / pageSize);
+  const totalPages = Math.ceil(sortedItems.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const currentItems = items.slice(startIndex, endIndex);
+  const currentItems = sortedItems.slice(startIndex, endIndex);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -414,6 +423,11 @@ export default function MuteListCategory({
 
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  const handleSortChange = (sort: MuteSortOrder) => {
+    setSortBy(sort);
     setCurrentPage(1); // Reset to first page
   };
 
@@ -442,6 +456,28 @@ export default function MuteListCategory({
               {title}
             </h3>
             <div className="flex items-center gap-3 flex-shrink-0">
+              {sortedItems.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor={`sort-${category}`}
+                    className="text-sm text-gray-600 dark:text-gray-400"
+                  >
+                    Sort:
+                  </label>
+                  <select
+                    id={`sort-${category}`}
+                    value={sortBy}
+                    onChange={(e) =>
+                      handleSortChange(e.target.value as MuteSortOrder)
+                    }
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="list">List order</option>
+                    <option value="recent">Recently added</option>
+                    <option value="oldest">Oldest first</option>
+                  </select>
+                </div>
+              )}
               {items.length > 0 && (
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-gray-600 dark:text-gray-400">
