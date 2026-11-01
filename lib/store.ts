@@ -9,6 +9,7 @@ import {
 } from "@/types";
 import { Signer, BunkerPointer } from "./signers";
 import { blacklistService } from "./blacklistService";
+import { recordAddedAt, removeAddedAt, renameAddedAt } from "./muteAddedAt";
 
 // NIP-46 session data for restoration (persisted)
 export interface Nip46SessionData {
@@ -353,6 +354,7 @@ export const useStore = create<AppState>()(
               ? { ...item, private: state.defaultMutePrivacy }
               : item;
           newList[category] = [...newList[category], itemWithPrivacy as any];
+          recordAddedAt(state.session?.pubkey, category, item.value);
           return { muteList: newList, hasUnsavedChanges: true };
         }),
 
@@ -362,6 +364,7 @@ export const useStore = create<AppState>()(
           (newList[category] as any) = newList[category].filter(
             (item) => item.value !== value,
           );
+          removeAddedAt(state.session?.pubkey, category, value);
           return { muteList: newList, hasUnsavedChanges: true };
         }),
 
@@ -378,6 +381,12 @@ export const useStore = create<AppState>()(
               reason,
               eventRef,
             };
+            renameAddedAt(
+              state.session?.pubkey,
+              category,
+              oldValue,
+              newValue,
+            );
           }
           return { muteList: newList, hasUnsavedChanges: true };
         }),
