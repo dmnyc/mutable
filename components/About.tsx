@@ -45,7 +45,7 @@ const TOOLS: { name: string; href: string; text: string }[] = [
   {
     name: "Draftable",
     href: "/draftable",
-    text: "Follow packs, including the ones that have drafted you",
+    text: "Draft packs, including the ones that have drafted you",
   },
   {
     name: "My Mutes",

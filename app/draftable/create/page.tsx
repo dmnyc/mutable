@@ -4,9 +4,9 @@ import DraftableShell from "@/components/draftable/DraftableShell";
 import DraftableEditor from "@/components/draftable/DraftableEditor";
 
 export const metadata: Metadata = {
-  title: "Draft a follow pack — Draftable by Mutable",
+  title: "New draft pack — Draftable by Mutable",
   description:
-    "Make a Nostr follow pack. The people you add aren't asked and can't leave.",
+    "Make a Nostr draft pack. The people you add can't leave.",
   robots: { index: false },
 };
 

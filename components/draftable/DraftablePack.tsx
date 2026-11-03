@@ -256,7 +256,7 @@ export default function DraftablePack({
           Pack not found
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          This follow pack couldn&apos;t be found on the relays we checked. It
+          This draft pack couldn&apos;t be found on the relays we checked. It
           may live on relays we don&apos;t know about, or its author asked
           relays to delete it.
         </p>
@@ -265,7 +265,7 @@ export default function DraftablePack({
           className="camo camo-button inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold"
         >
           <ArrowLeft size={16} />
-          Browse follow packs
+          Browse draft packs
         </Link>
       </div>
     );
@@ -281,7 +281,7 @@ export default function DraftablePack({
   const packPreview = {
     url: packShareUrl(pack),
     image: packCardPath(pack),
-    title: `${pack.name} — a follow pack on Draftable`,
+    title: `${pack.name} — a draft pack on Draftable`,
   };
   const shareRole: PackShareRole = isAuthor
     ? "author"
@@ -346,7 +346,7 @@ export default function DraftablePack({
       {
         type: "pubkey",
         value: pack.author,
-        reason: "Drafted me into a follow pack",
+        reason: "Drafted me into a draft pack",
       },
       "pubkeys",
     );

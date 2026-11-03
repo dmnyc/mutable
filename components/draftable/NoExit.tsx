@@ -3,7 +3,7 @@
 import { DoorClosed, LockKeyhole } from "lucide-react";
 
 /**
- * The rule Draftable is named for: people in a follow pack can't remove
+ * The rule Draftable is named for: people in a draft pack can't remove
  * themselves. Each variant states it for the person looking — someone browsing,
  * someone who's been drafted, the author, or someone about to draft people.
  */
@@ -17,14 +17,14 @@ export function NoExitIntro() {
       />
       <div className="text-sm text-[#4f4826] dark:text-[#e2dab0] space-y-1.5">
         <p className="font-bold text-base">
-          Nobody can leave a follow pack. Once you&apos;re drafted, you&apos;re
+          Nobody can leave a draft pack. Once you&apos;re drafted, you&apos;re
           in.
         </p>
         <p>
-          A follow pack is a public list signed by the person who made it.
-          Anyone can draft anyone into one: nobody is asked, nobody is
-          notified, and there is no way to remove yourself. Only the pack&apos;s
-          author can take someone out.
+          A draft pack is a public list signed by the person who made it.
+          Anyone can draft anyone into one: no one&apos;s agreement is needed,
+          nobody is notified, and there is no way to remove yourself. Only the
+          pack&apos;s author can take someone out.
         </p>
         <p>
           Mutable didn&apos;t design how packs work;{" "}
@@ -62,10 +62,11 @@ export function DraftedNotice({
             You&apos;ve been drafted into this pack, and you can&apos;t leave.
           </p>
           <p>
-            {authorName} put you here without asking. Nostr gives you no way to
-            take yourself out: only {authorName} can publish a version of this
-            pack without you. You can ask them to release you, or mute them.
-            Muting hides them from you; it doesn&apos;t get you out.
+            {authorName} put you here. Even if you asked to join, Nostr gives
+            you no way to take yourself out: only {authorName} can publish a
+            version of this pack without you. You can ask them to release you,
+            or mute them. Muting hides them from you; it doesn&apos;t get you
+            out.
           </p>
           {children && (
             <div className="flex flex-wrap gap-2 pt-2">{children}</div>
@@ -84,10 +85,12 @@ export function AuthorNotice({ count }: { count: number }) {
         className="text-[#6b6237] dark:text-[#cfc58e] flex-shrink-0 mt-0.5"
       />
       <p className="text-sm text-[#4f4826] dark:text-[#e2dab0]">
-        <span className="font-semibold">You drafted everyone here.</span> None
-        of {count === 1 ? "this person" : `these ${count} people`} agreed to
-        be in this pack, and none of them can leave it. You&apos;re the only
-        one who can release them, by editing or deleting the pack.
+        <span className="font-semibold">You drafted everyone here.</span>{" "}
+        {count === 1
+          ? "They may even have asked to join, but they can't leave on their own."
+          : `Some of these ${count} people may even have asked to join, but none of them can leave on their own.`}{" "}
+        You&apos;re the only one who can release them, by editing or deleting
+        the pack.
       </p>
     </div>
   );
@@ -101,9 +104,9 @@ export function BystanderNotice({ authorName }: { authorName: string }) {
         className="text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5"
       />
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Everyone in this pack was drafted by {authorName}. They weren&apos;t
-        asked, and they can&apos;t leave. Only {authorName} can take someone
-        out.
+        Everyone in this pack was drafted by {authorName}. Some may have
+        asked to join, but none of them can leave. Only {authorName} can take
+        someone out.
       </p>
     </div>
   );
@@ -119,8 +122,8 @@ export function EditorNotice() {
       <div className="text-sm text-[#4f4826] dark:text-[#e2dab0] space-y-1.5">
         <p className="font-bold text-base">You&apos;re drafting people.</p>
         <p>
-          The people you add won&apos;t be asked and can&apos;t remove
-          themselves. Only you can release them, by editing or deleting this
+          The people you add can&apos;t remove themselves, even if they asked
+          to join. Only you can release them, by editing or deleting this
           pack. Deleting only asks relays to drop it, so copies may survive.
         </p>
       </div>

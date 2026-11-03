@@ -22,7 +22,7 @@ const KIND_LABELS: Record<number, string> = {
   30023: "article",
   34235: "emoji pack",
   34236: "emoji pack",
-  39089: "follow pack",
+  39089: "draft pack",
 };
 
 const formatDate = (createdAt: number) =>

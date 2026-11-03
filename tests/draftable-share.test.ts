@@ -57,8 +57,8 @@ describe("packShareMessage", () => {
     const parts = packShareMessage(pack(3), "author", "Alice");
     expect(shareMentions(parts)).toEqual([]);
     const text = shareContent(parts);
-    expect(text).toContain("I drafted 3 people into my follow pack “Plebs”");
-    expect(text).toContain("none of them can leave. Unless they ask me. 🎖️");
+    expect(text).toContain("I drafted 3 people into my draft pack “Plebs”");
+    expect(text).toContain("None of them can leave on their own. Unless they ask me. 🎖️");
     expect(text).toContain(packShareUrl(pack(3)));
   });
 
@@ -66,7 +66,7 @@ describe("packShareMessage", () => {
     const text = shareContent(packShareMessage(pack(1), "author", "Alice"));
     expect(text).toContain("I drafted 1 person");
     expect(text).toContain("Follow them in one click");
-    expect(text).toContain("they can't leave. Unless they ask me.");
+    expect(text).toContain("They can't leave on their own. Unless they ask me.");
   });
 
   it("mentions the author when a conscript shares", () => {
@@ -74,7 +74,7 @@ describe("packShareMessage", () => {
     expect(shareMentions(parts)).toEqual([AUTHOR]);
     const text = shareContent(parts);
     expect(text).toContain(
-      `a follow pack by nostr:${nip19.npubEncode(AUTHOR)}`,
+      `a draft pack by nostr:${nip19.npubEncode(AUTHOR)}`,
     );
     expect(text).toContain("along with 2 others");
     expect(text).toContain("See who else got drafted");
@@ -90,7 +90,7 @@ describe("packShareMessage", () => {
     const parts = packShareMessage(pack(2), "bystander", "Alice");
     expect(shareMentions(parts)).toEqual([AUTHOR]);
     expect(shareContent(parts)).toContain(
-      "“Plebs” is a follow pack of 2 people drafted by nostr:",
+      "“Plebs” is a draft pack of 2 people drafted by nostr:",
     );
   });
 });
@@ -108,7 +108,7 @@ describe("draftedShareMessage", () => {
     });
     expect(shareMentions(parts)).toEqual([]);
     const text = shareContent(parts);
-    expect(text).toContain("drafted into 20+ follow packs");
+    expect(text).toContain("drafted into 20+ draft packs");
     expect(text).toContain("can't leave any of them");
     expect(text).toContain(lookup);
   });
@@ -123,7 +123,7 @@ describe("draftedShareMessage", () => {
     });
     expect(shareMentions(parts)).toEqual([B]);
     expect(shareContent(parts)).toMatch(
-      /^Hey nostr:npub1\w+, you've been drafted into 3 follow packs/,
+      /^Hey nostr:npub1\w+, you've been drafted into 3 draft packs/,
     );
   });
 
@@ -137,7 +137,7 @@ describe("draftedShareMessage", () => {
         more: false,
       }),
     );
-    expect(text).toContain("1 follow pack on Nostr, and you can't leave it");
+    expect(text).toContain("1 draft pack on Nostr, and you can't leave it");
     expect(text).toContain("See it on Draftable");
   });
 });
@@ -149,7 +149,7 @@ describe("releaseRequestMessage", () => {
     const text = shareContent(parts);
     expect(text).toMatch(/^Hi nostr:npub1\w+, you drafted me into/);
     expect(text).toContain("“Plebs”");
-    expect(text).toContain("I never asked to be in it");
+    expect(text).toContain("no way to leave on my own");
     expect(text).toContain("Draftable by #Mutable");
     expect(text).toContain(packShareUrl(pack(3)));
   });

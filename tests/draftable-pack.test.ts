@@ -141,7 +141,7 @@ describe("buildPackTags", () => {
     expect(tags.find((t) => t[0] === "image")).toBeUndefined();
     expect(tags.find((t) => t[0] === "description")).toBeUndefined();
     expect(tags.filter((t) => t[0] === "p")).toEqual([["p", A]]);
-    expect(tags).toContainEqual(["alt", "Follow pack: Pack"]);
+    expect(tags).toContainEqual(["alt", "Draft pack: Pack"]);
   });
 });
 
@@ -201,7 +201,7 @@ describe("parsePackReference", () => {
     ).toEqual({ dTag: "my pack", author: AUTHOR });
   });
 
-  it("reads naddrs for follow packs only", () => {
+  it("reads naddrs for draft packs only", () => {
     const naddr = packNaddr({ author: AUTHOR, dTag: "pack" });
     expect(parsePackReference(`nostr:${naddr}`)).toEqual({
       dTag: "pack",

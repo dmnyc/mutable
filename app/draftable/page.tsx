@@ -6,9 +6,9 @@ import Draftable from "@/components/draftable/Draftable";
 import { resolvePubkey } from "@/lib/draftable/pack";
 import { fetchPreviewProfiles, previewName } from "@/lib/draftable/server";
 
-const TITLE = "Draftable by Mutable: Nostr follow packs you can't leave";
+const TITLE = "Draftable by Mutable: Nostr draft packs you can't leave";
 const DESCRIPTION =
-  "Browse and make Nostr follow packs, and see which ones you've been drafted into. Anyone can draft anyone into a pack, and nobody can remove themselves.";
+  "Browse and make Nostr draft packs, and see which ones you've been drafted into. Anyone can draft anyone into a pack, and nobody can remove themselves.";
 
 function metadataFor(title: string, description: string): Metadata {
   return {
@@ -51,8 +51,8 @@ export async function generateMetadata({
   const identity =
     previewName(profiles.get(pubkey)) ?? `${npub.slice(0, 10)}…${npub.slice(-4)}`;
   return metadataFor(
-    `Follow packs ${identity} has been drafted into — Draftable`,
-    `See every Nostr follow pack ${identity} has been drafted into. Nobody asked them, and they can't leave any of them.`,
+    `Draft packs ${identity} has been drafted into — Draftable`,
+    `See every Nostr draft pack ${identity} has been drafted into. They can't leave any of them.`,
   );
 }
 

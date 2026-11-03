@@ -1,5 +1,5 @@
 /**
- * Draftable relay I/O: discovering, publishing, and deleting follow packs, and
+ * Draftable relay I/O: discovering, publishing, and deleting draft packs, and
  * following the people in them. Pure parsing/building lives in ./pack.
  */
 
@@ -274,7 +274,7 @@ export async function deletePack(
       ["a", packAddress(pack)],
       ["k", String(DRAFTABLE_KIND)],
     ],
-    content: "Follow pack deleted by its author",
+    content: "Draft pack deleted by its author",
     created_at: Math.floor(Date.now() / 1000),
   };
   const signed = await signEvent(template);
