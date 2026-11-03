@@ -46,8 +46,8 @@ function people(count: number): string {
 
 function noExit(count: number): string {
   return count === 1
-    ? "They weren't asked, and they can't leave."
-    : "None of them were asked, and none of them can leave.";
+    ? "They can't leave on their own."
+    : "None of them can leave on their own.";
 }
 
 export function packShareUrl(pack: Pick<FollowPack, "author" | "dTag">) {
@@ -75,7 +75,7 @@ export function packShareMessage(
 
   if (role === "author") {
     return [
-      `I drafted ${people(count)} into my follow pack “${pack.name}”. ` +
+      `I drafted ${people(count)} into my draft pack “${pack.name}”. ` +
         `Follow ${count === 1 ? "them" : "them all"} in one click. ` +
         `${noExit(count)} Unless they ask me. 🎖️\n\n` +
         `Drafted with Draftable by #Mutable:\n${url}`,
@@ -85,19 +85,19 @@ export function packShareMessage(
   if (role === "drafted") {
     const others = count - 1;
     return [
-      `I've been drafted into “${pack.name}”, a follow pack by `,
+      `I've been drafted into “${pack.name}”, a draft pack by `,
       author,
       others > 0
         ? `, along with ${others} ${others === 1 ? "other person" : "others"}`
         : "",
-      `. Nobody asked me, and there's no way out. 🎖️\n\n` +
+      `. There's no way out. 🎖️\n\n` +
         `${others > 0 ? "See who else got drafted" : "See the pack"} ` +
         `on Draftable by #Mutable:\n${url}`,
     ];
   }
 
   return [
-    `“${pack.name}” is a follow pack of ${people(count)} drafted by `,
+    `“${pack.name}” is a draft pack of ${people(count)} drafted by `,
     author,
     `. ${noExit(count)} 🎖️\n\n` +
       `See who's in it on Draftable by #Mutable:\n${url}`,
@@ -106,7 +106,7 @@ export function packShareMessage(
 
 /**
  * A conscript's public note asking the author to take them out of a pack
- * they never asked to join. Mentions the author so they're notified.
+ * they can't leave. Mentions the author so they're notified.
  */
 export function releaseRequestMessage(
   pack: FollowPack,
@@ -115,9 +115,9 @@ export function releaseRequestMessage(
   return [
     "Hi ",
     { pubkey: pack.author, name: authorName },
-    `, you drafted me into your follow pack “${pack.name}”, but I never asked ` +
-      `to be in it, and Nostr gives me no way to leave on my own. Please ` +
-      `release me by removing me from the pack.\n\n` +
+    `, you drafted me into your draft pack “${pack.name}”, and Nostr gives ` +
+      `me no way to leave on my own. Please release me by removing me from ` +
+      `the pack.\n\n` +
       `Found it with Draftable by #Mutable:\n${packShareUrl(pack)}`,
   ];
 }
@@ -140,7 +140,7 @@ export function draftedShareMessage({
   more: boolean;
 }): SharePart[] {
   const single = count === 1 && !more;
-  const packs = `${count}${more ? "+" : ""} follow ${single ? "pack" : "packs"}`;
+  const packs = `${count}${more ? "+" : ""} draft ${single ? "pack" : "packs"}`;
   const leave = single ? "it" : "any of them";
   const url = draftedShareUrl(pubkey);
 

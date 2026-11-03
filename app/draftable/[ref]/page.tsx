@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { parsePackReference, referencePath } from "@/lib/draftable/pack";
 
 /**
- * `/draftable/naddr1…`: open a follow pack from its naddr, the way
+ * `/draftable/naddr1…`: open a draft pack from its naddr, the way
  * following.space links to `/naddr1…`. Anything else here is a 404.
  */
 export default async function DraftableReferencePage({

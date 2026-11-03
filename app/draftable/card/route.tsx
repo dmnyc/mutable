@@ -509,7 +509,7 @@ export async function GET(request: Request) {
         return await renderPng(
           packCard({
             ...data,
-            name: latinOnly(data.name, "Follow pack"),
+            name: latinOnly(data.name, "Draft pack"),
             avatars: data.avatars.map((a) => ({
               ...a,
               initial: latinOnly(a.initial, ""),

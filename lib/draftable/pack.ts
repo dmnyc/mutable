@@ -1,7 +1,7 @@
 /**
- * Draftable — follow packs (NIP-51 kind:39089), ported from following.space.
+ * Draftable — draft packs (NIP-51 kind:39089), ported from following.space.
  *
- * A follow pack is a parameterized replaceable event signed by its author: a
+ * A draft pack is a parameterized replaceable event signed by its author: a
  * title, an optional image and description, and one `p` tag per person in it.
  * Nothing in the format involves the people listed. They are not asked, not
  * notified, and have no way to take themselves out — only the author can
@@ -39,7 +39,7 @@ export const BLOCKED_PACK_AUTHORS = new Set([
   "414f438fe851a53ee2dc94883300d04f04165337141fc97563a5ee6542637660",
 ]);
 
-export const UNTITLED_PACK = "Untitled Follow Pack";
+export const UNTITLED_PACK = "Untitled Draft Pack";
 
 const HEX64 = /^[0-9a-f]{64}$/i;
 
@@ -147,7 +147,7 @@ export function buildPackTags(draft: PackDraft): string[][] {
   }
 
   // NIP-31 fallback text for clients that don't know kind:39089.
-  tags.push(["alt", `Follow pack: ${name}`]);
+  tags.push(["alt", `Draft pack: ${name}`]);
   return tags;
 }
 
@@ -458,7 +458,7 @@ const TEST_WORDS =
 // Automated test runs stamp names with a Unix time ("IT32 Pack 1790722839012").
 const TIMESTAMP = /\d{10,}/;
 const PLACEHOLDER_NAMES =
-  /^(new pack|my pack|my follow pack|follow pack|new list|my list|hello world)$/i;
+  /^(new pack|my pack|my follow pack|follow pack|my draft pack|draft pack|new list|my list|hello world)$/i;
 
 export const ABANDONED_MAX_PEOPLE = 3;
 export const ABANDONED_AFTER_DAYS = 180;

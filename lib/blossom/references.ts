@@ -5,7 +5,7 @@ import type { RelayQuery } from "./servers";
 // Where a user's published events point at blobs: profile picture and
 // banner (every version the relays still hold), imeta tags and bare URLs in
 // notes, NIP-94 file metadata, picture and video events, long-form articles,
-// comments, and follow pack covers. Reposts are left out on purpose: their
+// comments, and draft pack covers. Reposts are left out on purpose: their
 // content belongs to other people's blobs.
 export const REFERENCE_KINDS = [0, 1, 20, 1063, 1111, 30023, 34235, 34236, 39089];
 export const REFERENCE_PAGE_SIZE = 400;

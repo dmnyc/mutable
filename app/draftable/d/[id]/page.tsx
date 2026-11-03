@@ -53,13 +53,13 @@ export async function generateMetadata({
     : `/draftable/card?d=${encodeURIComponent(dTag)}${author ? `&p=${author}` : ""}`;
 
   const title = pack
-    ? `${clean(pack.name, 80)} — a follow pack on Draftable`
-    : "A follow pack on Draftable";
+    ? `${clean(pack.name, 80)} — a draft pack on Draftable`
+    : "A draft pack on Draftable";
   const description = pack
     ? pack.description
       ? clean(pack.description, 200)
-      : `${conscriptCount(pack.members.length)} drafted into this Nostr follow pack. None of them can leave.`
-    : "A Nostr follow pack. Everyone in it was drafted, and nobody can leave.";
+      : `${conscriptCount(pack.members.length)} drafted into this Nostr draft pack. None of them can leave.`
+    : "A Nostr draft pack. Everyone in it was drafted, and nobody can leave.";
 
   return {
     title,

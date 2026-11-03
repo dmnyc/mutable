@@ -112,23 +112,23 @@ flowchart LR
 
 ## The no-exit rule
 
-The point of the name: people in a follow pack are never asked and can't remove themselves, so Draftable says so on every surface where someone could be drafted or do the drafting. Keep this wording when editing these files.
+The point of the name: people in a draft pack can't remove themselves — even if they asked to join — so Draftable says so on every surface where someone could be drafted or do the drafting. Keep this wording when editing these files.
 
 | Surface | Who sees it | What it says | Component |
 | --- | --- | --- | --- |
-| Browse page header | Everyone | "Nobody can leave a follow pack. Once you're drafted, you're in." | `NoExitIntro` in `NoExit.tsx` |
+| Browse page header | Everyone | "Nobody can leave a draft pack. Once you're drafted, you're in." | `NoExitIntro` in `NoExit.tsx` |
 | "Drafted into" view | You, or the looked-up npub | "You've been drafted into N packs so far. You can't leave any of them." | `Draftable.tsx` |
 | Pack card | A viewer who is in the pack | "You're in this one" badge | `PackCard.tsx` |
 | Pack page | A viewer who is in the pack (but not its author) | "You've been drafted into this pack, and you can't leave." Ask to release opens an editable public note to the author (or their profile); Mute adds them to the mute list. Authors in their own pack get the author notice, and nobody can mute themselves anywhere in Mutable | `DraftedNotice`, `releaseRequestMessage` |
 | Conscript list | A viewer who is in the pack | Their own row tagged "You · no exit" | `DraftablePack.tsx` |
 | Pack page | The author | "You drafted everyone here." Only they can release people | `AuthorNotice` |
-| Pack page | Everyone else | "They weren't asked, and they can't leave." | `BystanderNotice` |
+| Pack page | Everyone else | "Some may have asked to join, but none of them can leave." | `BystanderNotice` |
 | Editor | Whoever is drafting | "You're drafting people." Under Publish: "Drafts N people into a public pack they can't leave." | `EditorNotice`, `DraftableEditor.tsx` |
 | Delete dialog | The author | Deleting only asks relays to drop the pack; copies may survive | `DraftableEditor.tsx` |
 | Social card | Anyone seeing a shared link | "None of them can leave." and a DRAFTED stamp | `app/draftable/card/route.tsx` |
 
 - **Vocabulary:** members are "conscripts", packs are "drafted by" their author, and removing someone is "Release".
-- **Mute the author** adds them to the local mute list with the reason "Drafted me into a follow pack". Like Reciprocals, it still has to be published from My Mutes. The notice says muting doesn't get you out of the pack.
+- **Mute the author** adds them to the local mute list with the reason "Drafted me into a draft pack". Like Reciprocals, it still has to be published from My Mutes. The notice says muting doesn't get you out of the pack.
 
 ## Decisions and fixes over upstream
 

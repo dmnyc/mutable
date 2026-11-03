@@ -262,7 +262,7 @@ export default function Home() {
                 Your Nostr mute list manager.
               </span>{" "}
               Back up, edit, discover and share mute lists, plus DM forensics,
-              follow packs, reciprocal audits and event deletion.
+              draft packs, reciprocal audits and event deletion.
             </p>
             <div className="mt-6">
               <button
@@ -535,7 +535,7 @@ export default function Home() {
                 }
                 title="Draftable"
                 badge="NEW"
-                text="Follow packs you can't leave."
+                text="Draft packs you can't leave."
               />
               <DirectoryCard
                 href="/muggable"

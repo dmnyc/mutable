@@ -150,7 +150,7 @@ export default function DraftableEditor() {
           Sign in to draft people
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Follow packs are signed by their author, so you need to connect with
+          Draft packs are signed by their author, so you need to connect with
           Nostr to make one.
         </p>
         <button
@@ -314,7 +314,7 @@ export default function DraftableEditor() {
     <div className="max-w-2xl mx-auto space-y-6 pb-28">
       <BackToPacks />
       <h1 className="font-display font-bold text-3xl tracking-tight text-hi">
-        {editing ? "Edit follow pack" : "Draft a follow pack"}
+        {editing ? "Edit draft pack" : "New draft pack"}
       </h1>
 
       <EditorNotice />
@@ -481,8 +481,8 @@ export default function DraftableEditor() {
             Draft people
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Search by name or NIP-05, or paste an npub. They won&apos;t be
-            asked.
+            Search by name or NIP-05, or paste an npub. They can&apos;t leave
+            on their own.
           </p>
         </div>
         <UserSearchInput

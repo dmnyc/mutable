@@ -344,7 +344,7 @@ export default function Draftable() {
           setPacks(all);
         } catch (err) {
           if (id !== requestId.current) return;
-          setError(getErrorMessage(err, "Failed to load follow packs"));
+          setError(getErrorMessage(err, "Failed to load draft packs"));
         } finally {
           if (id === requestId.current) setLoading(false);
         }
@@ -358,7 +358,7 @@ export default function Draftable() {
         setHasMore(first.hasMore);
       } catch (err) {
         if (id !== requestId.current) return;
-        setError(getErrorMessage(err, "Failed to load follow packs"));
+        setError(getErrorMessage(err, "Failed to load draft packs"));
       } finally {
         if (id === requestId.current) setLoading(false);
       }
@@ -485,7 +485,7 @@ export default function Draftable() {
                 Draftable
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                Nostr follow packs: curated lists of people you can follow in
+                Nostr draft packs: curated lists of people you can follow in
                 one click. Browse them, make your own, and see which ones
                 you&apos;ve been drafted into.
               </p>
@@ -694,7 +694,7 @@ export default function Draftable() {
           <div className="space-y-4">
             <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <Loader2 size={14} className="animate-spin" />
-              Gathering every follow pack from {relays.length} relays. Only the
+              Gathering every draft pack from {relays.length} relays. Only the
               first search takes a moment.
             </p>
             <PackGridSkeleton />
@@ -773,14 +773,14 @@ export default function Draftable() {
       ) : packs.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-600 dark:text-gray-400">
           {effectiveView === "drafted"
-            ? `No packs found with ${lookupName ?? "you"} in ${lookupName ? "them" : "them, yet"}. Anyone can draft ${lookupName ? "them" : "you"} at any time, without asking.`
+            ? `No packs found with ${lookupName ?? "you"} in ${lookupName ? "them" : "them, yet"}. Anyone can draft ${lookupName ? "them" : "you"} at any time, whether ${lookupName ? "they" : "you"} agree or not.`
             : effectiveView === "mine"
               ? lookupName
-                ? `${lookupName} hasn't made any follow packs.`
+                ? `${lookupName} hasn't made any draft packs.`
                 : "You haven't drafted anyone yet."
               : effectiveView === "follows"
-                ? "Nobody you follow has made a follow pack."
-                : "No follow packs found."}
+                ? "Nobody you follow has made a draft pack."
+                : "No draft packs found."}
         </div>
       ) : (
         <>
@@ -836,7 +836,7 @@ export default function Draftable() {
           preview={{
             url: draftedShareUrl(subjectPubkey),
             image: "/draftable_social_card.png",
-            title: `Follow packs ${getDisplayName(
+            title: `Draft packs ${getDisplayName(
               profiles.get(subjectPubkey),
               "this person",
             )} has been drafted into — Draftable`,
