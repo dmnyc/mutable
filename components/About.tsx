@@ -85,7 +85,7 @@ const TOOLS: { name: string; href: string; text: string }[] = [
   {
     name: "Burn After Reading",
     href: "/burn-after-reading",
-    text: "Bulk-delete your sent DMs and every private-DM gift wrap addressed to you",
+    text: "NIP-04 DM metadata is public: bulk-delete your sent DMs, plus the NIP-17 gift wraps addressed to you",
   },
   {
     name: "List Cleaner",

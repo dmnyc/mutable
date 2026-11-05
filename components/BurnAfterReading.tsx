@@ -32,6 +32,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
 import { Event } from "nostr-tools";
+import Link from "next/link";
 import { getDisplayName, truncateNpub } from "@/lib/utils/format";
 import type { Profile } from "@/types";
 import AppShell from "@/components/system/AppShell";
@@ -737,11 +738,26 @@ export default function BurnAfterReading() {
           icon={<Flame size={25} />}
           iconBg="from-orange-500 to-red-700"
           title="Burn After Reading"
-          subtitle="Ask every relay we can reach to burn your DM envelopes — the NIP-04 messages you sent, and every NIP-17 gift wrap addressed to you."
+          subtitle="NIP-04 DM metadata is public — who you message, when, how often. Burn those envelopes for good, and secondarily the NIP-17 gift wraps addressed to you: the wrapped message contents aren't yours to delete."
         />
 
         {/* What can and can't be deleted */}
         <div className="panel relative rounded-xl border border-line shadow-panel p-6 space-y-4">
+          <p className="text-sm text-mut">
+            Anyone scanning relays can read NIP-04 DM metadata: sender,
+            recipient, timestamps, frequency — it&apos;s exactly what{" "}
+            <Link
+              href="/snoopable"
+              className="font-semibold text-hi hover:underline"
+            >
+              Snoopable
+            </Link>{" "}
+            shows you for any npub. Scrubbing that public footprint is the main
+            job here. NIP-17 gift wraps are the second target — deleting the
+            wraps addressed to you clears your inbox copies, but the messages
+            inside aren&apos;t yours to delete: your contacts hold their own
+            wraps.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-green-800 dark:text-green-300 mb-2">
@@ -751,7 +767,9 @@ export default function BurnAfterReading() {
               <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-4">
                 <li>
                   <strong>NIP-04 DMs you sent</strong> (kind 4, authored by
-                  you) — relays honor deletions signed by the original author.
+                  you) — there&apos;s only one shared event on relays, so
+                  deleting it removes it for the recipient too. Relays honor
+                  deletions signed by the original author.
                 </li>
                 <li>
                   <strong>NIP-17 gift wraps addressed to you</strong> (kind
@@ -778,8 +796,9 @@ export default function BurnAfterReading() {
                   hold.
                 </li>
                 <li>
-                  <strong>Copies someone already saved</strong> — no protocol
-                  can recall those.
+                  <strong>Copies a client already saved</strong> — deletion
+                  clears relay copies, never local caches. That residual risk
+                  applies to both NIP-04 and NIP-17.
                 </li>
               </ul>
             </div>
@@ -883,7 +902,7 @@ export default function BurnAfterReading() {
                       : "border-transparent text-mut hover:text-hi"
                   }`}
                 >
-                  Standard DMs ({conversations.length})
+                  NIP-04 DMs ({conversations.length})
                 </button>
                 {scanResult.giftWraps.length > 0 && (
                   <button

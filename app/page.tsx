@@ -603,7 +603,7 @@ export default function Home() {
                 chip={<ChipTone tone="orange"><Flame size={16} /></ChipTone>}
                 title="Burn After Reading"
                 badge="NEW"
-                text="Bulk-delete your DMs: sent NIP-04 and your NIP-17 gift wraps."
+                text="NIP-04 DM metadata is public. Burn your sent DMs and NIP-17 gift wraps."
               />
               <DirectoryCard
                 href="/bloom-reaper"

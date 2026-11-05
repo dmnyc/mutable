@@ -87,7 +87,7 @@ Every file you've uploaded to Blossom, on every server you use, in one gallery. 
 - **Domain Purge**: Find and remove all users with a specific NIP-05 domain from your follow list
 - **List Cleaner**: Scan your mute list for inactive or abandoned profiles
 - **Note Nuke** ☢️: Delete Nostr events across multiple relays with a single click
-- **Burn After Reading** 🔥 **NEW**: Bulk-delete your DMs — the NIP-04 messages you sent and every NIP-17 gift wrap addressed to you, across relays. Content is decrypted locally, only when you open a conversation.
+- **Burn After Reading** 🔥 **NEW**: NIP-04 DM metadata is public — who you message, when, how often. Bulk-delete the NIP-04 DMs you sent, and secondarily the NIP-17 gift wraps addressed to you (the wrapped contents aren't yours to delete), across relays. Content is decrypted locally, only when you open a conversation.
 
 ### Multi-Device Sync via Relay Storage (NIP-78) ☁️ NEW
 - **Persistent Settings**: Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays
