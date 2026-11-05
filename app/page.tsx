@@ -21,6 +21,7 @@ import {
   Medal,
   Radiation,
   Skull,
+  Flame,
   Copy,
   FileSearch,
   ArrowLeftRight,
@@ -596,6 +597,13 @@ export default function Home() {
                 chip={<ChipTone tone="red"><Radiation size={16} /></ChipTone>}
                 title="Note Nuke"
                 text="Ask every relay we can reach to delete a note."
+              />
+              <DirectoryCard
+                href="/burn-after-reading"
+                chip={<ChipTone tone="orange"><Flame size={16} /></ChipTone>}
+                title="Burn After Reading"
+                badge="NEW"
+                text="Bulk-delete your DMs: sent NIP-04 and your NIP-17 gift wraps."
               />
               <DirectoryCard
                 href="/bloom-reaper"
