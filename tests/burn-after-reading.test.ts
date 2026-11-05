@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Event } from "nostr-tools";
 import {
   MAX_E_TAGS_PER_DELETION,
+  buildDeletionGroups,
   buildDeletionTemplates,
   chunkEventIds,
   createNip04Decryptor,
@@ -107,9 +108,9 @@ describe("groupNip04ByCounterparty", () => {
 });
 
 describe("buildDeletionTemplates", () => {
-  it("builds one kind:5 template per chunk with e tags and the client tag", () => {
-    const ids = ["1", "2", "3"];
-    const templates = buildDeletionTemplates(ids, "cleanup", 1700000000);
+  it("builds one kind:5 template per chunk with e tags, k tag and the client tag", () => {
+    const groups = [{ kind: 4, ids: ["1", "2", "3"] }];
+    const templates = buildDeletionTemplates(groups, "cleanup", 1700000000);
     expect(templates).toHaveLength(1);
     expect(templates[0].kind).toBe(5);
     expect(templates[0].created_at).toBe(1700000000);
@@ -118,18 +119,70 @@ describe("buildDeletionTemplates", () => {
       ["e", "1"],
       ["e", "2"],
       ["e", "3"],
+      ["k", "4"],
       ["client", "Burn After Reading by Mutable"],
     ]);
   });
 
-  it("trims the reason and chunks large selections", () => {
+  it("emits one template per kind so each carries its own k tag", () => {
+    const groups = [
+      { kind: 4, ids: ["a1", "a2"] },
+      { kind: 1059, ids: ["w1", "w2"] },
+    ];
+    const templates = buildDeletionTemplates(groups, "", 1700000000);
+    expect(templates).toHaveLength(2);
+    expect(templates[0].tags).toContainEqual(["k", "4"]);
+    expect(templates[1].tags).toContainEqual(["k", "1059"]);
+  });
+
+  it("trims the reason and chunks large groups", () => {
     const ids = Array.from({ length: MAX_E_TAGS_PER_DELETION + 2 }, (_, i) =>
       i.toString(),
     );
-    const templates = buildDeletionTemplates(ids, "  dm purge  ", 1700000000);
+    const templates = buildDeletionTemplates(
+      [{ kind: 1059, ids }],
+      "  dm purge  ",
+      1700000000,
+    );
     expect(templates).toHaveLength(2);
     expect(templates[0].content).toBe("dm purge");
     expect(templates[1].tags.filter((t) => t[0] === "e")).toHaveLength(2);
+    expect(templates[1].tags).toContainEqual(["k", "1059"]);
+  });
+});
+
+describe("buildDeletionGroups", () => {
+  const scan: {
+    nip04Sent: Event[];
+    giftWraps: Event[];
+  } = {
+    nip04Sent: [dmEvent("n1", 100), dmEvent("n2", 200)],
+    giftWraps: [
+      {
+        id: "w1",
+        pubkey: HEX_B,
+        kind: 1059,
+        created_at: 300,
+        tags: [["p", HEX_A]],
+        content: "",
+        sig: "",
+      } as unknown as Event,
+    ],
+  };
+
+  it("groups only selected events by kind", () => {
+    const groups = buildDeletionGroups(scan, new Set(["n1", "w1"]));
+    expect(groups).toEqual([
+      { kind: 4, ids: ["n1"] },
+      { kind: 1059, ids: ["w1"] },
+    ]);
+  });
+
+  it("omits empty kinds", () => {
+    expect(buildDeletionGroups(scan, new Set(["w1"]))).toEqual([
+      { kind: 1059, ids: ["w1"] },
+    ]);
+    expect(buildDeletionGroups(scan, new Set())).toEqual([]);
   });
 });
 

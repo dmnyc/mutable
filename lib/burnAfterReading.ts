@@ -128,21 +128,56 @@ export function chunkEventIds(
   return chunks;
 }
 
+/** Selected deletions grouped by kind, so each template carries one k tag. */
+export interface DeletionGroup {
+  kind: number;
+  ids: string[];
+}
+
+export function buildDeletionGroups(
+  scan: DeletableDMs,
+  selected: Set<string>,
+): DeletionGroup[] {
+  const groups: DeletionGroup[] = [];
+  const nip04Ids = scan.nip04Sent
+    .filter((event) => selected.has(event.id))
+    .map((event) => event.id);
+  const wrapIds = scan.giftWraps
+    .filter((event) => selected.has(event.id))
+    .map((event) => event.id);
+  if (nip04Ids.length > 0) {
+    groups.push({ kind: DM_KIND, ids: nip04Ids });
+  }
+  if (wrapIds.length > 0) {
+    groups.push({ kind: GIFT_WRAP_KIND, ids: wrapIds });
+  }
+  return groups;
+}
+
 /** Build one kind:5 template per chunk of referenced event ids. */
 export function buildDeletionTemplates(
-  eventIds: string[],
+  groups: DeletionGroup[],
   reason: string,
   createdAt: number,
 ): EventTemplate[] {
-  return chunkEventIds(eventIds).map((chunk) => ({
-    kind: 5,
-    tags: [
-      ...chunk.map((id) => ["e", id]),
-      ["client", "Burn After Reading by Mutable"],
-    ],
-    content: reason.trim(),
-    created_at: createdAt,
-  }));
+  const templates: EventTemplate[] = [];
+  groups.forEach(({ kind, ids }) => {
+    chunkEventIds(ids).forEach((chunk) => {
+      templates.push({
+        kind: 5,
+        tags: [
+          ...chunk.map((id) => ["e", id]),
+          // NIP-09: deletion requests SHOULD carry the kind of each
+          // referenced event — chunks are per-kind so one k tag suffices.
+          ["k", String(kind)],
+          ["client", "Burn After Reading by Mutable"],
+        ],
+        content: reason.trim(),
+        created_at: createdAt,
+      });
+    });
+  });
+  return templates;
 }
 
 function dedupeById(events: Event[]): Event[] {

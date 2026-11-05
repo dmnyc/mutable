@@ -16,6 +16,7 @@ import {
 } from "@/lib/nostr";
 import {
   MAX_E_TAGS_PER_DELETION,
+  buildDeletionGroups,
   buildDeletionTemplates,
   createNip04Decryptor,
   createNip44Decryptor,
@@ -27,6 +28,7 @@ import {
   unwrapGiftWraps,
   DeletableDMs,
   DMConversation,
+  DeletionGroup,
   RevealedMessage,
 } from "@/lib/burnAfterReading";
 import { useAuth } from "@/hooks/useAuth";
@@ -616,17 +618,26 @@ export default function BurnAfterReading() {
       ["error", "timeout", "rejected"].includes(relay.status),
     );
     if (retryTargets.length === 0) return;
-    await publishDeletions(Array.from(selectedIds), retryTargets);
+    await publishDeletions(
+      scanResult
+        ? buildDeletionGroups(scanResult, selectedIds)
+        : [],
+      retryTargets,
+    );
   };
 
-  const publishDeletions = async (ids: string[], targets: RelayTarget[]) => {
-    if (ids.length === 0) return;
+  const publishDeletions = async (
+    groups: DeletionGroup[],
+    targets: RelayTarget[],
+  ) => {
+    const ids = groups.reduce((total, group) => total + group.ids.length, 0);
+    if (ids === 0 || groups.length === 0) return;
 
     setIsPublishing(true);
     setLastPublishSummary(null);
 
     const templates = buildDeletionTemplates(
-      ids,
+      groups,
       includeReason ? "Deleted by Mutable" : "",
       Math.floor(Date.now() / 1000),
     );
@@ -689,7 +700,7 @@ export default function BurnAfterReading() {
 
     setIsPublishing(false);
     setLastPublishSummary(
-      `Published ${signedEvents.length} deletion event${signedEvents.length === 1 ? "" : "s"} covering ${ids.length} DM envelope${ids.length === 1 ? "" : "s"} to ${targets.length} relays.`,
+      `Published ${signedEvents.length} deletion event${signedEvents.length === 1 ? "" : "s"} covering ${ids} DM envelope${ids === 1 ? "" : "s"} to ${targets.length} relays.`,
     );
     setSuccessSnapshot({
       success: successCount,
@@ -708,23 +719,30 @@ export default function BurnAfterReading() {
       return;
     }
 
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) {
+    const groups = scanResult
+      ? buildDeletionGroups(scanResult, selectedIds)
+      : [];
+    const ids = groups.reduce((total, group) => total + group.ids.length, 0);
+    if (ids === 0) {
       alert("Select at least one DM to burn.");
       return;
     }
-
-    const batchCount = Math.ceil(ids.length / MAX_E_TAGS_PER_DELETION);
+    const batchCount = Math.ceil(
+      groups.reduce(
+        (total, group) => total + Math.ceil(group.ids.length / MAX_E_TAGS_PER_DELETION),
+        0,
+      ),
+    );
     const confirmMessage =
       `BURN AFTER READING\n\n` +
-      `This will publish ${batchCount} deletion event${batchCount === 1 ? "" : "s"} covering ${ids.length} DM envelope${ids.length === 1 ? "" : "s"} to ${selectedRelays.length} relays.\n\n` +
+      `This will publish ${batchCount} deletion event${batchCount === 1 ? "" : "s"} covering ${ids} DM envelope${ids === 1 ? "" : "s"} to ${selectedRelays.length} relays.\n\n` +
       `Deletion requests are best-effort: relays that honor them drop the events, but copies may survive elsewhere.\n\n` +
       `Proceed?`;
     if (!confirm(confirmMessage)) return;
 
     resetRelayStatuses();
     const targets = selectedRelays.map((relay) => ({ ...relay }));
-    await publishDeletions(ids, targets);
+    await publishDeletions(groups, targets);
   };
 
   const hasResults =
