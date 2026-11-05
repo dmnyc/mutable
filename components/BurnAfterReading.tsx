@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DEFAULT_RELAYS,
@@ -221,6 +221,17 @@ export default function BurnAfterReading() {
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [copiedNpub, setCopiedNpub] = useState<string | null>(null);
+
+  // Post-burn refresh timer
+  const rescanTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rescanTimerRef.current !== null) {
+        window.clearTimeout(rescanTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -707,6 +718,19 @@ export default function BurnAfterReading() {
       total: targets.length,
     });
     setShowSuccessModal(true);
+
+    // Reload the list so burned envelopes drop out. Relays apply removals at
+    // different speeds; give them a beat before rescanning.
+    if (successCount > 0) {
+      setSelectedIds(new Set());
+      if (rescanTimerRef.current !== null) {
+        window.clearTimeout(rescanTimerRef.current);
+      }
+      rescanTimerRef.current = window.setTimeout(() => {
+        rescanTimerRef.current = null;
+        void handleScan();
+      }, 2500);
+    }
   };
 
   const handleBurn = async () => {

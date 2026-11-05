@@ -359,17 +359,19 @@ export default function Snoopable() {
               NIP-04 encrypts message content, but metadata (who, when, how
               often) is public. Use <strong>NIP-17</strong> for true privacy.
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-              Want those public envelopes gone?{" "}
-              <NextLink
-                href="/burn-after-reading"
-                className="font-semibold text-purple-600 dark:text-purple-400 hover:underline"
-              >
-                Burn After Reading
-              </NextLink>{" "}
-              deletes the NIP-04 DMs you sent and every NIP-17 gift wrap
-              addressed to you.
-            </p>
+            {analysis && analysis.targetPubkey === session?.pubkey && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                Want those public envelopes gone?{" "}
+                <NextLink
+                  href="/burn-after-reading"
+                  className="font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  Burn After Reading
+                </NextLink>{" "}
+                deletes the NIP-04 DMs you sent and every NIP-17 gift wrap
+                addressed to you.
+              </p>
+            )}
           </div>
         </div>
 
