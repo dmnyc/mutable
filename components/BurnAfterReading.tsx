@@ -738,25 +738,20 @@ export default function BurnAfterReading() {
           icon={<Flame size={25} />}
           iconBg="from-orange-500 to-red-700"
           title="Burn After Reading"
-          subtitle="NIP-04 DM metadata is public — who you message, when, how often. Burn those envelopes for good, and secondarily the NIP-17 gift wraps addressed to you: the wrapped message contents aren't yours to delete."
+          subtitle="NIP-04 DM metadata is public. Burn your DM envelopes: the messages you sent, plus every NIP-17 gift wrap addressed to you."
         />
 
         {/* What can and can't be deleted */}
         <div className="panel relative rounded-xl border border-line shadow-panel p-6 space-y-4">
           <p className="text-sm text-mut">
-            Anyone scanning relays can read NIP-04 DM metadata: sender,
-            recipient, timestamps, frequency — it&apos;s exactly what{" "}
+            It&apos;s the public footprint{" "}
             <Link
               href="/snoopable"
               className="font-semibold text-hi hover:underline"
             >
               Snoopable
             </Link>{" "}
-            shows you for any npub. Scrubbing that public footprint is the main
-            job here. NIP-17 gift wraps are the second target — deleting the
-            wraps addressed to you clears your inbox copies, but the messages
-            inside aren&apos;t yours to delete: your contacts hold their own
-            wraps.
+            reveals, plus the NIP-17 wraps sitting in your own inbox.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
@@ -766,17 +761,12 @@ export default function BurnAfterReading() {
               </div>
               <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-4">
                 <li>
-                  <strong>NIP-04 DMs you sent</strong> (kind 4, authored by
-                  you) — there&apos;s only one shared event on relays, so
-                  deleting it removes it for the recipient too. Relays honor
-                  deletions signed by the original author.
+                  <strong>NIP-04 DMs you sent</strong> — one shared event, so
+                  the recipient&apos;s relay copy goes too.
                 </li>
                 <li>
-                  <strong>NIP-17 gift wraps addressed to you</strong> (kind
-                  1059, &quot;p&quot; tag = you) — NIP-59 says relays should
-                  delete gift wraps when the deletion signer matches the
-                  &quot;p&quot; tag. Covers incoming private DMs and your
-                  copies of sent ones.
+                  <strong>NIP-17 gift wraps addressed to you</strong> —
+                  incoming DMs and your copies of sent ones.
                 </li>
               </ul>
             </div>
@@ -787,28 +777,25 @@ export default function BurnAfterReading() {
               </div>
               <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-4">
                 <li>
-                  <strong>NIP-04 DMs you received</strong> — authored by the
-                  sender, so relays reject deletion requests from you.
+                  <strong>NIP-04 DMs you received</strong> — signed by the
+                  sender.
                 </li>
                 <li>
-                  <strong>Your contact&apos;s copies of your NIP-17
-                  messages</strong> — authored by one-time keys you no longer
-                  hold.
+                  <strong>Your contacts&apos; NIP-17 wraps</strong> — signed by
+                  throwaway keys.
                 </li>
                 <li>
-                  <strong>Copies a client already saved</strong> — deletion
-                  clears relay copies, never local caches. That residual risk
-                  applies to both NIP-04 and NIP-17.
+                  <strong>Client caches</strong> — already-saved copies survive
+                  any deletion.
                 </li>
               </ul>
             </div>
           </div>
           <p className="text-xs text-mut flex items-start gap-2">
             <ShieldAlert size={14} className="mt-0.5 flex-none" />
-            Nothing leaves your device: message content is decrypted locally in
-            your browser, and only when you open a conversation. Deletion
-            requests are best-effort: some relays are read-only, ignore
-            deletes, or keep cached copies.
+            Decryption runs in your browser, only when you open a conversation.
+            Deletion requests are best-effort: some relays ignore them or keep
+            cached copies.
           </p>
         </div>
 
