@@ -21,6 +21,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/burnafterreading',
+        destination: '/burn-after-reading',
+        permanent: true,
+      },
+      {
         source: '/backups',
         destination: '/dashboard?tab=backups',
         permanent: false,
