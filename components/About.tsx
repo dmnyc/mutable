@@ -83,6 +83,11 @@ const TOOLS: { name: string; href: string; text: string }[] = [
     text: "Ask every relay we can reach to delete a note",
   },
   {
+    name: "Burn After Reading",
+    href: "/burn-after-reading",
+    text: "Bulk-delete your sent DMs and every private-DM gift wrap addressed to you",
+  },
+  {
     name: "List Cleaner",
     href: "/dashboard?tab=listCleaner",
     text: "Scan your mute list for inactive profiles",
