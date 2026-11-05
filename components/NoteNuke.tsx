@@ -158,7 +158,7 @@ export default function NoteNuke() {
     Record<string, number>
   >({});
   const [filterText, setFilterText] = useState("");
-  const [reason, setReason] = useState("");
+  const [includeReason, setIncludeReason] = useState(true);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [previewStatus, setPreviewStatus] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -384,7 +384,7 @@ export default function NoteNuke() {
     const eventTemplate: EventTemplate = {
       kind: 5,
       tags,
-      content: reason.trim(),
+      content: includeReason ? "Deleted by Mutable" : "",
       created_at: Math.floor(Date.now() / 1000),
     };
 
@@ -551,16 +551,20 @@ export default function NoteNuke() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            Deletion reason (optional)
+          <label className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeReason}
+              onChange={(e) => setIncludeReason(e.target.checked)}
+              className="h-4 w-4 mt-0.5"
+            />
+            <span>
+              Label the deletion event with{" "}
+              <span className="font-mono">Deleted by Mutable</span> so clients
+              can show why the content disappeared. Uncheck to send the
+              deletion without a reason.
+            </span>
           </label>
-          <input
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason stored in deletion event content"
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100"
-          />
         </div>
 
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/40">

@@ -86,7 +86,8 @@ Every file you've uploaded to Blossom, on every server you use, in one gallery. 
 - **Decimator**: Randomly remove a percentage of your follows to cull your list down to a manageable size
 - **Domain Purge**: Find and remove all users with a specific NIP-05 domain from your follow list
 - **List Cleaner**: Scan your mute list for inactive or abandoned profiles
-- **Note Nuke** ☢️ **NEW**: Delete Nostr events across multiple relays with a single click
+- **Note Nuke** ☢️: Delete Nostr events across multiple relays with a single click
+- **Burn After Reading** 🔥 **NEW**: Bulk-delete your DMs — the NIP-04 messages you sent and every NIP-17 gift wrap addressed to you, across relays. Content is decrypted locally, only when you open a conversation.
 
 ### Multi-Device Sync via Relay Storage (NIP-78) ☁️ NEW
 - **Persistent Settings**: Your protected users, blacklist, preferences, and imported packs are automatically synced to your Nostr relays
@@ -186,6 +187,7 @@ mutable/
 ├── app/                    # Next.js app directory
 │   ├── about/             # About page (reached from the user menu and the footer)
 │   ├── bloom-reaper/      # Bloom Reaper: your Blossom uploads, found and reaped
+│   ├── burn-after-reading/ # Burn After Reading: bulk DM deletion
 │   ├── dashboard/         # Dashboard page
 │   ├── dossier/           # The Dossier (+ /card social image)
 │   ├── draftable/         # Draftable draft packs (browse, create, /d/[id] pack pages, social card)
@@ -224,6 +226,8 @@ mutable/
 │   ├── NoteNuke.tsx       # Note Nuke component for event deletion
 │   ├── NoteNukeSuccessModal.tsx # Success modal for event deletion
 │   ├── NoteNukeWrapper.tsx # Wrapper with navigation for standalone route
+│   ├── BurnAfterReading.tsx # Burn After Reading: scan, reveal and burn DMs
+│   ├── BurnAfterReadingSuccessModal.tsx # Success modal for DM deletion
 │   ├── OnboardingModal.tsx # Onboarding flow for new users
 │   ├── PrivacyControls.tsx
 │   ├── PublicListCard.tsx

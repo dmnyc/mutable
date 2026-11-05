@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Radiation, Sparkles, X } from "lucide-react";
 
 interface NoteNukeSuccessModalProps {
@@ -36,7 +37,10 @@ export default function NoteNukeSuccessModal({
 
   if (!isOpen) return null;
 
-  return (
+  // Portal to body: AppShell's animate-rise leaves a filled transform on
+  // <main>, which traps position:fixed descendants in its own containing
+  // block and pushes the modal off screen on long pages.
+  return createPortal(
     <div
       className="fixed top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       style={{ margin: 0 }}
@@ -90,6 +94,7 @@ export default function NoteNukeSuccessModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
