@@ -238,7 +238,7 @@ export default function Snoopable() {
     let content = `🔍 Sn👀pable Report for nostr:${npub}\n\n`;
     content += `📊 DM Activity:\n`;
     content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
-    content += `• ${analysis.contacts.length} unique contacts\n`;
+    content += `• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}\n`;
 
     if (analysis.oldestDM) {
       const oldestDate = new Date(analysis.oldestDM * 1000);
@@ -249,7 +249,7 @@ export default function Snoopable() {
     const topContacts = analysis.contacts.slice(0, 3);
     topContacts.forEach((contact, i) => {
       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
-      content += `${medal} ${contact.title} (${contact.totalCount} exchanges)\n`;
+      content += `${medal} ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
     });
 
     content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
@@ -282,7 +282,7 @@ export default function Snoopable() {
 
       content += `📊 DM Activity:\n`;
       content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
-      content += `• ${analysis.contacts.length} unique contacts\n`;
+      content += `• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}\n`;
 
       if (analysis.oldestDM) {
         const oldestDate = new Date(analysis.oldestDM * 1000);
@@ -298,9 +298,9 @@ export default function Snoopable() {
             contact.profile,
             hexToNpub(contact.pubkey).slice(0, 12),
           );
-          content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchanges)\n`;
+          content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
         } else {
-          content += `${medal} ${contact.title} (${contact.totalCount} exchanges)\n`;
+          content += `${medal} ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
         }
       });
 
@@ -755,7 +755,7 @@ export default function Snoopable() {
 
 📊 DM Activity:
 • ${analysis.totalSent} sent / ${analysis.totalReceived} received
-• ${analysis.contacts.length} unique contacts
+• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}
 
 🏆 Top Contacts:
 ${analysis.contacts
@@ -764,7 +764,7 @@ ${analysis.contacts
     const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
     const name =
       includeNames && c.profile ? getDisplayName(c.profile) : c.title;
-    return `${medal} ${name} (${c.totalCount} exchanges)`;
+    return `${medal} ${name} (${c.totalCount} exchange${c.totalCount === 1 ? "" : "s"})`;
   })
   .join("\n")}
 

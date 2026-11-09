@@ -775,7 +775,8 @@ export default function DMCircle({
               )}
             </div>
             <div className="text-xs text-gray-300">
-              {hoveredContact.title} · {hoveredContact.totalCount} exchanges
+              {hoveredContact.title} · {hoveredContact.totalCount}{" "}
+              exchange{hoveredContact.totalCount === 1 ? "" : "s"}
             </div>
           </div>
         )}
@@ -895,7 +896,8 @@ export default function DMCircle({
 
       {/* Info */}
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-        Showing top {displayContacts.length} contacts by recent activity
+        Showing top {displayContacts.length}{" "}
+        contact{displayContacts.length === 1 ? "" : "s"} by recent activity
         {contacts.length > 36 && ` (${contacts.length} total)`}
       </p>
 
