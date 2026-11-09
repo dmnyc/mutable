@@ -82,6 +82,9 @@ export default function DMCircle({
       `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=100&h=100`,
       `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=200&h=200`, // Try larger size
       `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=200&h=200`,
+      // Direct load last — dicebear and most picture hosts serve CORS
+      // headers, so this works even when the proxies are rate-limiting.
+      url,
     ];
 
     for (const proxyUrl of proxies) {

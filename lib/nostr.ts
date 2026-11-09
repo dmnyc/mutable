@@ -5554,37 +5554,20 @@ export async function analyzeDMMetadata(
   // 4. Generate heatmap data
   const heatmapData = generateDMHeatmapData(sent, received);
 
-  // 5. Fetch profiles for top contacts (limit to avoid overwhelming relays)
-  onProgress?.(
-    "Ranking the suspects...",
-    0,
-    Math.min(contacts.length, 50),
+  // 5. Fetch profiles for every contact — the bulk archive lookup covers the
+  // whole list with relay fallback only for misses, so leaderboard and
+  // circle entries all get names and avatars. (Fetching only the top 50
+  // left recent lurkers profile-less and blanked out the circle.)
+  onProgress?.("Ranking the suspects...", 0, contacts.length);
+
+  const profilesByPubkey = await fetchProfilesBulk(
+    contacts.map((contact) => contact.pubkey),
+    relays,
+    (current, total) => onProgress?.("Ranking the suspects...", current, total),
   );
 
-  const topContacts = contacts.slice(0, 50);
-  const PROFILE_BATCH_SIZE = 5;
-
-  for (let i = 0; i < topContacts.length; i += PROFILE_BATCH_SIZE) {
-    if (abortSignal?.aborted) throw new Error("Aborted");
-
-    const batch = topContacts.slice(i, i + PROFILE_BATCH_SIZE);
-    const profilePromises = batch.map((contact) =>
-      fetchProfile(contact.pubkey, relays).catch(() => null),
-    );
-
-    const profiles = await Promise.all(profilePromises);
-
-    for (let j = 0; j < batch.length; j++) {
-      if (profiles[j]) {
-        batch[j].profile = profiles[j] || undefined;
-      }
-    }
-
-    onProgress?.(
-      "Ranking the suspects...",
-      Math.min(i + PROFILE_BATCH_SIZE, topContacts.length),
-      Math.min(contacts.length, 50),
-    );
+  for (const contact of contacts) {
+    contact.profile = profilesByPubkey.get(contact.pubkey) || contact.profile;
   }
 
   // 6. Fetch target's profile
