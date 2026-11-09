@@ -28,8 +28,6 @@ const MONTH_KEYS = [
   "Dec",
 ];
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-/** Week column pitch in the year grid: 10px cell + 2px gap. */
-const WEEK_PITCH = 12;
 /** Fixed width of the weekday-label column, in px. */
 const DAY_COL = 30;
 
@@ -151,26 +149,23 @@ export default function DMHeatmap({
     return months[months.length - 1]?.key ?? null;
   }, [months]);
 
-  // The year grid shows only as many weeks as the container fits, keeping the
-  // most recent ones — never an inner horizontal scroll.
-  const weeksShown = useMemo(() => {
-    if (gridWidth == null) return weeks;
-    const capacity = Math.max(
-      8,
-      Math.floor((gridWidth - DAY_COL) / WEEK_PITCH),
-    );
-    const n = Math.min(weeks.length, capacity);
-    return weeks.slice(weeks.length - n);
-  }, [weeks, gridWidth]);
+  // The year grid scales to its container: all 53 weeks always render, and
+  // the cell size is derived from the measured width — bigger cells on wide
+  // panels, smaller near the lg breakpoint, never a scrollbar.
+  const cell = useMemo(() => {
+    if (!gridWidth) return 12;
+    const gaps = (weeks.length - 1) * 2;
+    const size = Math.floor((gridWidth - DAY_COL - gaps) / weeks.length);
+    return Math.max(8, Math.min(20, size));
+  }, [gridWidth, weeks.length]);
 
-  // Month labels for the visible slice; each label spans its weeks exactly,
-  // so labels sit over their columns instead of drifting on accumulated
-  // margins. A month starting mid-week is labeled at the week containing
-  // its 1st, matching the grid.
+  // Month labels; each label spans its weeks exactly, so labels sit over
+  // their columns. A month starting mid-week is labeled at the week
+  // containing its 1st, matching the grid.
   const gridLabels = useMemo(() => {
     const labels: { month: string; weekIndex: number }[] = [];
     let currentMonth = -1;
-    weeksShown.forEach((week, weekIndex) => {
+    weeks.forEach((week, weekIndex) => {
       for (const day of week) {
         if (!day) continue;
         const month = Number(day.date.slice(5, 7));
@@ -182,7 +177,7 @@ export default function DMHeatmap({
       }
     });
     return labels;
-  }, [weeksShown]);
+  }, [weeks]);
 
   const activeMonthKey = monthCursor ?? defaultMonthKey;
   const activeMonthIndex = months.findIndex((m) => m.key === activeMonthKey);
@@ -260,7 +255,7 @@ export default function DMHeatmap({
 
   const activeDayCell = (day: DMActivityDay) => (
     <div
-      className={`w-[10px] h-[10px] rounded-sm ${getColor(day.count)} transition-colors ${
+      className={`rounded-sm ${getColor(day.count)} transition-colors ${
         day.count > 0
           ? "cursor-pointer hover:ring-1 hover:ring-purple-500"
           : "cursor-default"
@@ -269,6 +264,7 @@ export default function DMHeatmap({
           ? "ring-2 ring-purple-600 dark:ring-purple-400"
           : ""
       }`}
+      style={{ width: cell, height: cell }}
     />
   );
 
@@ -366,7 +362,7 @@ export default function DMHeatmap({
         )}
       </div>
 
-      {/* Desktop: the full 53-week year grid, fit to the panel width. */}
+      {/* Desktop: the full 53-week year grid, scaled to the panel width. */}
       <div className="hidden lg:block" ref={gridWrapRef} data-testid="dm-year-grid">
         <div>
           {/* Month Labels — one block per month, spanning its weeks. */}
@@ -375,12 +371,12 @@ export default function DMHeatmap({
               const span =
                 (i < gridLabels.length - 1
                   ? gridLabels[i + 1].weekIndex
-                  : weeksShown.length) - label.weekIndex;
+                  : weeks.length) - label.weekIndex;
               return (
                 <div
                   key={`${label.month}-${i}`}
                   className="text-xs text-gray-500 dark:text-gray-400"
-                  style={{ width: span * WEEK_PITCH }}
+                  style={{ width: span * (cell + 2) }}
                 >
                   {label.month}
                 </div>
@@ -398,8 +394,8 @@ export default function DMHeatmap({
               {DAY_LABELS.map((day, i) => (
                 <div
                   key={day}
-                  className="h-[10px] text-[9px] text-gray-400 dark:text-gray-500 flex items-center justify-end pr-1"
-                  style={{ visibility: i % 2 === 1 ? "visible" : "hidden" }}
+                  className="text-[9px] text-gray-400 dark:text-gray-500 flex items-center justify-end pr-1"
+                  style={{ height: cell, visibility: i % 2 === 1 ? "visible" : "hidden" }}
                 >
                   {day}
                 </div>
@@ -408,7 +404,7 @@ export default function DMHeatmap({
 
             {/* Weeks */}
             <div className="flex gap-0.5">
-              {weeksShown.map((week, weekIndex) => (
+              {weeks.map((week, weekIndex) => (
                 <div key={weekIndex} className="flex flex-col gap-0.5">
                   {week.map((day, dayIndex) =>
                     day ? (
@@ -429,7 +425,7 @@ export default function DMHeatmap({
                     ) : (
                       <div
                         key={`empty-${dayIndex}`}
-                        className="w-[10px] h-[10px]"
+                        style={{ width: cell, height: cell }}
                       />
                     )
                   )}
@@ -437,13 +433,6 @@ export default function DMHeatmap({
               ))}
             </div>
           </div>
-          {weeksShown.length < weeks.length ? (
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">
-              Showing the most recent {Math.round(weeksShown.length / 4.33)}{" "}
-              month{Math.round(weeksShown.length / 4.33) === 1 ? "" : "s"} of
-              the last 12.
-            </p>
-          ) : null}
         </div>
       </div>
 
