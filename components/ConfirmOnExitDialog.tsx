@@ -39,14 +39,14 @@ export default function ConfirmOnExitDialog({
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <button
               onClick={onConfirm}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              className="flex-1 whitespace-nowrap flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               <Save size={16} />
               <span>Publish Now</span>
             </button>
             <button
               onClick={onDiscard}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className="flex-1 whitespace-nowrap flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               <Trash2 size={16} />
               <span>Discard Changes</span>

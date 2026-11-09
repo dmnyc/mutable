@@ -300,11 +300,10 @@ function SweepGuide() {
           <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <AlertTriangle size={14} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
-              Your nsec is your most sensitive secret. Only enter it into
-              software you trust, on a device you own, while offline if
-              possible. After importing, always verify the wallet shows the same
-              address listed above before broadcasting anything. Mutable never
-              asks for your nsec.
+              Enter your nsec only into software you trust, on a device you
+              own, offline if possible. After importing, verify the wallet
+              shows the address above before broadcasting. Mutable never asks
+              for your nsec.
             </p>
           </div>
 
@@ -379,13 +378,11 @@ function SweepGuide() {
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-700 pt-3">
-            Realistically, you probably will not rotate your nsec — your
-            social graph, history, and verifications live on it. The practical
-            mitigation is simpler: never accept Bitcoin on-chain to this
-            address again, and tell zappers to use Lightning. The exposure
-            itself is permanent — anyone who ever saw your nsec can re-derive
-            the same key and sweep anything sent to it — but new funds only
-            land there if you let them.
+            You probably won&apos;t rotate your nsec — your social graph and
+            history live on it. The practical fix: never accept on-chain
+            Bitcoin at this address again, and ask zappers to use Lightning.
+            The exposure is permanent, but new funds only land there if you let
+            them.
           </p>
         </div>
       )}
@@ -726,8 +723,8 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
         </div>
         <p className="text-gray-600 dark:text-gray-400 text-sm">
           Check whether a Nostr identity controls Bitcoin on-chain. A Nostr
-          public key is a secp256k1 key — the same curve Bitcoin uses. Anyone
-          who knows your npub can derive your Bitcoin addresses.
+          public key uses the same secp256k1 curve as Bitcoin, so anyone who
+          knows your npub can derive your addresses.
         </p>
       </div>
 
@@ -912,13 +909,11 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
               On-chain Bitcoin zaps are a privacy trap
             </p>
             <p className="text-sm text-red-800 dark:text-red-300 mt-1 leading-relaxed">
-              When anyone sends you Bitcoin on-chain using your Nostr key, it
-              creates a <strong>permanent, public, immutable</strong> record on
-              the Bitcoin blockchain. Because your address is deterministically
-              derived from your public key, senders do not need your permission
-              — they can fund your address without you asking for it. Every
-              transaction is forever visible to everyone, linking your Nostr
-              identity to your full financial history.
+              On-chain Bitcoin sent using your Nostr key creates a{" "}
+              <strong>permanent, public record</strong> on the blockchain. Your
+              address is derived from your public key, so anyone can fund it
+              without asking — and every transaction forever links your Nostr
+              identity to your financial history.
             </p>
           </div>
         </div>

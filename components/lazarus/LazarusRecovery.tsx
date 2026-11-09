@@ -1086,11 +1086,9 @@ export default function LazarusRecovery({
             Recover from relay history
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Relays often keep older versions of your lists and profile after a
-            client overwrites them. Scan for those versions and restore one.
-            Unlike relay backups, this needs no backup made in advance. Scans
-            are read-only: nothing is published until you review the change and
-            confirm.
+            Relays often keep older versions of your lists and profile. Scan
+            for them and restore one — no backup needed in advance. Scans are
+            read-only: nothing publishes until you review and confirm.
           </p>
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -1143,10 +1141,9 @@ export default function LazarusRecovery({
               Your events as JSON
             </div>
             <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-              Download the newest signed version of each list below to keep
-              offline. Import a file later to review and restore any version it
-              holds. Imports are checked: only versions signed by this account
-              are kept.
+              Download the newest signed version of each list for offline
+              keeping. Import a file later to restore — only versions signed by
+              this account are kept.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button

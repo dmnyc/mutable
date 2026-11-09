@@ -703,9 +703,8 @@ export default function Settings() {
                   <p className="font-semibold mb-1">Multi-Device Sync</p>
                   <p className="mb-2">
                     Your protected users, blacklist, preferences, and imported
-                    packs are automatically synced to your Nostr relays. This
-                    allows you to seamlessly access your data across all
-                    devices.
+                    packs sync to your Nostr relays, so your data follows you
+                    across devices.
                   </p>
                   <p className="text-xs">
                     <strong>Tip:</strong> Use the export/import buttons to share
@@ -992,7 +991,9 @@ export default function Settings() {
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Public mutes are more compatible across Nostr clients. Private mutes use NIP-44 encryption per the NIP-51 spec, but not all clients support this yet. You can always change individual items using the lock icon.
+            Public mutes work in more clients. Private mutes use NIP-44
+            encryption (NIP-51), which not every client supports yet. Change
+            individual items with the lock icon.
           </p>
         </div>
       </div>
@@ -1082,14 +1083,14 @@ export default function Settings() {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleResetApp}
-                    className="flex-1 px-6 py-3 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors font-bold flex items-center justify-center gap-2"
+                    className="flex-1 whitespace-nowrap px-6 py-3 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors font-bold flex items-center justify-center gap-2"
                   >
                     <AlertTriangle size={18} />
                     Yes, Delete Everything
                   </button>
                   <button
                     onClick={() => setResetStep(0)}
-                    className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold"
+                    className="flex-1 whitespace-nowrap px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold"
                   >
                     Cancel
                   </button>

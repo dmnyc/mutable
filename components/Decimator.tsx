@@ -912,9 +912,8 @@ export default function Decimator() {
               <p className="leading-relaxed">
                 Publishes an empty contact list. A local backup is saved
                 automatically, and the <strong>Backups tab</strong> has a Follow
-                List Recovery tool that can rebuild your list from older relay
-                copies if you change your mind. Still, take a fresh export there
-                first if this matters to you.
+                List Recovery tool that can rebuild from older relay copies —
+                but take a fresh export there first.
               </p>
             </div>
           </div>

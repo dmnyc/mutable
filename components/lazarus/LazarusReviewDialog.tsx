@@ -587,9 +587,8 @@ export default function LazarusReviewDialog({
               {review.attempts >= 2 && (
                 <div className="space-y-2 rounded-lg border border-red-300 p-3 dark:border-red-800">
                   <p className="text-gray-700 dark:text-gray-300">
-                    If your relay list names relays that no longer exist, you
-                    can restore without confirming. Edits made on another device
-                    since this review may be lost.
+                    Your current version couldn&apos;t be confirmed, so you can
+                    restore without confirming.
                   </p>
                   <label className="flex items-start gap-2 text-gray-800 dark:text-gray-200">
                     <input

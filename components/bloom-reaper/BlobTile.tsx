@@ -247,11 +247,11 @@ export default function BlobTile({
           ))}
         </div>
         <div className="text-[11px] text-mut">{formatUploaded(item.uploaded)}</div>
-        <div className="flex items-center gap-1.5 pt-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           <button
             type="button"
             onClick={handleCopy}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-inset border border-line-2 text-xs font-semibold text-mid hover:text-hi hover:border-line-strong transition-colors"
+            className="w-full sm:w-auto sm:flex-1 whitespace-nowrap inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-inset border border-line-2 text-xs font-semibold text-mid hover:text-hi hover:border-line-strong transition-colors"
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
             {copied ? "Copied" : "Copy URL"}
@@ -260,7 +260,7 @@ export default function BlobTile({
             href={item.primaryUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong transition-colors"
+            className="flex-1 sm:flex-none w-8 inline-flex items-center justify-center h-8 rounded-lg bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong transition-colors"
             title="Open"
           >
             <ExternalLink size={13} />
@@ -268,7 +268,7 @@ export default function BlobTile({
           <button
             type="button"
             onClick={onReap}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex-1 sm:flex-none w-8 inline-flex items-center justify-center h-8 rounded-lg border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
             title="Reap (request deletion)"
           >
             <Trash2 size={13} />
