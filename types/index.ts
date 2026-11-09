@@ -289,6 +289,18 @@ export interface DMContact {
   title?: string; // Fun title (BFF, Ghost, etc.)
 }
 
+// The public parts of a kind:4 event worth keeping per envelope — everything
+// a "raw JSON" view needs. The ciphertext content is public on relays; only
+// the plaintext it encrypts stays hidden.
+export interface DMRawEvent {
+  id: string;
+  pubkey: string; // event author (target for sent, counterparty for received)
+  created_at: number;
+  tags: string[][];
+  content?: string; // ciphertext
+  sig?: string;
+}
+
 // A single DM envelope, as observable WITHOUT decrypting the content.
 // Everything here is public metadata leaked by a NIP-04 (kind:4) event.
 export interface DMMessageMeta {
@@ -300,6 +312,7 @@ export interface DMMessageMeta {
   client?: string; // from a ["client", ...] tag, if the sender's app set one
   replyToEventId?: string; // from an ["e", ...] tag — reveals threading
   expiresAt?: number; // from an ["expiration", ...] tag (disappearing messages)
+  raw?: DMRawEvent; // full public event snapshot for the raw-JSON view
 }
 
 // Heatmap data point for DM activity

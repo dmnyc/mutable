@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { useState } from "react";
+import { ArrowDownLeft, ArrowUpRight, Code2 } from "lucide-react";
 import { DMMessageMeta, Profile } from "@/types";
 import { hexToNpub } from "@/lib/nostr";
 import { getDisplayName } from "@/lib/utils/format";
@@ -8,7 +9,8 @@ import { getDisplayName } from "@/lib/utils/format";
 /**
  * One DM envelope in a message list (heatmap drill-down, inbox). Shows only
  * public metadata — the content itself stays encrypted: direction, time,
- * counterparty, ciphertext size, client, reply and expiration markers.
+ * counterparty, ciphertext size, client, reply and expiration markers. An
+ * expander reveals the full event metadata and raw JSON.
  */
 export default function DMMessageRow({
   msg,
@@ -22,6 +24,7 @@ export default function DMMessageRow({
   maxContentLength: number;
   onSelectPubkey?: (pubkey: string) => void;
 }) {
+  const [showRaw, setShowRaw] = useState(false);
   const name = msg.counterparty
     ? profile
       ? getDisplayName(profile)
@@ -34,7 +37,7 @@ export default function DMMessageRow({
       : 0;
 
   return (
-    <div className="flex items-center gap-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5">
+    <div className="flex flex-wrap items-center gap-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5">
       <span
         className={
           isSent
@@ -102,6 +105,60 @@ export default function DMMessageRow({
         >
           ⏳
         </span>
+      )}
+      {msg.raw && (
+        <button
+          onClick={() => setShowRaw((s) => !s)}
+          className={`p-1 rounded flex-shrink-0 transition-colors ${
+            showRaw
+              ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+              : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          }`}
+          title="Show event metadata and raw JSON"
+        >
+          <Code2 size={13} />
+        </button>
+      )}
+
+      {showRaw && msg.raw && (
+        <div className="basis-full mt-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+          <div className="grid gap-1 text-[10px] font-mono text-gray-600 dark:text-gray-300">
+            <div className="break-all">
+              <span className="text-gray-400 dark:text-gray-500">id: </span>
+              {msg.raw.id}
+            </div>
+            <div className="break-all">
+              <span className="text-gray-400 dark:text-gray-500">author: </span>
+              {msg.raw.pubkey}
+            </div>
+            <div>
+              <span className="text-gray-400 dark:text-gray-500">time: </span>
+              {new Date(msg.raw.created_at * 1000).toISOString()}
+            </div>
+          </div>
+
+          {msg.raw.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {msg.raw.tags.map((tag, i) => (
+                <span
+                  key={i}
+                  className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[10px] font-mono text-gray-600 dark:text-gray-300 break-all"
+                >
+                  [{tag.map((v) => `"${v}"`).join(", ")}]
+                </span>
+              ))}
+            </div>
+          )}
+
+          <pre className="text-[10px] leading-relaxed font-mono text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 rounded p-2 max-h-60 overflow-auto whitespace-pre-wrap break-all border border-gray-100 dark:border-gray-700">
+            {JSON.stringify(msg.raw, null, 2)}
+          </pre>
+
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            The content field is ciphertext — publicly readable on relays, but
+            only the holder of the conversation&apos;s key can decrypt it.
+          </p>
+        </div>
       )}
     </div>
   );

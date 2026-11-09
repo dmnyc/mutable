@@ -695,11 +695,11 @@ export default function Snoopable() {
           {/* View Tabs — segmented control so the sections read at a glance */}
           <div
             role="tablist"
-            className="flex gap-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 mb-6"
+            className="grid grid-cols-2 sm:flex gap-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 mb-6"
           >
             {(
               [
-                ["inbox", "Inbox"],
+                ["inbox", "Doxxed Inbox"],
                 ["circle", "DM Circle"],
                 ["leaderboard", "Leaderboard"],
                 ["heatmap", "Heatmap"],
@@ -710,7 +710,7 @@ export default function Snoopable() {
                 role="tab"
                 aria-selected={activeTab === tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 sm:flex-none sm:px-5 px-2 py-2 text-sm font-semibold rounded-md whitespace-nowrap transition-colors ${
+                className={`whitespace-nowrap px-2 py-2 sm:px-5 text-sm font-semibold rounded-md transition-colors ${
                   activeTab === tab
                     ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300 shadow-sm"
                     : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"

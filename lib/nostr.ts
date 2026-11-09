@@ -5148,6 +5148,14 @@ function generateDMHeatmapData(
       client: tagValue(event, "client"),
       replyToEventId: tagValue(event, "e"),
       expiresAt: expiration ? Number(expiration) || undefined : undefined,
+      raw: {
+        id: event.id,
+        pubkey: event.pubkey,
+        created_at: event.created_at,
+        tags: event.tags,
+        content: event.content,
+        sig: event.sig,
+      },
     };
   };
 
