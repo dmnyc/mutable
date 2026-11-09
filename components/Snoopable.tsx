@@ -24,6 +24,7 @@ import UserProfileModal from "./UserProfileModal";
 import SnoopableGlasses from "./SnoopableGlasses";
 import DMLeaderboard from "./DMLeaderboard";
 import DMHeatmap from "./DMHeatmap";
+import DMInbox from "./DMInbox";
 import DMCircle from "./DMCircle";
 import {
   analyzeDMMetadata,
@@ -64,7 +65,7 @@ export default function Snoopable() {
   const [copiedNote, setCopiedNote] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "circle" | "leaderboard" | "heatmap"
+    "circle" | "leaderboard" | "heatmap" | "inbox"
   >("circle");
   const [showShareModal, setShowShareModal] = useState(false);
   const [includeNames, setIncludeNames] = useState(false);
@@ -691,41 +692,49 @@ export default function Snoopable() {
             </div>
           </div>
 
-          {/* View Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
-            <button
-              onClick={() => setActiveTab("circle")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "circle"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              DM Circle
-            </button>
-            <button
-              onClick={() => setActiveTab("leaderboard")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "leaderboard"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Leaderboard
-            </button>
-            <button
-              onClick={() => setActiveTab("heatmap")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "heatmap"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Heatmap
-            </button>
+          {/* View Tabs — segmented control so the sections read at a glance */}
+          <div
+            role="tablist"
+            className="flex gap-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 mb-6"
+          >
+            {(
+              [
+                ["inbox", "Inbox"],
+                ["circle", "DM Circle"],
+                ["leaderboard", "Leaderboard"],
+                ["heatmap", "Heatmap"],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                role="tab"
+                aria-selected={activeTab === tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 sm:flex-none sm:px-5 px-2 py-2 text-sm font-semibold rounded-md whitespace-nowrap transition-colors ${
+                  activeTab === tab
+                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300 shadow-sm"
+                    : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* Tab Content */}
+          {activeTab === "inbox" && (
+            <DMInbox
+              data={analysis.heatmapData}
+              profilesByPubkey={contactProfilesByPubkey}
+              onSelectPubkey={(pubkey) =>
+                setSelectedProfile(
+                  contactProfilesByPubkey.get(pubkey) || { pubkey },
+                )
+              }
+              onRequestProfiles={handleRequestProfiles}
+            />
+          )}
+
           {activeTab === "leaderboard" && (
             <DMLeaderboard
               contacts={analysis.contacts.filter((c) => c && c.pubkey)}
