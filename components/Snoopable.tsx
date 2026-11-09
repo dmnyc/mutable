@@ -33,8 +33,13 @@ import {
   searchProfiles,
   fetchProfile,
   fetchProfilesBulk,
+  fetchConversationEvents,
   publishTextNote,
 } from "@/lib/nostr";
+import {
+  dmEventToMeta,
+  mergeEnvelopesIntoHeatmap,
+} from "@/lib/dmEnvelopes";
 import {
   getDisplayName,
   truncateNpub,
@@ -79,6 +84,39 @@ export default function Snoopable() {
   // fetch its missing counterparties once and cache them here.
   const [lazyProfiles, setLazyProfiles] = useState<Record<string, Profile>>({});
   const requestedProfilesRef = useRef<Set<string>>(new Set());
+
+  // The global scan caps at the newest ~500 sent/received events, which can
+  // strip a thread's outbound side entirely. Expanding a thread deep-fetches
+  // that one conversation and merges it into the analysis.
+  const [deepFetching, setDeepFetching] = useState<string[]>([]);
+  const deepFetchedRef = useRef<Set<string>>(new Set());
+
+  const handleDeepFetchThread = async (counterparty: string) => {
+    if (!analysis || deepFetchedRef.current.has(counterparty)) return;
+    deepFetchedRef.current.add(counterparty);
+    setDeepFetching((prev) => [...prev, counterparty]);
+    try {
+      const { sent, received } = await fetchConversationEvents(
+        analysis.targetPubkey,
+        counterparty,
+        session?.relays ?? undefined,
+        250,
+      );
+      const metas = [
+        ...sent.map((event) => dmEventToMeta(event, "sent")),
+        ...received.map((event) => dmEventToMeta(event, "received")),
+      ];
+      setAnalysis((prev) =>
+        prev
+          ? { ...prev, heatmapData: mergeEnvelopesIntoHeatmap(prev.heatmapData, metas) }
+          : prev,
+      );
+    } catch (err) {
+      console.error("Conversation deep-fetch failed:", err);
+    } finally {
+      setDeepFetching((prev) => prev.filter((pk) => pk !== counterparty));
+    }
+  };
 
   const handleRequestProfiles = async (pubkeys: string[]) => {
     const toFetch = pubkeys.filter(
@@ -201,6 +239,8 @@ export default function Snoopable() {
       setShowDropdown(false);
       setLazyProfiles({});
       requestedProfilesRef.current.clear();
+      setDeepFetching([]);
+      deepFetchedRef.current.clear();
 
       const isMobile =
         typeof window !== "undefined" &&
@@ -732,6 +772,8 @@ export default function Snoopable() {
                 )
               }
               onRequestProfiles={handleRequestProfiles}
+              deepFetching={deepFetching}
+              onDeepFetchThread={handleDeepFetchThread}
             />
           )}
 

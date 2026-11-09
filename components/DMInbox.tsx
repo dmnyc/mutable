@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Inbox } from "lucide-react";
+import { ChevronDown, Inbox, RefreshCw } from "lucide-react";
 import { DMActivityDay, DMMessageMeta, Profile } from "@/types";
 import DMMessageRow from "./DMMessageRow";
 import { hexToNpub } from "@/lib/nostr";
@@ -29,6 +29,8 @@ export default function DMInbox({
   profilesByPubkey,
   onSelectPubkey,
   onRequestProfiles,
+  deepFetching,
+  onDeepFetchThread,
 }: {
   data: DMActivityDay[];
   profilesByPubkey?: Map<string, Profile>;
@@ -36,6 +38,11 @@ export default function DMInbox({
   /** Called with counterparties missing from profilesByPubkey so the parent
       can fetch their names lazily (same contract as DMHeatmap). */
   onRequestProfiles?: (pubkeys: string[]) => void;
+  /** Counterparties whose full conversation is currently being deep-fetched. */
+  deepFetching?: string[];
+  /** Called (once per thread) when a collapsed thread is expanded, so the
+      parent can backfill this conversation's older events. */
+  onDeepFetchThread?: (counterparty: string) => void;
 }) {
   const [viewMode, setViewMode] = useState<"threads" | "chronological">(
     "threads",
@@ -148,13 +155,22 @@ export default function DMInbox({
       year: "numeric",
     });
 
-  const toggleThread = (key: string) => {
+  const toggleThread = (counterparty: string) => {
     setExpandedThreads((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(counterparty)) next.delete(counterparty);
+      else next.add(counterparty);
       return next;
     });
+    // The global scan caps events per direction, so a thread can be missing
+    // its outbound side. Expanding is the moment to backfill it.
+    if (
+      counterparty !== "unknown" &&
+      !expandedThreads.has(counterparty) &&
+      onDeepFetchThread
+    ) {
+      onDeepFetchThread(counterparty);
+    }
   };
 
   const switchMode = (mode: "threads" | "chronological") => {
@@ -266,6 +282,12 @@ export default function DMInbox({
                   </button>
                   {open && (
                     <div className="space-y-1.5 p-2 pt-1.5 border-t border-gray-100 dark:border-gray-700">
+                      {deepFetching?.includes(thread.counterparty) && (
+                        <p className="text-[11px] text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                          <RefreshCw size={12} className="animate-spin" />
+                          Fetching the full conversation…
+                        </p>
+                      )}
                       {thread.messages.map(renderRow)}
                     </div>
                   )}

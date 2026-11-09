@@ -32,6 +32,7 @@ import { useStore } from "./store";
 import { Signer } from "./signers";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
 import { naSuggest, naCountEvents, naMetadata } from "./nostrArchives";
+import { dmEventToMeta } from "./dmEnvelopes";
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients in 2025
@@ -5124,40 +5125,10 @@ function generateDMHeatmapData(
     }
   >();
 
-  const tagValue = (event: Event, name: string): string | undefined =>
-    event.tags.find((t) => t[0] === name)?.[1] || undefined;
-
   // Capture the envelope metadata that is public even though the body is
   // encrypted — this is what powers the heatmap day drill-down.
-  const toMeta = (
-    event: Event,
-    direction: "sent" | "received",
-  ): import("@/types").DMMessageMeta => {
-    // For sent DMs the counterparty is the p-tagged recipient; for received
-    // DMs it's the event author.
-    const counterparty =
-      direction === "sent" ? tagValue(event, "p") || "" : event.pubkey;
-    const expiration = tagValue(event, "expiration");
-
-    return {
-      eventId: event.id,
-      createdAt: event.created_at,
-      direction,
-      counterparty,
-      contentLength: event.content?.length ?? 0,
-      client: tagValue(event, "client"),
-      replyToEventId: tagValue(event, "e"),
-      expiresAt: expiration ? Number(expiration) || undefined : undefined,
-      raw: {
-        id: event.id,
-        pubkey: event.pubkey,
-        created_at: event.created_at,
-        tags: event.tags,
-        content: event.content,
-        sig: event.sig,
-      },
-    };
-  };
+  const toMeta = (event: Event, direction: "sent" | "received") =>
+    dmEventToMeta(event, direction);
 
   const record = (event: Event, direction: "sent" | "received") => {
     const date = new Date(event.created_at * 1000).toISOString().split("T")[0];
@@ -5347,6 +5318,77 @@ export async function fetchDMMetadata(
   );
 
   return { sent: sentDMs, received: receivedDMs };
+}
+
+/**
+ * Deep-fetch one conversation: all kind:4 events between the target and a
+ * single counterparty, both directions. The global scan caps at the newest
+ * `limit` events per direction, which can drop older conversations entirely —
+ * this targeted query narrows the filter to one counterparty so relays
+ * return the full history.
+ */
+export async function fetchConversationEvents(
+  targetPubkey: string,
+  counterpartyPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 250,
+  abortSignal?: AbortSignal,
+): Promise<{ sent: Event[]; received: Event[] }> {
+  const pool = getPool();
+
+  let targetRelays: string[] = [];
+  try {
+    const { writeRelays, metadata } = await fetchRelayListFromNostr(
+      targetPubkey,
+    );
+    targetRelays = [
+      ...new Set([
+        ...writeRelays,
+        ...(metadata?.read ?? []),
+        ...(metadata?.both ?? []),
+      ]),
+    ];
+  } catch {
+    // Fall back to the caller's relays plus defaults.
+  }
+
+  const allRelays = [
+    ...new Set([...targetRelays, ...relays, ...DEFAULT_RELAYS]),
+  ].filter((r) => !r.includes("garden.zap.cooking"));
+  const expandedRelays = getExpandedRelayList(allRelays, 8);
+
+  const seen = new Set<string>();
+  const sent: Event[] = [];
+  const received: Event[] = [];
+
+  const runFilter = async (filter: Filter, direction: "sent" | "received") => {
+    const events = await pool.querySync(expandedRelays, {
+      ...filter,
+      limit,
+    });
+    for (const event of events) {
+      if (seen.has(event.id) || abortSignal?.aborted) continue;
+      seen.add(event.id);
+      if (direction === "sent") sent.push(event);
+      else received.push(event);
+    }
+  };
+
+  await runFilter(
+    { kinds: [DM_KIND], authors: [targetPubkey], "#p": [counterpartyPubkey] },
+    "sent",
+  );
+  if (abortSignal?.aborted) throw new Error("Aborted");
+  await runFilter(
+    {
+      kinds: [DM_KIND],
+      authors: [counterpartyPubkey],
+      "#p": [targetPubkey],
+    },
+    "received",
+  );
+
+  return { sent, received };
 }
 
 /**
