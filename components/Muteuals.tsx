@@ -30,7 +30,7 @@ import {
   hexToNpub,
   unfollowUser,
   unfollowMultipleUsers,
-  getExpandedRelayList,
+  getMuteScanRelayList,
   fetchMuteList,
   parseMuteListEvent,
   getFollowListPubkeys,
@@ -140,8 +140,8 @@ export default function Muteuals({
       } else {
         setProgress("Searching network-wide...");
 
-        // Use expanded relay list for network-wide search
-        const expandedRelays = getExpandedRelayList(session.relays);
+        // Wide scan set: defaults + session relays + archival tail
+        const expandedRelays = getMuteScanRelayList(session.relays);
 
         // Stream results as they're found and enrich each one immediately
         muteuals = await searchMutealsNetworkWide(
@@ -333,7 +333,7 @@ export default function Muteuals({
     try {
       const muteListEvent = await fetchMuteList(
         pubkey,
-        getExpandedRelayList(session.relays),
+        getMuteScanRelayList(session.relays),
       );
 
       if (!muteListEvent) {
@@ -793,7 +793,7 @@ export default function Muteuals({
                     <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       Search all public mute lists across{" "}
                       {session
-                        ? getExpandedRelayList(session.relays).length
+                        ? getMuteScanRelayList(session.relays).length
                         : "14+"}{" "}
                       relays. Most comprehensive coverage.
                     </div>
@@ -940,7 +940,7 @@ export default function Muteuals({
                   <p className="text-xs text-blue-800 dark:text-blue-200">
                     <strong>What this means:</strong> We queried{" "}
                     {session
-                      ? getExpandedRelayList(session.relays).length
+                      ? getMuteScanRelayList(session.relays).length
                       : "14+"}{" "}
                     relays (including major public relays like Damus, Primal,
                     and Nostr Band) for mute lists (kind 10000) with your pubkey

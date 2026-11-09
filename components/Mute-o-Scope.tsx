@@ -35,7 +35,7 @@ import {
   hexToNpub,
   npubToHex,
   searchProfiles,
-  getExpandedRelayList,
+  getMuteScanRelayList,
   fetchProfile,
   fetchNoteCount,
   type NoteCountResult,
@@ -330,8 +330,10 @@ export default function MuteOScope() {
       setNoteCount(null);
       setProgress("Searching network for public mute lists...");
 
-      // Use expanded relay list for better coverage
-      const expandedRelays = getExpandedRelayList(relays);
+      // Use the wide scan set: defaults + user relays + the archival tail.
+      // Stale copies the tail serves are dropped by the scan's verification
+      // pass, so breadth adds coverage without adding false positives.
+      const expandedRelays = getMuteScanRelayList(relays);
 
       // Kick off the note count alongside the mute scan. It's only needed for
       // the ratio, so it must never block or fail the primary result.
