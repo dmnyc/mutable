@@ -27,7 +27,7 @@ import {
 import {
   fetchProfile,
   fetchNoteCount,
-  getExpandedRelayList,
+  getMuteScanRelayList,
   searchMutealsNetworkWide,
   searchProfiles,
   searchReportsNetworkWide,
@@ -173,9 +173,10 @@ export default function Dossier() {
       .then((profile) => setSubject(profile ?? { pubkey }))
       .catch(() => setSubject({ pubkey }));
 
-    // Same relay basis as Mute-o-Scope and Reportable: the viewer's own
-    // relays when logged in, so the counts agree across screens.
-    const relays = getExpandedRelayList(session?.relays ?? DEFAULT_RELAYS);
+    // Same relay basis as Mute-o-Scope and Muteuals: the wide mute scan set
+    // (defaults + archival tail + the viewer's relays), so the counts agree
+    // across screens.
+    const relays = getMuteScanRelayList(session?.relays ?? DEFAULT_RELAYS);
 
     // The four sections run in parallel and land independently.
     searchMutealsNetworkWide(pubkey, relays, (count) =>

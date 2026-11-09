@@ -100,10 +100,12 @@ export default function DMLeaderboard({
 
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-    return `${Math.floor(diffDays / 365)} years ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+    if (diffDays < 30)
+      return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) === 1 ? "" : "s"} ago`;
+    if (diffDays < 365)
+      return `${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) === 1 ? "" : "s"} ago`;
+    return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) === 1 ? "" : "s"} ago`;
   };
 
   const getMedalEmoji = (index: number) => {
@@ -193,7 +195,7 @@ export default function DMLeaderboard({
                 {/* Stats */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {contact.totalCount} exchanges
+                    {contact.totalCount} exchange{contact.totalCount === 1 ? "" : "s"}
                   </span>
                   <span>↑ {contact.sentCount} sent</span>
                   <span>↓ {contact.receivedCount} received</span>

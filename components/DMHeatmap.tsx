@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ArrowDownLeft, ArrowUpRight, X } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DMActivityDay, DMMessageMeta, Profile } from "@/types";
 import { hexToNpub } from "@/lib/nostr";
 import { getDisplayName } from "@/lib/utils/format";
@@ -11,19 +11,59 @@ interface DMHeatmapProps {
   /** Profiles keyed by hex pubkey, used to name counterparties in the drill-down. */
   profilesByPubkey?: Map<string, Profile>;
   onSelectPubkey?: (pubkey: string) => void;
+  /**
+   * Called with the distinct counterparties of an opened day that are missing
+   * from profilesByPubkey, so the parent can fetch their names lazily.
+   */
+  onRequestProfiles?: (pubkeys: string[]) => void;
 }
+
+const MONTH_KEYS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Fixed width of the weekday-label column, in px. */
+const DAY_COL = 30;
 
 export default function DMHeatmap({
   data,
   profilesByPubkey,
   onSelectPubkey,
+  onRequestProfiles,
 }: DMHeatmapProps) {
   const [hoveredDay, setHoveredDay] = useState<DMActivityDay | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [selectedDay, setSelectedDay] = useState<DMActivityDay | null>(null);
+  /** Mobile month view cursor, "YYYY-MM"; null falls back to the newest active month. */
+  const [monthCursor, setMonthCursor] = useState<string | null>(null);
+  /** Measured width of the year-grid wrapper, so the grid fits without scrolling. */
+  const gridWrapRef = useRef<HTMLDivElement>(null);
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = gridWrapRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setGridWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Generate last 12 months of data
-  const { weeks, monthLabels, maxCount } = useMemo(() => {
+  const { weeks, maxCount, months, totals } = useMemo(() => {
     // Create a map for quick lookup
     const dataMap = new Map<string, DMActivityDay>();
     data.forEach((d) => dataMap.set(d.date, d));
@@ -35,13 +75,10 @@ export default function DMHeatmap({
     startDate.setDate(startDate.getDate() - startDate.getDay()); // Start from Sunday
 
     const weeks: (DMActivityDay | null)[][] = [];
-    const monthLabels: { month: string; weekIndex: number }[] = [];
     let currentWeek: (DMActivityDay | null)[] = [];
-    let currentMonth = -1;
     let maxCount = 0;
 
     const current = new Date(startDate);
-    let weekIndex = 0;
 
     while (current <= today) {
       const dateStr = current.toISOString().split("T")[0];
@@ -56,22 +93,12 @@ export default function DMHeatmap({
         maxCount = dayData.count;
       }
 
-      // Track month labels
-      if (current.getMonth() !== currentMonth) {
-        currentMonth = current.getMonth();
-        monthLabels.push({
-          month: current.toLocaleDateString("en-US", { month: "short" }),
-          weekIndex,
-        });
-      }
-
       currentWeek.push(dayData);
 
       // Start new week on Sunday
       if (current.getDay() === 6) {
         weeks.push(currentWeek);
         currentWeek = [];
-        weekIndex++;
       }
 
       current.setDate(current.getDate() + 1);
@@ -82,8 +109,87 @@ export default function DMHeatmap({
       weeks.push(currentWeek);
     }
 
-    return { weeks, monthLabels, maxCount };
+    // Group every day into calendar months for the mobile month view. Days
+    // outside the 12-month window (the padded first week) are dropped here,
+    // so each month starts at the 1st.
+    const monthMap = new Map<
+      string,
+      { key: string; label: string; year: number; month: number; days: DMActivityDay[] }
+    >();
+    for (const week of weeks) {
+      for (const day of week) {
+        if (!day) continue;
+        const key = day.date.slice(0, 7);
+        let entry = monthMap.get(key);
+        if (!entry) {
+          const [year, month] = key.split("-").map(Number);
+          entry = {
+            key,
+            label: `${MONTH_KEYS[month - 1]} ${year}`,
+            year,
+            month: month - 1,
+            days: [],
+          };
+          monthMap.set(key, entry);
+        }
+        entry.days.push(day);
+      }
+    }
+    const months = Array.from(monthMap.values());
+    const totalDMs = data.reduce((sum, d) => sum + d.count, 0);
+    const activeDays = data.filter((d) => d.count > 0).length;
+
+    return {
+      weeks,
+      maxCount,
+      months,
+      totals: { totalDMs, activeDays },
+    };
   }, [data]);
+
+  // Newest month with activity is the sensible landing view on mobile.
+  const defaultMonthKey = useMemo(() => {
+    for (let i = months.length - 1; i >= 0; i--) {
+      if (months[i].days.some((d) => d.count > 0)) return months[i].key;
+    }
+    return months[months.length - 1]?.key ?? null;
+  }, [months]);
+
+  // The year grid scales to its container: all 53 weeks always render, and
+  // the cell size is derived from the measured width — bigger cells on wide
+  // panels, smaller near the lg breakpoint, never a scrollbar.
+  const cell = useMemo(() => {
+    if (!gridWidth) return 12;
+    const gaps = (weeks.length - 1) * 2;
+    const size = Math.floor((gridWidth - DAY_COL - gaps) / weeks.length);
+    return Math.max(8, Math.min(20, size));
+  }, [gridWidth, weeks.length]);
+
+  // Month labels; each label spans its weeks exactly, so labels sit over
+  // their columns. A month starting mid-week is labeled at the week
+  // containing its 1st, matching the grid.
+  const gridLabels = useMemo(() => {
+    const labels: { month: string; weekIndex: number }[] = [];
+    let currentMonth = -1;
+    weeks.forEach((week, weekIndex) => {
+      for (const day of week) {
+        if (!day) continue;
+        const month = Number(day.date.slice(5, 7));
+        if (month !== currentMonth) {
+          currentMonth = month;
+          labels.push({ month: MONTH_KEYS[month - 1], weekIndex });
+          break;
+        }
+      }
+    });
+    return labels;
+  }, [weeks]);
+
+  const activeMonthKey = monthCursor ?? defaultMonthKey;
+  const activeMonthIndex = months.findIndex((m) => m.key === activeMonthKey);
+  const activeMonth = activeMonthIndex >= 0 ? months[activeMonthIndex] : null;
+  const activeMonthTotal =
+    activeMonth?.days.reduce((sum, d) => sum + d.count, 0) ?? 0;
 
   // Get color intensity based on count
   const getColor = (count: number): string => {
@@ -96,8 +202,6 @@ export default function DMHeatmap({
     if (intensity < 0.75) return "bg-purple-600 dark:bg-purple-500";
     return "bg-purple-800 dark:bg-purple-400";
   };
-
-  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const handleMouseEnter = (day: DMActivityDay, e: React.MouseEvent) => {
     setHoveredDay(day);
@@ -135,6 +239,26 @@ export default function DMHeatmap({
     [selectedDay],
   );
 
+  // Ask the parent to fetch profiles for counterparties this day is missing,
+  // so rows show names instead of bare npubs.
+  const missingCounterparties = useMemo(() => {
+    const seen = new Set<string>();
+    const missing: string[] = [];
+    for (const msg of dayMessages) {
+      const pk = msg.counterparty;
+      if (!pk || seen.has(pk) || profilesByPubkey?.has(pk)) continue;
+      seen.add(pk);
+      missing.push(pk);
+    }
+    return missing;
+  }, [dayMessages, profilesByPubkey]);
+
+  useEffect(() => {
+    if (missingCounterparties.length > 0 && onRequestProfiles) {
+      onRequestProfiles(missingCounterparties);
+    }
+  }, [missingCounterparties, onRequestProfiles]);
+
   const maxContentLength = useMemo(
     () => dayMessages.reduce((max, m) => Math.max(max, m.contentLength), 0),
     [dayMessages],
@@ -155,36 +279,149 @@ export default function DMHeatmap({
     );
   }
 
+  const activeDayCell = (day: DMActivityDay) => (
+    <div
+      className={`rounded-sm ${getColor(day.count)} transition-colors ${
+        day.count > 0
+          ? "cursor-pointer hover:ring-1 hover:ring-purple-500"
+          : "cursor-default"
+      } ${
+        selectedDay?.date === day.date
+          ? "ring-2 ring-purple-600 dark:ring-purple-400"
+          : ""
+      }`}
+      style={{ width: cell, height: cell }}
+    />
+  );
+
   return (
     <div className="space-y-4">
-      {/* Heatmap Grid */}
-      <div className="overflow-x-auto pb-2">
-        <div className="inline-block min-w-max">
-          {/* Month Labels */}
-          <div className="flex mb-1 ml-8">
-            {monthLabels.map((label, i) => (
-              <div
-                key={`${label.month}-${i}`}
-                className="text-xs text-gray-500 dark:text-gray-400"
-                style={{
-                  marginLeft: i === 0 ? label.weekIndex * 12 : (monthLabels[i].weekIndex - monthLabels[i - 1].weekIndex - 1) * 12,
-                  width: "36px",
-                }}
+      {/* Mobile / tablet: one month at a time as a tap-friendly calendar. */}
+      <div className="lg:hidden">
+        {activeMonth && (
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <button
+                onClick={() =>
+                  setMonthCursor(months[activeMonthIndex + 1]?.key ?? activeMonth.key)
+                }
+                disabled={activeMonthIndex >= months.length - 1}
+                className="w-11 h-11 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-30"
+                title="Older month"
               >
-                {label.month}
+                <ChevronLeft size={18} />
+              </button>
+              <div className="flex-1 text-center">
+                <div className="font-semibold text-gray-900 dark:text-white">
+                  {activeMonth.label}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {activeMonthTotal} DM{activeMonthTotal === 1 ? "" : "s"}
+                </div>
               </div>
-            ))}
+              <button
+                onClick={() =>
+                  setMonthCursor(months[activeMonthIndex - 1]?.key ?? activeMonth.key)
+                }
+                disabled={activeMonthIndex <= 0}
+                className="w-11 h-11 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-30"
+                title="Newer month"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1.5 max-w-md mx-auto text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 mb-1">
+              {DAY_LABELS.map((d) => (
+                <div key={d} className="py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1.5 max-w-md mx-auto">
+              {(() => {
+                const firstDow = new Date(
+                  activeMonth.days[0].date + "T00:00:00",
+                ).getDay();
+                return Array.from({ length: firstDow }).map((_, i) => (
+                  <div key={`pad-${i}`} />
+                ));
+              })()}
+              {activeMonth.days.map((day) => (
+                <button
+                  key={day.date}
+                  type="button"
+                  onClick={() => {
+                    if (day.count === 0) return;
+                    setSelectedDay((prev) =>
+                      prev?.date === day.date ? null : day,
+                    );
+                  }}
+                  disabled={day.count === 0}
+                  className={`aspect-square min-h-11 flex items-center justify-center text-sm font-medium rounded-lg ${
+                    getColor(day.count)
+                  } ${
+                    day.count > 0
+                      ? "text-gray-900 dark:text-white"
+                      : "cursor-default text-gray-400 dark:text-gray-600"
+                  } ${
+                    selectedDay?.date === day.date
+                      ? "ring-2 ring-purple-600 dark:ring-purple-400"
+                      : ""
+                  }`}
+                  title={
+                    day.count > 0
+                      ? `${formatDate(day.date)} — ${day.count} message${day.count === 1 ? "" : "s"}`
+                      : formatDate(day.date)
+                  }
+                >
+                  {Number(day.date.slice(8))}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Tap a day to see its messages.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Desktop: the full 53-week year grid, scaled to the panel width. */}
+      <div className="hidden lg:block" ref={gridWrapRef} data-testid="dm-year-grid">
+        <div>
+          {/* Month Labels — one block per month, spanning its weeks. */}
+          <div className="flex mb-1" style={{ marginLeft: DAY_COL }} data-testid="dm-month-labels">
+            {gridLabels.map((label, i) => {
+              const span =
+                (i < gridLabels.length - 1
+                  ? gridLabels[i + 1].weekIndex
+                  : weeks.length) - label.weekIndex;
+              return (
+                <div
+                  key={`${label.month}-${i}`}
+                  className="text-xs text-gray-500 dark:text-gray-400"
+                  style={{ width: span * (cell + 2) }}
+                >
+                  {label.month}
+                </div>
+              );
+            })}
           </div>
 
           {/* Grid */}
           <div className="flex">
             {/* Day Labels */}
-            <div className="flex flex-col gap-0.5 mr-1">
-              {dayLabels.map((day, i) => (
+            <div
+              className="flex flex-col gap-0.5 flex-shrink-0"
+              style={{ width: DAY_COL }}
+            >
+              {DAY_LABELS.map((day, i) => (
                 <div
                   key={day}
-                  className="h-[10px] text-[9px] text-gray-400 dark:text-gray-500 flex items-center justify-end pr-1"
-                  style={{ visibility: i % 2 === 1 ? "visible" : "hidden" }}
+                  className="text-[9px] text-gray-400 dark:text-gray-500 flex items-center justify-end pr-1"
+                  style={{ height: cell, visibility: i % 2 === 1 ? "visible" : "hidden" }}
                 >
                   {day}
                 </div>
@@ -199,15 +436,6 @@ export default function DMHeatmap({
                     day ? (
                       <div
                         key={day.date}
-                        className={`w-[10px] h-[10px] rounded-sm ${getColor(day.count)} transition-colors ${
-                          day.count > 0
-                            ? "cursor-pointer hover:ring-1 hover:ring-purple-500"
-                            : "cursor-default"
-                        } ${
-                          selectedDay?.date === day.date
-                            ? "ring-2 ring-purple-600 dark:ring-purple-400"
-                            : ""
-                        }`}
                         onMouseEnter={(e) => handleMouseEnter(day, e)}
                         onMouseLeave={handleMouseLeave}
                         onClick={() => {
@@ -217,11 +445,13 @@ export default function DMHeatmap({
                           );
                         }}
                         title={day.count > 0 ? "Click to see this day's messages" : undefined}
-                      />
+                      >
+                        {activeDayCell(day)}
+                      </div>
                     ) : (
                       <div
                         key={`empty-${dayIndex}`}
-                        className="w-[10px] h-[10px]"
+                        style={{ width: cell, height: cell }}
                       />
                     )
                   )}
@@ -233,7 +463,7 @@ export default function DMHeatmap({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-2">
           <span>Less</span>
           <div className="flex gap-0.5">
@@ -249,10 +479,13 @@ export default function DMHeatmap({
         {/* Summary Stats */}
         <div className="flex items-center gap-4">
           <span>
-            Total: <strong className="text-gray-900 dark:text-white">{data.reduce((sum, d) => sum + d.count, 0)}</strong> DMs
+            Total: <strong className="text-gray-900 dark:text-white">{totals.totalDMs}</strong>{" "}
+            DM{totals.totalDMs === 1 ? "" : "s"}
           </span>
           <span>
-            Active days: <strong className="text-gray-900 dark:text-white">{data.filter((d) => d.count > 0).length}</strong>
+            Active{" "}
+            {totals.activeDays === 1 ? "day" : "days"}:{" "}
+            <strong className="text-gray-900 dark:text-white">{totals.activeDays}</strong>
           </span>
         </div>
       </div>

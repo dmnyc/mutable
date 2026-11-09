@@ -31,6 +31,7 @@ import {
   npubToHex,
   searchProfiles,
   fetchProfile,
+  fetchProfilesBulk,
   publishTextNote,
 } from "@/lib/nostr";
 import {
@@ -72,6 +73,33 @@ export default function Snoopable() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // The analysis only fetches profiles for the top contacts, so drill-down
+  // rows for everyone else would show bare npubs. When a day is opened, bulk
+  // fetch its missing counterparties once and cache them here.
+  const [lazyProfiles, setLazyProfiles] = useState<Record<string, Profile>>({});
+  const requestedProfilesRef = useRef<Set<string>>(new Set());
+
+  const handleRequestProfiles = async (pubkeys: string[]) => {
+    const toFetch = pubkeys.filter(
+      (pk) => !requestedProfilesRef.current.has(pk),
+    );
+    if (toFetch.length === 0) return;
+    toFetch.forEach((pk) => requestedProfilesRef.current.add(pk));
+
+    const fetched = await fetchProfilesBulk(
+      toFetch,
+      session?.relays ?? undefined,
+    );
+    if (fetched.size === 0) return;
+    setLazyProfiles((prev) => {
+      const next = { ...prev };
+      fetched.forEach((profile, pubkey) => {
+        next[pubkey] = profile;
+      });
+      return next;
+    });
+  };
+
   // Contact profiles keyed by pubkey, so the heatmap drill-down can name the
   // counterparty of each message without re-fetching anything.
   const contactProfilesByPubkey = useMemo(() => {
@@ -82,8 +110,11 @@ export default function Snoopable() {
     if (analysis?.targetProfile) {
       map.set(analysis.targetPubkey, analysis.targetProfile);
     }
+    Object.entries(lazyProfiles).forEach(([pubkey, profile]) => {
+      if (!map.has(pubkey)) map.set(pubkey, profile);
+    });
     return map;
-  }, [analysis]);
+  }, [analysis, lazyProfiles]);
 
   // Check for npub in URL params on mount
   useEffect(() => {
@@ -167,6 +198,8 @@ export default function Snoopable() {
       setError(null);
       setAnalysis(null);
       setShowDropdown(false);
+      setLazyProfiles({});
+      requestedProfilesRef.current.clear();
 
       const isMobile =
         typeof window !== "undefined" &&
@@ -238,7 +271,7 @@ export default function Snoopable() {
     let content = `🔍 Sn👀pable Report for nostr:${npub}\n\n`;
     content += `📊 DM Activity:\n`;
     content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
-    content += `• ${analysis.contacts.length} unique contacts\n`;
+    content += `• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}\n`;
 
     if (analysis.oldestDM) {
       const oldestDate = new Date(analysis.oldestDM * 1000);
@@ -249,7 +282,7 @@ export default function Snoopable() {
     const topContacts = analysis.contacts.slice(0, 3);
     topContacts.forEach((contact, i) => {
       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
-      content += `${medal} ${contact.title} (${contact.totalCount} exchanges)\n`;
+      content += `${medal} ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
     });
 
     content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
@@ -282,7 +315,7 @@ export default function Snoopable() {
 
       content += `📊 DM Activity:\n`;
       content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
-      content += `• ${analysis.contacts.length} unique contacts\n`;
+      content += `• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}\n`;
 
       if (analysis.oldestDM) {
         const oldestDate = new Date(analysis.oldestDM * 1000);
@@ -298,9 +331,9 @@ export default function Snoopable() {
             contact.profile,
             hexToNpub(contact.pubkey).slice(0, 12),
           );
-          content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchanges)\n`;
+          content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
         } else {
-          content += `${medal} ${contact.title} (${contact.totalCount} exchanges)\n`;
+          content += `${medal} ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
         }
       });
 
@@ -644,16 +677,16 @@ export default function Snoopable() {
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
-              <div className="font-display font-bold text-3xl tracking-tight text-hi">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Since
+              </div>
+              <div className="font-display font-bold text-3xl tracking-tight text-hi mt-0.5">
                 {analysis.oldestDM
                   ? new Date(analysis.oldestDM * 1000).toLocaleDateString(
                       "en-US",
                       { month: "short", year: "numeric" },
                     )
                   : "N/A"}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Since
               </div>
             </div>
           </div>
@@ -713,6 +746,7 @@ export default function Snoopable() {
                   contactProfilesByPubkey.get(pubkey) || { pubkey },
                 )
               }
+              onRequestProfiles={handleRequestProfiles}
             />
           )}
 
@@ -755,7 +789,7 @@ export default function Snoopable() {
 
 📊 DM Activity:
 • ${analysis.totalSent} sent / ${analysis.totalReceived} received
-• ${analysis.contacts.length} unique contacts
+• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}
 
 🏆 Top Contacts:
 ${analysis.contacts
@@ -764,7 +798,7 @@ ${analysis.contacts
     const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
     const name =
       includeNames && c.profile ? getDisplayName(c.profile) : c.title;
-    return `${medal} ${name} (${c.totalCount} exchanges)`;
+    return `${medal} ${name} (${c.totalCount} exchange${c.totalCount === 1 ? "" : "s"})`;
   })
   .join("\n")}
 

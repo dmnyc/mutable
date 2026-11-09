@@ -13,7 +13,8 @@ Discover who is publicly muting any Nostr profile. Mute-o-Scope searches across 
 - **Mute Score System**: Color-coded scoring system with 9 levels based on public mute list count
   - ⬜ Pristine (0) → 🟦 Low (1-25) → 🟩 Average (26-50) → 🟨 Moderate (51-75) → 🟧 High (76-100) → 🟥 Severe (101-200) → 🟪 Legendary (201-300) → 🟫 Shitlisted (301-400) → ⬛ Blacklisted (401+)
 - **Share Results**: Share Mute-o-Scope results directly to Nostr
-- **Session-Aware**: Uses your configured relays when signed in
+- **Unblock Verification**: Every reported blocker is re-checked against their newest mute list, so people who blocked you and then unblocked are dropped instead of lingering as stale results
+- **Wide Relay Net**: Scans the measured default set plus the archival tail (plus your own relays when signed in)
 - **Profile Enrichment**: View detailed profiles of who is muting whom
 
 ### The Dossier 🫆 NEW

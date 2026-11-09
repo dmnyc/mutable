@@ -32,6 +32,7 @@ import { useStore } from "./store";
 import { Signer } from "./signers";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
 import { naSuggest, naCountEvents, naMetadata } from "./nostrArchives";
+import { filterHealthyRelays, recordRelayScanOutcomes } from "./relayHealth";
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients in 2025
@@ -148,6 +149,30 @@ export function getExpandedRelayList(
   }
 
   return Array.from(relaySet);
+}
+
+// Relay set for network-wide mute/block scans (Mute-o-Scope, Muteuals,
+// Dossier's mute card): the expanded list plus the KNOWN_RELAYS archival
+// tail. Each tail relay contributes a small measured share of discoverable
+// kind:10000 results on its own, and any stale copies it serves are
+// filtered out by the unblock-verification pass in searchMutealsNetworkWide,
+// so breadth no longer buys false positives.
+export function getMuteScanRelayList(userRelays: string[]): string[] {
+  // cache0-2.primal.net are Primal's cache tier: they accept subscriptions
+  // and answer EOSE but never resolve "#p" tag queries, so in a mute scan
+  // they are pure dead weight. They stay in KNOWN_RELAYS for other tools.
+  // relay.ditto.pub measured the second-highest kind:10000 "#p" yield of
+  // every relay probed (~50 events in ~1s), so it earns a slot.
+  const NON_SCAN_RELAYS = new Set([
+    "wss://cache0.primal.net",
+    "wss://cache1.primal.net",
+    "wss://cache2.primal.net",
+  ]);
+  return normalizeRelayList([
+    ...getExpandedRelayList(userRelays),
+    ...KNOWN_RELAYS,
+    "wss://relay.ditto.pub",
+  ]).filter((relay) => !NON_SCAN_RELAYS.has(relay));
 }
 
 // Namespace tags for community packs
@@ -2440,6 +2465,10 @@ export interface ScanSummary {
 // unless every relay has already answered.
 const EMPTY_SCAN_MIN_MS = 15000;
 
+// Per-batch ceiling for the unblock-verification pass below. Relays answer
+// author queries quickly, so this only binds on stalled connections.
+const VERIFY_MAX_WAIT_MS = 10000;
+
 export async function searchMutealsNetworkWide(
   userPubkey: string,
   relays: string[] = DEFAULT_RELAYS,
@@ -2458,12 +2487,31 @@ export async function searchMutealsNetworkWide(
   const muteuals: MutealResult[] = [];
   const seenPubkeys = new Set<string>();
 
+  // Prune relays that have failed the last few scans (see lib/relayHealth.ts;
+  // the outcomes this scan records below feed the same store). Reassigning
+  // the parameter keeps the subscription, EOSE quorum, verification batches
+  // and the follow-list fetch all on the same pruned set.
+  const healthyRelays = filterHealthyRelays(relays);
+  if (healthyRelays.length < relays.length) {
+    const skipped = relays.filter((relay) => !healthyRelays.includes(relay));
+    console.log(
+      `🔌 Skipping ${skipped.length} relay(s) with repeated scan failures: ${skipped.join(", ")}`,
+    );
+    diag(
+      "Skipped relays",
+      `${skipped.length} of ${relays.length} skipped after repeated failures: ${skipped.join(", ")}`,
+    );
+    relays = healthyRelays;
+  }
+
   // Query all mute lists (kind 10000) that contain the user's pubkey in PUBLIC tags
   // Per NIP-51, kind 10000 mute lists have:
   // - PUBLIC mutes in the 'tags' array (what we search)
   // - PRIVATE mutes encrypted in the 'content' field (which we cannot see)
-  // NOTE: Kind 10000 is a REPLACEABLE event, meaning each user should only have ONE
-  // But we might get multiple old versions from different relays
+  // NOTE: Kind 10000 is a REPLACEABLE event, so each RELAY returns at most
+  // one (its latest) version per author — but different relays can hold
+  // different versions, and the #p filter can only surface the ones that
+  // still contain the user. The verification pass below deals with that.
 
   console.log(
     `🔍 Searching ${relays.length} relays for mute lists containing ${userPubkey.substring(0, 8)}...`,
@@ -2742,15 +2790,89 @@ export async function searchMutealsNetworkWide(
     `${eventsByAuthor.size} after dedup (${events.length - eventsByAuthor.size} duplicate/stale removed)`,
   );
 
-  // Note: We previously had a "verification step" that re-fetched events for each author
-  // to check if they had newer events where the user was unmuted. However, this is
-  // unnecessary because:
-  // 1. Kind 10000 is a REPLACEABLE event - relays automatically return only the latest version
-  // 2. The #p filter already ensures we only get events where the user IS muted
-  // 3. The verification step caused timeouts and data loss on mobile
-  // 4. If someone unmuted you, their latest event wouldn't match the #p filter anyway
-  //
-  // Therefore, we trust the initial query results as authoritative.
+  // Verification pass. The claim that used to live here — no re-check
+  // needed because kind:10000 is replaceable and "relays automatically
+  // return only the latest version" — is true per relay but false across
+  // them. The #p filter guarantees we only ever receive lists that DO
+  // contain the user: when someone unblocks and republishes without the
+  // p tag, that newest list no longer matches the filter, while relays
+  // that never saw it keep serving the old copy. The dedup above cannot
+  // help — the fresh event is invisible to this scan. Measured on a
+  // user-reported case, 7 of 51 reported blockers had unblocked, some over
+  // a year earlier. So: re-fetch each candidate author's latest
+  // kind:10000 with no #p filter (batched, so this costs a few extra
+  // queries, not one per blocker) and drop anyone whose newest list omits
+  // the user. Authors we can't get fresher data for keep their scan
+  // result — dropping them would trade false positives for false
+  // negatives on flaky relays.
+  const candidateAuthors = [...eventsByAuthor.keys()];
+  const latestByAuthor = new Map<string, Event>();
+  let unblockedCount = 0;
+  let unverifiedCount = 0;
+
+  if (candidateAuthors.length > 0) {
+    diag(
+      "Verifying candidates",
+      `Re-checking ${candidateAuthors.length} candidate${candidateAuthors.length === 1 ? "" : "s"} against their newest mute lists...`,
+    );
+    const verifiedLatest = new Map<string, Event>();
+    const VERIFY_BATCH_SIZE = 100;
+    for (let i = 0; i < candidateAuthors.length; i += VERIFY_BATCH_SIZE) {
+      if (abortSignal?.aborted) break;
+      const batch = candidateAuthors.slice(i, i + VERIFY_BATCH_SIZE);
+      try {
+        const batchEvents = await pool.querySync(
+          relays,
+          { kinds: [MUTE_LIST_KIND], authors: batch },
+          { maxWait: VERIFY_MAX_WAIT_MS },
+        );
+        for (const ev of batchEvents) {
+          const cur = verifiedLatest.get(ev.pubkey);
+          if (!cur || ev.created_at > cur.created_at) {
+            verifiedLatest.set(ev.pubkey, ev);
+          }
+        }
+      } catch (error) {
+        console.warn(
+          `Verification batch ${Math.floor(i / VERIFY_BATCH_SIZE) + 1} failed; keeping scan results for those authors:`,
+          error,
+        );
+      }
+    }
+
+    for (const [author, scanEvent] of eventsByAuthor) {
+      const fresher = verifiedLatest.get(author);
+      if (!fresher) {
+        unverifiedCount++;
+        latestByAuthor.set(author, scanEvent);
+        continue;
+      }
+      // The verification query subsumes the scan (same relays, no #p
+      // filter), so its newest event per author is the newest we know of.
+      // Equal timestamps with a different id mean a client republished
+      // without bumping created_at; trust the version without the user,
+      // since a false "this person blocks you" does real harm.
+      const fresherIsNewest = fresher.created_at >= scanEvent.created_at;
+      const stillMutes = fresher.tags.some(
+        (tag) => tag[0] === "p" && tag[1] === userPubkey,
+      );
+      if (fresherIsNewest && !stillMutes) {
+        unblockedCount++;
+        console.log(
+          `↩️  ${author.substring(0, 8)} no longer mutes this pubkey (list from ${new Date(fresher.created_at * 1000).toISOString()}); dropped`,
+        );
+        continue;
+      }
+      latestByAuthor.set(author, fresherIsNewest ? fresher : scanEvent);
+    }
+
+    diag(
+      "Unblock check",
+      unblockedCount > 0
+        ? `${unblockedCount} of ${candidateAuthors.length} no longer list this pubkey and were removed (${unverifiedCount} couldn't be re-checked, kept)`
+        : `All ${candidateAuthors.length} candidates still list this pubkey in their newest mute list`,
+    );
+  }
 
   // Get user's follow list to check if they're following the muteals
   const followListEvent = await fetchFollowList(userPubkey, relays);
@@ -2760,8 +2882,8 @@ export async function searchMutealsNetworkWide(
       .map((tag) => tag[1]) || [],
   );
 
-  // Now iterate through only the LATEST event per author
-  for (const event of eventsByAuthor.values()) {
+  // Now iterate through only the VERIFIED LATEST event per author
+  for (const event of latestByAuthor.values()) {
     // Check if scan was aborted
     if (abortSignal?.aborted) {
       console.log(`Scan aborted after checking ${seenPubkeys.size} authors`);
@@ -2815,11 +2937,11 @@ export async function searchMutealsNetworkWide(
 
   diag(
     "Confirmed matches",
-    `${muteuals.length} of ${eventsByAuthor.size} authors list this pubkey in a p-tag`,
+    `${muteuals.length} of ${latestByAuthor.size} verified authors list this pubkey in a p-tag`,
   );
   const mismatchWarning =
-    eventsByAuthor.size > 0 && muteuals.length === 0
-      ? `Relays returned ${eventsByAuthor.size} lists but none contained this exact pubkey.`
+    latestByAuthor.size > 0 && muteuals.length === 0
+      ? `Relays returned ${latestByAuthor.size} lists but none contained this exact pubkey.`
       : undefined;
 
   if (mismatchWarning) {
@@ -2828,13 +2950,15 @@ export async function searchMutealsNetworkWide(
     diag("⚠️ Mismatch", `${mismatchWarning} Check the pubkey above.`);
   }
 
-  onSummary?.(
-    buildSummary(events, {
-      uniqueAuthors: eventsByAuthor.size,
-      confirmedMatches: muteuals.length,
-      warning: mismatchWarning,
-    }),
-  );
+  const finalSummary = buildSummary(events, {
+    uniqueAuthors: latestByAuthor.size,
+    confirmedMatches: muteuals.length,
+    warning: mismatchWarning,
+  });
+  // Feed this scan's per-relay connectivity back into the health store so
+  // the next scan can skip whatever just failed.
+  recordRelayScanOutcomes(finalSummary.relayStats);
+  onSummary?.(finalSummary);
 
   return muteuals;
 }
@@ -5400,11 +5524,11 @@ export async function analyzeDMMetadata(
     });
   }
 
-  // Filter out contacts the user never responded to (likely spam/bots)
-  const engagedContacts = contacts.filter((c) => c.sentCount > 0);
-
-  // Sort by recency-weighted score (recent activity ranks higher)
-  engagedContacts.sort((a, b) => (b.recencyScore || 0) - (a.recencyScore || 0));
+  // Everyone counts as a contact, including people who only wrote and never
+  // got a reply — those relationships ("Left on Read", "Ghost") are exactly
+  // what the titles exist to label. Sorted by recency-weighted score so
+  // recent activity ranks higher.
+  contacts.sort((a, b) => (b.recencyScore || 0) - (a.recencyScore || 0));
 
   if (abortSignal?.aborted) throw new Error("Aborted");
 
@@ -5415,10 +5539,10 @@ export async function analyzeDMMetadata(
   onProgress?.(
     "Ranking the suspects...",
     0,
-    Math.min(engagedContacts.length, 50),
+    Math.min(contacts.length, 50),
   );
 
-  const topContacts = engagedContacts.slice(0, 50);
+  const topContacts = contacts.slice(0, 50);
   const PROFILE_BATCH_SIZE = 5;
 
   for (let i = 0; i < topContacts.length; i += PROFILE_BATCH_SIZE) {
@@ -5440,7 +5564,7 @@ export async function analyzeDMMetadata(
     onProgress?.(
       "Ranking the suspects...",
       Math.min(i + PROFILE_BATCH_SIZE, topContacts.length),
-      Math.min(engagedContacts.length, 50),
+      Math.min(contacts.length, 50),
     );
   }
 
@@ -5458,14 +5582,14 @@ export async function analyzeDMMetadata(
 
   onProgress?.(
     "Snooping intensifies...",
-    engagedContacts.length,
-    engagedContacts.length,
+    contacts.length,
+    contacts.length,
   );
 
   return {
     targetPubkey,
     targetProfile: targetProfile || undefined,
-    contacts: engagedContacts,
+    contacts: contacts,
     totalSent: sent.length,
     totalReceived: received.length,
     heatmapData,
