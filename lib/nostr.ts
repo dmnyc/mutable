@@ -32,6 +32,7 @@ import { useStore } from "./store";
 import { Signer } from "./signers";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
 import { naSuggest, naCountEvents, naMetadata } from "./nostrArchives";
+import { filterHealthyRelays, recordRelayScanOutcomes } from "./relayHealth";
 
 // Default relay list - reliable, well-maintained relays
 // Based on what works consistently across clients in 2025
@@ -157,10 +158,21 @@ export function getExpandedRelayList(
 // filtered out by the unblock-verification pass in searchMutealsNetworkWide,
 // so breadth no longer buys false positives.
 export function getMuteScanRelayList(userRelays: string[]): string[] {
+  // cache0-2.primal.net are Primal's cache tier: they accept subscriptions
+  // and answer EOSE but never resolve "#p" tag queries, so in a mute scan
+  // they are pure dead weight. They stay in KNOWN_RELAYS for other tools.
+  // relay.ditto.pub measured the second-highest kind:10000 "#p" yield of
+  // every relay probed (~50 events in ~1s), so it earns a slot.
+  const NON_SCAN_RELAYS = new Set([
+    "wss://cache0.primal.net",
+    "wss://cache1.primal.net",
+    "wss://cache2.primal.net",
+  ]);
   return normalizeRelayList([
     ...getExpandedRelayList(userRelays),
     ...KNOWN_RELAYS,
-  ]);
+    "wss://relay.ditto.pub",
+  ]).filter((relay) => !NON_SCAN_RELAYS.has(relay));
 }
 
 // Namespace tags for community packs
@@ -2475,6 +2487,23 @@ export async function searchMutealsNetworkWide(
   const muteuals: MutealResult[] = [];
   const seenPubkeys = new Set<string>();
 
+  // Prune relays that have failed the last few scans (see lib/relayHealth.ts;
+  // the outcomes this scan records below feed the same store). Reassigning
+  // the parameter keeps the subscription, EOSE quorum, verification batches
+  // and the follow-list fetch all on the same pruned set.
+  const healthyRelays = filterHealthyRelays(relays);
+  if (healthyRelays.length < relays.length) {
+    const skipped = relays.filter((relay) => !healthyRelays.includes(relay));
+    console.log(
+      `🔌 Skipping ${skipped.length} relay(s) with repeated scan failures: ${skipped.join(", ")}`,
+    );
+    diag(
+      "Skipped relays",
+      `${skipped.length} of ${relays.length} skipped after repeated failures: ${skipped.join(", ")}`,
+    );
+    relays = healthyRelays;
+  }
+
   // Query all mute lists (kind 10000) that contain the user's pubkey in PUBLIC tags
   // Per NIP-51, kind 10000 mute lists have:
   // - PUBLIC mutes in the 'tags' array (what we search)
@@ -2921,13 +2950,15 @@ export async function searchMutealsNetworkWide(
     diag("⚠️ Mismatch", `${mismatchWarning} Check the pubkey above.`);
   }
 
-  onSummary?.(
-    buildSummary(events, {
-      uniqueAuthors: latestByAuthor.size,
-      confirmedMatches: muteuals.length,
-      warning: mismatchWarning,
-    }),
-  );
+  const finalSummary = buildSummary(events, {
+    uniqueAuthors: latestByAuthor.size,
+    confirmedMatches: muteuals.length,
+    warning: mismatchWarning,
+  });
+  // Feed this scan's per-relay connectivity back into the health store so
+  // the next scan can skip whatever just failed.
+  recordRelayScanOutcomes(finalSummary.relayStats);
+  onSummary?.(finalSummary);
 
   return muteuals;
 }
