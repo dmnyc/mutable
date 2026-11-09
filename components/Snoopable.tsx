@@ -644,16 +644,16 @@ export default function Snoopable() {
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
-              <div className="font-display font-bold text-3xl tracking-tight text-hi">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Since
+              </div>
+              <div className="font-display font-bold text-3xl tracking-tight text-hi mt-0.5">
                 {analysis.oldestDM
                   ? new Date(analysis.oldestDM * 1000).toLocaleDateString(
                       "en-US",
                       { month: "short", year: "numeric" },
                     )
                   : "N/A"}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Since
               </div>
             </div>
           </div>
