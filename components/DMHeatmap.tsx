@@ -11,6 +11,11 @@ interface DMHeatmapProps {
   /** Profiles keyed by hex pubkey, used to name counterparties in the drill-down. */
   profilesByPubkey?: Map<string, Profile>;
   onSelectPubkey?: (pubkey: string) => void;
+  /**
+   * Called with the distinct counterparties of an opened day that are missing
+   * from profilesByPubkey, so the parent can fetch their names lazily.
+   */
+  onRequestProfiles?: (pubkeys: string[]) => void;
 }
 
 const MONTH_KEYS = [
@@ -35,6 +40,7 @@ export default function DMHeatmap({
   data,
   profilesByPubkey,
   onSelectPubkey,
+  onRequestProfiles,
 }: DMHeatmapProps) {
   const [hoveredDay, setHoveredDay] = useState<DMActivityDay | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
@@ -232,6 +238,26 @@ export default function DMHeatmap({
     () => selectedDay?.messages ?? [],
     [selectedDay],
   );
+
+  // Ask the parent to fetch profiles for counterparties this day is missing,
+  // so rows show names instead of bare npubs.
+  const missingCounterparties = useMemo(() => {
+    const seen = new Set<string>();
+    const missing: string[] = [];
+    for (const msg of dayMessages) {
+      const pk = msg.counterparty;
+      if (!pk || seen.has(pk) || profilesByPubkey?.has(pk)) continue;
+      seen.add(pk);
+      missing.push(pk);
+    }
+    return missing;
+  }, [dayMessages, profilesByPubkey]);
+
+  useEffect(() => {
+    if (missingCounterparties.length > 0 && onRequestProfiles) {
+      onRequestProfiles(missingCounterparties);
+    }
+  }, [missingCounterparties, onRequestProfiles]);
 
   const maxContentLength = useMemo(
     () => dayMessages.reduce((max, m) => Math.max(max, m.contentLength), 0),

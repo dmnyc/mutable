@@ -31,6 +31,7 @@ import {
   npubToHex,
   searchProfiles,
   fetchProfile,
+  fetchProfilesBulk,
   publishTextNote,
 } from "@/lib/nostr";
 import {
@@ -72,6 +73,33 @@ export default function Snoopable() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // The analysis only fetches profiles for the top contacts, so drill-down
+  // rows for everyone else would show bare npubs. When a day is opened, bulk
+  // fetch its missing counterparties once and cache them here.
+  const [lazyProfiles, setLazyProfiles] = useState<Record<string, Profile>>({});
+  const requestedProfilesRef = useRef<Set<string>>(new Set());
+
+  const handleRequestProfiles = async (pubkeys: string[]) => {
+    const toFetch = pubkeys.filter(
+      (pk) => !requestedProfilesRef.current.has(pk),
+    );
+    if (toFetch.length === 0) return;
+    toFetch.forEach((pk) => requestedProfilesRef.current.add(pk));
+
+    const fetched = await fetchProfilesBulk(
+      toFetch,
+      session?.relays ?? undefined,
+    );
+    if (fetched.size === 0) return;
+    setLazyProfiles((prev) => {
+      const next = { ...prev };
+      fetched.forEach((profile, pubkey) => {
+        next[pubkey] = profile;
+      });
+      return next;
+    });
+  };
+
   // Contact profiles keyed by pubkey, so the heatmap drill-down can name the
   // counterparty of each message without re-fetching anything.
   const contactProfilesByPubkey = useMemo(() => {
@@ -82,8 +110,11 @@ export default function Snoopable() {
     if (analysis?.targetProfile) {
       map.set(analysis.targetPubkey, analysis.targetProfile);
     }
+    Object.entries(lazyProfiles).forEach(([pubkey, profile]) => {
+      if (!map.has(pubkey)) map.set(pubkey, profile);
+    });
     return map;
-  }, [analysis]);
+  }, [analysis, lazyProfiles]);
 
   // Check for npub in URL params on mount
   useEffect(() => {
@@ -167,6 +198,8 @@ export default function Snoopable() {
       setError(null);
       setAnalysis(null);
       setShowDropdown(false);
+      setLazyProfiles({});
+      requestedProfilesRef.current.clear();
 
       const isMobile =
         typeof window !== "undefined" &&
@@ -713,6 +746,7 @@ export default function Snoopable() {
                   contactProfilesByPubkey.get(pubkey) || { pubkey },
                 )
               }
+              onRequestProfiles={handleRequestProfiles}
             />
           )}
 
