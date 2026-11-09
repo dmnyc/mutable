@@ -37,7 +37,16 @@ export default function DMMessageRow({
       : 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5">
+    <div
+      className={`flex flex-wrap items-center gap-2 text-xs bg-white dark:bg-gray-800 border rounded px-2 py-1.5 transition-colors ${
+        msg.raw ? "cursor-pointer select-none" : ""
+      } ${
+        showRaw
+          ? "border-purple-300 dark:border-purple-700"
+          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+      }`}
+      onClick={() => msg.raw && setShowRaw((s) => !s)}
+    >
       <span
         className={
           isSent
@@ -57,7 +66,10 @@ export default function DMMessageRow({
       </span>
 
       <button
-        onClick={() => msg.counterparty && onSelectPubkey?.(msg.counterparty)}
+        onClick={(e) => {
+          e.stopPropagation();
+          msg.counterparty && onSelectPubkey?.(msg.counterparty);
+        }}
         disabled={!msg.counterparty || !onSelectPubkey}
         className="font-medium text-gray-900 dark:text-white truncate max-w-[10rem] text-left enabled:hover:underline disabled:cursor-default"
         title={msg.counterparty ? hexToNpub(msg.counterparty) : undefined}
@@ -107,21 +119,23 @@ export default function DMMessageRow({
         </span>
       )}
       {msg.raw && (
-        <button
-          onClick={() => setShowRaw((s) => !s)}
+        <span
           className={`p-1 rounded flex-shrink-0 transition-colors ${
             showRaw
               ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-              : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+              : "text-gray-400"
           }`}
           title="Show event metadata and raw JSON"
         >
           <Code2 size={13} />
-        </button>
+        </span>
       )}
 
       {showRaw && msg.raw && (
-        <div className="basis-full mt-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+        <div
+          className="basis-full mt-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-2.5 space-y-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="grid gap-1 text-[10px] font-mono text-gray-600 dark:text-gray-300">
             <div className="break-all">
               <span className="text-gray-400 dark:text-gray-500">id: </span>
