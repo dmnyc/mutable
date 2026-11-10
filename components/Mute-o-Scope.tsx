@@ -788,7 +788,7 @@ export default function MuteOScope() {
                       handleSearch();
                     }}
                     disabled={searching || !searchQuery.trim()}
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap flex-1 sm:flex-initial"
                   >
                     {searching ? (
                       <>
@@ -805,7 +805,7 @@ export default function MuteOScope() {
                   {session && !searching && (
                     <button
                       onClick={handleScopeMyself}
-                      className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                      className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap flex-1 sm:flex-initial"
                       title="Check your own public mute list exposure"
                     >
                       <User size={20} />
@@ -815,7 +815,7 @@ export default function MuteOScope() {
                   {(searchQuery || allResults.length > 0) && !searching && (
                     <button
                       onClick={handleReset}
-                      className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+                      className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2 whitespace-nowrap flex-1 sm:flex-initial"
                       title="Reset search"
                     >
                       <X size={20} />

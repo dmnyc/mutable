@@ -942,11 +942,10 @@ export default function Muteuals({
                     {session
                       ? getMuteScanRelayList(session.relays).length
                       : "14+"}{" "}
-                    relays (including major public relays like Damus, Primal,
-                    and Nostr Band) for mute lists (kind 10000) with your pubkey
-                    in the public tags. No matches found - no one has publicly
-                    muted you on these relays! Note: People may have you in
-                    their encrypted/private mutes which we cannot see.
+                    relays (including Damus, Primal, and Nostr Band) for public
+                    mute lists (kind 10000) containing your pubkey. No one has
+                    publicly muted you on these relays. Private mutes are
+                    encrypted and invisible to this scan.
                   </p>
                 </div>
               )}
