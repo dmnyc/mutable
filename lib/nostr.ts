@@ -5554,10 +5554,11 @@ export async function analyzeDMMetadata(
   // 4. Generate heatmap data
   const heatmapData = generateDMHeatmapData(sent, received);
 
-  // 5. Fetch profiles for every contact — the bulk archive lookup covers the
-  // whole list with relay fallback only for misses, so leaderboard and
-  // circle entries all get names and avatars. (Fetching only the top 50
-  // left recent lurkers profile-less and blanked out the circle.)
+  // 5. Profiles in two stages: bulk archive lookup covers every contact
+  // cheaply, then the top 50 are re-fetched fresh from relays — the archive
+  // can lag by months, and stale picture URLs 404 and blank out the circle
+  // with fallback bots. Fresh wins where they overlap; archive covers the
+  // long tail.
   onProgress?.("Ranking the suspects...", 0, contacts.length);
 
   const profilesByPubkey = await fetchProfilesBulk(
@@ -5568,6 +5569,33 @@ export async function analyzeDMMetadata(
 
   for (const contact of contacts) {
     contact.profile = profilesByPubkey.get(contact.pubkey) || contact.profile;
+  }
+
+  const FRESH_PROFILE_COUNT = 50;
+  const FRESH_PROFILE_BATCH = 5;
+  const topContacts = contacts.slice(0, FRESH_PROFILE_COUNT);
+
+  for (let i = 0; i < topContacts.length; i += FRESH_PROFILE_BATCH) {
+    if (abortSignal?.aborted) throw new Error("Aborted");
+
+    const batch = topContacts.slice(i, i + FRESH_PROFILE_BATCH);
+    const freshProfiles = await Promise.all(
+      batch.map((contact) =>
+        fetchProfile(contact.pubkey, relays).catch(() => null),
+      ),
+    );
+
+    for (let j = 0; j < batch.length; j++) {
+      if (freshProfiles[j]) {
+        batch[j].profile = freshProfiles[j] || undefined;
+      }
+    }
+
+    onProgress?.(
+      "Ranking the suspects...",
+      Math.min(i + FRESH_PROFILE_BATCH, topContacts.length),
+      FRESH_PROFILE_COUNT,
+    );
   }
 
   // 6. Fetch target's profile
