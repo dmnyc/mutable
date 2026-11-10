@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DMActivityDay, DMMessageMeta, Profile } from "@/types";
-import { hexToNpub } from "@/lib/nostr";
-import { getDisplayName } from "@/lib/utils/format";
+import DMMessageRow from "./DMMessageRow";
 
 interface DMHeatmapProps {
   data: DMActivityDay[];
@@ -43,7 +43,11 @@ export default function DMHeatmap({
   onRequestProfiles,
 }: DMHeatmapProps) {
   const [hoveredDay, setHoveredDay] = useState<DMActivityDay | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{
+    x: number;
+    y: number;
+    below: boolean;
+  } | null>(null);
   const [selectedDay, setSelectedDay] = useState<DMActivityDay | null>(null);
   /** Mobile month view cursor, "YYYY-MM"; null falls back to the newest active month. */
   const [monthCursor, setMonthCursor] = useState<string | null>(null);
@@ -205,10 +209,14 @@ export default function DMHeatmap({
 
   const handleMouseEnter = (day: DMActivityDay, e: React.MouseEvent) => {
     setHoveredDay(day);
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    // Anchor to the cursor itself: getBoundingClientRect would still be
+    // viewport-relative, but the inline tooltip's position:fixed resolves
+    // against transformed ancestors (backdrop layers), which desyncs it.
+    // The portal below also renders it in <body>, out of that tree.
     setTooltipPos({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 8,
+      x: e.clientX,
+      y: e.clientY,
+      below: e.clientY < 90,
     });
   };
 
@@ -226,12 +234,6 @@ export default function DMHeatmap({
       year: "numeric",
     });
   };
-
-  const formatTime = (unixSeconds: number) =>
-    new Date(unixSeconds * 1000).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
 
   // Drill-down derivations for the currently selected day.
   const dayMessages: DMMessageMeta[] = useMemo(
@@ -530,102 +532,19 @@ export default function DMHeatmap({
           ) : (
             <>
               <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
-                {dayMessages.map((msg) => {
-                  const profile = profilesByPubkey?.get(msg.counterparty);
-                  const name = msg.counterparty
-                    ? profile
-                      ? getDisplayName(profile)
-                      : `${hexToNpub(msg.counterparty).slice(0, 14)}…`
-                    : "unknown";
-                  const isSent = msg.direction === "sent";
-                  const widthPct =
-                    maxContentLength > 0
-                      ? Math.max(4, (msg.contentLength / maxContentLength) * 100)
-                      : 0;
-
-                  return (
-                    <div
-                      key={msg.eventId}
-                      className="flex items-center gap-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5"
-                    >
-                      <span
-                        className={
-                          isSent
-                            ? "text-purple-600 dark:text-purple-400 flex-shrink-0"
-                            : "text-pink-600 dark:text-pink-400 flex-shrink-0"
-                        }
-                        title={isSent ? "Sent" : "Received"}
-                      >
-                        {isSent ? (
-                          <ArrowUpRight size={14} />
-                        ) : (
-                          <ArrowDownLeft size={14} />
-                        )}
-                      </span>
-
-                      <span className="font-mono text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
-                        {formatTime(msg.createdAt)}
-                      </span>
-
-                      <button
-                        onClick={() =>
-                          msg.counterparty && onSelectPubkey?.(msg.counterparty)
-                        }
-                        disabled={!msg.counterparty || !onSelectPubkey}
-                        className="font-medium text-gray-900 dark:text-white truncate max-w-[10rem] text-left enabled:hover:underline disabled:cursor-default"
-                        title={
-                          msg.counterparty
-                            ? hexToNpub(msg.counterparty)
-                            : undefined
-                        }
-                      >
-                        {name}
-                      </button>
-
-                      {/* Ciphertext size — the body stays encrypted, but its
-                          length is public and approximates message size. */}
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                        <div className="hidden sm:block w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${isSent ? "bg-purple-500" : "bg-pink-500"}`}
-                            style={{ width: `${widthPct}%` }}
-                          />
-                        </div>
-                        <span
-                          className="text-gray-500 dark:text-gray-400 tabular-nums flex-shrink-0"
-                          title="Encrypted payload size in bytes"
-                        >
-                          {msg.contentLength}B
-                        </span>
-                      </div>
-
-                      {msg.client && (
-                        <span
-                          className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex-shrink-0 hidden md:inline"
-                          title="Client tag published with this message"
-                        >
-                          {msg.client}
-                        </span>
-                      )}
-                      {msg.replyToEventId && (
-                        <span
-                          className="text-gray-400 dark:text-gray-500 flex-shrink-0"
-                          title="Replies to an earlier event"
-                        >
-                          ↩
-                        </span>
-                      )}
-                      {msg.expiresAt && (
-                        <span
-                          className="text-amber-600 dark:text-amber-400 flex-shrink-0"
-                          title="Disappearing message"
-                        >
-                          ⏳
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                {dayMessages.map((msg) => (
+                  <DMMessageRow
+                    key={msg.eventId}
+                    msg={msg}
+                    profile={
+                      msg.counterparty
+                        ? profilesByPubkey?.get(msg.counterparty)
+                        : undefined
+                    }
+                    maxContentLength={maxContentLength}
+                    onSelectPubkey={onSelectPubkey}
+                  />
+                ))}
               </div>
 
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
@@ -639,26 +558,28 @@ export default function DMHeatmap({
       )}
 
       {/* Tooltip */}
-      {hoveredDay && tooltipPos && (
-        <div
-          className="fixed z-50 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full"
-          style={{
-            left: tooltipPos.x,
-            top: tooltipPos.y,
-          }}
-        >
-          <div className="font-medium mb-1">{formatDate(hoveredDay.date)}</div>
-          <div className="flex gap-3">
-            <span>{hoveredDay.count} total</span>
-            <span className="text-purple-300">↑ {hoveredDay.sentCount} sent</span>
-            <span className="text-pink-300">↓ {hoveredDay.receivedCount} received</span>
-          </div>
-          {/* Arrow */}
-          <div className="absolute left-1/2 bottom-0 transform -translate-x-1/2 translate-y-full">
-            <div className="border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
-          </div>
-        </div>
-      )}
+      {hoveredDay &&
+        tooltipPos &&
+        createPortal(
+          <div
+            className="fixed z-50 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg pointer-events-none"
+            style={{
+              left: tooltipPos.x,
+              top: tooltipPos.below ? tooltipPos.y + 14 : tooltipPos.y,
+              transform: tooltipPos.below
+                ? "translate(-50%, 0)"
+                : "translate(-50%, -100%)",
+            }}
+          >
+            <div className="font-medium mb-1">{formatDate(hoveredDay.date)}</div>
+            <div className="flex gap-3">
+              <span>{hoveredDay.count} total</span>
+              <span className="text-purple-300">↑ {hoveredDay.sentCount} sent</span>
+              <span className="text-pink-300">↓ {hoveredDay.receivedCount} received</span>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ import UserProfileModal from "./UserProfileModal";
 import SnoopableGlasses from "./SnoopableGlasses";
 import DMLeaderboard from "./DMLeaderboard";
 import DMHeatmap from "./DMHeatmap";
+import DMInbox from "./DMInbox";
 import DMCircle from "./DMCircle";
 import {
   analyzeDMMetadata,
@@ -32,8 +33,13 @@ import {
   searchProfiles,
   fetchProfile,
   fetchProfilesBulk,
+  fetchConversationEvents,
   publishTextNote,
 } from "@/lib/nostr";
+import {
+  dmEventToMeta,
+  mergeEnvelopesIntoHeatmap,
+} from "@/lib/dmEnvelopes";
 import {
   getDisplayName,
   truncateNpub,
@@ -64,8 +70,12 @@ export default function Snoopable() {
   const [copiedNote, setCopiedNote] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "circle" | "leaderboard" | "heatmap"
+    "circle" | "leaderboard" | "heatmap" | "inbox"
   >("circle");
+  // Spam avoidance: contacts who wrote to the target but never got a reply
+  // can be hidden from the inbox, leaderboard and circle. Stats and the
+  // heatmap still count them — this only governs the views.
+  const [hideOneWay, setHideOneWay] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [includeNames, setIncludeNames] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -78,6 +88,39 @@ export default function Snoopable() {
   // fetch its missing counterparties once and cache them here.
   const [lazyProfiles, setLazyProfiles] = useState<Record<string, Profile>>({});
   const requestedProfilesRef = useRef<Set<string>>(new Set());
+
+  // The global scan caps at the newest ~500 sent/received events, which can
+  // strip a thread's outbound side entirely. Expanding a thread deep-fetches
+  // that one conversation and merges it into the analysis.
+  const [deepFetching, setDeepFetching] = useState<string[]>([]);
+  const deepFetchedRef = useRef<Set<string>>(new Set());
+
+  const handleDeepFetchThread = async (counterparty: string) => {
+    if (!analysis || deepFetchedRef.current.has(counterparty)) return;
+    deepFetchedRef.current.add(counterparty);
+    setDeepFetching((prev) => [...prev, counterparty]);
+    try {
+      const { sent, received } = await fetchConversationEvents(
+        analysis.targetPubkey,
+        counterparty,
+        session?.relays ?? undefined,
+        250,
+      );
+      const metas = [
+        ...sent.map((event) => dmEventToMeta(event, "sent")),
+        ...received.map((event) => dmEventToMeta(event, "received")),
+      ];
+      setAnalysis((prev) =>
+        prev
+          ? { ...prev, heatmapData: mergeEnvelopesIntoHeatmap(prev.heatmapData, metas) }
+          : prev,
+      );
+    } catch (err) {
+      console.error("Conversation deep-fetch failed:", err);
+    } finally {
+      setDeepFetching((prev) => prev.filter((pk) => pk !== counterparty));
+    }
+  };
 
   const handleRequestProfiles = async (pubkeys: string[]) => {
     const toFetch = pubkeys.filter(
@@ -115,6 +158,29 @@ export default function Snoopable() {
     });
     return map;
   }, [analysis, lazyProfiles]);
+
+  // Counterparties who only ever wrote to the target (never got a reply) —
+  // the "Hide one-way DMs" filter removes them from inbox, leaderboard and
+  // circle. Stats and the heatmap still count them.
+  const oneWayPubkeys = useMemo(
+    () =>
+      new Set(
+        analysis?.contacts
+          .filter((c) => c.sentCount === 0)
+          .map((c) => c.pubkey) ?? [],
+      ),
+    [analysis],
+  );
+
+  const visibleContacts = useMemo(
+    () =>
+      hideOneWay
+        ? (analysis?.contacts ?? []).filter(
+            (c) => !oneWayPubkeys.has(c.pubkey),
+          )
+        : analysis?.contacts ?? [],
+    [analysis, hideOneWay, oneWayPubkeys],
+  );
 
   // Check for npub in URL params on mount
   useEffect(() => {
@@ -200,6 +266,8 @@ export default function Snoopable() {
       setShowDropdown(false);
       setLazyProfiles({});
       requestedProfilesRef.current.clear();
+      setDeepFetching([]);
+      deepFetchedRef.current.clear();
 
       const isMobile =
         typeof window !== "undefined" &&
@@ -570,13 +638,13 @@ export default function Snoopable() {
         <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           {/* Results Header */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 min-w-0">
               {analysis.targetProfile?.picture ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={analysis.targetProfile.picture}
                   alt=""
-                  className="w-16 h-16 rounded-full object-cover"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       `https://api.dicebear.com/7.x/bottts/svg?seed=${analysis.targetPubkey}`;
@@ -587,15 +655,15 @@ export default function Snoopable() {
                   <User className="text-white" size={32} />
                 </div>
               )}
-              <div>
-                <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
+              <div className="min-w-0">
+                <h3 className="font-display font-bold text-2xl tracking-tight text-hi truncate">
                   {getDisplayName(
                     analysis.targetProfile,
                     truncateNpub(analysis.targetPubkey),
                   )}
                 </h3>
                 {analysis.targetProfile?.nip05 && (
-                  <div className="text-sm text-green-600 dark:text-green-400">
+                  <div className="text-sm text-green-600 dark:text-green-400 truncate">
                     ✓ {analysis.targetProfile.nip05}
                   </div>
                 )}
@@ -691,44 +759,69 @@ export default function Snoopable() {
             </div>
           </div>
 
-          {/* View Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
-            <button
-              onClick={() => setActiveTab("circle")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "circle"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
+          {/* View Tabs — segmented control so the sections read at a glance */}
+          <div
+            role="tablist"
+            className="grid grid-cols-2 sm:flex gap-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 mb-2"
+          >
+            {(
+              [
+                ["inbox", "Doxxed Inbox"],
+                ["circle", "DM Circle"],
+                ["leaderboard", "Leaderboard"],
+                ["heatmap", "Heatmap"],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                role="tab"
+                aria-selected={activeTab === tab}
+                onClick={() => setActiveTab(tab)}
+                className={`whitespace-nowrap px-2 py-2 sm:px-5 text-sm font-semibold rounded-md transition-colors ${
+                  activeTab === tab
+                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300 shadow-sm"
+                    : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end mb-5 -mt-2">
+            <label
+              className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none"
+              title="Contacts who wrote but never got a reply from you — often spam bots. Stats and the heatmap still count them."
             >
-              DM Circle
-            </button>
-            <button
-              onClick={() => setActiveTab("leaderboard")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "leaderboard"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Leaderboard
-            </button>
-            <button
-              onClick={() => setActiveTab("heatmap")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "heatmap"
-                  ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-500"
-                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Heatmap
-            </button>
+              <input
+                type="checkbox"
+                checked={hideOneWay}
+                onChange={(e) => setHideOneWay(e.target.checked)}
+                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              Hide one-way DMs
+            </label>
           </div>
 
           {/* Tab Content */}
+          {activeTab === "inbox" && (
+            <DMInbox
+              data={analysis.heatmapData}
+              profilesByPubkey={contactProfilesByPubkey}
+              onSelectPubkey={(pubkey) =>
+                setSelectedProfile(
+                  contactProfilesByPubkey.get(pubkey) || { pubkey },
+                )
+              }
+              onRequestProfiles={handleRequestProfiles}
+              deepFetching={deepFetching}
+              onDeepFetchThread={handleDeepFetchThread}
+              excludeCounterparties={hideOneWay ? oneWayPubkeys : undefined}
+            />
+          )}
+
           {activeTab === "leaderboard" && (
             <DMLeaderboard
-              contacts={analysis.contacts.filter((c) => c && c.pubkey)}
+              contacts={visibleContacts}
               onSelectContact={(contact) =>
                 setSelectedProfile(
                   contact.profile || { pubkey: contact.pubkey },
@@ -754,7 +847,7 @@ export default function Snoopable() {
             <DMCircle
               targetProfile={analysis.targetProfile}
               targetPubkey={analysis.targetPubkey}
-              contacts={analysis.contacts}
+              contacts={visibleContacts}
             />
           )}
         </div>

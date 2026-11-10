@@ -32,6 +32,7 @@ import { useStore } from "./store";
 import { Signer } from "./signers";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
 import { naSuggest, naCountEvents, naMetadata } from "./nostrArchives";
+import { dmEventToMeta } from "./dmEnvelopes";
 import { filterHealthyRelays, recordRelayScanOutcomes } from "./relayHealth";
 
 // Default relay list - reliable, well-maintained relays
@@ -5155,32 +5156,10 @@ function generateDMHeatmapData(
     }
   >();
 
-  const tagValue = (event: Event, name: string): string | undefined =>
-    event.tags.find((t) => t[0] === name)?.[1] || undefined;
-
   // Capture the envelope metadata that is public even though the body is
   // encrypted — this is what powers the heatmap day drill-down.
-  const toMeta = (
-    event: Event,
-    direction: "sent" | "received",
-  ): import("@/types").DMMessageMeta => {
-    // For sent DMs the counterparty is the p-tagged recipient; for received
-    // DMs it's the event author.
-    const counterparty =
-      direction === "sent" ? tagValue(event, "p") || "" : event.pubkey;
-    const expiration = tagValue(event, "expiration");
-
-    return {
-      eventId: event.id,
-      createdAt: event.created_at,
-      direction,
-      counterparty,
-      contentLength: event.content?.length ?? 0,
-      client: tagValue(event, "client"),
-      replyToEventId: tagValue(event, "e"),
-      expiresAt: expiration ? Number(expiration) || undefined : undefined,
-    };
-  };
+  const toMeta = (event: Event, direction: "sent" | "received") =>
+    dmEventToMeta(event, direction);
 
   const record = (event: Event, direction: "sent" | "received") => {
     const date = new Date(event.created_at * 1000).toISOString().split("T")[0];
@@ -5373,6 +5352,77 @@ export async function fetchDMMetadata(
 }
 
 /**
+ * Deep-fetch one conversation: all kind:4 events between the target and a
+ * single counterparty, both directions. The global scan caps at the newest
+ * `limit` events per direction, which can drop older conversations entirely —
+ * this targeted query narrows the filter to one counterparty so relays
+ * return the full history.
+ */
+export async function fetchConversationEvents(
+  targetPubkey: string,
+  counterpartyPubkey: string,
+  relays: string[] = DEFAULT_RELAYS,
+  limit: number = 250,
+  abortSignal?: AbortSignal,
+): Promise<{ sent: Event[]; received: Event[] }> {
+  const pool = getPool();
+
+  let targetRelays: string[] = [];
+  try {
+    const { writeRelays, metadata } = await fetchRelayListFromNostr(
+      targetPubkey,
+    );
+    targetRelays = [
+      ...new Set([
+        ...writeRelays,
+        ...(metadata?.read ?? []),
+        ...(metadata?.both ?? []),
+      ]),
+    ];
+  } catch {
+    // Fall back to the caller's relays plus defaults.
+  }
+
+  const allRelays = [
+    ...new Set([...targetRelays, ...relays, ...DEFAULT_RELAYS]),
+  ].filter((r) => !r.includes("garden.zap.cooking"));
+  const expandedRelays = getExpandedRelayList(allRelays, 8);
+
+  const seen = new Set<string>();
+  const sent: Event[] = [];
+  const received: Event[] = [];
+
+  const runFilter = async (filter: Filter, direction: "sent" | "received") => {
+    const events = await pool.querySync(expandedRelays, {
+      ...filter,
+      limit,
+    });
+    for (const event of events) {
+      if (seen.has(event.id) || abortSignal?.aborted) continue;
+      seen.add(event.id);
+      if (direction === "sent") sent.push(event);
+      else received.push(event);
+    }
+  };
+
+  await runFilter(
+    { kinds: [DM_KIND], authors: [targetPubkey], "#p": [counterpartyPubkey] },
+    "sent",
+  );
+  if (abortSignal?.aborted) throw new Error("Aborted");
+  await runFilter(
+    {
+      kinds: [DM_KIND],
+      authors: [counterpartyPubkey],
+      "#p": [targetPubkey],
+    },
+    "received",
+  );
+
+  return { sent, received };
+}
+
+/**
  * Calculate a recency-weighted score for contact ranking
  * Uses exponential decay so recent messages count more than old ones
  * @param timestamps - Array of unix timestamps for all exchanges
@@ -5535,36 +5585,47 @@ export async function analyzeDMMetadata(
   // 4. Generate heatmap data
   const heatmapData = generateDMHeatmapData(sent, received);
 
-  // 5. Fetch profiles for top contacts (limit to avoid overwhelming relays)
-  onProgress?.(
-    "Ranking the suspects...",
-    0,
-    Math.min(contacts.length, 50),
+  // 5. Profiles in two stages: bulk archive lookup covers every contact
+  // cheaply, then the top 50 are re-fetched fresh from relays — the archive
+  // can lag by months, and stale picture URLs 404 and blank out the circle
+  // with fallback bots. Fresh wins where they overlap; archive covers the
+  // long tail.
+  onProgress?.("Ranking the suspects...", 0, contacts.length);
+
+  const profilesByPubkey = await fetchProfilesBulk(
+    contacts.map((contact) => contact.pubkey),
+    relays,
+    (current, total) => onProgress?.("Ranking the suspects...", current, total),
   );
 
-  const topContacts = contacts.slice(0, 50);
-  const PROFILE_BATCH_SIZE = 5;
+  for (const contact of contacts) {
+    contact.profile = profilesByPubkey.get(contact.pubkey) || contact.profile;
+  }
 
-  for (let i = 0; i < topContacts.length; i += PROFILE_BATCH_SIZE) {
+  const FRESH_PROFILE_COUNT = 50;
+  const FRESH_PROFILE_BATCH = 5;
+  const topContacts = contacts.slice(0, FRESH_PROFILE_COUNT);
+
+  for (let i = 0; i < topContacts.length; i += FRESH_PROFILE_BATCH) {
     if (abortSignal?.aborted) throw new Error("Aborted");
 
-    const batch = topContacts.slice(i, i + PROFILE_BATCH_SIZE);
-    const profilePromises = batch.map((contact) =>
-      fetchProfile(contact.pubkey, relays).catch(() => null),
+    const batch = topContacts.slice(i, i + FRESH_PROFILE_BATCH);
+    const freshProfiles = await Promise.all(
+      batch.map((contact) =>
+        fetchProfile(contact.pubkey, relays).catch(() => null),
+      ),
     );
 
-    const profiles = await Promise.all(profilePromises);
-
     for (let j = 0; j < batch.length; j++) {
-      if (profiles[j]) {
-        batch[j].profile = profiles[j] || undefined;
+      if (freshProfiles[j]) {
+        batch[j].profile = freshProfiles[j] || undefined;
       }
     }
 
     onProgress?.(
       "Ranking the suspects...",
-      Math.min(i + PROFILE_BATCH_SIZE, topContacts.length),
-      Math.min(contacts.length, 50),
+      Math.min(i + FRESH_PROFILE_BATCH, topContacts.length),
+      FRESH_PROFILE_COUNT,
     );
   }
 
