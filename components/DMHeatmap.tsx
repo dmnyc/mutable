@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DMActivityDay, DMMessageMeta, Profile } from "@/types";
 import DMMessageRow from "./DMMessageRow";
@@ -42,7 +43,11 @@ export default function DMHeatmap({
   onRequestProfiles,
 }: DMHeatmapProps) {
   const [hoveredDay, setHoveredDay] = useState<DMActivityDay | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{
+    x: number;
+    y: number;
+    below: boolean;
+  } | null>(null);
   const [selectedDay, setSelectedDay] = useState<DMActivityDay | null>(null);
   /** Mobile month view cursor, "YYYY-MM"; null falls back to the newest active month. */
   const [monthCursor, setMonthCursor] = useState<string | null>(null);
@@ -204,10 +209,14 @@ export default function DMHeatmap({
 
   const handleMouseEnter = (day: DMActivityDay, e: React.MouseEvent) => {
     setHoveredDay(day);
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    // Anchor to the cursor itself: getBoundingClientRect would still be
+    // viewport-relative, but the inline tooltip's position:fixed resolves
+    // against transformed ancestors (backdrop layers), which desyncs it.
+    // The portal below also renders it in <body>, out of that tree.
     setTooltipPos({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 8,
+      x: e.clientX,
+      y: e.clientY,
+      below: e.clientY < 90,
     });
   };
 
@@ -549,26 +558,28 @@ export default function DMHeatmap({
       )}
 
       {/* Tooltip */}
-      {hoveredDay && tooltipPos && (
-        <div
-          className="fixed z-50 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full"
-          style={{
-            left: tooltipPos.x,
-            top: tooltipPos.y,
-          }}
-        >
-          <div className="font-medium mb-1">{formatDate(hoveredDay.date)}</div>
-          <div className="flex gap-3">
-            <span>{hoveredDay.count} total</span>
-            <span className="text-purple-300">↑ {hoveredDay.sentCount} sent</span>
-            <span className="text-pink-300">↓ {hoveredDay.receivedCount} received</span>
-          </div>
-          {/* Arrow */}
-          <div className="absolute left-1/2 bottom-0 transform -translate-x-1/2 translate-y-full">
-            <div className="border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
-          </div>
-        </div>
-      )}
+      {hoveredDay &&
+        tooltipPos &&
+        createPortal(
+          <div
+            className="fixed z-50 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg pointer-events-none"
+            style={{
+              left: tooltipPos.x,
+              top: tooltipPos.below ? tooltipPos.y + 14 : tooltipPos.y,
+              transform: tooltipPos.below
+                ? "translate(-50%, 0)"
+                : "translate(-50%, -100%)",
+            }}
+          >
+            <div className="font-medium mb-1">{formatDate(hoveredDay.date)}</div>
+            <div className="flex gap-3">
+              <span>{hoveredDay.count} total</span>
+              <span className="text-purple-300">↑ {hoveredDay.sentCount} sent</span>
+              <span className="text-pink-300">↓ {hoveredDay.receivedCount} received</span>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
