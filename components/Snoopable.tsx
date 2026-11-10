@@ -72,6 +72,10 @@ export default function Snoopable() {
   const [activeTab, setActiveTab] = useState<
     "circle" | "leaderboard" | "heatmap" | "inbox"
   >("circle");
+  // Spam avoidance: contacts who wrote to the target but never got a reply
+  // can be hidden from the inbox, leaderboard and circle. Stats and the
+  // heatmap still count them — this only governs the views.
+  const [hideOneWay, setHideOneWay] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [includeNames, setIncludeNames] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -154,6 +158,29 @@ export default function Snoopable() {
     });
     return map;
   }, [analysis, lazyProfiles]);
+
+  // Counterparties who only ever wrote to the target (never got a reply) —
+  // the "Hide one-way DMs" filter removes them from inbox, leaderboard and
+  // circle. Stats and the heatmap still count them.
+  const oneWayPubkeys = useMemo(
+    () =>
+      new Set(
+        analysis?.contacts
+          .filter((c) => c.sentCount === 0)
+          .map((c) => c.pubkey) ?? [],
+      ),
+    [analysis],
+  );
+
+  const visibleContacts = useMemo(
+    () =>
+      hideOneWay
+        ? (analysis?.contacts ?? []).filter(
+            (c) => !oneWayPubkeys.has(c.pubkey),
+          )
+        : analysis?.contacts ?? [],
+    [analysis, hideOneWay, oneWayPubkeys],
+  );
 
   // Check for npub in URL params on mount
   useEffect(() => {
@@ -735,7 +762,7 @@ export default function Snoopable() {
           {/* View Tabs — segmented control so the sections read at a glance */}
           <div
             role="tablist"
-            className="grid grid-cols-2 sm:flex gap-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 mb-6"
+            className="grid grid-cols-2 sm:flex gap-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-1 mb-2"
           >
             {(
               [
@@ -760,6 +787,20 @@ export default function Snoopable() {
               </button>
             ))}
           </div>
+          <div className="flex justify-end mb-5 -mt-2">
+            <label
+              className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none"
+              title="Contacts who wrote but never got a reply from you — often spam bots. Stats and the heatmap still count them."
+            >
+              <input
+                type="checkbox"
+                checked={hideOneWay}
+                onChange={(e) => setHideOneWay(e.target.checked)}
+                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              Hide one-way DMs
+            </label>
+          </div>
 
           {/* Tab Content */}
           {activeTab === "inbox" && (
@@ -774,12 +815,13 @@ export default function Snoopable() {
               onRequestProfiles={handleRequestProfiles}
               deepFetching={deepFetching}
               onDeepFetchThread={handleDeepFetchThread}
+              excludeCounterparties={hideOneWay ? oneWayPubkeys : undefined}
             />
           )}
 
           {activeTab === "leaderboard" && (
             <DMLeaderboard
-              contacts={analysis.contacts.filter((c) => c && c.pubkey)}
+              contacts={visibleContacts}
               onSelectContact={(contact) =>
                 setSelectedProfile(
                   contact.profile || { pubkey: contact.pubkey },
@@ -805,7 +847,7 @@ export default function Snoopable() {
             <DMCircle
               targetProfile={analysis.targetProfile}
               targetPubkey={analysis.targetPubkey}
-              contacts={analysis.contacts}
+              contacts={visibleContacts}
             />
           )}
         </div>

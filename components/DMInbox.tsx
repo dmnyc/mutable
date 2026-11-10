@@ -31,6 +31,7 @@ export default function DMInbox({
   onRequestProfiles,
   deepFetching,
   onDeepFetchThread,
+  excludeCounterparties,
 }: {
   data: DMActivityDay[];
   profilesByPubkey?: Map<string, Profile>;
@@ -43,6 +44,8 @@ export default function DMInbox({
   /** Called (once per thread) when a collapsed thread is expanded, so the
       parent can backfill this conversation's older events. */
   onDeepFetchThread?: (counterparty: string) => void;
+  /** Counterparties to hide (spam filter — one-way incoming contacts). */
+  excludeCounterparties?: Set<string>;
 }) {
   const [viewMode, setViewMode] = useState<"threads" | "chronological">(
     "threads",
@@ -57,11 +60,20 @@ export default function DMInbox({
     () =>
       data
         .flatMap((day) => day.messages ?? [])
+        .filter(
+          (msg) =>
+            !excludeCounterparties?.has(msg.counterparty || "unknown"),
+        )
         .sort(
           (a, b) =>
             b.createdAt - a.createdAt ||
             a.eventId.localeCompare(b.eventId),
         ),
+    [data, excludeCounterparties],
+  );
+
+  const rawMessageCount = useMemo(
+    () => data.flatMap((day) => day.messages ?? []).length,
     [data],
   );
 
@@ -195,7 +207,13 @@ export default function DMInbox({
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         <Inbox size={40} className="mx-auto mb-3 opacity-50" />
-        {totalDMs > 0 ? (
+        {rawMessageCount > 0 ? (
+          <p className="text-sm max-w-md mx-auto">
+            Every conversation in this scan was one-way incoming — turn off
+            &ldquo;Hide one-way DMs&rdquo; to see the {rawMessageCount}{" "}
+            message{rawMessageCount === 1 ? "" : "s"}.
+          </p>
+        ) : totalDMs > 0 ? (
           <p className="text-sm max-w-md mx-auto">
             This scan didn&apos;t capture individual messages for its{" "}
             {totalDMs} DM{totalDMs === 1 ? "" : "s"} — re-run the analysis to
