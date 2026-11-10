@@ -1,5 +1,16 @@
 # Doxxed Inbox — plan
 
+> **Status: shipped** (plus refinements beyond this plan). What changed during
+> implementation: the tab defaults to **Threads** (one collapsible conversation
+> per counterparty, messages oldest-first inside, threads ranked by last
+> message) with a **Chronological** toggle for the flat view; every envelope
+> row carries a metadata/raw-JSON expander (full public event snapshot, tag
+> chips, ciphertext dump); profiles for names are fetched lazily per visible
+> scope and expanding a thread deep-fetches its full history via targeted
+> authors+#p queries (see `lib/dmEnvelopes.ts`); the scan now profiles **all**
+> contacts via `fetchProfilesBulk` instead of the old top-50 cap.
+
+
 ## Concept
 
 A fourth Snoopable tab that lists every DM envelope involving the target as one

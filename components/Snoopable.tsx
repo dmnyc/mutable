@@ -611,13 +611,13 @@ export default function Snoopable() {
         <div className="panel relative rounded-xl border border-line shadow-panel p-6">
           {/* Results Header */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 min-w-0">
               {analysis.targetProfile?.picture ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={analysis.targetProfile.picture}
                   alt=""
-                  className="w-16 h-16 rounded-full object-cover"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       `https://api.dicebear.com/7.x/bottts/svg?seed=${analysis.targetPubkey}`;
@@ -628,15 +628,15 @@ export default function Snoopable() {
                   <User className="text-white" size={32} />
                 </div>
               )}
-              <div>
-                <h3 className="font-display font-bold text-2xl tracking-tight text-hi">
+              <div className="min-w-0">
+                <h3 className="font-display font-bold text-2xl tracking-tight text-hi truncate">
                   {getDisplayName(
                     analysis.targetProfile,
                     truncateNpub(analysis.targetPubkey),
                   )}
                 </h3>
                 {analysis.targetProfile?.nip05 && (
-                  <div className="text-sm text-green-600 dark:text-green-400">
+                  <div className="text-sm text-green-600 dark:text-green-400 truncate">
                     ✓ {analysis.targetProfile.nip05}
                   </div>
                 )}
