@@ -13,7 +13,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { formatBytes, shortHash, shortServerHost, type BlobItem } from "@/lib/blossom/inventory";
+import { formatBytes, groupCopiesByLabel, shortHash, type BlobItem } from "@/lib/blossom/inventory";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import PostsDialog from "./PostsDialog";
 
@@ -236,13 +236,14 @@ export default function BlobTile({
           <span>{formatBytes(item.size)}</span>
         </div>
         <div className="flex flex-wrap gap-1">
-          {item.copies.map((copy) => (
+          {groupCopiesByLabel(item.copies).map(({ label, copies }) => (
             <span
-              key={copy.server}
+              key={label}
               className="px-1.5 py-0.5 rounded bg-inset border border-line-2 text-[10px] text-mid"
-              title={copy.url}
+              title={copies.map((copy) => copy.url).join("\n")}
             >
-              {shortServerHost(copy.server)}
+              {label}
+              {copies.length > 1 ? ` ×${copies.length}` : ""}
             </span>
           ))}
         </div>
