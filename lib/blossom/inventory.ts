@@ -200,6 +200,25 @@ export function shortServerHost(server: string): string {
   );
 }
 
+export interface GroupedCopies {
+  label: string;
+  copies: BlobCopy[];
+}
+
+// Tiles show one chip per distinct label: subdomains folding to the same
+// host would otherwise render as identical chips, and mobile has no
+// tooltip to tell them apart.
+export function groupCopiesByLabel(copies: BlobCopy[]): GroupedCopies[] {
+  const groups = new Map<string, BlobCopy[]>();
+  for (const copy of copies) {
+    const label = shortServerHost(copy.server);
+    const existing = groups.get(label);
+    if (existing) existing.push(copy);
+    else groups.set(label, [copy]);
+  }
+  return Array.from(groups, ([label, grouped]) => ({ label, copies: grouped }));
+}
+
 export interface ServerContentGroup {
   server: string;
   mirrors: string[];

@@ -33,7 +33,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       type={type ?? "button"}
-      className={`inline-flex items-center justify-center font-semibold rounded-[10px] transition-all duration-150 hover:-translate-y-px active:translate-y-0 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center whitespace-nowrap font-semibold rounded-[10px] transition-all duration-150 hover:-translate-y-px active:translate-y-0 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     />
   ),
