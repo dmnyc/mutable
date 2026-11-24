@@ -13,7 +13,7 @@ describe("buildPreviewParts", () => {
     const { content } = buildFirstNoteShare(note);
     const parts = buildPreviewParts(content, { quoted: true });
     expect(text(parts)).toBe(
-      "I found #MyFirstNote with #Mutable.\n\n📅 December 16, 2022, 7:12 PM UTC",
+      "I found #MyFirstNote with #Mutable.\n\n🐣 December 16, 2022, 7:12 PM UTC",
     );
   });
 

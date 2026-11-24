@@ -62,7 +62,7 @@ export function buildFirstNoteShare(
   const content = [
     FIRST_NOTE_CAPTION,
     "",
-    `📅 ${formatFirstNoteTimestamp(note.created_at)}`,
+    `🐣 ${formatFirstNoteTimestamp(note.created_at)}`,
     "",
     `nostr:${nevent}`,
   ].join("\n");

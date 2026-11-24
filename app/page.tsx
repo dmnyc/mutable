@@ -15,25 +15,26 @@ import ZombieHand from "@/components/ZombieHand";
 import Hatchling from "@/components/Hatchling";
 import {
   Lock,
+  LockOpen,
   User,
   Loader2,
   Flag,
-  Trash2,
+  Eraser,
   Search,
   Medal,
   Radiation,
   Skull,
   Flame,
-  Copy,
+  Wrench,
+  Dna,
+  AtSign,
   FileSearch,
   ArrowLeftRight,
   Sun,
   Moon,
-  Bitcoin,
   VolumeX,
   Package,
   BrushCleaning,
-  Globe,
   DatabaseBackup,
   ArrowRight,
 } from "lucide-react";
@@ -306,8 +307,8 @@ export default function Home() {
               <span className="font-semibold text-hi">
                 Your Nostr mute list manager.
               </span>{" "}
-              Back up, edit, discover and share mute lists, plus DM forensics,
-              draft packs, reciprocal audits and event deletion.
+              Back up, edit and share mute lists, plus account dossiers, zombie
+              checks, DM forensics, public reports and event deletion.
             </p>
             <div className="mt-6">
               <button
@@ -492,7 +493,7 @@ export default function Home() {
                 Open the Dossier
               </button>
 
-              {/* Lens buttons — NEW stays on both Reportable and Redactable */}
+              {/* Lens buttons */}
               <div className="grid sm:grid-cols-2 gap-2.5 mt-4">
                 <button
                   onClick={() => handleToolSearch("/mute-o-scope")}
@@ -522,20 +523,14 @@ export default function Home() {
                 >
                   <Flag size={16} />
                   Reportable
-                  <span className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-px bg-white/25 rounded">
-                    NEW
-                  </span>
                 </button>
                 <button
                   onClick={() => handleToolSearch("/redactable")}
                   title="Their deletion requests and deleted posts"
                   className={`${lensClass} bg-gradient-to-b from-slate-600 to-slate-900 shadow-[0_6px_18px_-8px_rgb(15_23_42/0.8),inset_0_1px_0_rgb(255_255_255/0.18)] ring-1 ring-white/10 hover:brightness-125`}
                 >
-                  <Trash2 size={16} />
+                  <Eraser size={16} />
                   Redactable
-                  <span className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-px bg-white/25 rounded">
-                    NEW
-                  </span>
                 </button>
               </div>
 
@@ -561,7 +556,8 @@ export default function Home() {
               <span className="flex-1 h-px bg-line" />
             </div>
 
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mut mb-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-mut mb-3">
+              <LockOpen size={16} aria-hidden="true" />
               No login
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
@@ -573,7 +569,8 @@ export default function Home() {
                 text="Every public record, in one report."
               />
               <DirectoryCard
-                href="/zombie-check"
+                href={null}
+                onClick={() => handleToolSearch("/zombie-check")}
                 chip={
                   <ChipTone tone="green">
                     <ZombieHand size={18} />
@@ -592,7 +589,6 @@ export default function Home() {
                   </ChipTone>
                 }
                 title="Reportable"
-                badge="NEW"
                 text="Public reports filed about any account."
               />
               <DirectoryCard
@@ -600,11 +596,10 @@ export default function Home() {
                 onClick={() => handleToolSearch("/redactable")}
                 chip={
                   <ChipTone tone="gray">
-                    <Trash2 size={16} />
+                    <Eraser size={16} />
                   </ChipTone>
                 }
                 title="Redactable"
-                badge="NEW"
                 text="What an account asked relays to delete."
               />
               <DirectoryCard
@@ -655,20 +650,22 @@ export default function Home() {
                 text="The public metadata of anyone’s DMs."
               />
               <DirectoryCard
-                href="/muggable"
-                chip={<ChipTone tone="amber"><Bitcoin size={16} /></ChipTone>}
+                href={null}
+                onClick={() => handleToolSearch("/muggable")}
+                chip={<ChipTone tone="amber"><Wrench size={16} /></ChipTone>}
                 title="Muggable"
                 text="Is that Nostr key holding Bitcoin?"
               />
               <DirectoryCard
                 href="/clonable"
-                chip={<ChipTone tone="violet"><Copy size={16} /></ChipTone>}
+                chip={<ChipTone tone="cyan"><Dna size={16} /></ChipTone>}
                 title="Clonable"
                 text="Copy your profile, follows and mutes."
               />
             </div>
 
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mut mb-3 mt-8">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-mut mb-3 mt-8">
+              <Lock size={16} aria-hidden="true" />
               Connect to use
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
@@ -716,7 +713,7 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/purgatory"
-                chip={<ChipTone tone="amber"><Pitchfork size={16} /></ChipTone>}
+                chip={<ChipTone tone="red"><Pitchfork size={16} /></ChipTone>}
                 title="Purgatory"
                 text="Find follows by client or hellthread."
               />
@@ -728,7 +725,7 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/note-nuke"
-                chip={<ChipTone tone="red"><Radiation size={16} /></ChipTone>}
+                chip={<ChipTone tone="yellow"><Radiation size={16} /></ChipTone>}
                 title="Note Nuke"
                 text="Ask every relay to delete a note."
               />
@@ -740,7 +737,7 @@ export default function Home() {
               />
               <DirectoryCard
                 href="/dashboard?tab=domainPurge"
-                chip={<ChipTone tone="blue"><Globe size={16} /></ChipTone>}
+                chip={<ChipTone tone="blue"><AtSign size={16} /></ChipTone>}
                 title="Domain Purge"
                 text="Purge all followers of a NIP-05 domain."
               />
@@ -810,7 +807,8 @@ function ChipTone({
     | "purple"
     | "amber"
     | "orange"
-    | "violet"
+    | "cyan"
+    | "yellow"
     | "green"
     | "blue";
   children: React.ReactNode;
@@ -822,7 +820,8 @@ function ChipTone({
     purple: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
     amber: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
     orange: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
-    violet: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+    cyan: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
+    yellow: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
     green: "bg-green-500/15 text-green-700 dark:text-green-400",
     blue: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   };
