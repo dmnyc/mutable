@@ -1,10 +1,8 @@
 import { nip19 } from "nostr-tools";
 import { hexToNote } from "@/lib/nostr";
 
-// Nostr Archives is Mutable's viewer for profiles and notes. It only takes
-// hex ids, and it has no page for deleted notes or for other event kinds
-// (reports, deletions), so those still go to njump.
-const ARCHIVE = "https://nostrarchives.com";
+// Jumble is Mutable's viewer for profiles and notes. It has no page for
+// other event kinds (reports, deletions), so those still go to njump.
 const JUMBLE = "https://jumble.social";
 const HEX64 = /^[0-9a-f]{64}$/i;
 
@@ -22,10 +20,10 @@ function eventHex(ref: string): string | null {
   return null;
 }
 
-/** Generate a link to view a note on Nostr Archives. */
+/** Generate a link to view a note on Jumble. */
 export function getEventLink(eventId: string): string {
   const id = eventHex(eventId);
-  return id ? `${ARCHIVE}/notes/${id}` : "#";
+  return id ? `${JUMBLE}/notes/${nip19.noteEncode(id)}` : "#";
 }
 
 /**
@@ -99,21 +97,9 @@ export function getAddressLink(coord: string): string {
   }
 }
 
-/** Generate a link to view a Nostr profile on Nostr Archives. */
+/** Generate a link to view a Nostr profile on Jumble. */
 export function getProfileLink(pubkey: string): string {
-  const trimmed = pubkey.trim();
-  if (HEX64.test(trimmed))
-    return `${ARCHIVE}/profiles/${trimmed.toLowerCase()}`;
-  try {
-    const decoded = nip19.decode(trimmed);
-    if (decoded.type === "npub") return `${ARCHIVE}/profiles/${decoded.data}`;
-    if (decoded.type === "nprofile") {
-      return `${ARCHIVE}/profiles/${decoded.data.pubkey}`;
-    }
-  } catch {
-    // not bech32
-  }
-  return "#";
+  return getJumbleProfileLink(pubkey);
 }
 
 /** Generate a link to view a Nostr profile in Jumble. */

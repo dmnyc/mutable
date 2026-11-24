@@ -2,7 +2,10 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { nip19 } from "nostr-tools";
 import Reportable from "@/components/Reportable";
-import { naMetadata, NaProfile } from "@/lib/nostrArchives";
+import {
+  fetchPreviewProfiles,
+  type PreviewProfile,
+} from "@/lib/draftable/server";
 
 const GENERIC_TITLE =
   "Reportable by Mutable: See who is publicly reporting whom on Nostr";
@@ -10,7 +13,7 @@ const GENERIC_DESCRIPTION =
   "Search any npub to see their public NIP-56 report history, or browse the live feed of reports across the network. No sign-in required.";
 
 // Social scrapers (and the server render itself) won't wait on a slow
-// metadata API — race it and fall back to npub-only text.
+// profile lookup — cap it and fall back to npub-only text.
 const PROFILE_TIMEOUT_MS = 2500;
 
 function genericMetadata(): Metadata {
@@ -55,18 +58,9 @@ function decodeNpubParam(
   return null;
 }
 
-async function resolveProfile(pubkey: string): Promise<NaProfile | null> {
-  try {
-    const profiles = await Promise.race([
-      naMetadata([pubkey]),
-      new Promise<Awaited<ReturnType<typeof naMetadata>>>((resolve) =>
-        setTimeout(() => resolve([]), PROFILE_TIMEOUT_MS),
-      ),
-    ]);
-    return profiles.find((p) => p.pubkey === pubkey.toLowerCase()) ?? null;
-  } catch {
-    return null;
-  }
+async function resolveProfile(pubkey: string): Promise<PreviewProfile | null> {
+  const profiles = await fetchPreviewProfiles([pubkey], PROFILE_TIMEOUT_MS);
+  return profiles.get(pubkey.toLowerCase()) ?? null;
 }
 
 /** Collapse whitespace and cap length so profile data can't bloat the tags. */
@@ -93,7 +87,7 @@ export async function generateMetadata({
 
   const profile = await resolveProfile(pubkey);
   const name = cleanName(
-    profile?.display_name ?? profile?.preferred_name ?? profile?.name,
+    profile?.display_name ?? profile?.name,
   );
   const nip05 = cleanName(profile?.nip05);
 

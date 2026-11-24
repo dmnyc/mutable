@@ -587,7 +587,7 @@ export default function Reciprocals({
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-            title="View on Nostr Archives"
+            title="View on Jumble"
           >
             <ExternalLink size={16} />
           </a>

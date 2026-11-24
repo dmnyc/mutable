@@ -41,7 +41,7 @@ Every following.space feature has a Draftable equivalent except nsec login, whic
 | People / Posts tabs | Conscripts / Posts | `DraftablePack.tsx`, `PackPosts.tsx` |
 | Copy Event (`nevent`) | Copy link, Copy `naddr` | `DraftablePack.tsx` |
 | (not in upstream) | Share as a note (copy, or post when signed in) from a pack page, the drafted-into summary, and a pack you just published | `ShareModal.tsx`, wording in `lib/draftable/share.ts` |
-| Create, edit, delete; search by name, npub, nprofile; reorder; remove all | Same minus reordering, plus a "Not published yet" panel of who's being drafted or released (with undo) and a fixed publish strip, NIP-05 search with follower counts (from nostrarchives), Blossom cover upload, and an optional custom pack ID on create (upstream issue #23). A custom ID that matches one of your existing packs is refused rather than overwriting it | `/draftable/create`, `?edit=<d>`, `DraftableEditor.tsx`, `packIdError` |
+| Create, edit, delete; search by name, npub, nprofile; reorder; remove all | Same minus reordering, plus a "Not published yet" panel of who's being drafted or released (with undo) and a fixed publish strip, NIP-05 search with follower counts (from Primal), Blossom cover upload, and an optional custom pack ID on create (upstream issue #23). A custom ID that matches one of your existing packs is refused rather than overwriting it | `/draftable/create`, `?edit=<d>`, `DraftableEditor.tsx`, `packIdError` |
 | Settings: follow snapshots, export, restore | Mutable's Backups tab; every follow change saves a backup first | `lib/backupService.ts` (existing) |
 | Server-drawn link preview (node-canvas) | `next/og` social card on the camo: Draftable by Mutable logo, pack name, conscript avatars and count, "None of them can leave.", and a DRAFTED stamp. No cover or description; link previews show the description already | `app/draftable/card/route.tsx`, `lib/draftable/server.ts` |
 | Login: NIP-07, nsec, bunker, nostrconnect | Mutable's existing NIP-07 and NIP-46 | `hooks/useAuth.ts` (existing) |
@@ -78,7 +78,7 @@ flowchart LR
 
   nostr["lib/nostr.ts"]
   backups["lib/backupService.ts"]
-  archives["lib/nostrArchives.ts"]
+  brainstorm["lib/brainstorm.ts"]
 
   browse --> shell --> list
   create --> shell
@@ -95,9 +95,9 @@ flowchart LR
 
   service --> nostr
   service --> backups
-  profiles --> archives
+  profiles --> brainstorm
   profiles --> nostr
-  server --> archives
+  server --> brainstorm
 
   service --> pack
   server --> pack
@@ -106,8 +106,8 @@ flowchart LR
 
 1. **Pages** `app/draftable/page.tsx`, `create/page.tsx`, and `d/[id]/page.tsx` wrap `DraftableShell` (header, nav, footer, sign-in modal) around `Draftable`, `DraftableEditor`, or `DraftablePack`.
 2. **Client relay I/O** `lib/draftable/service.ts`: fetch, publish, and delete packs, posts, and follow changes. It calls `lib/nostr.ts` (pool, `signEvent`, `publishToRelays`, `fetchFollowList`) and `lib/backupService.ts`.
-3. **Profiles** `components/draftable/useProfiles.ts`: nostrarchives bulk lookup, then `fetchProfile` from `lib/nostr.ts`.
-4. **Previews** `d/[id]/page.tsx` metadata and `app/draftable/card/route.tsx` call `lib/draftable/server.ts` (raw WebSocket to 4 relays, signature check, nostrarchives names). The card renders with `next/og`.
+3. **Profiles** `components/draftable/useProfiles.ts`: Brainstorm bulk lookup (`lib/brainstorm.ts`), then `fetchProfile` from `lib/nostr.ts`.
+4. **Previews** `d/[id]/page.tsx` metadata and `app/draftable/card/route.tsx` call `lib/draftable/server.ts` (raw WebSocket to 4 relays, signature check, names from the Brainstorm search relay). The card renders with `next/og`.
 5. **Pure logic** `lib/draftable/pack.ts`: event parsing and building, link and naddr parsing, follow-tag edits, content splitting. Used by all of the above.
 
 ## The no-exit rule
@@ -146,7 +146,7 @@ Four following.space bugs were fixed in the port rather than copied; the rest ar
 - **URLs:** `/draftable/d/<id>?p=<author>` mirrors following.space, so an old link works by swapping the host. Draftable's own links carry the first 16 hex characters of the author's key (64 bits); links made earlier carry 8, and are still read. A pack ID is only unique per author, so a link can match several: `packsForLink` and `classifyLink` in `pack.ts` turn that into found, ambiguous, or missing. Ambiguous never picks the newest, because anyone could publish a newer pack with the same ID and a key that starts the same way (with 8 characters that takes a key grinder minutes). The page shows a chooser, and the social-card route and the page's preview metadata fall back to the generic card.
 - **Pack lookup:** `lookupPack` asks for every pack with the ID, paging back through older events (up to 4 pages of 500) so a flood of same-ID packs can't push the real one out of view. A full-key link filters by author on the relay instead. Relay hints from an `naddr` are queried only if the usual relays find nothing (`lookupPackWithHints`): nostr-tools skips an event ID it has already seen before verifying it, across relays, so a hostile relay answering first with a corrupt copy can make the pool drop real copies from honest relays.
 - **Relays:** queries and publishes use Mutable's defaults, the user's relays, and `PACK_RELAYS` (damus, wellorder, oxtr, 8333), where upstream published. Damus stays here even though Mutable's defaults drop it, because older packs live there.
-- **Profiles:** one module-level cache in `useProfiles.ts` shared by every Draftable view. It asks nostrarchives in bulk, then relays 6 at a time.
+- **Profiles:** one module-level cache in `useProfiles.ts` shared by every Draftable view. It asks the Brainstorm search relay in bulk, then relays 6 at a time.
 - **Test and abandoned packs:** packs created by someone other than the viewer are hidden by default in "All packs", "From people I follow", and search when they look like tests or were abandoned: one person or nobody, no name, a test-style name (test, asdf, lorem, debug, placeholder names like "my pack", or a Unix timestamp like "IT32 Pack 1790722839012", which automated test runs left 80+ of), or three people or fewer and no update in six months. A line under the view tabs counts them by reason, with a remembered Show/Hide link (`testPackReason` in `pack.ts`). Hundreds of test packs can sit in a row (240+ at launch), so "All packs" reads the full cached pack list that search uses (`fetchAllPacks`; Refresh bypasses the cache) and "Discover more" reveals 18 more instantly. The other views still page from relays and, when hidden packs fill a page, keep paging until 18 more would show, fetching 100, then 200, then 400 at a time, up to six pages per click; the button reads "Skipping test packs..." meanwhile. Drafted-into records, a person's own packs, and npub searches always show everything.
 - **Posts tab:** shows each conscript's top-level notes. Replies are hidden (`isReplyNote` in `pack.ts`): an `e` tag marked root or reply, or an unmarked one. A note that only cites another with an `e` tag marked mention stays.
 - **Fresh packs:** a just-published pack is kept in memory (`recentlyPublished`) so its page renders before relays catch up.
@@ -177,7 +177,7 @@ Still untested: real relay latency and filter limits, real avatars on the social
 
 None of these block a merge, but each is worth knowing before changing the code or answering user reports.
 
-- **Profiles load progressively.** Names show as short npubs until each profile arrives. In production nostrarchives answers most in one request; relays fill the rest 6 at a time.
+- **Profiles load progressively.** Names show as short npubs until each profile arrives. In production the Brainstorm search relay answers most in one request; relays fill the rest 6 at a time.
 - **Card avatars:** only PNG, JPEG, or GIF up to 400 KB from public `https` hosts. WebP or AVIF avatars show as blank circles.
 - **Card text:** emoji and non-Latin pack names make `next/og` fetch glyphs from a CDN; if that fails, the card drops those characters.
 - **Card runtime:** server-side pack fetch needs a global `WebSocket` (Node 22+). Without it, previews fall back to generic text and the static card.
