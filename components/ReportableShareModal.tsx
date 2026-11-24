@@ -11,7 +11,8 @@ import {
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { useAuth } from "@/hooks/useAuth";
 import { getReportScore } from "@/lib/utils/reportScore";
-import { X, Copy, Check, Send, Loader2 } from "lucide-react";
+import { X, Copy, Check, Eye } from "lucide-react";
+import NoteReview from "@/components/system/NoteReview";
 
 interface ReportableShareModalProps {
   targetProfile: Profile;
@@ -39,6 +40,8 @@ export default function ReportableShareModal({
   const [includeFiled, setIncludeFiled] = useState(false);
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
+  // Preview step: nothing is signed or published until the user confirms.
+  const [reviewing, setReviewing] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +112,14 @@ export default function ReportableShareModal({
     }
   };
 
+  // Tags that ride with the note (also summarized in the review step).
+  const getTags = (): string[][] => [
+    ["p", targetProfile.pubkey], // Tag the target user
+    ["t", "Reportable"],
+    ["t", "Mutable"],
+    ["client", "Mutable"], // Client tag to show "Posted from Mutable"
+  ];
+
   // Post to Nostr
   const handlePost = async () => {
     if (!session) {
@@ -120,13 +131,7 @@ export default function ReportableShareModal({
     setError(null);
 
     try {
-      // Build tags
-      const tags: string[][] = [
-        ["p", targetProfile.pubkey], // Tag the target user
-        ["t", "Reportable"],
-        ["t", "Mutable"],
-        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
-      ];
+      const tags = getTags();
 
       const messageToShare = getActualShareMessage(isMe, includeFiled);
       const result = await publishTextNote(
@@ -177,194 +182,209 @@ export default function ReportableShareModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* This is me checkbox */}
-          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="flex items-center h-5">
-                <input
-                  type="checkbox"
-                  id="reportable-isMe"
-                  checked={isMe}
-                  onChange={(e) => handleIsMeChange(e.target.checked)}
-                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                />
-              </div>
-              <div className="flex-1">
-                <label
-                  htmlFor="reportable-isMe"
-                  className="text-sm font-bold text-yellow-900 dark:text-yellow-100 cursor-pointer block mb-1"
-                >
-                  This is me!
-                </label>
-                <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                  Sharing your own Reportable results?
+        {reviewing && session ? (
+          <div className="p-6 space-y-4">
+            {posted && (
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  ✓ Posted to Nostr successfully!
                 </p>
               </div>
-            </div>
+            )}
+            <NoteReview
+              content={getActualShareMessage(isMe, includeFiled)}
+              tags={getTags()}
+              mentionNames={{ [targetProfile.pubkey]: getDisplayName() }}
+              posting={posting || posted}
+              error={error}
+              onBack={() => {
+                setError(null);
+                setReviewing(false);
+              }}
+              onConfirm={handlePost}
+              accent="red"
+            />
           </div>
-
-          {/* Include filed count checkbox */}
-          {filedCount !== undefined && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <div className="flex items-start gap-3">
-                <div className="flex items-center h-5">
-                  <input
-                    type="checkbox"
-                    id="reportable-includeFiled"
-                    checked={includeFiled}
-                    onChange={(e) => setIncludeFiled(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                  />
+        ) : (
+          <>
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* This is me checkbox */}
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center h-5">
+                    <input
+                      type="checkbox"
+                      id="reportable-isMe"
+                      checked={isMe}
+                      onChange={(e) => handleIsMeChange(e.target.checked)}
+                      className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label
+                      htmlFor="reportable-isMe"
+                      className="text-sm font-bold text-yellow-900 dark:text-yellow-100 cursor-pointer block mb-1"
+                    >
+                      This is me!
+                    </label>
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      Sharing your own Reportable results?
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <label
-                    htmlFor="reportable-includeFiled"
-                    className="text-sm font-bold text-blue-900 dark:text-blue-100 cursor-pointer block mb-1"
-                  >
-                    Include filed count
-                  </label>
-                  <p className="text-xs text-blue-800 dark:text-blue-200">
-                    Also share how many public reports{" "}
-                    {isMe ? "you have" : `${getDisplayName()} has`} filed
-                    against others ({filedCount} on record)
+              </div>
+
+              {/* Include filed count checkbox */}
+              {filedCount !== undefined && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center h-5">
+                      <input
+                        type="checkbox"
+                        id="reportable-includeFiled"
+                        checked={includeFiled}
+                        onChange={(e) => setIncludeFiled(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label
+                        htmlFor="reportable-includeFiled"
+                        className="text-sm font-bold text-blue-900 dark:text-blue-100 cursor-pointer block mb-1"
+                      >
+                        Include filed count
+                      </label>
+                      <p className="text-xs text-blue-800 dark:text-blue-200">
+                        Also share how many public reports{" "}
+                        {isMe ? "you have" : `${getDisplayName()} has`} filed
+                        against others ({filedCount} on record)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Message preview */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Message Preview
+                </label>
+                {!isMe ? (
+                  <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                    <div>
+                      Hey{" "}
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">
+                        {getDisplayName()}
+                      </span>
+                      , I just looked up your report history with Reportable by
+                      #Mutable. You have {resultCount} public report
+                      {resultCount === 1 ? "" : "s"} on your permanent record.
+                    </div>
+                    <br />
+                    <div>
+                      {getReportScore(uniqueReporterCount).emoji} Report Score:{" "}
+                      {getReportScore(uniqueReporterCount).label} (
+                      {uniqueReporterCount} unique reporter
+                      {uniqueReporterCount === 1 ? "" : "s"})
+                    </div>
+                    <br />
+                    {includeFiled && filedCount !== undefined && (
+                      <>
+                        <div>📄 Reports filed against others: {filedCount}</div>
+                        <br />
+                      </>
+                    )}
+                    <div>Check your reports here: 🚩</div>
+                    <div>https://mutable.top/reportable</div>
+                  </div>
+                ) : (
+                  <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                    <div>
+                      I just checked my report history with Reportable by
+                      #Mutable. I have {resultCount} public report
+                      {resultCount === 1 ? "" : "s"} on my permanent record.
+                    </div>
+                    <br />
+                    <div>
+                      {getReportScore(uniqueReporterCount).emoji} Report Score:{" "}
+                      {getReportScore(uniqueReporterCount).label} (
+                      {uniqueReporterCount} unique reporter
+                      {uniqueReporterCount === 1 ? "" : "s"})
+                    </div>
+                    <br />
+                    {includeFiled && filedCount !== undefined && (
+                      <>
+                        <div>📄 Reports filed against others: {filedCount}</div>
+                        <br />
+                      </>
+                    )}
+                    <div>Check your reports here: 🚩</div>
+                    <div>https://mutable.top/reportable</div>
+                  </div>
+                )}
+                <div className="mt-2">
+                  {!isMe && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Will mention user with npub when posted
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Error message */}
+              {error && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {error}
                   </p>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* Message preview */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Message Preview
-            </label>
-            {!isMe ? (
-              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <div>
-                  Hey{" "}
-                  <span className="text-blue-600 dark:text-blue-400 font-medium">
-                    {getDisplayName()}
-                  </span>
-                  , I just looked up your report history with Reportable
-                  by #Mutable. You have {resultCount} public report
-                  {resultCount === 1 ? "" : "s"} on your permanent record.
+              {/* Success message */}
+              {posted && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    ✓ Posted to Nostr successfully!
+                  </p>
                 </div>
-                <br />
-                <div>
-                  {getReportScore(uniqueReporterCount).emoji} Report Score:{" "}
-                  {getReportScore(uniqueReporterCount).label} ({uniqueReporterCount}{" "}
-                  unique reporter{uniqueReporterCount === 1 ? "" : "s"})
-                </div>
-                <br />
-                {includeFiled && filedCount !== undefined && (
-                  <>
-                    <div>
-                      📄 Reports filed against others: {filedCount}
-                    </div>
-                    <br />
-                  </>
-                )}
-                <div>Check your reports here: 🚩</div>
-                <div>https://mutable.top/reportable</div>
-              </div>
-            ) : (
-              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <div>
-                  I just checked my report history with Reportable by
-                  #Mutable. I have {resultCount} public report
-                  {resultCount === 1 ? "" : "s"} on my permanent record.
-                </div>
-                <br />
-                <div>
-                  {getReportScore(uniqueReporterCount).emoji} Report Score:{" "}
-                  {getReportScore(uniqueReporterCount).label} ({uniqueReporterCount}{" "}
-                  unique reporter{uniqueReporterCount === 1 ? "" : "s"})
-                </div>
-                <br />
-                {includeFiled && filedCount !== undefined && (
-                  <>
-                    <div>
-                      📄 Reports filed against others: {filedCount}
-                    </div>
-                    <br />
-                  </>
-                )}
-                <div>Check your reports here: 🚩</div>
-                <div>https://mutable.top/reportable</div>
-              </div>
-            )}
-            <div className="mt-2">
-              {!isMe && (
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  Will mention user with npub when posted
-                </p>
               )}
             </div>
-          </div>
 
-          {/* Error message */}
-          {error && (
-            <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            </div>
-          )}
+            {/* Actions */}
+            <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex gap-3 justify-end">
+              <button
+                onClick={handleCopy}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <Check size={20} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={20} />
+                    Copy
+                  </>
+                )}
+              </button>
 
-          {/* Success message */}
-          {posted && (
-            <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
-              <p className="text-sm text-green-700 dark:text-green-300">
-                ✓ Posted to Nostr successfully!
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex gap-3 justify-end">
-          <button
-            onClick={handleCopy}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-          >
-            {copied ? (
-              <>
-                <Check size={20} />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy size={20} />
-                Copy
-              </>
-            )}
-          </button>
-
-          {session && (
-            <button
-              onClick={handlePost}
-              disabled={posting || posted}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {posting ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  Posting...
-                </>
-              ) : posted ? (
-                <>
-                  <Check size={20} />
-                  Posted!
-                </>
-              ) : (
-                <>
-                  <Send size={20} />
-                  Post to Nostr
-                </>
+              {session && (
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setReviewing(true);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                >
+                  <Eye size={20} />
+                  Preview &amp; post
+                </button>
               )}
-            </button>
-          )}
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Sign in prompt */}
         {!session && (

@@ -15,7 +15,8 @@ import {
   getMuteRatioSignal,
   formatPerThousand,
 } from "@/lib/utils/muteScore";
-import { X, Copy, Check, Send, Loader2 } from "lucide-react";
+import { X, Copy, Check, Eye } from "lucide-react";
+import NoteReview from "@/components/system/NoteReview";
 
 interface ShareResultsModalProps {
   targetProfile: Profile;
@@ -41,6 +42,8 @@ export default function ShareResultsModal({
   const [isMe, setIsMe] = useState(isSelf);
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
+  // Preview step: nothing is signed or published until the user confirms.
+  const [reviewing, setReviewing] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +117,15 @@ export default function ShareResultsModal({
     }
   };
 
+  // Tags that ride with the note (also summarized in the review step).
+  const getTags = (): string[][] => [
+    // Mention the target only when it isn't the user's own result.
+    ...(isMe ? [] : [["p", targetProfile.pubkey]]),
+    ["t", "MuteOScope"],
+    ["t", "Mutable"],
+    ["client", "Mutable"], // Client tag to show "Posted from Mutable"
+  ];
+
   // Post to Nostr
   const handlePost = async () => {
     if (!session) {
@@ -125,13 +137,7 @@ export default function ShareResultsModal({
     setError(null);
 
     try {
-      // Build tags
-      const tags: string[][] = [
-        ["p", targetProfile.pubkey], // Tag the target user
-        ["t", "MuteOScope"],
-        ["t", "Mutable"],
-        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
-      ];
+      const tags = getTags();
 
       const messageToShare = getActualShareMessage(isMe);
       const result = await publishTextNote(
@@ -182,146 +188,165 @@ export default function ShareResultsModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* This is me checkbox */}
-          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="flex items-center h-5">
-                <input
-                  type="checkbox"
-                  id="isMe"
-                  checked={isMe}
-                  onChange={(e) => handleIsMeChange(e.target.checked)}
-                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                />
+        {reviewing && session ? (
+          <div className="p-6 space-y-4">
+            {posted && (
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  ✓ Posted to Nostr successfully!
+                </p>
               </div>
-              <div className="flex-1">
-                <label
-                  htmlFor="isMe"
-                  className="text-sm font-bold text-yellow-900 dark:text-yellow-100 cursor-pointer block mb-1"
-                >
-                  This is me!
+            )}
+            <NoteReview
+              content={getActualShareMessage(isMe)}
+              tags={getTags()}
+              mentionNames={{ [targetProfile.pubkey]: getDisplayName() }}
+              posting={posting || posted}
+              error={error}
+              onBack={() => {
+                setError(null);
+                setReviewing(false);
+              }}
+              onConfirm={handlePost}
+              accent="red"
+            />
+          </div>
+        ) : (
+          <>
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* This is me checkbox */}
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center h-5">
+                    <input
+                      type="checkbox"
+                      id="isMe"
+                      checked={isMe}
+                      onChange={(e) => handleIsMeChange(e.target.checked)}
+                      className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label
+                      htmlFor="isMe"
+                      className="text-sm font-bold text-yellow-900 dark:text-yellow-100 cursor-pointer block mb-1"
+                    >
+                      This is me!
+                    </label>
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      Sharing your own Mute-o-Scope results?
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Message preview */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Message Preview
                 </label>
-                <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                  Sharing your own Mute-o-Scope results?
-                </p>
+                {!isMe ? (
+                  <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                    <div>
+                      Hey{" "}
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">
+                        {getDisplayName()}
+                      </span>
+                      , I just found you on {resultCount} public mute list
+                      {resultCount === 1 ? "" : "s"} using Mute-o-Scope by
+                      #Mutable!
+                    </div>
+                    <br />
+                    <div>
+                      {getMuteScore(resultCount).emoji} Mute Score:{" "}
+                      {getMuteScore(resultCount).label}
+                    </div>
+                    {getRatioLine() && <div>{getRatioLine()}</div>}
+                    <br />
+                    <div>Scope your mutes here: 🔍</div>
+                    <div>https://mutable.top/mute-o-scope</div>
+                  </div>
+                ) : (
+                  <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                    <div>
+                      I just found myself on {resultCount} public mute list
+                      {resultCount === 1 ? "" : "s"} using Mute-o-Scope by
+                      #Mutable!
+                    </div>
+                    <br />
+                    <div>
+                      {getMuteScore(resultCount).emoji} Mute Score:{" "}
+                      {getMuteScore(resultCount).label}
+                    </div>
+                    {getRatioLine() && <div>{getRatioLine()}</div>}
+                    <br />
+                    <div>Scope your mutes here: 🔍</div>
+                    <div>https://mutable.top/mute-o-scope</div>
+                  </div>
+                )}
+                <div className="mt-2">
+                  {!isMe && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Will mention user with npub when posted
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Message preview */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Message Preview
-            </label>
-            {!isMe ? (
-              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <div>
-                  Hey{" "}
-                  <span className="text-blue-600 dark:text-blue-400 font-medium">
-                    {getDisplayName()}
-                  </span>
-                  , I just found you on {resultCount} public mute list
-                  {resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!
+              {/* Error message */}
+              {error && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {error}
+                  </p>
                 </div>
-                <br />
-                <div>
-                  {getMuteScore(resultCount).emoji} Mute Score:{" "}
-                  {getMuteScore(resultCount).label}
+              )}
+
+              {/* Success message */}
+              {posted && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    ✓ Posted to Nostr successfully!
+                  </p>
                 </div>
-                {getRatioLine() && <div>{getRatioLine()}</div>}
-                <br />
-                <div>Scope your mutes here: 🔍</div>
-                <div>https://mutable.top/mute-o-scope</div>
-              </div>
-            ) : (
-              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                <div>
-                  I just found myself on {resultCount} public mute list
-                  {resultCount === 1 ? "" : "s"} using Mute-o-Scope by #Mutable!
-                </div>
-                <br />
-                <div>
-                  {getMuteScore(resultCount).emoji} Mute Score:{" "}
-                  {getMuteScore(resultCount).label}
-                </div>
-                {getRatioLine() && <div>{getRatioLine()}</div>}
-                <br />
-                <div>Scope your mutes here: 🔍</div>
-                <div>https://mutable.top/mute-o-scope</div>
-              </div>
-            )}
-            <div className="mt-2">
-              {!isMe && (
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  Will mention user with npub when posted
-                </p>
               )}
             </div>
-          </div>
 
-          {/* Error message */}
-          {error && (
-            <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            </div>
-          )}
+            {/* Actions */}
+            <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex gap-3 justify-end">
+              <button
+                onClick={handleCopy}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <Check size={20} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={20} />
+                    Copy
+                  </>
+                )}
+              </button>
 
-          {/* Success message */}
-          {posted && (
-            <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
-              <p className="text-sm text-green-700 dark:text-green-300">
-                ✓ Posted to Nostr successfully!
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex gap-3 justify-end">
-          <button
-            onClick={handleCopy}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-          >
-            {copied ? (
-              <>
-                <Check size={20} />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy size={20} />
-                Copy
-              </>
-            )}
-          </button>
-
-          {session && (
-            <button
-              onClick={handlePost}
-              disabled={posting || posted}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {posting ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  Posting...
-                </>
-              ) : posted ? (
-                <>
-                  <Check size={20} />
-                  Posted!
-                </>
-              ) : (
-                <>
-                  <Send size={20} />
-                  Post to Nostr
-                </>
+              {session && (
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setReviewing(true);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                >
+                  <Eye size={20} />
+                  Preview &amp; post
+                </button>
               )}
-            </button>
-          )}
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Sign in prompt */}
         {!session && (

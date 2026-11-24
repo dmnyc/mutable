@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -747,37 +748,40 @@ export default function DraftableEditor() {
         </div>
       </div>
 
-      {confirmDelete && existing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h3 className="font-display font-bold text-2xl tracking-tight text-hi mb-3">
-              Delete &ldquo;{existing.name}&rdquo;?
-            </h3>
-            <p className="text-gray-700 dark:text-gray-300 mb-6 text-sm">
-              This sends a deletion request to your relays. Relays that honor
-              it will drop the pack and release everyone in it. Some relays,
-              and anyone who saved a copy, may keep it anyway.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-60"
-              >
-                {deleting && <Loader2 size={16} className="animate-spin" />}
-                {deleting ? "Deleting..." : "Delete pack"}
-              </button>
+      {confirmDelete &&
+        existing &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full shadow-xl">
+              <h3 className="font-display font-bold text-2xl tracking-tight text-hi mb-3">
+                Delete &ldquo;{existing.name}&rdquo;?
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-6 text-sm">
+                This sends a deletion request to your relays. Relays that honor
+                it will drop the pack and release everyone in it. Some relays,
+                and anyone who saved a copy, may keep it anyway.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-60"
+                >
+                  {deleting && <Loader2 size={16} className="animate-spin" />}
+                  {deleting ? "Deleting..." : "Delete pack"}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

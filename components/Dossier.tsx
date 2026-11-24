@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   Eye,
   EyeOff,
@@ -24,6 +25,7 @@ import {
   ExternalLink,
   CheckCircle2,
   CalendarClock,
+  Repeat2,
 } from "lucide-react";
 import {
   fetchProfile,
@@ -34,7 +36,7 @@ import {
   searchReportsNetworkWide,
   hexToNpub,
   hexToNote,
-  npubToHex,
+  fetchEventById,
   publishTextNote,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
@@ -59,8 +61,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { getDisplayName } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { getPostedNoteLink, getPostedNevent } from "@/lib/utils/links";
+import { buildFirstNoteShare } from "@/lib/firstNoteShare";
+import {
+  isDirectLookup,
+  noUserFoundMessage,
+  resolveLookupInput,
+} from "@/lib/lookupInput";
 import AppShell from "@/components/system/AppShell";
 import PageHeader from "@/components/system/PageHeader";
+import NoteReview from "@/components/system/NoteReview";
 import type { Profile } from "@/types";
 
 type Status = "idle" | "running" | "done" | "error";
@@ -82,6 +91,16 @@ export default function Dossier() {
   const [noteIdCopied, setNoteIdCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareText, setShareText] = useState("");
+  // "edit" is the textarea; "review" is the styled preview shown before
+  // anything is signed or published.
+  const [shareStep, setShareStep] = useState<"edit" | "review">("edit");
+  // Repost of the subject's own first note, signed-in only.
+  const [firstNoteOpen, setFirstNoteOpen] = useState(false);
+  const [firstNotePublishing, setFirstNotePublishing] = useState(false);
+  const [firstNoteError, setFirstNoteError] = useState<string | null>(null);
+  const [firstNotePostedLink, setFirstNotePostedLink] = useState<
+    string | null
+  >(null);
   const [publishing, setPublishing] = useState(false);
   const [shareResult, setShareResult] = useState<string | null>(null);
   const [postedLink, setPostedLink] = useState<string | null>(null);
@@ -141,13 +160,19 @@ export default function Dossier() {
 
     let pubkey: string;
     try {
-      if (query.startsWith("npub") || query.startsWith("nprofile")) {
-        pubkey = npubToHex(query);
-      } else if (query.match(/^[0-9a-f]{64}$/i)) {
-        pubkey = query;
+      const resolution = await resolveLookupInput(query, (id, relays) =>
+        fetchEventById(id, relays.length ? relays : DEFAULT_RELAYS),
+      );
+      if (resolution.ok === false) {
+        setError(resolution.message);
+        resetSections("idle");
+        return;
+      }
+      if (resolution.ok === true) {
+        pubkey = resolution.pubkey;
       } else {
         const profiles = await Promise.race([
-          searchProfiles(query, DEFAULT_RELAYS, 10),
+          searchProfiles(resolution.query, DEFAULT_RELAYS, 10),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error("search timeout")), 20000),
           ),
@@ -160,16 +185,14 @@ export default function Dossier() {
           return;
         }
         if (profiles.length === 0) {
-          setError(
-            `No user found for "${query}". Try a name, NIP-05, or npub.`,
-          );
+          setError(noUserFoundMessage(resolution.query));
           resetSections("idle");
           return;
         }
         pubkey = profiles[0].pubkey;
       }
     } catch {
-      setError("Invalid npub format. Please check and try again.");
+      setError("Couldn’t look that up. Check it and try again.");
       resetSections("idle");
       return;
     }
@@ -298,14 +321,11 @@ export default function Dossier() {
     setExpandedReport(null);
   };
 
-  // Live name suggestions while typing; npubs, hex and NIP-05 skip this.
+  // Live name suggestions while typing; identifiers (npub, nevent, hex, even a
+  // pasted private key) skip this so they are never sent as a search term.
   useEffect(() => {
     const q = input.trim();
-    if (
-      q.length < 3 ||
-      /^(npub|nprofile)/i.test(q) ||
-      /^[0-9a-f]{64}$/i.test(q)
-    ) {
+    if (q.length < 3 || isDirectLookup(q)) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -422,6 +442,7 @@ export default function Dossier() {
   const openShare = () => {
     if (!subjectNpub) return;
     setShareText(buildReport());
+    setShareStep("edit");
     setShareResult(null);
     setPostedLink(null);
     setPostedNoteId(null);
@@ -429,18 +450,25 @@ export default function Dossier() {
     setShareOpen(true);
   };
 
+  const shareTags = (): string[][] => {
+    const tags: string[][] = [
+      ["t", "Dossier"],
+      ["t", "Mutable"],
+      ["client", "Mutable"],
+    ];
+    if (hexPubkey && hexPubkey !== session?.pubkey) {
+      tags.unshift(["p", hexPubkey]);
+    }
+    return tags;
+  };
+
   const handlePublish = async () => {
     if (!session || !hexPubkey) return;
     setPublishing(true);
     setShareResult(null);
     try {
-      const tags: string[][] = [
-        ["t", "Dossier"],
-        ["t", "Mutable"],
-        ["client", "Mutable"],
-      ];
+      const tags = shareTags();
       const tagged = hexPubkey !== session.pubkey;
-      if (tagged) tags.unshift(["p", hexPubkey]);
       const result = await publishTextNote(shareText, tags, session.relays);
       if (result.success && result.event) {
         setPostedTagged(tagged);
@@ -472,6 +500,58 @@ export default function Dossier() {
       setShareResult("Couldn’t publish the note. Try again.");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // The signed-in user's own first note can be quote-posted. Anyone else's
+  // dossier has no such action: "my first note" is only true of your own.
+  const canRepostFirstNote = Boolean(
+    session && hexPubkey && age?.firstNote && session.pubkey === hexPubkey,
+  );
+
+  const firstNoteShare =
+    canRepostFirstNote && age?.firstNote
+      ? buildFirstNoteShare(age.firstNote, {
+          relays: [
+            ...(session?.relays ?? []).slice(0, 2),
+            BRAINSTORM_SEARCH_RELAY,
+          ],
+        })
+      : null;
+
+  const openFirstNoteShare = () => {
+    setFirstNoteError(null);
+    setFirstNotePostedLink(null);
+    setFirstNoteOpen(true);
+  };
+
+  const handleFirstNotePublish = async () => {
+    if (!session || !firstNoteShare) return;
+    setFirstNotePublishing(true);
+    setFirstNoteError(null);
+    try {
+      const result = await publishTextNote(
+        firstNoteShare.content,
+        firstNoteShare.tags,
+        session.relays,
+      );
+      if (result.success && result.event) {
+        const hints = {
+          relays: result.report?.accepted.length
+            ? result.report.accepted
+            : session.relays,
+          author: result.event.pubkey,
+        };
+        setFirstNotePostedLink(getPostedNoteLink(result.event.id, hints));
+      } else {
+        setFirstNoteError(
+          `Couldn’t publish: ${result.error ?? "unknown error"}`,
+        );
+      }
+    } catch {
+      setFirstNoteError("Couldn’t publish the note. Try again.");
+    } finally {
+      setFirstNotePublishing(false);
     }
   };
 
@@ -608,7 +688,10 @@ export default function Dossier() {
               </button>
             )}
             {error && (
-              <p className="mt-2.5 text-xs text-red-600 dark:text-red-400">
+              <p
+                role="alert"
+                className="mt-2.5 text-xs text-red-600 dark:text-red-400 [overflow-wrap:anywhere] [text-wrap:pretty]"
+              >
                 {error}
               </p>
             )}
@@ -803,6 +886,16 @@ export default function Dossier() {
                           >
                             {firstNote.content || "(empty note)"}
                           </a>
+                          {canRepostFirstNote && (
+                            <button
+                              type="button"
+                              onClick={openFirstNoteShare}
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-inset border border-line-2 text-mid hover:text-hi hover:border-line-strong rounded-[10px] text-xs font-semibold transition-colors"
+                            >
+                              <Repeat2 size={13} />
+                              Repost as #MyFirstNote
+                            </button>
+                          )}
                         </div>
                       );
                     })()}
@@ -1101,129 +1194,230 @@ export default function Dossier() {
           The subject is never told unless you share it.
         </p>
       )}
-      {shareOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => !publishing && setShareOpen(false)}
-        >
+      {shareOpen &&
+        createPortal(
           <div
-            className="panel relative rounded-xl border border-line shadow-panel w-full max-w-lg p-5"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => !publishing && setShareOpen(false)}
           >
-            {postedLink ? (
-              <div className="text-center py-4">
-                <div className="mx-auto w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
-                  <CheckCircle2
-                    size={36}
-                    className="text-green-600 dark:text-green-400"
-                  />
-                </div>
-                <h3 className="font-display font-bold text-xl tracking-tight text-hi mt-4">
-                  Note published
-                </h3>
-                <p className="text-sm text-mid mt-1.5">
-                  Your Dossier is live on Nostr
-                  {postedTagged ? ", and the subject was tagged" : ""}.
-                </p>
-                {postedRelays && (
-                  <p className="text-xs text-mut mt-1">
-                    Accepted by {postedRelays.accepted} of {postedRelays.total}{" "}
-                    {postedRelays.total === 1 ? "relay" : "relays"}. It can take
-                    a moment to show up in clients.
-                  </p>
-                )}
-                <div className="mt-6 grid gap-2.5">
-                  <a
-                    href={postedLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2.5 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
-                  >
-                    <ExternalLink size={15} />
-                    View note on Jumble
-                  </a>
-                  <button
-                    onClick={async () => {
-                      if (
-                        postedNoteId &&
-                        (await copyToClipboard(postedNoteId))
-                      ) {
-                        setLinkCopied(true);
-                        setTimeout(() => setLinkCopied(false), 2000);
-                      }
-                    }}
-                    className="px-4 py-2.5 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
-                  >
-                    {linkCopied ? <Check size={15} /> : <Copy size={15} />}
-                    {linkCopied ? "nevent copied" : "Copy nevent"}
-                  </button>
-                  <button
-                    onClick={() => setShareOpen(false)}
-                    className="px-4 py-2 text-sm font-semibold text-mut hover:text-hi transition-colors"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center mb-3">
-                  <h3 className="font-display font-semibold text-base tracking-tight text-hi">
-                    Share as note
+            <div
+              className="panel relative rounded-xl border border-line shadow-panel w-full max-w-lg p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {postedLink ? (
+                <div className="text-center py-4">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+                    <CheckCircle2
+                      size={36}
+                      className="text-green-600 dark:text-green-400"
+                    />
+                  </div>
+                  <h3 className="font-display font-bold text-xl tracking-tight text-hi mt-4">
+                    Note published
                   </h3>
-                  <button
-                    onClick={() => setShareOpen(false)}
-                    disabled={publishing}
-                    className="ml-auto text-mut hover:text-hi"
-                    aria-label="Close"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <textarea
-                  value={shareText}
-                  onChange={(e) => setShareText(e.target.value)}
-                  rows={10}
-                  className="w-full px-3 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm font-mono outline-none focus:border-primary"
-                />
-                <p className="text-xs text-mut mt-2">
-                  Publishes a public note from your account
-                  {hexPubkey && hexPubkey !== session?.pubkey
-                    ? " and tags the subject."
-                    : "."}{" "}
-                  Edit it first if you like.
-                </p>
-                {shareResult && (
-                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                    {shareResult}
+                  <p className="text-sm text-mid mt-1.5">
+                    Your Dossier is live on Nostr
+                    {postedTagged ? ", and the subject was tagged" : ""}.
                   </p>
-                )}
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => setShareOpen(false)}
-                    disabled={publishing}
-                    className="flex-1 px-4 py-2 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handlePublish}
-                    disabled={publishing || !shareText.trim()}
-                    className="flex-1 px-4 py-2 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {publishing ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : (
-                      <Send size={15} />
-                    )}
-                    {publishing ? "Publishing…" : "Publish note"}
-                  </button>
+                  {postedRelays && (
+                    <p className="text-xs text-mut mt-1">
+                      Accepted by {postedRelays.accepted} of {postedRelays.total}{" "}
+                      {postedRelays.total === 1 ? "relay" : "relays"}. It can take
+                      a moment to show up in clients.
+                    </p>
+                  )}
+                  <div className="mt-6 grid gap-2.5">
+                    <a
+                      href={postedLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink size={15} />
+                      View note on Jumble
+                    </a>
+                    <button
+                      onClick={async () => {
+                        if (
+                          postedNoteId &&
+                          (await copyToClipboard(postedNoteId))
+                        ) {
+                          setLinkCopied(true);
+                          setTimeout(() => setLinkCopied(false), 2000);
+                        }
+                      }}
+                      className="px-4 py-2.5 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      {linkCopied ? <Check size={15} /> : <Copy size={15} />}
+                      {linkCopied ? "nevent copied" : "Copy nevent"}
+                    </button>
+                    <button
+                      onClick={() => setShareOpen(false)}
+                      className="px-4 py-2 text-sm font-semibold text-mut hover:text-hi transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+              ) : (
+                <>
+                  <div className="flex items-center mb-3">
+                    <h3 className="font-display font-semibold text-base tracking-tight text-hi">
+                      Share as note
+                    </h3>
+                    <button
+                      onClick={() => setShareOpen(false)}
+                      disabled={publishing}
+                      className="ml-auto text-mut hover:text-hi"
+                      aria-label="Close"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  {shareStep === "review" ? (
+                    <NoteReview
+                      content={shareText}
+                      tags={shareTags()}
+                      mentionNames={
+                        hexPubkey
+                          ? {
+                              [hexPubkey]: getDisplayName(
+                                subject ?? undefined,
+                                subjectNpub ? shortNpubLabel(subjectNpub) : "them",
+                              ),
+                            }
+                          : undefined
+                      }
+                      posting={publishing}
+                      postingLabel="Publishing…"
+                      error={shareResult}
+                      confirmLabel="Publish note"
+                      onBack={() => {
+                        setShareResult(null);
+                        setShareStep("edit");
+                      }}
+                      onConfirm={handlePublish}
+                    />
+                  ) : (
+                    <>
+                      <textarea
+                        value={shareText}
+                        onChange={(e) => setShareText(e.target.value)}
+                        rows={10}
+                        className="w-full px-3 py-2.5 bg-inset border border-line-strong rounded-[10px] text-hi text-sm font-mono outline-none focus:border-primary"
+                      />
+                      <p className="text-xs text-mut mt-2">
+                        Edit it first if you like, then preview exactly what will
+                        be posted
+                        {hexPubkey && hexPubkey !== session?.pubkey
+                          ? ". The subject will be tagged."
+                          : "."}
+                      </p>
+                      <div className="flex gap-3 mt-4">
+                        <button
+                          onClick={() => setShareOpen(false)}
+                          className="flex-1 px-4 py-2 bg-inset border border-line-2 text-mid hover:text-hi rounded-[10px] text-sm font-semibold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => setShareStep("review")}
+                          disabled={!shareText.trim()}
+                          className="flex-1 px-4 py-2 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          <Eye size={15} />
+                          Preview post
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+      {firstNoteOpen &&
+        firstNoteShare &&
+        age?.firstNote &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => !firstNotePublishing && setFirstNoteOpen(false)}
+          >
+            <div
+              className="panel relative rounded-xl border border-line shadow-panel w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {firstNotePostedLink ? (
+                <div className="text-center py-4">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+                    <CheckCircle2
+                      size={36}
+                      className="text-green-600 dark:text-green-400"
+                    />
+                  </div>
+                  <h3 className="font-display font-bold text-xl tracking-tight text-hi mt-4">
+                    Note published
+                  </h3>
+                  <p className="text-sm text-mid mt-1.5">
+                    Your first note is live again as #MyFirstNote.
+                  </p>
+                  <div className="mt-6 grid gap-2.5">
+                    <a
+                      href={firstNotePostedLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink size={15} />
+                      View note on Jumble
+                    </a>
+                    <button
+                      onClick={() => setFirstNoteOpen(false)}
+                      className="px-4 py-2 text-sm font-semibold text-mut hover:text-hi transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center mb-3">
+                    <h3 className="font-display font-semibold text-base tracking-tight text-hi">
+                      Repost your first note
+                    </h3>
+                    <button
+                      onClick={() => setFirstNoteOpen(false)}
+                      disabled={firstNotePublishing}
+                      className="ml-auto text-mut hover:text-hi"
+                      aria-label="Close"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <NoteReview
+                    content={firstNoteShare.content}
+                    tags={firstNoteShare.tags}
+                    quote={{
+                      content: age.firstNote.content,
+                      createdAt: age.firstNote.created_at,
+                      authorName: getDisplayName(subject ?? undefined, "You"),
+                      authorPicture: subject?.picture,
+                    }}
+                      posting={firstNotePublishing}
+                    postingLabel="Publishing…"
+                    error={firstNoteError}
+                    confirmLabel="Publish note"
+                    onBack={() => setFirstNoteOpen(false)}
+                    onConfirm={handleFirstNotePublish}
+                  />
+                </>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </AppShell>
   );
 }
@@ -1332,6 +1526,10 @@ function FootprintRow({
       <span className={ok || warn ? "text-mid" : "text-mut"}>{label}</span>
     </li>
   );
+}
+
+function shortNpubLabel(npub: string): string {
+  return `${npub.slice(0, 12)}…`;
 }
 
 function formatMonthYear(unix: number): string {

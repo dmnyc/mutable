@@ -230,7 +230,7 @@ export default function GlobalUserSearch({
           onBlur={() => setIsFocused(false)}
           className="w-full pl-9 pr-9 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-ellipsis"
           placeholder={
-            roomy ? "Search users by name, npub, or NIP-05..." : "Search any user"
+            roomy ? "Search users by name, npub, or NIP-05..." : "Search by name or npub"
           }
         />
         <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center">

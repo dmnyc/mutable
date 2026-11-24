@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Check, Copy, Download, Link2, Loader2, Search, Send, User } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, Copy, Download, Eye, Link2, Loader2, Search, User, X } from "lucide-react";
 import html2canvas from "html2canvas";
 import AppShell from "@/components/system/AppShell";
 import PageHeader from "@/components/system/PageHeader";
+import NoteReview from "@/components/system/NoteReview";
 import ZombieHand from "@/components/ZombieHand";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
@@ -21,7 +23,18 @@ import {
   loadImageAsBase64,
   uploadImageToBlossom,
 } from "@/lib/imageUpload";
-import { hexToNpub, publishTextNote, searchProfiles } from "@/lib/nostr";
+import {
+  fetchEventById,
+  hexToNpub,
+  publishTextNote,
+  searchProfiles,
+  DEFAULT_RELAYS,
+} from "@/lib/nostr";
+import {
+  isDirectLookup,
+  noUserFoundMessage,
+  resolveLookupInput,
+} from "@/lib/lookupInput";
 import { getPostedNoteLink } from "@/lib/utils/links";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { getDisplayName } from "@/lib/utils/format";
@@ -92,14 +105,6 @@ const DELETION_LINES: Record<
 
 function shortNpub(npub: string) {
   return npub ? `${npub.slice(0, 12)}…${npub.slice(-6)}` : "";
-}
-
-function looksLikeIdentifier(query: string) {
-  return (
-    query.startsWith("npub") ||
-    query.startsWith("nprofile") ||
-    /^[0-9a-f]{64}$/i.test(query)
-  );
 }
 
 /** The one-line explanation under the verdict. */
@@ -203,6 +208,12 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
   // Caches the Blossom URL for the current result so repeated share actions
   // don't re-upload.
   const uploadedImageUrlRef = useRef<string | null>(null);
+  // The rendered card, kept so the preview, the upload, and the post all
+  // use the same image instead of re-capturing it.
+  const shareBlobRef = useRef<Blob | null>(null);
+  // Preview step before "Share as Note" signs anything.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
   const [publishedNoteUrl, setPublishedNoteUrl] = useState<string | null>(
     null,
   );
@@ -212,12 +223,15 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
   const captureWordmarkRef = useRef<HTMLImageElement>(null);
   useEffect(() => {
     resultRef.current = result;
-    if (!result) uploadedImageUrlRef.current = null;
+    if (!result) {
+      uploadedImageUrlRef.current = null;
+      shareBlobRef.current = null;
+    }
   }, [result]);
 
   // Debounced profile search for plain names
   useEffect(() => {
-    if (!input.trim() || looksLikeIdentifier(input) || input.includes(".")) {
+    if (!input.trim() || isDirectLookup(input) || input.includes(".")) {
       setSearchResults([]);
       setShowDropdown(false);
       return;
@@ -247,13 +261,24 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
     setStage("Resolving profile…");
 
     try {
-      let target = query.trim();
-      // Plain username — resolve the top profile-search match instead of
-      // bouncing the user back to type an npub.
-      if (target && !looksLikeIdentifier(target) && !target.includes(".")) {
-        const profiles = await searchProfiles(target, session?.relays, 1);
+      // Identifiers (npub, nprofile, nevent, hex…) resolve directly; plain
+      // names resolve through the top profile-search match.
+      const resolution = await resolveLookupInput(query, (id, relays) =>
+        fetchEventById(id, relays.length ? relays : DEFAULT_RELAYS),
+      );
+      if (resolution.ok === false) throw new Error(resolution.message);
+      let target: string;
+      if (resolution.ok === true) {
+        target = resolution.pubkey;
+      } else {
+        // A name or NIP-05 address: take the top profile-search match.
+        const profiles = await searchProfiles(
+          resolution.query,
+          session?.relays,
+          1,
+        );
         if (!profiles.length) {
-          throw new Error("Could not find a user matching that name.");
+          throw new Error(noUserFoundMessage(resolution.query));
         }
         target = profiles[0].pubkey;
       }
@@ -309,7 +334,17 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
     setCopiedImageLink(false);
     setCopiedDirectLink(false);
     uploadedImageUrlRef.current = null;
+    shareBlobRef.current = null;
+    closeSharePreview();
     setPublishedNoteUrl(null);
+  };
+
+  const closeSharePreview = () => {
+    setPreviewOpen(false);
+    setPreviewImageSrc((src) => {
+      if (src) URL.revokeObjectURL(src);
+      return null;
+    });
   };
 
   const copyDirectLink = async () => {
@@ -419,9 +454,43 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
     return await canvasToBlob(canvas);
   };
 
+  const getShareBlob = async (): Promise<Blob> => {
+    if (!shareBlobRef.current) {
+      shareBlobRef.current = await captureResultCard();
+    }
+    return shareBlobRef.current;
+  };
+
+  // Step one of Share as Note: render the card locally and show exactly what
+  // will be posted. Nothing is uploaded or signed until the user confirms.
+  const openSharePreview = async () => {
+    const result = resultRef.current;
+    if (!result || shareBusy || !canPublishNotes) return;
+    setShareBusy(true);
+    setShareStatusKind(null);
+    setPublishedNoteUrl(null);
+    setShareStatus(shareIncludeImage ? "Rendering preview…" : "");
+    try {
+      if (shareIncludeImage) {
+        const blob = await getShareBlob();
+        setPreviewImageSrc(URL.createObjectURL(blob));
+      }
+      setShareStatus("");
+      setPreviewOpen(true);
+    } catch (e) {
+      console.error("Share preview failed:", e);
+      setShareStatusKind("error");
+      setShareStatus(
+        e instanceof Error ? e.message : "Could not render the preview. Try again.",
+      );
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
   const ensureShareImage = async (): Promise<string> => {
     if (uploadedImageUrlRef.current) return uploadedImageUrlRef.current;
-    const blob = await captureResultCard();
+    const blob = await getShareBlob();
     const result = resultRef.current;
     const filename = `zombie-check-${(result?.npub || "result").slice(0, 20)}.png`;
     // Sign the BUD-01 upload auth with the user's identity when one is
@@ -463,6 +532,7 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
         author: res.event.pubkey,
       };
       setPublishedNoteUrl(getPostedNoteLink(res.event.id, hints));
+      closeSharePreview();
       setShareStatusKind("success");
       const count = res.report?.accepted.length ?? 0;
       setShareStatus(`Note published to ${count} relay${count === 1 ? "" : "s"}!`);
@@ -680,7 +750,12 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
       )}
 
       {error && !checking && (
-        <p className="mt-6 text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p
+          role="alert"
+          className="mt-6 text-sm text-red-600 dark:text-red-400 [overflow-wrap:anywhere] [text-wrap:pretty]"
+        >
+          {error}
+        </p>
       )}
 
       {/* Result */}
@@ -791,16 +866,16 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
               gets the copy-and-post-yourself path. */}
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={shareAsNote}
+              onClick={openSharePreview}
               disabled={shareBusy || !canPublishNotes}
               className="px-4 py-2 bg-gradient-to-b from-green-600 to-green-800 text-white rounded-[10px] text-sm font-semibold shadow-[0_4px_16px_-6px_rgb(22_163_74/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
             >
               {shareBusy ? (
                 <Loader2 size={15} className="animate-spin" />
               ) : (
-                <Send size={15} />
+                <Eye size={15} />
               )}
-              Share as Note
+              Preview &amp; Share as Note
             </button>
             <button
               onClick={copyNoteText}
@@ -959,6 +1034,64 @@ export default function ZombieCheck({ initialQuery }: { initialQuery?: string })
           Hunt zombies on Plebs vs. Zombies
         </a>
       </div>
+      {previewOpen &&
+        result &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => !shareBusy && closeSharePreview()}
+          >
+            <div
+              className="panel relative rounded-xl border border-line shadow-panel w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center mb-3">
+                <h3 className="font-display font-semibold text-base tracking-tight text-hi">
+                  Share as note
+                </h3>
+                <button
+                  onClick={closeSharePreview}
+                  disabled={shareBusy}
+                  className="ml-auto text-mut hover:text-hi"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {(() => {
+                // Built without the image URL: the preview shows the rendered
+                // card where the uploaded link will appear.
+                const note = buildZombieShareNote(shareModel(result), {
+                  imageUrl: null,
+                });
+                return (
+                  <NoteReview
+                    content={note.content}
+                    tags={note.tags}
+                    mentionNames={{
+                      [result.pubkey]:
+                        result.displayName || result.name || shortNpub(result.npub),
+                    }}
+                    images={previewImageSrc ? [previewImageSrc] : []}
+                    footnote={
+                      previewImageSrc
+                        ? "Image uploads to Blossom on post."
+                        : undefined
+                    }
+                    posting={shareBusy}
+                    postingLabel={shareStatus || "Publishing…"}
+                    error={shareStatusKind === "error" ? shareStatus : null}
+                    confirmLabel="Publish note"
+                    accent="green"
+                    onBack={closeSharePreview}
+                    onConfirm={shareAsNote}
+                  />
+                );
+              })()}
+            </div>
+          </div>,
+          document.body,
+        )}
     </AppShell>
   );
 

@@ -6,7 +6,8 @@ import { publishTextNote } from "@/lib/nostr";
 import { getErrorMessage } from "@/lib/utils/format";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Copy, Check, Send, Loader2 } from "lucide-react";
+import { X, Copy, Check, Eye } from "lucide-react";
+import NoteReview from "@/components/system/NoteReview";
 
 interface DecimatorShareModalProps {
   decimatedCount: number;
@@ -20,6 +21,8 @@ export default function DecimatorShareModal({
   const { session } = useAuth();
   const [copied, setCopied] = useState(false);
   const [posting, setPosting] = useState(false);
+  // Preview step: nothing is signed or published until the user confirms.
+  const [reviewing, setReviewing] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +58,13 @@ export default function DecimatorShareModal({
     }
   };
 
+  // Tags that ride with the note (also summarized in the review step).
+  const getTags = (): string[][] => [
+    ["t", "Decimator"],
+    ["t", "Mutable"],
+    ["client", "Mutable"], // Client tag to show "Posted from Mutable"
+  ];
+
   // Post to Nostr
   const handlePost = async () => {
     if (!session) {
@@ -66,12 +76,7 @@ export default function DecimatorShareModal({
     setError(null);
 
     try {
-      // Build tags
-      const tags: string[][] = [
-        ["t", "Decimator"],
-        ["t", "Mutable"],
-        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
-      ];
+      const tags = getTags();
 
       const messageToShare = getShareMessage();
       const result = await publishTextNote(
@@ -122,90 +127,106 @@ export default function DecimatorShareModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Message preview */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Message Preview
-            </label>
-            <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-              <div>
-                I just decimated {decimatedCount} of my follows using Decimator
-                by #Mutable! 💀
+        {reviewing && session ? (
+          <div className="p-6 space-y-4">
+            {posted && (
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  ✓ Posted to Nostr successfully!
+                </p>
               </div>
-              <br />
-              <div>
-                Cull your follows randomly by any amount you like – it&apos;s
-                nothing personal!
-              </div>
-              <br />
-              <div>Try it here:</div>
-              <div>https://mutable.top</div>
-            </div>
-          </div>
-
-          {/* Error message */}
-          {error && (
-            <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-            </div>
-          )}
-
-          {/* Success message */}
-          {posted && (
-            <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
-              <p className="text-sm text-green-700 dark:text-green-300">
-                ✓ Posted to Nostr successfully!
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex gap-3 justify-end">
-          <button
-            onClick={handleCopy}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-          >
-            {copied ? (
-              <>
-                <Check size={20} />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy size={20} />
-                Copy
-              </>
             )}
-          </button>
+            <NoteReview
+              content={getShareMessage()}
+              tags={getTags()}
+              posting={posting || posted}
+              error={error}
+              onBack={() => {
+                setError(null);
+                setReviewing(false);
+              }}
+              onConfirm={handlePost}
+              accent="red"
+            />
+          </div>
+        ) : (
+          <>
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* Message preview */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Message Preview
+                </label>
+                <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                  <div>
+                    I just decimated {decimatedCount} of my follows using
+                    Decimator by #Mutable! 💀
+                  </div>
+                  <br />
+                  <div>
+                    Cull your follows randomly by any amount you like –
+                    it&apos;s nothing personal!
+                  </div>
+                  <br />
+                  <div>Try it here:</div>
+                  <div>https://mutable.top</div>
+                </div>
+              </div>
 
-          {session && (
-            <button
-              onClick={handlePost}
-              disabled={posting || posted}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {posting ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  Posting...
-                </>
-              ) : posted ? (
-                <>
-                  <Check size={20} />
-                  Posted!
-                </>
-              ) : (
-                <>
-                  <Send size={20} />
-                  Post to Nostr
-                </>
+              {/* Error message */}
+              {error && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {error}
+                  </p>
+                </div>
               )}
-            </button>
-          )}
-        </div>
+
+              {/* Success message */}
+              {posted && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    ✓ Posted to Nostr successfully!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex gap-3 justify-end">
+              <button
+                onClick={handleCopy}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <Check size={20} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={20} />
+                    Copy
+                  </>
+                )}
+              </button>
+
+              {session && (
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setReviewing(true);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                >
+                  <Eye size={20} />
+                  Preview &amp; post
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Sign in prompt */}
         {!session && (
