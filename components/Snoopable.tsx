@@ -19,6 +19,7 @@ import {
   Link,
   MessageCircle,
 } from "lucide-react";
+import NoteReview from "@/components/system/NoteReview";
 import { DMAnalysis, DMContact, Profile } from "@/types";
 import UserProfileModal from "./UserProfileModal";
 import SnoopableGlasses from "./SnoopableGlasses";
@@ -79,6 +80,8 @@ export default function Snoopable() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [includeNames, setIncludeNames] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  // Preview step before anything is signed or published.
+  const [reviewingShare, setReviewingShare] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -368,57 +371,70 @@ export default function Snoopable() {
     }
   };
 
+  // The exact note that gets published. The review step renders this same
+  // text, so what people confirm is what gets signed.
+  const buildShareNote = (): { content: string; tags: string[][] } | null => {
+    if (!analysis || !session) return null;
+    const npub = hexToNpub(analysis.targetPubkey);
+    const isOwnAnalysis = analysis.targetPubkey === session.pubkey;
+
+    // Build the note content - use nostr: link for the target
+    let content = isOwnAnalysis
+      ? `🔍 Sn👀pable Report for myself\n\n`
+      : `🔍 Sn👀pable Report for nostr:${npub}\n\n`;
+
+    content += `📊 DM Activity:\n`;
+    content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
+    content += `• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}\n`;
+
+    if (analysis.oldestDM) {
+      const oldestDate = new Date(analysis.oldestDM * 1000);
+      content += `• Active since ${oldestDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}\n`;
+    }
+
+    content += `\n🏆 Top Contacts:\n`;
+    const topContacts = analysis.contacts.slice(0, 3);
+    topContacts.forEach((contact, i) => {
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
+      if (includeNames && contact.profile) {
+        const name = getDisplayName(
+          contact.profile,
+          hexToNpub(contact.pubkey).slice(0, 12),
+        );
+        content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
+      } else {
+        content += `${medal} ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
+      }
+    });
+
+    content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
+
+    const tags: string[][] = [
+      ["t", "Snoopable"],
+      ["t", "Mutable"],
+      ["client", "Mutable"], // Client tag to show "Posted from Mutable"
+    ];
+    // Tag the subject when reporting on someone else, matching how the
+    // note already mentions them via nostr:npub.
+    if (!isOwnAnalysis) {
+      tags.unshift(["p", analysis.targetPubkey]);
+    }
+
+    return { content, tags };
+  };
+
   const handleShareAsNote = async () => {
     if (!analysis || !session) return;
+    const note = buildShareNote();
+    if (!note) return;
 
     setIsPublishing(true);
     try {
-      const npub = hexToNpub(analysis.targetPubkey);
-      const isOwnAnalysis = analysis.targetPubkey === session.pubkey;
-
-      // Build the note content - use nostr: link for the target
-      let content = isOwnAnalysis
-        ? `🔍 Sn👀pable Report for myself\n\n`
-        : `🔍 Sn👀pable Report for nostr:${npub}\n\n`;
-
-      content += `📊 DM Activity:\n`;
-      content += `• ${analysis.totalSent} sent / ${analysis.totalReceived} received\n`;
-      content += `• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}\n`;
-
-      if (analysis.oldestDM) {
-        const oldestDate = new Date(analysis.oldestDM * 1000);
-        content += `• Active since ${oldestDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}\n`;
-      }
-
-      content += `\n🏆 Top Contacts:\n`;
-      const topContacts = analysis.contacts.slice(0, 3);
-      topContacts.forEach((contact, i) => {
-        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
-        if (includeNames && contact.profile) {
-          const name = getDisplayName(
-            contact.profile,
-            hexToNpub(contact.pubkey).slice(0, 12),
-          );
-          content += `${medal} ${name} - ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
-        } else {
-          content += `${medal} ${contact.title} (${contact.totalCount} exchange${contact.totalCount === 1 ? "" : "s"})\n`;
-        }
-      });
-
-      content += `\nYour DMs aren't as private as you think!\nhttps://mutable.top/snoopable`;
-
-      const tags: string[][] = [
-        ["t", "Snoopable"],
-        ["t", "Mutable"],
-        ["client", "Mutable"], // Client tag to show "Posted from Mutable"
-      ];
-      // Tag the subject when reporting on someone else, matching how the
-      // note already mentions them via nostr:npub.
-      if (!isOwnAnalysis) {
-        tags.unshift(["p", analysis.targetPubkey]);
-      }
-
-      const result = await publishTextNote(content, tags, session.relays);
+      const result = await publishTextNote(
+        note.content,
+        note.tags,
+        session.relays,
+      );
 
       if (result.success) {
         setShowShareModal(false);
@@ -494,7 +510,7 @@ export default function Snoopable() {
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
               onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-              placeholder="npub1... or username"
+              placeholder="npub1... or name"
               className="absolute inset-0 w-full px-4 py-3 pl-10 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               disabled={analyzing}
             />
@@ -708,7 +724,10 @@ export default function Snoopable() {
               )}
               {session && (
                 <button
-                  onClick={() => setShowShareModal(true)}
+                  onClick={() => {
+                    setReviewingShare(false);
+                    setShowShareModal(true);
+                  }}
                   className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 rounded-lg transition-colors"
                 >
                   <Share2 size={16} />
@@ -863,7 +882,7 @@ export default function Snoopable() {
                 Share as Nostr Note
               </h3>
 
-              <div className="mb-4">
+              <div className={reviewingShare ? "hidden" : "mb-4"}>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -877,53 +896,52 @@ export default function Snoopable() {
                 </label>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 text-sm font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-                {`🔍 Sn👀pable Report for ${analysis.targetPubkey === session?.pubkey ? "myself" : `@${getDisplayName(analysis.targetProfile, truncateNpub(analysis.targetPubkey))}`}
-
-📊 DM Activity:
-• ${analysis.totalSent} sent / ${analysis.totalReceived} received
-• ${analysis.contacts.length} unique contact${analysis.contacts.length === 1 ? "" : "s"}
-
-🏆 Top Contacts:
-${analysis.contacts
-  .slice(0, 3)
-  .map((c, i) => {
-    const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
-    const name =
-      includeNames && c.profile ? getDisplayName(c.profile) : c.title;
-    return `${medal} ${name} (${c.totalCount} exchange${c.totalCount === 1 ? "" : "s"})`;
-  })
-  .join("\n")}
-
-Your DMs aren't as private as you think!
-https://mutable.top/snoopable`}
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleShareAsNote}
-                  disabled={isPublishing}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isPublishing ? (
-                    <>
-                      <RefreshCw className="animate-spin" size={16} />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <MessageCircle size={16} />
-                      Publish Note
-                    </>
-                  )}
-                </button>
-              </div>
+              {reviewingShare ? (
+                (() => {
+                  const note = buildShareNote();
+                  if (!note) return null;
+                  return (
+                    <NoteReview
+                      content={note.content}
+                      tags={note.tags}
+                      mentionNames={{
+                        [analysis.targetPubkey]: getDisplayName(
+                          analysis.targetProfile,
+                          truncateNpub(analysis.targetPubkey),
+                        ),
+                      }}
+                      posting={isPublishing}
+                      postingLabel="Publishing…"
+                      confirmLabel="Publish note"
+                      accent="purple"
+                      onBack={() => setReviewingShare(false)}
+                      onConfirm={handleShareAsNote}
+                    />
+                  );
+                })()
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Choose what the note includes, then preview exactly what
+                    will be posted.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowShareModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => setReviewingShare(true)}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Eye size={16} />
+                      Preview post
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>,
           document.body,

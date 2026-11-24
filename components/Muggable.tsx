@@ -746,7 +746,7 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !checking && handleCheck()}
                 onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                placeholder="npub1… / username / NIP-05 / hex"
+                placeholder="npub1… / name / NIP-05 / hex"
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono"
                 disabled={checking}
               />

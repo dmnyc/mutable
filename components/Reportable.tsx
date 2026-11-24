@@ -957,7 +957,7 @@ export default function Reportable() {
                             setShowProfileResults(true);
                           }
                         }}
-                        placeholder="Enter username, NIP-05, npub, nprofile, or pubkey..."
+                        placeholder="Enter name, NIP-05, npub, nprofile, or pubkey..."
                         className="w-full px-4 py-3 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-lg"
                         disabled={searching}
                       />

@@ -1868,7 +1868,7 @@ export default function Redactable() {
                       onKeyPress={(e) => {
                         if (e.key === "Enter") handleSearch();
                       }}
-                      placeholder="Enter npub, NIP-05, or username..."
+                      placeholder="Enter npub, NIP-05, or name..."
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     />
                     {showProfileResults && (

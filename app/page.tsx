@@ -12,6 +12,7 @@ import SnoopableGlasses from "@/components/SnoopableGlasses";
 import Pitchfork from "@/components/Pitchfork";
 import MuteualsHand from "@/components/MuteualsHand";
 import ZombieHand from "@/components/ZombieHand";
+import Hatchling from "@/components/Hatchling";
 import {
   Lock,
   User,
@@ -34,8 +35,19 @@ import {
   BrushCleaning,
   Globe,
   DatabaseBackup,
+  ArrowRight,
 } from "lucide-react";
-import { searchProfiles, hexToNpub, DEFAULT_RELAYS } from "@/lib/nostr";
+import {
+  searchProfiles,
+  hexToNpub,
+  fetchEventById,
+  DEFAULT_RELAYS,
+} from "@/lib/nostr";
+import {
+  isDirectLookup,
+  noUserFoundMessage,
+  resolveLookupInput,
+} from "@/lib/lookupInput";
 import { Profile } from "@/types";
 import WiltedRose from "@/components/bloom-reaper/WiltedRose";
 
@@ -52,14 +64,26 @@ export default function Home() {
   const [isSearchingProfiles, setIsSearchingProfiles] = useState(false);
   const [showProfileResults, setShowProfileResults] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
-  const { isConnected } = useAuth();
+  const { isConnected, session } = useAuth();
   const [theme, setTheme] = useTheme();
+  // Where sign-in should land. "dossier" comes from the "Find your first
+  // note" card: the repost button only exists on your own Dossier, so after
+  // connecting we open it instead of the dashboard. The page stays mounted
+  // through sign-in, so plain state carries this; whichever entry point was
+  // clicked last decides.
+  const [afterSignIn, setAfterSignIn] = useState<"dossier" | null>(null);
 
   useEffect(() => {
-    if (isConnected) {
-      router.push("/dashboard");
+    if (!isConnected) return;
+    if (afterSignIn === "dossier") {
+      // Wait for the session's pubkey; this effect re-runs when it arrives.
+      if (session?.pubkey) {
+        router.push(`/dossier?npub=${hexToNpub(session.pubkey)}`);
+      }
+      return;
     }
-  }, [isConnected, router]);
+    router.push("/dashboard");
+  }, [isConnected, session?.pubkey, afterSignIn, router]);
 
   // Real-time profile search
   useEffect(() => {
@@ -70,12 +94,10 @@ export default function Home() {
         return;
       }
 
-      // Don't search if it's already a valid npub, nprofile, or hex pubkey
-      if (
-        searchQuery.startsWith("npub") ||
-        searchQuery.startsWith("nprofile") ||
-        searchQuery.match(/^[0-9a-f]{64}$/i)
-      ) {
+      // Don't search for identifiers (npub, nprofile, nevent, hex, even a
+      // pasted private key): they resolve directly, and a name search would
+      // only send them to relays as a search term.
+      if (isDirectLookup(searchQuery)) {
         setProfileSearchResults([]);
         setShowProfileResults(false);
         return;
@@ -150,17 +172,24 @@ export default function Home() {
     setResolving(true);
     setLookupError(null);
     try {
+      const resolution = await resolveLookupInput(query, (id, relays) =>
+        fetchEventById(id, relays.length ? relays : DEFAULT_RELAYS),
+      );
+      if (resolution.ok === false) {
+        setLookupError(resolution.message);
+        return;
+      }
       let target: string;
-      if (query.startsWith("npub") || query.startsWith("nprofile")) {
-        target = query;
-      } else if (query.match(/^[0-9a-f]{64}$/i)) {
-        target = hexToNpub(query);
+      if (resolution.ok === true) {
+        target = hexToNpub(resolution.pubkey);
       } else {
-        const profiles = await searchProfiles(query, DEFAULT_RELAYS, 10);
+        const profiles = await searchProfiles(
+          resolution.query,
+          DEFAULT_RELAYS,
+          10,
+        );
         if (profiles.length === 0) {
-          setLookupError(
-            `No user found for "${query}". Try a name, NIP-05, or npub.`,
-          );
+          setLookupError(noUserFoundMessage(resolution.query));
           return;
         }
         target = hexToNpub(profiles[0].pubkey);
@@ -172,6 +201,20 @@ export default function Home() {
     } finally {
       setResolving(false);
     }
+  };
+
+  // "Find your first note": with a name or npub already typed, open that
+  // Dossier (no sign-in needed, same as the lookup below). Otherwise the
+  // visitor wants their own, so sign in and land on it.
+  const handleFirstNote = () => {
+    if (resolving) return;
+    if (searchQuery.trim()) {
+      setShowProfileResults(false);
+      handleToolSearch("/dossier");
+      return;
+    }
+    setAfterSignIn("dossier");
+    setShowAuthModal(true);
   };
 
   // Picking from the dropdown stores the pubkey so clicking a lens needs no
@@ -268,7 +311,10 @@ export default function Home() {
             </p>
             <div className="mt-6">
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => {
+                  setAfterSignIn(null);
+                  setShowAuthModal(true);
+                }}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] font-semibold shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:shadow-[0_6px_22px_-6px_rgb(220_38_38/0.7),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 hover:-translate-y-px transition-all"
               >
                 <Lock size={18} />
@@ -277,10 +323,76 @@ export default function Home() {
             </div>
           </div>
 
+          {/* First-note hook: the Dossier digs up a person's oldest surviving
+              note, which they can repost as #MyFirstNote once signed in. With
+              a name or npub already typed below, this opens that Dossier
+              (no sign-in). Otherwise it signs the visitor in and lands them
+              on their own Dossier, where the repost button lives. */}
+          <div className="max-w-2xl mx-auto mt-8 animate-rise stagger-1">
+            {/* The card is a container, not a button (a button can't hold
+                another button). Clicks anywhere on it open the Dossier for
+                mouse users; the arrow is the real, focusable control that
+                keyboard and screen-reader users get. Its click bubbles up to
+                the card's handler, so the action runs once. */}
+            <div
+              onClick={handleFirstNote}
+              className={`group w-full panel relative rounded-xl border border-line shadow-panel p-4 sm:p-5 flex items-center gap-4 text-left hover:border-line-strong transition-colors ${
+                resolving ? "opacity-70" : "cursor-pointer"
+              }`}
+            >
+              <span className="flex-none w-11 h-11 rounded-[10px] bg-gradient-to-br from-red-500 to-red-700 text-white flex items-center justify-center shadow-[inset_0_1px_0_rgb(255_255_255/0.25)]">
+                <Hatchling size={30} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="flex items-center gap-2 font-display font-semibold text-base tracking-tight text-hi">
+                  Find your first note
+                  <span className="flex-none text-[9px] leading-normal font-sans font-bold tracking-wide px-1.5 py-px rounded uppercase bg-primary text-white">
+                    NEW
+                  </span>
+                </span>
+                <span className="block text-sm text-mid mt-0.5 text-balance">
+                  Repost your oldest note as{" "}
+                  <span className="inline-block align-baseline px-2 py-px rounded-full bg-red-500/15 text-xs font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                    #MyFirstNote
+                  </span>
+                </span>
+              </span>
+              <button
+                type="button"
+                disabled={resolving}
+                aria-label={
+                  searchQuery.trim()
+                    ? "Open the Dossier"
+                    : "Connect with Nostr to find your first note"
+                }
+                title={
+                  searchQuery.trim()
+                    ? "Open the Dossier"
+                    : "Connect with Nostr to find your first note"
+                }
+                className="flex-none h-10 w-10 sm:w-auto sm:px-4 sm:gap-2 rounded-[10px] bg-gradient-to-b from-primary to-primary-deep text-white text-sm font-semibold flex items-center justify-center shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 hover:-translate-y-px transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-70 disabled:pointer-events-none"
+              >
+                {/* Words on wider screens only; mobile keeps just the arrow.
+                    Empty field signs in, a typed name or npub opens it. */}
+                <span className="hidden sm:inline">
+                  {searchQuery.trim() ? "Open" : "Connect"}
+                </span>
+                {resolving ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <ArrowRight
+                    size={18}
+                    className="transition-transform group-hover:translate-x-0.5"
+                  />
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* Universal No-Sign-In Lookup — one field feeds every anonymous
               tool: resolve a name, NIP-05, or npub once, then pick the lens
               to open it in. */}
-          <div className="max-w-2xl mx-auto mt-10 animate-rise stagger-1">
+          <div className="max-w-2xl mx-auto mt-6 animate-rise stagger-2">
             <section className="panel relative rounded-xl border border-line shadow-panel p-5">
               <h2 className="font-display font-semibold text-base tracking-tight text-hi">
                 Look up any user
@@ -299,9 +411,11 @@ export default function Home() {
                         setLookupError(null);
                       }}
                       onKeyDown={(e) => {
+                        // Enter opens the Dossier, the default lens; the
+                        // buttons below pick a different one.
                         if (e.key === "Enter") {
                           setShowProfileResults(false);
-                          handleToolSearch("/mute-o-scope");
+                          handleToolSearch("/dossier");
                         }
                       }}
                       onFocus={() => {
@@ -309,7 +423,7 @@ export default function Home() {
                           setShowProfileResults(true);
                         }
                       }}
-                      placeholder="npub, NIP-05 or hex pubkey"
+                      placeholder="npub, NIP-05, name or hex pubkey"
                       className="w-full px-4 py-2.5 pr-10 bg-inset border border-line-strong rounded-[10px] text-hi text-sm"
                     />
                     {(resolving || isSearchingProfiles) && (
@@ -321,15 +435,6 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowProfileResults(false);
-                      handleToolSearch("/mute-o-scope");
-                    }}
-                    className="px-5 py-2.5 bg-gradient-to-b from-primary to-primary-deep text-white rounded-[10px] font-semibold text-sm shadow-[0_4px_16px_-6px_rgb(220_38_38/0.55),inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105 transition-all"
-                  >
-                    Search
-                  </button>
                 </div>
 
                 {/* Profile search results dropdown */}
@@ -435,7 +540,10 @@ export default function Home() {
               </div>
 
               {lookupError && (
-                <p className="mt-3 text-xs text-red-600 dark:text-red-400">
+                <p
+                  role="alert"
+                  className="mt-3 text-xs text-red-600 dark:text-red-400 [overflow-wrap:anywhere] [text-wrap:pretty]"
+                >
                   {lookupError}
                 </p>
               )}
