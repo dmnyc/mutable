@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Profile } from "@/types";
 import { searchProfiles, npubToHex } from "@/lib/nostr";
+import { truncateNpub } from "@/lib/utils/format";
 import { useAuth } from "@/hooks/useAuth";
 import { Search, Loader2 } from "lucide-react";
 
@@ -215,7 +216,7 @@ export default function UserSearchInput({
   };
 
   const getTruncatedPubkey = (pubkey: string) => {
-    return `${pubkey.slice(0, 8)}...${pubkey.slice(-8)}`;
+    return truncateNpub(pubkey);
   };
 
   return (
