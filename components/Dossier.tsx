@@ -706,7 +706,10 @@ export default function Dossier() {
 
       {/* Findings */}
       {subject && (
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* grid-cols-1 is minmax(0, 1fr): without it the mobile column
+              sizes to its widest unwrappable content and pushes every card
+              off-screen. */}
           <Section
             icon={<CalendarClock size={16} />}
             tone="cyan"
@@ -743,7 +746,7 @@ export default function Dossier() {
                       });
                       return (
                         <div className="mt-4 bg-inset border border-line rounded-lg px-3.5 py-3">
-                          <div className="flex items-center justify-between gap-3 text-xs text-mut">
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs text-mut">
                             <span>
                               First note ·{" "}
                               {new Date(
@@ -1255,7 +1258,7 @@ function Section({
   };
   return (
     <section
-      className={`panel relative rounded-xl border border-line shadow-panel p-5 flex flex-col ${className}`}
+      className={`panel relative min-w-0 rounded-xl border border-line shadow-panel p-5 flex flex-col ${className}`}
     >
       <div className="flex items-center gap-2.5 mb-3">
         <span
