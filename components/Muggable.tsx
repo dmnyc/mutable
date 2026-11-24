@@ -751,10 +751,11 @@ export default function Muggable({ initialQuery }: { initialQuery?: string }) {
                 disabled={checking}
               />
               {isSearching && (
-                <RefreshCw
-                  size={13}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin pointer-events-none"
-                />
+                // The wrapper centers, the icon spins: in Tailwind 3 both are
+                // transforms, and the spin would cancel the centering.
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 flex pointer-events-none">
+                  <RefreshCw size={13} className="text-gray-400 animate-spin" />
+                </span>
               )}
             </div>
             {checking ? (

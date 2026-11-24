@@ -531,10 +531,11 @@ export default function Dossier() {
                   spellCheck={false}
                 />
                 {suggesting && (
-                  <Loader2
-                    size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-mid"
-                  />
+                  // The wrapper centers, the icon spins: in Tailwind 3 both
+                  // are transforms, and the spin would cancel the centering.
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 flex pointer-events-none">
+                    <Loader2 size={14} className="animate-spin text-mid" />
+                  </span>
                 )}
                 {showSuggestions && suggestions.length > 0 && (
                   <div className="absolute z-30 left-0 right-0 mt-1 bg-inset rounded-[10px] border border-line-strong shadow-panel max-h-72 overflow-y-auto">
