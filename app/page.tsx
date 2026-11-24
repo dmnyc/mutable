@@ -582,6 +582,18 @@ export default function Home() {
               />
               <DirectoryCard
                 href={null}
+                onClick={() => handleToolSearch("/draftable")}
+                chip={
+                  <span className="camo w-9 h-9 rounded-[9px] flex items-center justify-center flex-none [--camo-size:80px]">
+                    <Medal size={16} className="text-white drop-shadow" />
+                  </span>
+                }
+                title="Draftable"
+                badge="NEW"
+                text="Draft packs you can't leave."
+              />
+              <DirectoryCard
+                href={null}
                 onClick={() => handleToolSearch("/reportable")}
                 chip={
                   <ChipTone tone="orange">
@@ -601,18 +613,6 @@ export default function Home() {
                 }
                 title="Redactable"
                 text="What an account asked relays to delete."
-              />
-              <DirectoryCard
-                href={null}
-                onClick={() => handleToolSearch("/draftable")}
-                chip={
-                  <span className="camo w-9 h-9 rounded-[9px] flex items-center justify-center flex-none [--camo-size:80px]">
-                    <Medal size={16} className="text-white drop-shadow" />
-                  </span>
-                }
-                title="Draftable"
-                badge="NEW"
-                text="Draft packs you can't leave."
               />
               <DirectoryCard
                 href={null}
