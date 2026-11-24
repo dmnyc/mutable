@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import SnoopableGlasses from "@/components/SnoopableGlasses";
 import Pitchfork from "@/components/Pitchfork";
 import MuteualsHand from "@/components/MuteualsHand";
+import ZombieHand from "@/components/ZombieHand";
 import {
   Lock,
   User,
@@ -461,7 +462,54 @@ export default function Home() {
                 chip={<ChipTone tone="red"><FileSearch size={16} /></ChipTone>}
                 title="The Dossier"
                 badge="NEW"
-                text="Every public record on an account, in one report."
+                text="Every public record, in one report."
+              />
+              <DirectoryCard
+                href="/zombie-check"
+                chip={
+                  <ChipTone tone="green">
+                    <ZombieHand size={18} />
+                  </ChipTone>
+                }
+                title="Zombie Check"
+                badge="NEW"
+                text="Is that Nostr user a zombie?"
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/reportable")}
+                chip={
+                  <ChipTone tone="orange">
+                    <Flag size={16} />
+                  </ChipTone>
+                }
+                title="Reportable"
+                badge="NEW"
+                text="Public reports filed about any account."
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/redactable")}
+                chip={
+                  <ChipTone tone="gray">
+                    <Trash2 size={16} />
+                  </ChipTone>
+                }
+                title="Redactable"
+                badge="NEW"
+                text="What an account asked relays to delete."
+              />
+              <DirectoryCard
+                href={null}
+                onClick={() => handleToolSearch("/draftable")}
+                chip={
+                  <span className="camo w-9 h-9 rounded-[9px] flex items-center justify-center flex-none [--camo-size:80px]">
+                    <Medal size={16} className="text-white drop-shadow" />
+                  </span>
+                }
+                title="Draftable"
+                badge="NEW"
+                text="Draft packs you can't leave."
               />
               <DirectoryCard
                 href={null}
@@ -486,7 +534,6 @@ export default function Home() {
                 }
                 title="Mute-o-Scope"
                 text="Who is publicly muting any profile."
-                oneLine
               />
               <DirectoryCard
                 href={null}
@@ -498,57 +545,18 @@ export default function Home() {
                 }
                 title="Snoopable"
                 text="The public metadata of anyone’s DMs."
-                oneLine
-              />
-              <DirectoryCard
-                href={null}
-                onClick={() => handleToolSearch("/reportable")}
-                chip={
-                  <ChipTone tone="orange">
-                    <Flag size={16} />
-                  </ChipTone>
-                }
-                title="Reportable"
-                badge="NEW"
-                text="Public reports filed about any account."
-                oneLine
-              />
-              <DirectoryCard
-                href={null}
-                onClick={() => handleToolSearch("/redactable")}
-                chip={
-                  <ChipTone tone="gray">
-                    <Trash2 size={16} />
-                  </ChipTone>
-                }
-                title="Redactable"
-                badge="NEW"
-                text="What an account asked relays to delete."
-                oneLine
-              />
-              <DirectoryCard
-                href={null}
-                onClick={() => handleToolSearch("/draftable")}
-                chip={
-                  <span className="camo w-9 h-9 rounded-[9px] flex items-center justify-center flex-none [--camo-size:80px]">
-                    <Medal size={16} className="text-white drop-shadow" />
-                  </span>
-                }
-                title="Draftable"
-                badge="NEW"
-                text="Draft packs you can't leave."
               />
               <DirectoryCard
                 href="/muggable"
                 chip={<ChipTone tone="amber"><Bitcoin size={16} /></ChipTone>}
                 title="Muggable"
-                text="Check whether a Nostr key is holding Bitcoin on-chain."
+                text="Is that Nostr key holding Bitcoin?"
               />
               <DirectoryCard
                 href="/clonable"
                 chip={<ChipTone tone="violet"><Copy size={16} /></ChipTone>}
                 title="Clonable"
-                text="Copy your profile, follows and mutes to a new key."
+                text="Copy your profile, follows and mutes."
               />
             </div>
 
@@ -557,16 +565,34 @@ export default function Home() {
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-3">
               <DirectoryCard
+                href="/burn-after-reading"
+                chip={<ChipTone tone="orange"><Flame size={16} /></ChipTone>}
+                title="Burn After Reading"
+                badge="NEW"
+                text="Burn your sent DMs and gift wraps."
+              />
+              <DirectoryCard
+                href="/bloom-reaper"
+                chip={
+                  <span className="w-9 h-9 rounded-[9px] flex items-center justify-center flex-none bg-slate-800">
+                    <WiltedRose size={22} className="text-white" />
+                  </span>
+                }
+                title="Bloom Reaper"
+                badge="NEW"
+                text="Find or reap your lost Blossom photos."
+              />
+              <DirectoryCard
                 href="/dashboard?tab=myList"
                 chip={<ChipTone tone="red"><VolumeX size={16} /></ChipTone>}
                 title="My Mutes"
-                text="View, edit and publish your kind:10000 mute list."
+                text="View, edit and publish your mute list."
               />
               <DirectoryCard
                 href="/dashboard?tab=publicLists"
                 chip={<ChipTone tone="gray"><Package size={16} /></ChipTone>}
                 title="Mute Packs"
-                text="Subscribe to public mute lists, or publish your own."
+                text="Subscribe to or publish mute lists."
               />
               <DirectoryCard
                 href="/reciprocals"
@@ -584,55 +610,37 @@ export default function Home() {
                 href="/purgatory"
                 chip={<ChipTone tone="amber"><Pitchfork size={16} /></ChipTone>}
                 title="Purgatory"
-                text="Find follows by client or hellthread participation."
+                text="Find follows by client or hellthread."
               />
               <DirectoryCard
                 href="/decimator"
                 chip={<ChipTone tone="orange"><Skull size={16} /></ChipTone>}
                 title="Decimator"
-                text="Trim your follow list by percentage or count."
+                text="Trim follows by percentage or count."
               />
               <DirectoryCard
                 href="/note-nuke"
                 chip={<ChipTone tone="red"><Radiation size={16} /></ChipTone>}
                 title="Note Nuke"
-                text="Ask every relay we can reach to delete a note."
-              />
-              <DirectoryCard
-                href="/burn-after-reading"
-                chip={<ChipTone tone="orange"><Flame size={16} /></ChipTone>}
-                title="Burn After Reading"
-                badge="NEW"
-                text="NIP-04 DM metadata is public. Burn your sent DMs and NIP-17 gift wraps."
-              />
-              <DirectoryCard
-                href="/bloom-reaper"
-                chip={
-                  <span className="w-9 h-9 rounded-[9px] flex items-center justify-center flex-none bg-slate-800">
-                    <WiltedRose size={22} className="text-white" />
-                  </span>
-                }
-                title="Bloom Reaper"
-                badge="NEW"
-                text="Your lost Blossom photos: find, copy links, or reap them."
+                text="Ask every relay to delete a note."
               />
               <DirectoryCard
                 href="/dashboard?tab=listCleaner"
                 chip={<ChipTone tone="green"><BrushCleaning size={16} /></ChipTone>}
                 title="List Cleaner"
-                text="Scan your mute list for inactive profiles."
+                text="Scan your mute list for inactives."
               />
               <DirectoryCard
                 href="/dashboard?tab=domainPurge"
                 chip={<ChipTone tone="blue"><Globe size={16} /></ChipTone>}
                 title="Domain Purge"
-                text="Remove every follower of a NIP-05 domain."
+                text="Purge all followers of a NIP-05 domain."
               />
               <DirectoryCard
                 href="/dashboard?tab=backups"
                 chip={<ChipTone tone="gray"><DatabaseBackup size={16} /></ChipTone>}
                 title="Backups"
-                text="Exports, signed events and relay-history recovery."
+                text="Exports, signed events, relay recovery."
               />
             </div>
           </section>
@@ -726,7 +734,6 @@ function DirectoryCard({
   title,
   text,
   badge,
-  oneLine,
 }: {
   href: string | null;
   onClick?: () => void;
@@ -734,8 +741,6 @@ function DirectoryCard({
   title: string;
   text: string;
   badge?: "NEW" | "LOGIN";
-  /** Keep the description on one line, ellipsized if it can't fit. */
-  oneLine?: boolean;
 }) {
   const inner = (
     <>
@@ -754,11 +759,8 @@ function DirectoryCard({
             </span>
           )}
         </span>
-        <span
-          className={`block text-[13px] text-mut mt-0.5 leading-snug ${
-            oneLine ? "truncate" : ""
-          }`}
-        >
+        {/* Supporting copy is kept short enough for one desktop line. */}
+        <span className="block text-[13px] text-mut mt-0.5 leading-snug">
           {text}
         </span>
       </span>

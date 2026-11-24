@@ -312,3 +312,52 @@ export function canvasToBlob(
     );
   });
 }
+
+// Cache for profile pictures fetched through the image proxy as data URLs.
+const imageCache = new Map<string, string>();
+
+/**
+ * Fetch a remote image through a CORS-permissive proxy and return it as a
+ * data URL. html2canvas re-fetches every image itself and can't read pixels
+ * back from a cross-origin image without CORS headers — a tainted canvas
+ * would fail later at toBlob with no useful error. Ported from Plebs vs.
+ * Zombies' imageUpload service for the shared-card captures.
+ */
+export async function loadImageAsBase64(
+  url: string,
+  skipCache = false,
+): Promise<string | null> {
+  if (!url) return null;
+
+  if (!skipCache && imageCache.has(url)) {
+    return imageCache.get(url) ?? null;
+  }
+
+  const proxies = [
+    `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=128&h=128&fit=cover&a=attention`,
+    `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=128&h=128`,
+    `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=256&h=256`,
+  ];
+
+  for (const proxyUrl of proxies) {
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      if (!blob.type.startsWith("image/")) continue;
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      imageCache.set(url, base64);
+      return base64;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
