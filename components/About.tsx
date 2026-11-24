@@ -15,7 +15,7 @@ const TOOLS: { name: string; href: string; text: string }[] = [
   {
     name: "The Dossier",
     href: "/dossier",
-    text: "Mutes, reports, deletions, on-chain Bitcoin, DMs and footprint for any account in one report",
+    text: "Account age, first note, mutes, reports, deletions, on-chain Bitcoin, DMs and footprint for any account in one report",
   },
   {
     name: "Reportable",
