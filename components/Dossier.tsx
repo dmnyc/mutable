@@ -23,6 +23,7 @@ import {
   ArrowUpRight,
   ExternalLink,
   CheckCircle2,
+  CalendarClock,
 } from "lucide-react";
 import {
   fetchProfile,
@@ -44,10 +45,14 @@ import {
 import {
   countDeletionsBy,
   fetchDmActivity,
+  fetchAccountAge,
   verifyNip05,
   Nip05Status,
   DmActivity,
+  AccountAge,
 } from "@/lib/dossier";
+import { accountAgeSpan, formatAccountAge } from "@/lib/accountAge";
+import { BRAINSTORM_SEARCH_RELAY } from "@/lib/brainstorm";
 import { getExposure, ExposureReport } from "@/lib/keyExposureService";
 import { useAuth } from "@/hooks/useAuth";
 import { getDisplayName } from "@/lib/utils/format";
@@ -110,6 +115,8 @@ export default function Dossier() {
   const [btc, setBtc] = useState<ExposureReport | null>(null);
   const [dmStatus, setDmStatus] = useState<Status>("idle");
   const [dms, setDms] = useState<DmActivity | null>(null);
+  const [ageStatus, setAgeStatus] = useState<Status>("idle");
+  const [age, setAge] = useState<AccountAge | null>(null);
   const [footprintStatus, setFootprintStatus] = useState<Status>("idle");
   const [footprint, setFootprint] = useState<{
     nip05: Nip05Status;
@@ -234,6 +241,13 @@ export default function Dossier() {
       })
       .catch(() => setBtcStatus("error"));
 
+    fetchAccountAge(pubkey, relays)
+      .then((result) => {
+        setAge(result);
+        setAgeStatus("done");
+      })
+      .catch(() => setAgeStatus("error"));
+
     fetchDmActivity(pubkey, relays)
       .then((result) => {
         setDms(result);
@@ -275,6 +289,8 @@ export default function Dossier() {
     setBtc(null);
     setDmStatus(status);
     setDms(null);
+    setAgeStatus(status);
+    setAge(null);
     setCopied(false);
     setShowAllReports(false);
     setExpandedReport(null);
@@ -337,6 +353,7 @@ export default function Dossier() {
     deletionStatus === "running" ||
     btcStatus === "running" ||
     dmStatus === "running" ||
+    ageStatus === "running" ||
     footprintStatus === "running";
 
   const npubAction = (path: string, label: string) =>
@@ -365,6 +382,13 @@ export default function Dossier() {
       );
     }
     const identity: string[] = [];
+    if (age?.firstSeen) {
+      identity.push(
+        `🗓️ On Nostr since ${formatMonthYear(age.firstSeen.created_at)} (${formatAccountAge(
+          accountAgeSpan(age.firstSeen.created_at, Math.floor(Date.now() / 1000)),
+        )})`,
+      );
+    }
     if (btc) {
       const used = btc.addresses.some((a) => a.txCount > 0);
       identity.push(
@@ -463,7 +487,7 @@ export default function Dossier() {
         icon={<FileSearch size={25} />}
         iconBg="from-red-500 to-red-700"
         title="The Dossier"
-        subtitle="Mute Score, reports, deletions, on-chain Bitcoin, DMs and public footprint — one report, no login."
+        subtitle="Account age, Mute Score, reports, deletions, on-chain Bitcoin, DMs and public footprint — one report, no login."
       />
 
       {/* Search */}
@@ -680,6 +704,79 @@ export default function Dossier() {
       {/* Findings */}
       {subject && (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Section
+            icon={<CalendarClock size={16} />}
+            tone="cyan"
+            title="Account age"
+            status={ageStatus}
+            className="md:col-span-2"
+          >
+            {age ? (
+              age.firstSeen ? (
+                <>
+                  <p className="text-3xl font-display font-bold text-hi leading-none">
+                    {formatAccountAge(
+                      accountAgeSpan(
+                        age.firstSeen.created_at,
+                        Math.floor(Date.now() / 1000),
+                      ),
+                    )}
+                  </p>
+                  <p className="text-sm text-mut mt-1">
+                    first seen{" "}
+                    {new Date(age.firstSeen.created_at * 1000).toLocaleDateString(
+                      "en-US",
+                      { month: "long", day: "numeric", year: "numeric" },
+                    )}
+                    {age.firstSeen.kind !== 1 &&
+                      ` (a kind:${age.firstSeen.kind} event)`}
+                  </p>
+                  {age.firstNote && (
+                    <a
+                      href={getPostedNoteLink(age.firstNote.id, {
+                        relays: [BRAINSTORM_SEARCH_RELAY],
+                        author: age.firstNote.pubkey,
+                      })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open the first note on Jumble"
+                      className="group mt-4 block bg-inset border border-line rounded-lg px-3.5 py-3 hover:border-line-strong transition-colors"
+                    >
+                      <span className="flex items-center justify-between gap-3 text-xs text-mut">
+                        <span>
+                          First note ·{" "}
+                          {new Date(
+                            age.firstNote.created_at * 1000,
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                        <span className="flex-none inline-flex items-center gap-1 font-semibold text-mid group-hover:text-hi transition-colors">
+                          View note
+                          <ExternalLink size={12} />
+                        </span>
+                      </span>
+                      <span className="mt-1.5 text-base leading-snug text-hi line-clamp-3 break-words">
+                        {age.firstNote.content || "(empty note)"}
+                      </span>
+                    </a>
+                  )}
+                  <p className="text-xs text-mut mt-3">
+                    The oldest event still on the relays we checked. Relays
+                    prune old events and timestamps are self-reported, so
+                    the key may be older.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-mut">
+                  No events from this key found on the relays we checked.
+                </p>
+              )
+            ) : null}
+          </Section>
+
           <Section
             icon={<EyeOff size={16} />}
             tone="purple"
@@ -1095,14 +1192,16 @@ function Section({
   status,
   progress,
   action,
+  className = "",
   children,
 }: {
   icon: React.ReactNode;
-  tone: "purple" | "orange" | "red" | "green" | "amber" | "blue";
+  tone: "purple" | "orange" | "red" | "green" | "amber" | "blue" | "cyan";
   title: string;
   status: Status;
   progress?: string;
   action?: { href: string; label: string };
+  className?: string;
   children?: React.ReactNode;
 }) {
   const tones: Record<string, string> = {
@@ -1112,9 +1211,12 @@ function Section({
     green: "bg-green-500/15 text-green-700 dark:text-green-400",
     amber: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
     blue: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+    cyan: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
   };
   return (
-    <section className="panel relative rounded-xl border border-line shadow-panel p-5 flex flex-col">
+    <section
+      className={`panel relative rounded-xl border border-line shadow-panel p-5 flex flex-col ${className}`}
+    >
       <div className="flex items-center gap-2.5 mb-3">
         <span
           className={`w-7 h-7 rounded-lg flex items-center justify-center flex-none ${tones[tone]}`}
@@ -1187,4 +1289,11 @@ function FootprintRow({
       <span className={ok || warn ? "text-mid" : "text-mut"}>{label}</span>
     </li>
   );
+}
+
+function formatMonthYear(unix: number): string {
+  return new Date(unix * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
 }
