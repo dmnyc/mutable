@@ -425,6 +425,23 @@ body {
   .stagger-7 { animation-delay: 0.35s; }
   .stagger-8 { animation-delay: 0.4s; }
 
+  /* Zombie Check's "lub-dub" alive verdict — two quick beats, then a rest. */
+  @keyframes heartbeat {
+    0%   { transform: scale(1); }
+    14%  { transform: scale(1.12); }
+    28%  { transform: scale(1); }
+    42%  { transform: scale(1.12); }
+    56%  { transform: scale(1); }
+    100% { transform: scale(1); }
+  }
+  .animate-heartbeat {
+    animation: heartbeat 1.5s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-heartbeat { animation: none; }
+  }
+
   /* Draftable's woodland camo. public/draftable_camo.svg is a seamless
      1000×1000 tile, so it repeats at a fixed scale instead of stretching.
      Tune per surface with --camo-size, --camo-x/--camo-y (which patch of

@@ -25,6 +25,7 @@ export type SiteNavActive =
   | "redactable"
   | "draftable"
   | "dossier"
+  | "zombieCheck"
   | "settings";
 
 interface NavItem {
@@ -63,6 +64,7 @@ const OTHER_STUFF: NavItem[] = [
   { id: "reportable", label: "Reportable", href: "/reportable" },
   { id: "redactable", label: "Redactable", href: "/redactable" },
   { id: "muggable", label: "Muggable", href: "/muggable" },
+  { id: "zombieCheck", label: "Zombie Check", href: "/zombie-check" },
   { id: "listCleaner", label: "List Cleaner", href: "/dashboard?tab=listCleaner", dashboardTab: "listCleaner" },
   { id: "clonable", label: "Clonable", href: "/clonable" },
 ];
