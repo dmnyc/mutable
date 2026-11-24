@@ -7,7 +7,12 @@
  */
 
 import { verifyEvent, type Event, type Filter } from "nostr-tools";
-import { naMetadata, type NaProfile } from "@/lib/nostrArchives";
+import {
+  BRAINSTORM_SEARCH_RELAY,
+  latestProfiles,
+  withSearchToken,
+  type BrainstormProfile,
+} from "@/lib/brainstorm";
 import {
   DRAFTABLE_KIND,
   FollowPack,
@@ -112,30 +117,45 @@ export async function fetchPackForPreview(
   }
 }
 
-/** Profiles from the nostrarchives index, raced against a timeout. */
+export type PreviewProfile = BrainstormProfile;
+
+/**
+ * Profiles for link previews, from the Brainstorm archive with a hard
+ * timeout. Signatures are checked here since this path doesn't go through a
+ * verifying pool.
+ */
 export async function fetchPreviewProfiles(
   pubkeys: string[],
   timeoutMs: number = 2500,
-): Promise<Map<string, NaProfile>> {
-  const map = new Map<string, NaProfile>();
-  if (pubkeys.length === 0) return map;
+): Promise<Map<string, PreviewProfile>> {
+  const map = new Map<string, PreviewProfile>();
+  const authors = [
+    ...new Set(
+      pubkeys.map((p) => p.toLowerCase()).filter((p) => isFullPubkey(p)),
+    ),
+  ];
+  if (authors.length === 0) return map;
   try {
-    const profiles = await Promise.race([
-      naMetadata(pubkeys),
-      new Promise<NaProfile[]>((resolve) =>
-        setTimeout(() => resolve([]), timeoutMs),
-      ),
-    ]);
-    for (const profile of profiles) map.set(profile.pubkey, profile);
+    const events = await queryRelay(
+      BRAINSTORM_SEARCH_RELAY,
+      withSearchToken({ kinds: [0], authors, limit: authors.length * 2 }),
+      timeoutMs,
+    );
+    const wanted = new Set(authors);
+    const verified = events.filter(
+      (event) => wanted.has(event.pubkey) && verifyEvent(event),
+    );
+    for (const profile of latestProfiles(verified)) {
+      map.set(profile.pubkey, profile);
+    }
   } catch {
     // previews just go without names/avatars
   }
   return map;
 }
 
-export function previewName(profile: NaProfile | undefined): string | null {
-  const raw =
-    profile?.display_name || profile?.preferred_name || profile?.name || "";
+export function previewName(profile: PreviewProfile | undefined): string | null {
+  const raw = profile?.display_name || profile?.name || "";
   const cleaned = raw.replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
   return cleaned.length > 40 ? `${cleaned.slice(0, 37)}…` : cleaned;

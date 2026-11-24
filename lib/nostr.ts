@@ -31,7 +31,12 @@ import {
 import { useStore } from "./store";
 import { Signer } from "./signers";
 import { extractTagReason, extractTagEventRef } from "@/lib/utils/nostrHelpers";
-import { naSuggest, naCountEvents, naMetadata } from "./nostrArchives";
+import {
+  brainstormCountEvents,
+  brainstormMetadata,
+  brainstormSearchProfiles,
+  type BrainstormProfile,
+} from "./brainstorm";
 import { dmEventToMeta } from "./dmEnvelopes";
 import { filterHealthyRelays, recordRelayScanOutcomes } from "./relayHealth";
 
@@ -1723,6 +1728,12 @@ export async function fetchProfile(
   }
 }
 
+// Primal cache event kinds worth keeping: profiles, and its pubkey →
+// follower-count maps (10000108 alongside user_search results, 10000133 from
+// user_infos). Everything else it sends (media metadata, badges) is dropped.
+const PRIMAL_FOLLOWER_KINDS = new Set([10000108, 10000133]);
+const PRIMAL_KEPT_KINDS = new Set([0, ...PRIMAL_FOLLOWER_KINDS]);
+
 // Primal cache WebSocket connection
 let primalWs: WebSocket | null = null;
 let primalConnected = false;
@@ -1791,7 +1802,7 @@ async function connectToPrimal(): Promise<boolean> {
 
           if (type === "EVENT" && primalPendingRequests.has(requestId)) {
             const request = primalPendingRequests.get(requestId)!;
-            if (payload && payload.kind === 0) {
+            if (payload && PRIMAL_KEPT_KINDS.has(payload.kind)) {
               request.results.push(payload);
             }
           }
@@ -1834,8 +1845,11 @@ async function connectToPrimal(): Promise<boolean> {
   }
 }
 
-// Search Primal cache
-async function searchPrimalCache(query: string, limit: number): Promise<any[]> {
+// One request to the Primal cache, resolved at EOSE.
+async function primalCacheRequest(
+  cache: [string, Record<string, unknown>],
+  timeoutMs: number = 5000,
+): Promise<any[]> {
   const connected = await connectToPrimal();
   if (!connected) {
     throw new Error("Failed to connect to Primal cache");
@@ -1846,8 +1860,8 @@ async function searchPrimalCache(query: string, limit: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       primalPendingRequests.delete(requestId);
-      reject(new Error("Search timeout"));
-    }, 5000);
+      reject(new Error("Primal cache timeout"));
+    }, timeoutMs);
 
     primalPendingRequests.set(requestId, {
       resolve,
@@ -1856,23 +1870,62 @@ async function searchPrimalCache(query: string, limit: number): Promise<any[]> {
       results: [],
     });
 
-    const searchQuery = [
-      "REQ",
-      requestId,
-      {
-        cache: [
-          "user_search",
-          {
-            query,
-            limit,
-          },
-        ],
-      },
-    ];
-
-    primalWs!.send(JSON.stringify(searchQuery));
+    primalWs!.send(JSON.stringify(["REQ", requestId, { cache }]));
   });
 }
+
+/** Merge Primal's pubkey → follower-count events into one map. */
+function primalFollowerCounts(events: any[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    if (!PRIMAL_FOLLOWER_KINDS.has(event?.kind)) continue;
+    try {
+      const parsed = JSON.parse(event.content);
+      for (const [pubkey, count] of Object.entries(parsed ?? {})) {
+        if (typeof count === "number") counts.set(pubkey.toLowerCase(), count);
+      }
+    } catch {
+      // skip malformed content
+    }
+  }
+  return counts;
+}
+
+// Search Primal cache: kind:0 matches plus follower counts for them.
+async function searchPrimalCache(query: string, limit: number): Promise<any[]> {
+  return primalCacheRequest(["user_search", { query, limit }]);
+}
+
+/** Follower counts from Primal for the given pubkeys. Empty on any failure. */
+async function fetchPrimalFollowerCounts(
+  pubkeys: string[],
+  timeoutMs: number = 2500,
+): Promise<Map<string, number>> {
+  if (pubkeys.length === 0) return new Map();
+  try {
+    const events = await primalCacheRequest(
+      ["user_infos", { pubkeys }],
+      timeoutMs,
+    );
+    return primalFollowerCounts(events);
+  } catch {
+    return new Map();
+  }
+}
+
+function profileFromBrainstorm(p: BrainstormProfile): Profile {
+  return {
+    pubkey: p.pubkey,
+    name: p.name,
+    display_name: p.display_name,
+    about: p.about,
+    picture: p.picture,
+    nip05: p.nip05,
+    lud16: p.lud16,
+  };
+}
+
+const isBridged = (nip05?: string) => !!nip05 && nip05.includes("mostr.pub");
 
 // Search profiles by query string (searches name, display_name, nip05)
 export async function searchProfiles(
@@ -1898,31 +1951,29 @@ export async function searchProfiles(
     return profile ? [profile] : [];
   }
 
-  // Try the nostrarchives index first — it indexes profiles network-wide, so
-  // it finds users whose metadata never reached our relay set. Falls through
-  // to the Primal cache and then relay search if it's unavailable or empty.
-  try {
-    const naResults = await naSuggest(query, limit);
-    if (naResults.length > 0) {
-      console.log(`✅ nostrarchives returned ${naResults.length} results`);
-      const profiles: Profile[] = [];
-      for (const p of naResults) {
-        // Filter out mostr.pub bridged profiles, matching the other paths.
-        if (p.nip05 && p.nip05.includes("mostr.pub")) continue;
-        profiles.push({
-          pubkey: p.pubkey,
-          name: p.name,
-          display_name: p.display_name || p.preferred_name,
-          about: p.about,
-          picture: p.picture,
-          nip05: p.nip05,
-          follower_count: p.follower_count,
-        });
+  // Signed in: Brainstorm ranks matches through the viewer's web of trust,
+  // which puts the real account above impostors sharing its name. Primal's
+  // follower counts are added after. Signed out there's no one to rank by,
+  // and unranked Brainstorm results lead with impostors, so Primal goes first.
+  const viewer = useStore.getState().session?.pubkey;
+  if (viewer) {
+    try {
+      const ranked = (await brainstormSearchProfiles(query, limit, viewer))
+        .filter((p) => !isBridged(p.nip05))
+        .slice(0, limit);
+      if (ranked.length > 0) {
+        console.log(`✅ Brainstorm returned ${ranked.length} results`);
+        const counts = await fetchPrimalFollowerCounts(
+          ranked.map((p) => p.pubkey),
+        );
+        return ranked.map((p) => ({
+          ...profileFromBrainstorm(p),
+          follower_count: counts.get(p.pubkey),
+        }));
       }
-      if (profiles.length > 0) return profiles;
+    } catch (error) {
+      console.warn("Brainstorm search failed, falling back:", error);
     }
-  } catch (error) {
-    console.warn("nostrarchives search failed, falling back:", error);
   }
 
   // Try Primal cache next for comprehensive search results
@@ -1933,13 +1984,15 @@ export async function searchProfiles(
     if (primalResults && primalResults.length > 0) {
       console.log(`✅ Primal cache returned ${primalResults.length} results`);
 
+      const counts = primalFollowerCounts(primalResults);
       const profiles: Profile[] = [];
       for (const event of primalResults) {
+        if (event.kind !== 0) continue;
         try {
           const metadata = JSON.parse(event.content);
 
           // Filter out mostr.pub bridged profiles
-          if (metadata.nip05 && metadata.nip05.includes("mostr.pub")) {
+          if (isBridged(metadata.nip05)) {
             continue;
           }
 
@@ -1951,6 +2004,7 @@ export async function searchProfiles(
             picture: metadata.picture,
             nip05: metadata.nip05,
             lud16: metadata.lud16,
+            follower_count: counts.get(String(event.pubkey).toLowerCase()),
           };
 
           profiles.push(profile);
@@ -1959,13 +2013,26 @@ export async function searchProfiles(
         }
       }
 
-      return profiles;
+      if (profiles.length > 0) return profiles;
     }
   } catch (error) {
     console.warn(
       "⚠️ Primal cache search failed, falling back to relay search:",
       error,
     );
+  }
+
+  // Signed out and Primal came up empty: unranked Brainstorm still beats
+  // scanning recent profiles on a few relays.
+  if (!viewer) {
+    try {
+      const unranked = (await brainstormSearchProfiles(query, limit))
+        .filter((p) => !isBridged(p.nip05))
+        .slice(0, limit);
+      if (unranked.length > 0) return unranked.map(profileFromBrainstorm);
+    } catch (error) {
+      console.warn("Brainstorm search failed, falling back:", error);
+    }
   }
 
   // Fallback: fetch recent profiles from relays and filter by query
@@ -2389,19 +2456,16 @@ export async function fetchNoteCount(
     console.warn("NIP-45 COUNT failed, falling back to fetch:", error);
   }
 
-  // 2. Try the nostrarchives index. Few relays implement NIP-45, so without
-  // this most users would fall through to the capped relay scan below.
+  // 2. Ask the Brainstorm archive for an exact NIP-45 count. Few general
+  // relays implement COUNT, so without this most users would fall through to
+  // the capped relay scan below.
   try {
-    const archived = await naCountEvents(pubkey, 1, NOTE_FETCH_CAP);
-    if (archived && archived.count > 0) {
-      return {
-        count: archived.count,
-        isCapped: archived.isCapped,
-        method: "archive",
-      };
+    const archived = await brainstormCountEvents(pubkey, 1);
+    if (archived !== null && archived > 0) {
+      return { count: archived, isCapped: false, method: "archive" };
     }
   } catch (error) {
-    console.warn("nostrarchives count failed, falling back to fetch:", error);
+    console.warn("Brainstorm count failed, falling back to fetch:", error);
   }
 
   // 3. Fall back to fetching and counting unique events.
@@ -3337,7 +3401,7 @@ export async function searchReportsNetworkWide(
   return reports;
 }
 
-// Bulk profile lookup: nostrarchives metadata first (500 pubkeys per POST),
+// Bulk profile lookup: the Brainstorm archive first (500 pubkeys per filter),
 // then relay fetchProfile for whoever the archive missed. Used by Reportable
 // so enrichment doesn't crawl one profile per batch.
 export async function fetchProfilesBulk(
@@ -3352,16 +3416,9 @@ export async function fetchProfilesBulk(
   if (wanted.length === 0) return map;
 
   // Stage 1: archive bulk lookup
-  const archived = await naMetadata(wanted);
+  const archived = await brainstormMetadata(wanted);
   for (const p of archived) {
-    map.set(p.pubkey, {
-      pubkey: p.pubkey,
-      name: p.preferred_name || p.name,
-      display_name: p.display_name,
-      picture: p.picture,
-      nip05: p.nip05,
-      about: p.about,
-    });
+    map.set(p.pubkey, profileFromBrainstorm(p));
   }
   onProgress?.(map.size, wanted.length);
 

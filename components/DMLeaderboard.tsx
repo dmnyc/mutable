@@ -229,7 +229,7 @@ export default function DMLeaderboard({
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  title="View on Nostr Archives"
+                  title="View on Jumble"
                 >
                   <ExternalLink size={18} />
                 </a>

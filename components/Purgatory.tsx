@@ -814,7 +814,7 @@ function ClientResultCard({
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-            title="View on Nostr Archives"
+            title="View on Jumble"
           >
             <ExternalLink size={18} />
           </a>
@@ -981,7 +981,7 @@ function HellthreadResultCard({
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors"
-            title="View worst hellthread on Nostr Archives"
+            title="View worst hellthread on Jumble"
           >
             <ExternalLink size={18} />
           </a>

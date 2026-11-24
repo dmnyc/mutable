@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Profile } from "@/types";
 import { fetchProfile, DEFAULT_RELAYS } from "@/lib/nostr";
-import { naMetadata } from "@/lib/nostrArchives";
+import { brainstormMetadata } from "@/lib/brainstorm";
 
 // Shared across every Draftable view so moving from the pack grid into a pack
 // doesn't refetch faces we already have. null = looked up, nothing found.
@@ -23,15 +23,16 @@ async function load(pubkeys: string[], relays: string[]) {
   wanted.forEach((p) => inflight.add(p));
 
   try {
-    // One bulk request to the archive index covers most people...
-    for (const p of await naMetadata(wanted)) {
+    // One bulk request to the Brainstorm archive covers most people...
+    for (const p of await brainstormMetadata(wanted)) {
       cache.set(p.pubkey, {
         pubkey: p.pubkey,
-        name: p.preferred_name || p.name,
+        name: p.name,
         display_name: p.display_name,
         picture: p.picture,
         nip05: p.nip05,
         about: p.about,
+        lud16: p.lud16,
       });
     }
     notify();

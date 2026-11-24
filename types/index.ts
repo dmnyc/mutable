@@ -144,7 +144,7 @@ export interface Profile {
   nip05?: string;
   lud16?: string;
   website?: string;
-  /** From nostrarchives search results, when it has one. Not part of kind:0. */
+  /** From Primal's cache alongside search results, when it has one. Not part of kind:0. */
   follower_count?: number;
 }
 

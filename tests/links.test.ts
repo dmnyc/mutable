@@ -13,8 +13,8 @@ const EVENT =
   "7fbdb29d4a282077096095e1479c71938224452f4b0682c6b0e5abffc11116f2";
 
 describe("getProfileLink", () => {
-  it("links to Nostr Archives by hex pubkey, from hex, npub, or nprofile", () => {
-    const want = `https://nostrarchives.com/profiles/${PUBKEY}`;
+  it("links to Jumble by npub, from hex, npub, or nprofile", () => {
+    const want = `https://jumble.social/users/${nip19.npubEncode(PUBKEY)}`;
     expect(getProfileLink(PUBKEY)).toBe(want);
     expect(getProfileLink(PUBKEY.toUpperCase())).toBe(want);
     expect(getProfileLink(nip19.npubEncode(PUBKEY))).toBe(want);
@@ -43,8 +43,8 @@ describe("getJumbleProfileLink", () => {
 });
 
 describe("getEventLink", () => {
-  it("links to Nostr Archives by hex id, from hex, note1, or nevent1", () => {
-    const want = `https://nostrarchives.com/notes/${EVENT}`;
+  it("links to Jumble by note1, from hex, note1, or nevent1", () => {
+    const want = `https://jumble.social/notes/${nip19.noteEncode(EVENT)}`;
     expect(getEventLink(EVENT)).toBe(want);
     expect(getEventLink(nip19.noteEncode(EVENT))).toBe(want);
     expect(

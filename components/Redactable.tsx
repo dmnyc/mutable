@@ -557,7 +557,7 @@ function DeletionRow({
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
       {showRequester ? (
-        // Client-feed header — avatar, name linking out to Nostr Archives, a
+        // Client-feed header — avatar, name linking out to Jumble, a
         // copyable npub beside it, and the timestamp on the right, the
         // way a Nostr client lays out a note author.
         <div className="flex items-start gap-3">
