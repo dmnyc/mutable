@@ -17,18 +17,18 @@ export async function generateMetadata({
   return {
     title: "The Dossier — Mutable",
     description:
-      "Mute Score, reports, deletions, on-chain Bitcoin, DM history and public footprint for any Nostr profile — one report, no login.",
+      "Account age and first note, Mute Score, reports, deletions, on-chain Bitcoin, DM history and public footprint for any Nostr profile — one report, no login.",
     openGraph: {
       title: "The Dossier — Mutable",
       description:
-        "Run anyone's public record: mute score, reports, deletions, on-chain Bitcoin, DMs and footprint. No login required.",
+        "Run anyone's public record: account age and first note, mute score, reports, deletions, on-chain Bitcoin, DMs and footprint. No login required.",
       images: [{ url: card, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: "The Dossier — Mutable",
       description:
-        "Run anyone's public record: mute score, reports, deletions, on-chain Bitcoin, DMs and footprint. No login required.",
+        "Run anyone's public record: account age and first note, mute score, reports, deletions, on-chain Bitcoin, DMs and footprint. No login required.",
       images: [card],
     },
   };
