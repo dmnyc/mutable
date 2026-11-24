@@ -1,4 +1,12 @@
+import type { Filter } from "nostr-tools";
 import { getPool, getExpandedRelayList } from "./nostr";
+import { BRAINSTORM_SEARCH_RELAY, BRAINSTORM_UNRANKED } from "./brainstorm";
+import {
+  findEarliestEvent,
+  NOSTR_EPOCH,
+  type AgeEvent,
+  type WindowProbe,
+} from "./accountAge";
 
 /**
  * The Dossier's two small queries that no other lens needed:
@@ -135,4 +143,94 @@ export async function fetchDmActivity(
     first,
     last,
   };
+}
+
+export interface AccountAge {
+  /** Oldest event of any kind this key has signed that we could find. */
+  firstSeen: AgeEvent | null;
+  /** Oldest kind:1 note. Same event as firstSeen when that was a note. */
+  firstNote: AgeEvent | null;
+}
+
+const AGE_PROBE_WAIT_MS = 4000;
+
+/**
+ * When the key was first used, as a lower bound: relays prune, profiles and
+ * follow lists are replaceable (only the latest survives), and created_at is
+ * self-reported, so this is the oldest surviving event, not the key's birth.
+ * Events dated before Nostr existed are ignored as backdated.
+ *
+ * The narrowing runs against the Brainstorm archive, which answers each
+ * probe in well under a second. A general relay pool always waits out its
+ * slowest member (seconds per probe), so the relays get one question once
+ * the archive has answered: is there anything older? Only when they say yes
+ * does the search continue on them.
+ */
+export async function fetchAccountAge(
+  pubkey: string,
+  relays: string[],
+): Promise<AccountAge> {
+  const pool = getPool();
+  const relaySet = relays.filter((r) => !r.includes("search.brainstorm.world"));
+  const params = { maxWait: AGE_PROBE_WAIT_MS };
+
+  const ownEvents = (kinds?: number[]) => (events: AgeEvent[]) =>
+    events.filter(
+      (e) => e.pubkey === pubkey && (!kinds || kinds.includes(e.kind)),
+    );
+
+  const archiveProbe =
+    (kinds?: number[]): WindowProbe =>
+    (since, until, limit) => {
+      const filter: Filter = {
+        authors: [pubkey],
+        since,
+        until,
+        limit,
+        search: BRAINSTORM_UNRANKED,
+      };
+      if (kinds) filter.kinds = kinds;
+      return pool
+        .querySync([BRAINSTORM_SEARCH_RELAY], filter, params)
+        .then(ownEvents(kinds))
+        .catch(() => []);
+    };
+
+  const relayProbe =
+    (kinds?: number[]): WindowProbe =>
+    (since, until, limit) => {
+      if (relaySet.length === 0) return Promise.resolve([]);
+      const filter: Filter = { authors: [pubkey], since, until, limit };
+      if (kinds) filter.kinds = kinds;
+      return pool
+        .querySync(relaySet, filter, params)
+        .then(ownEvents(kinds))
+        .catch(() => []);
+    };
+
+  const earliest = async (kinds?: number[], lo?: number) => {
+    const fromArchive = await findEarliestEvent(archiveProbe(kinds), { lo });
+    const floor = Math.max(lo ?? NOSTR_EPOCH, NOSTR_EPOCH);
+    const ceiling = fromArchive
+      ? fromArchive.created_at - 1
+      : Math.floor(Date.now() / 1000);
+    if (ceiling < floor) return fromArchive;
+    const older = (await relayProbe(kinds)(floor, ceiling, 1)).filter(
+      (e) => e.created_at >= floor && e.created_at <= ceiling,
+    );
+    if (older.length === 0) return fromArchive;
+    const fromRelays = await findEarliestEvent(relayProbe(kinds), {
+      lo: floor,
+      hi: Math.min(...older.map((e) => e.created_at)),
+    });
+    return fromRelays ?? fromArchive;
+  };
+
+  const firstSeen = await earliest();
+  if (!firstSeen) return { firstSeen: null, firstNote: null };
+  if (firstSeen.kind === 1) return { firstSeen, firstNote: firstSeen };
+
+  // Nothing predates firstSeen, so the note search can start there.
+  const firstNote = await earliest([1], firstSeen.created_at);
+  return { firstSeen, firstNote };
 }
