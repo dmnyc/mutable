@@ -33,6 +33,7 @@ import {
   searchProfiles,
   searchReportsNetworkWide,
   hexToNpub,
+  hexToNote,
   npubToHex,
   publishTextNote,
   DEFAULT_RELAYS,
@@ -78,6 +79,7 @@ export default function Dossier() {
   const [showAllReports, setShowAllReports] = useState(false);
   const [expandedReport, setExpandedReport] = useState<number | null>(null);
   const [npubCopied, setNpubCopied] = useState(false);
+  const [noteIdCopied, setNoteIdCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [publishing, setPublishing] = useState(false);
@@ -731,38 +733,75 @@ export default function Dossier() {
                     {age.firstSeen.kind !== 1 &&
                       ` (a kind:${age.firstSeen.kind} event)`}
                   </p>
-                  {age.firstNote && (
-                    <a
-                      href={getPostedNoteLink(age.firstNote.id, {
+                  {age.firstNote &&
+                    (() => {
+                      const firstNote = age.firstNote;
+                      const noteHref = getPostedNoteLink(firstNote.id, {
                         relays: [BRAINSTORM_SEARCH_RELAY],
-                        author: age.firstNote.pubkey,
-                      })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Open the first note on Jumble"
-                      className="group mt-4 block bg-inset border border-line rounded-lg px-3.5 py-3 hover:border-line-strong transition-colors"
-                    >
-                      <span className="flex items-center justify-between gap-3 text-xs text-mut">
-                        <span>
-                          First note ·{" "}
-                          {new Date(
-                            age.firstNote.created_at * 1000,
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </span>
-                        <span className="flex-none inline-flex items-center gap-1 font-semibold text-mid group-hover:text-hi transition-colors">
-                          View note
-                          <ExternalLink size={12} />
-                        </span>
-                      </span>
-                      <span className="mt-1.5 text-base leading-snug text-hi line-clamp-3 break-words">
-                        {age.firstNote.content || "(empty note)"}
-                      </span>
-                    </a>
-                  )}
+                        author: firstNote.pubkey,
+                      });
+                      return (
+                        <div className="mt-4 bg-inset border border-line rounded-lg px-3.5 py-3">
+                          <div className="flex items-center justify-between gap-3 text-xs text-mut">
+                            <span>
+                              First note ·{" "}
+                              {new Date(
+                                firstNote.created_at * 1000,
+                              ).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </span>
+                            <span className="flex-none flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (
+                                    await copyToClipboard(
+                                      hexToNote(firstNote.id),
+                                    )
+                                  ) {
+                                    setNoteIdCopied(true);
+                                    setTimeout(
+                                      () => setNoteIdCopied(false),
+                                      2000,
+                                    );
+                                  }
+                                }}
+                                title="Copy the note ID (note1…) to open it in any client"
+                                className="inline-flex items-center gap-1 font-semibold text-mid hover:text-hi transition-colors whitespace-nowrap"
+                              >
+                                {noteIdCopied ? (
+                                  <Check size={12} />
+                                ) : (
+                                  <Copy size={12} />
+                                )}
+                                {noteIdCopied ? "Copied" : "Copy note ID"}
+                              </button>
+                              <a
+                                href={noteHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Open the first note on Jumble"
+                                className="inline-flex items-center gap-1 font-semibold text-mid hover:text-hi transition-colors whitespace-nowrap"
+                              >
+                                View note
+                                <ExternalLink size={12} />
+                              </a>
+                            </span>
+                          </div>
+                          <a
+                            href={noteHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1.5 block text-base leading-snug text-hi line-clamp-3 break-words hover:underline decoration-line-strong underline-offset-2"
+                          >
+                            {firstNote.content || "(empty note)"}
+                          </a>
+                        </div>
+                      );
+                    })()}
                   <p className="text-xs text-mut mt-3">
                     The oldest event still on the relays we checked. Relays
                     prune old events and timestamps are self-reported, so
