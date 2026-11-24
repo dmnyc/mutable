@@ -37,7 +37,7 @@ describe("buildFirstNoteShare", () => {
     });
     expect(content.startsWith(`${FIRST_NOTE_CAPTION}\n`)).toBe(true);
     expect(FIRST_NOTE_CAPTION).toBe("I found #MyFirstNote with #Mutable.");
-    expect(content).toContain("📅 March 3, 2021, 4:12 PM UTC");
+    expect(content).toContain("🐣 March 3, 2021, 4:12 PM UTC");
     expect(content).toContain(`nostr:${nevent}`);
   });
 
