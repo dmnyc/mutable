@@ -159,13 +159,13 @@ export default function Footer() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={zapOnNostr}
-                  className="flex-1 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+                  className="flex-1 whitespace-nowrap bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors font-medium"
                 >
                   Zap on Nostr
                 </button>
                 <button
                   onClick={closeZapModal}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg transition-colors font-medium"
+                  className="flex-1 whitespace-nowrap bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg transition-colors font-medium"
                 >
                   Close
                 </button>

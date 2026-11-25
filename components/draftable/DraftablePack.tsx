@@ -61,9 +61,9 @@ type Tab = "conscripts" | "posts";
 
 const MISSING_FOLLOW_LIST_PROMPT =
   "We couldn't find your current follow list on your relays.\n\n" +
-  "If you continue, your follow list will be replaced by one containing only " +
-  "the people you're following now. Anyone you already follow on other " +
-  "relays would be dropped.\n\nContinue anyway?";
+  "If you continue, your follow list will be replaced with only the people " +
+  "you follow right now — anyone you follow on other relays would be " +
+  "dropped.\n\nContinue anyway?";
 
 export default function DraftablePack({
   dTag,

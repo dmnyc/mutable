@@ -510,9 +510,9 @@ export default function Clonable() {
               <div className="text-sm text-amber-800 dark:text-amber-300">
                 <p className="font-semibold mb-1">Security Notice</p>
                 <p>
-                  Your destination nsec will be held in memory only during this
-                  operation and cleared immediately after. It is never stored or
-                  transmitted. Only enter your nsec if you trust this application.
+                  Your destination nsec stays in memory only for this operation,
+                  then is cleared — never stored or transmitted. Only enter it
+                  if you trust this application.
                 </p>
               </div>
             </div>
@@ -665,10 +665,9 @@ export default function Clonable() {
                 <div className="text-sm text-amber-800 dark:text-amber-300">
                   <p className="font-semibold mb-1">Security Notice</p>
                   <p>
-                    Your nsec will be held in memory only during this operation
-                    and cleared immediately after. It is never stored or
-                    transmitted. Only enter your nsec if you trust this
-                    application.
+                    Your nsec stays in memory only for this operation, then is
+                    cleared — never stored or transmitted. Only enter it if you
+                    trust this application.
                   </p>
                 </div>
               </div>

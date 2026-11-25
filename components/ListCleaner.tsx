@@ -313,11 +313,9 @@ export default function ListCleaner() {
           <div className="text-sm text-yellow-800 dark:text-yellow-200">
             <p className="font-semibold mb-1">Data Accuracy Notice</p>
             <p>
-              This scan queries multiple popular relays to find user activity,
-              but cannot check every relay where a user might post. Some active
-              users may be incorrectly flagged as inactive if their content is
-              not available on the queried relays. You can always verify by
-              clicking &quot;View Profile&quot; before removing a profile.
+              This scan checks several popular relays, not every relay a user
+              posts on, so some active users may be flagged as inactive. Check
+              &quot;View Profile&quot; before removing anyone.
             </p>
           </div>
         </div>

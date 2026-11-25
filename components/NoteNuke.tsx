@@ -492,9 +492,7 @@ export default function NoteNuke() {
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 max-w-3xl">
               Delete a Nostr event by publishing a kind 5 deletion to every
-              relay we can reach. This uses your NIP-65 relay list, NIP-07
-              relays, Mutable defaults, plus a wide catalog of known public
-              relays for maximum coverage.
+              relay we can reach. Sources:
             </p>
             <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
               {displaySources.map((label) => (

@@ -442,7 +442,14 @@ export default function BloomReaper() {
         icon={<WiltedRose size={34} />}
         iconBg="from-slate-600 to-slate-900"
         title="Bloom Reaper"
-        subtitle="Every file you've uploaded to Blossom, on every server you use. Find the ones you lost track of, copy their links, or reap them."
+        subtitle={
+          <>
+            Every file you've uploaded to Blossom, on every server you use.
+            <span className="hidden sm:inline">
+              {" "}Find the ones you lost track of, copy their links, or reap them.
+            </span>
+          </>
+        }
         actions={
           phase === "done" || phase === "error" ? (
             <Button variant="secondary" onClick={scan} disabled={!signerReady}>
@@ -455,19 +462,26 @@ export default function BloomReaper() {
 
       {phase === "idle" || phase === "error" ? (
         <Panel className="p-6 space-y-4">
-          <p className="text-sm text-mid max-w-3xl">
-            Some Blossom servers keep a list of what each key uploaded. Bloom
-            Reaper gathers your servers — your kind 10063 list,
-            Mutable&apos;s defaults, and hosts from your recent posts — asks
-            each for everything under your key, and checks your latest posts
-            to see which files are still linked and which links point at
-            nothing. Servers that don&apos;t track uploads just show as
-            unavailable.
+          <p className="text-sm text-mid sm:hidden">
+            Bloom Reaper asks your Blossom servers for everything under your
+            key, then checks your recent posts to see which files are still
+            linked. Nothing is deleted without a second signature.
           </p>
-          <p className="text-sm text-mid max-w-3xl">
-            One signature lists them; servers only show a key its own uploads.
-            Nothing is deleted without a second signature.
-          </p>
+          <div className="hidden sm:block space-y-4">
+            <p className="text-sm text-mid max-w-3xl">
+              Some Blossom servers keep a list of what each key uploaded. Bloom
+              Reaper gathers your servers — your kind 10063 list,
+              Mutable&apos;s defaults, and hosts from your recent posts — asks
+              each for everything under your key, and checks your latest posts
+              to see which files are still linked and which links point at
+              nothing. Servers that don&apos;t track uploads just show as
+              unavailable.
+            </p>
+            <p className="text-sm text-mid max-w-3xl">
+              One signature lists them; servers only show a key its own uploads.
+              Nothing is deleted without a second signature.
+            </p>
+          </div>
           {error ? (
             <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertTriangle size={15} />
