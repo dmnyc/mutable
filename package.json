@@ -1,6 +1,6 @@
 {
   "name": "mutable",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,7 @@
     "@vercel/analytics": "^1.5.0",
     "bech32": "^2.0.0",
     "html2canvas": "^1.4.1",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.545.0",
     "next": "^16.1.6",
     "nostr-tools": "^2.17.0",

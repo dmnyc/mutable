@@ -9,7 +9,14 @@ import {
   fetchProfile,
   getBestRelayList,
 } from "@/lib/nostr";
-import { Nip07Signer, Nip46Signer } from "@/lib/signers";
+import {
+  Nip07Signer,
+  Nip46Signer,
+  NsecSigner,
+  isLocalKeySigner,
+} from "@/lib/signers";
+import { nip19 } from "nostr-tools";
+import * as nip49 from "nostr-tools/nip49";
 import { NOSTRCONNECT_WAIT_MS } from "@/lib/signers/Nip46Signer";
 import { UserSession } from "@/types";
 
@@ -168,6 +175,93 @@ export function useAuth() {
     ],
   );
 
+  // Sign in with a raw secret key held in this tab only (nsec or a
+  // decrypted ncryptsec). The key is never persisted.
+  const connectWithSecretKey = useCallback(
+    async (secretKey: Uint8Array, signerType: "nsec" | "ncryptsec") => {
+      let localSigner: NsecSigner | null = null;
+      try {
+        setAuthState("connecting");
+        localSigner = new NsecSigner(secretKey);
+        setSigner(localSigner);
+
+        const pubkey = await localSigner.getPublicKey();
+        const { relays, metadata } = await getBestRelayList(pubkey);
+
+        const newSession: UserSession = {
+          pubkey,
+          relays,
+          connected: true,
+          signerType,
+          relayListMetadata: metadata || undefined,
+        };
+
+        setNip46Session(null);
+        setSession(newSession);
+        setAuthState("connected");
+
+        fetchProfile(pubkey, relays)
+          .then((profile) => {
+            if (profile) {
+              setUserProfile(profile);
+            }
+          })
+          .catch((error) => {
+            console.error("Failed to fetch user profile:", error);
+          });
+
+        await loadMuteList(pubkey, relays);
+
+        return newSession;
+      } catch (error) {
+        setAuthState("error");
+        setSigner(null);
+        localSigner?.destroy();
+        throw error;
+      }
+    },
+    [setSession, setAuthState, setSigner, setNip46Session, setUserProfile],
+  );
+
+  // Sign in with a plain nsec1… string
+  const connectWithNsec = useCallback(
+    async (nsec: string) => {
+      let decoded;
+      try {
+        decoded = nip19.decode(nsec.trim());
+      } catch {
+        throw new Error("That doesn’t look like a valid nsec");
+      }
+      if (decoded.type !== "nsec") {
+        throw new Error("That doesn’t look like a valid nsec");
+      }
+      return connectWithSecretKey(decoded.data, "nsec");
+    },
+    [connectWithSecretKey],
+  );
+
+  // Sign in with a NIP-49 ncryptsec1… string and its password
+  const connectWithNcryptsec = useCallback(
+    async (ncryptsec: string, password: string) => {
+      const value = ncryptsec.trim();
+      if (!value.startsWith("ncryptsec1")) {
+        throw new Error("That doesn’t look like a valid ncryptsec");
+      }
+      let secretKey: Uint8Array;
+      try {
+        // scrypt is CPU-heavy; yield so the spinner can paint first
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        secretKey = nip49.decrypt(value, password);
+      } catch {
+        throw new Error(
+          "Couldn’t decrypt that ncryptsec. Check the password and try again.",
+        );
+      }
+      return connectWithSecretKey(secretKey, "ncryptsec");
+    },
+    [connectWithSecretKey],
+  );
+
   // Generate nostrconnect:// URI for QR code (client-initiated NIP-46)
   const generateNostrConnectURI = useCallback(() => {
     const connectData = Nip46Signer.generateNostrConnectURI();
@@ -319,6 +413,9 @@ export function useAuth() {
         console.error("Error closing NIP-46 connection:", error);
       }
     }
+    if (signer && isLocalKeySigner(session?.signerType)) {
+      (signer as NsecSigner).destroy();
+    }
     clearSession();
   }, [signer, session, clearSession]);
 
@@ -350,6 +447,9 @@ export function useAuth() {
           hexToBytes(nip46Session.clientSecretKey),
         );
         setSigner(nip46Signer);
+      } else if (isLocalKeySigner(session.signerType)) {
+        // Local keys are never persisted, so there's nothing to restore
+        clearSession();
       } else if (session.signerType === "nip46" && !nip46Session) {
         console.error("[useAuth] Cannot restore NIP-46 signer: nip46Session data not available");
       }
@@ -384,6 +484,8 @@ export function useAuth() {
     generateNostrConnectURI,
     waitForNostrConnect,
     cancelNostrConnect,
+    connectWithNsec,
+    connectWithNcryptsec,
     disconnect,
     reloadMuteList,
   };
