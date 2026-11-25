@@ -7,7 +7,7 @@ import {
   PublicMuteList,
   Profile,
 } from "@/types";
-import { Signer, BunkerPointer } from "./signers";
+import { Signer, BunkerPointer, isLocalKeySigner } from "./signers";
 import { blacklistService } from "./blacklistService";
 import { recordAddedAt, removeAddedAt, renameAddedAt } from "./muteAddedAt";
 
@@ -509,21 +509,26 @@ export const useStore = create<AppState>()(
             p.defaultMutePrivacyExplicit ?? p.defaultMutePrivacy === true,
         };
       },
-      partialize: (state) => ({
+      partialize: (state) => {
+        // nsec/ncryptsec sign-ins keep the key in memory only, so nothing
+        // about that session survives a reload — the user signs in again.
+        const localKey = isLocalKeySigner(state.session?.signerType);
+        return {
         // Persist session, mute list, and unsaved changes flag
         // Note: activeTab is intentionally NOT persisted so /dashboard always defaults to "myList"
-        session: state.session,
-        muteList: state.muteList,
-        hasUnsavedChanges: state.hasUnsavedChanges,
+        session: localKey ? null : state.session,
+        muteList: localKey ? initialMuteList : state.muteList,
+        hasUnsavedChanges: localKey ? false : state.hasUnsavedChanges,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         defaultMutePrivacy: state.defaultMutePrivacy,
         defaultMutePrivacyExplicit: state.defaultMutePrivacyExplicit,
         defaultMutePrivacyAt: state.defaultMutePrivacyAt,
         // Persist user profile for faster display on reload
-        userProfile: state.userProfile,
+        userProfile: localKey ? null : state.userProfile,
         // Persist NIP-46 session data for restoration (signer itself is not persisted)
         nip46Session: state.nip46Session,
-      }),
+        };
+      },
     },
   ),
 );

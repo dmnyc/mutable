@@ -18,4 +18,9 @@ export interface Signer {
   nip44Decrypt?(pubkey: string, ciphertext: string): Promise<string>;
 }
 
-export type SignerType = "nip07" | "nip46";
+export type SignerType = "nip07" | "nip46" | "ncryptsec" | "nsec";
+
+/** Signers that hold the raw secret key in this tab (never persisted). */
+export function isLocalKeySigner(type: string | null | undefined): boolean {
+  return type === "ncryptsec" || type === "nsec";
+}

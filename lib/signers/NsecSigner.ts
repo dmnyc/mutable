@@ -11,8 +11,9 @@ import { Signer } from "./types";
 
 /**
  * Ephemeral signer that wraps a raw secret key (nsec).
- * Used only temporarily during clone operations to decrypt
- * private data from a source account. Never persisted.
+ * Used during clone operations to decrypt private data from a source
+ * account, and for nsec/ncryptsec sign-in. The key lives in memory only
+ * and is never persisted.
  */
 export class NsecSigner implements Signer {
   private secretKey: Uint8Array;

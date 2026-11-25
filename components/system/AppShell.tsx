@@ -238,7 +238,11 @@ export default function AppShell({
                         <span>
                           {session?.signerType === "nip46"
                             ? "NIP-46 Remote Signer"
-                            : "NIP-07 Extension"}
+                            : session?.signerType === "ncryptsec"
+                              ? "Encrypted Key (this tab only)"
+                              : session?.signerType === "nsec"
+                                ? "Private Key (this tab only)"
+                                : "NIP-07 Extension"}
                         </span>
                       </div>
                       <button

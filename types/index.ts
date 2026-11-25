@@ -72,7 +72,7 @@ export interface UserSession {
   pubkey: string;
   relays: string[];
   connected: boolean;
-  signerType: "nip07" | "nip46" | null;
+  signerType: "nip07" | "nip46" | "ncryptsec" | "nsec" | null;
   relayListMetadata?: RelayListMetadata; // Cached NIP-65 relay list details
 }
 
