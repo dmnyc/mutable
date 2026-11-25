@@ -26,7 +26,8 @@ export type SiteNavActive =
   | "draftable"
   | "dossier"
   | "zombieCheck"
-  | "settings";
+  | "settings"
+  | "home";
 
 interface NavItem {
   id: SiteNavActive;
@@ -41,7 +42,7 @@ interface NavItem {
   dashboardTab?: string;
 }
 
-// Order kept identical to the DashboardNav this replaces.
+// DashboardNav order, plus The Dossier beside the other lookup tools.
 const PRIMARY: NavItem[] = [
   { id: "myList", label: "My Mutes", href: "/dashboard?tab=myList", dashboardTab: "myList" },
   { id: "publicLists", label: "Mute Packs", href: "/dashboard?tab=publicLists", dashboardTab: "publicLists" },
@@ -49,12 +50,12 @@ const PRIMARY: NavItem[] = [
   { id: "reciprocals", label: "Reciprocals", href: "/reciprocals" },
   { id: "muteOScope", label: "Mute-o-Scope", href: "/mute-o-scope" },
   { id: "snoopable", label: "Snoopable", href: "/snoopable" },
+  { id: "dossier", label: "The Dossier", href: "/dossier" },
   { id: "draftable", label: "Draftable", href: "/draftable" },
   { id: "backups", label: "Backups", href: "/dashboard?tab=backups", dashboardTab: "backups" },
 ];
 
 const OTHER_STUFF: NavItem[] = [
-  { id: "dossier", label: "The Dossier", href: "/dossier" },
   { id: "noteNuke", label: "Note Nuke", href: "/note-nuke", dashboardTab: "noteNuke" },
   { id: "burnAfterReading", label: "Burn After Reading", href: "/burn-after-reading" },
   { id: "bloomReaper", label: "Bloom Reaper", href: "/bloom-reaper" },
@@ -138,7 +139,7 @@ export default function SiteNav({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Desktop */}
-        <div className="hidden xl:flex justify-center gap-7">
+        <div className="hidden xl:flex justify-center gap-5">
           {PRIMARY.map((i) => renderItem(i, false))}
           <div className="relative">
             <button

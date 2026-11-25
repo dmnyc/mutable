@@ -1,14 +1,20 @@
 "use client";
 
-import { ReactNode, createContext, useContext, useState } from "react";
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useState,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
   ChevronDown,
   Info,
+  LayoutGrid,
   LogOut,
   Pencil,
   Settings as SettingsIcon,
@@ -99,6 +105,23 @@ export default function AppShell({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
 
+  const pathname = usePathname();
+  const onHome = pathname === "/home";
+  const setHomeReturnTo = useStore((state) => state.setHomeReturnTo);
+
+  // The grid button toggles the home screen: open it (remembering where we
+  // were), or, on it, go back there.
+  const toggleHome = () => {
+    if (onHome) {
+      const back = useStore.getState().homeReturnTo;
+      setHomeReturnTo(null);
+      router.push(back ?? "/dashboard");
+      return;
+    }
+    setHomeReturnTo(`${window.location.pathname}${window.location.search}`);
+    router.push("/home");
+  };
+
   const handleDisconnect = async () => {
     await disconnect();
     router.push("/");
@@ -138,7 +161,24 @@ export default function AppShell({
       <header className="glass-header sticky top-0 z-50 border-b border-line">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
-            {brand}
+            <div className="flex items-center gap-3 sm:gap-4 flex-none">
+              {session ? (
+                <button
+                  onClick={toggleHome}
+                  aria-pressed={onHome}
+                  title={onHome ? "Close the home screen" : "All tools"}
+                  className={`-ml-2 w-9 h-9 rounded-[10px] flex items-center justify-center transition-colors ${
+                    onHome
+                      ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                      : "text-mut hover:text-hi hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                >
+                  <LayoutGrid size={18} />
+                  <span className="sr-only">All tools</span>
+                </button>
+              ) : null}
+              {brand}
+            </div>
 
             {session && showSearch ? (
               <div className="flex-1 flex justify-center min-w-0">

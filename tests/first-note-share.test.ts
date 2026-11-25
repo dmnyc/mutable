@@ -51,6 +51,7 @@ describe("buildFirstNoteShare", () => {
       expect(decoded.data.id).toBe(note.id);
       expect(decoded.data.author).toBe(note.pubkey);
       expect(decoded.data.relays).toEqual(["wss://relay.example"]);
+      expect(decoded.data.kind).toBe(1);
     }
   });
 

@@ -67,6 +67,9 @@ interface AppState {
     | "redactable";
   showAuthModal: boolean;
   hasCompletedOnboarding: boolean;
+  // Where the home screen's Dismiss (and the header grid button) returns
+  // to: the page the user was on when they opened it. Not persisted.
+  homeReturnTo: string | null;
 
   // Blacklist state (for preventing re-import of removed inactive profiles)
   blacklistedPubkeys: Set<string>;
@@ -109,6 +112,7 @@ interface AppState {
   ) => void;
   setShowAuthModal: (show: boolean) => void;
   setHasCompletedOnboarding: (completed: boolean) => void;
+  setHomeReturnTo: (path: string | null) => void;
   setDefaultMutePrivacy: (isPrivate: boolean) => void;
   /** Apply a value chosen on another device, keeping its timestamp. */
   applySyncedDefaultMutePrivacy: (isPrivate: boolean, at: number) => void;
@@ -191,6 +195,7 @@ export const useStore = create<AppState>()(
       activeTab: "myList",
       showAuthModal: false,
       hasCompletedOnboarding: false,
+      homeReturnTo: null,
       blacklistedPubkeys: loadBlacklistFromStorage(),
 
       // Auth actions
@@ -305,6 +310,8 @@ export const useStore = create<AppState>()(
       setActiveTab: (tab) => set({ activeTab: tab }),
 
       setShowAuthModal: (show) => set({ showAuthModal: show }),
+
+      setHomeReturnTo: (path) => set({ homeReturnTo: path }),
 
       setHasCompletedOnboarding: (completed) =>
         set({ hasCompletedOnboarding: completed }),
@@ -483,6 +490,7 @@ export const useStore = create<AppState>()(
           userProfile: null,
           signer: null,
           nip46Session: null,
+          homeReturnTo: null,
           muteList: initialMuteList,
           muteListLastFetched: null,
           hasUnsavedChanges: false,

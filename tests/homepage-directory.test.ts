@@ -1,4 +1,4 @@
-// The homepage directory lists new tools first within each section
+// The tool directory lists new tools first within each section
 // ("No login" and "Connect to use"). Retiring or adding a NEW badge changes
 // which cards qualify, so the order has to be kept in step by hand; this
 // fails when a NEW card sits below a non-NEW one.
@@ -8,7 +8,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(
-  path.resolve(__dirname, "../app/page.tsx"),
+  path.resolve(__dirname, "../components/ToolDirectory.tsx"),
   "utf8",
 );
 
@@ -32,8 +32,8 @@ function sectionCards(from: string, to: string): Card[] {
 }
 
 const SECTIONS: Record<string, [string, string]> = {
-  "No login": ["No login\n            </p>", "Connect to use\n            </p>"],
-  "Connect to use": ["Connect to use\n            </p>", "</section>"],
+  "No login": ["const noLogin = (", "const account = ("],
+  "Connect to use": ["const account = (", "const label = ("],
 };
 
 describe("homepage directory", () => {

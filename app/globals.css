@@ -240,8 +240,20 @@ body {
   --nav-hover-glow: 96 165 250;
 }
 
+/* The hover gradient stays painted under the label at all times; the
+   opaque resting color covers it. Hover only fades the color to
+   transparent, so leaving crossfades back instead of dropping the gradient
+   mid-transition and blinking the label. */
 .nav-dim {
   position: relative;
+  background-image: linear-gradient(
+    to top,
+    var(--nav-hover-from) 0%,
+    rgb(var(--ink-hi)) 45%,
+    rgb(var(--ink-hi)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
 }
 
 .nav-dim::after {
@@ -278,14 +290,6 @@ body {
 }
 
 .nav-dim:hover {
-  background-image: linear-gradient(
-    to top,
-    var(--nav-hover-from) 0%,
-    rgb(var(--ink-hi)) 45%,
-    rgb(var(--ink-hi)) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
   color: transparent;
 }
 

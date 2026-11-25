@@ -15,7 +15,7 @@
  * accelerator, never a hard dependency, and callers fall back to relays.
  */
 
-import { SimplePool, type Event, type Filter } from "nostr-tools";
+import { SimplePool, verifyEvent, type Event, type Filter } from "nostr-tools";
 
 export const BRAINSTORM_SEARCH_RELAY = "wss://search.brainstorm.world";
 
@@ -169,6 +169,22 @@ export async function brainstormSearchProfiles(
     if (profile && !ordered.includes(profile)) ordered.push(profile);
   }
   return ordered;
+}
+
+/**
+ * One event by id, with its signature checked, from the archive. Used to
+ * rebroadcast archived notes to relays that serve plain reads, since this
+ * relay refuses id lookups that carry no search token.
+ */
+export async function brainstormEventById(
+  id: string,
+  author?: string,
+): Promise<Event | null> {
+  if (!HEX64.test(id)) return null;
+  const filter: Filter = { ids: [id.toLowerCase()] };
+  if (author && HEX64.test(author)) filter.authors = [author.toLowerCase()];
+  const events = await brainstormQuery(filter, SEARCH_WAIT_MS);
+  return events.find((e) => e.id === id.toLowerCase() && verifyEvent(e)) ?? null;
 }
 
 /** NIP-45 COUNT of a pubkey's events of a kind. Null when it can't answer. */

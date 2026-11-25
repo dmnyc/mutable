@@ -33,7 +33,7 @@ export function getEventLink(eventId: string): string {
  */
 export function getPostedNoteLink(
   eventId: string,
-  hints: { relays?: string[]; author?: string } = {},
+  hints: { relays?: string[]; author?: string; kind?: number } = {},
 ): string {
   const nevent = getPostedNevent(eventId, hints);
   return nevent ? `https://jumble.social/notes/${nevent}` : "#";
@@ -42,13 +42,14 @@ export function getPostedNoteLink(
 /** The nevent behind getPostedNoteLink: the id plus relay and author hints. */
 export function getPostedNevent(
   eventId: string,
-  hints: { relays?: string[]; author?: string } = {},
+  hints: { relays?: string[]; author?: string; kind?: number } = {},
 ): string {
   try {
     return nip19.neventEncode({
       id: eventId,
       relays: hints.relays?.slice(0, 3),
       author: hints.author,
+      kind: hints.kind,
     });
   } catch {
     return "";
