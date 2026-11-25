@@ -35,9 +35,9 @@ import {
   searchProfiles,
   searchReportsNetworkWide,
   hexToNpub,
-  hexToNote,
   fetchEventById,
   publishTextNote,
+  rebroadcastEvent,
   DEFAULT_RELAYS,
 } from "@/lib/nostr";
 import {
@@ -55,7 +55,10 @@ import {
   AccountAge,
 } from "@/lib/dossier";
 import { accountAgeSpan, formatAccountAge } from "@/lib/accountAge";
-import { BRAINSTORM_SEARCH_RELAY } from "@/lib/brainstorm";
+import {
+  BRAINSTORM_SEARCH_RELAY,
+  brainstormEventById,
+} from "@/lib/brainstorm";
 import { getExposure, ExposureReport } from "@/lib/keyExposureService";
 import { useAuth } from "@/hooks/useAuth";
 import { getDisplayName } from "@/lib/utils/format";
@@ -530,9 +533,28 @@ export default function Dossier() {
     setFirstNotePublishing(true);
     setFirstNoteError(null);
     try {
+      // The first note often survives only in the Brainstorm archive, which
+      // refuses plain id lookups, so most clients can't load the quote.
+      // Rebroadcast the original signed note to the user's relays first and
+      // point the nevent and q tag at the relays that took it.
+      let share = firstNoteShare;
+      const original = age?.firstNote
+        ? await brainstormEventById(age.firstNote.id, age.firstNote.pubkey)
+        : null;
+      if (original && age?.firstNote) {
+        const holders = await rebroadcastEvent(original, session.relays);
+        if (holders.length > 0) {
+          share = buildFirstNoteShare(age.firstNote, {
+            relays: [
+              ...session.relays.filter((r) => holders.includes(r)),
+              BRAINSTORM_SEARCH_RELAY,
+            ],
+          });
+        }
+      }
       const result = await publishTextNote(
-        firstNoteShare.content,
-        firstNoteShare.tags,
+        share.content,
+        share.tags,
         session.relays,
       );
       if (result.success && result.event) {
@@ -826,6 +848,7 @@ export default function Dossier() {
                       const noteHref = getPostedNoteLink(firstNote.id, {
                         relays: [BRAINSTORM_SEARCH_RELAY],
                         author: firstNote.pubkey,
+                        kind: 1,
                       });
                       return (
                         <div className="mt-4 bg-inset border border-line rounded-lg px-3.5 py-3">
@@ -846,7 +869,11 @@ export default function Dossier() {
                                 onClick={async () => {
                                   if (
                                     await copyToClipboard(
-                                      hexToNote(firstNote.id),
+                                      getPostedNevent(firstNote.id, {
+                                        relays: [BRAINSTORM_SEARCH_RELAY],
+                                        author: firstNote.pubkey,
+                                        kind: 1,
+                                      }),
                                     )
                                   ) {
                                     setNoteIdCopied(true);
@@ -856,7 +883,7 @@ export default function Dossier() {
                                     );
                                   }
                                 }}
-                                title="Copy the note ID (note1…) to open it in any client"
+                                title="Copy the note’s nevent (with author and relay hints) to open it in any client"
                                 className="inline-flex items-center gap-1 font-semibold text-mid hover:text-hi transition-colors whitespace-nowrap"
                               >
                                 {noteIdCopied ? (

@@ -809,6 +809,29 @@ export async function publishToRelaysDetailed(
   };
 }
 
+/**
+ * Republish an already-signed event (anyone's) so relays that lack it can
+ * serve it. Returns the relays that accepted it; [] when none did.
+ */
+export async function rebroadcastEvent(
+  event: Event,
+  relays: string[],
+): Promise<string[]> {
+  if (relays.length === 0) return [];
+  try {
+    const report = await publishToRelaysDetailed(
+      getPool(),
+      relays,
+      event,
+      10000,
+      2000,
+    );
+    return report.accepted;
+  } catch {
+    return [];
+  }
+}
+
 // Publish mute list (handles both public and private mutes)
 export async function publishMuteList(
   muteList: MuteList,

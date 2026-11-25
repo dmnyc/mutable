@@ -57,6 +57,7 @@ export function buildFirstNoteShare(
     id: note.id,
     relays: hints,
     author: note.pubkey,
+    kind: 1,
   });
 
   const content = [
